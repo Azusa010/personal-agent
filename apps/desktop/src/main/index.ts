@@ -3,6 +3,8 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
+const PRELOAD_PATH = join(__dirname, '../preload/index.js')
+
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -12,8 +14,10 @@ function createWindow(): void {
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      preload: PRELOAD_PATH,
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false
     }
   })
 
