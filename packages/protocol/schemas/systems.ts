@@ -1,6 +1,6 @@
 import * as z from "zod";
 
-const PROTOCOL_VERSION = "0.1.0";
+export const PROTOCOL_VERSION = "0.1";
 
 export const InitializeParams = z.object({
     protocolVersion: z.literal(PROTOCOL_VERSION),
