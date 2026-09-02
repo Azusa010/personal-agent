@@ -54,7 +54,9 @@ app.whenReady().then(() => {
   })
 
   // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
+  ipcMain.handle('personal-agent:runtime-status', () => {
+    return { state: 'stopped', detail: 'Python runtime 尚未启动 (TASK-005)' }
+  })
 
   createWindow()
 
