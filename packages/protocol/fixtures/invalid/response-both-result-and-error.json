@@ -1,0 +1,6 @@
+{
+  "jsonrpc": "2.0",
+  "id": "req-004",
+  "result": {},
+  "error": { "code": "INTERNAL_ERROR", "message": "boom" }
+}

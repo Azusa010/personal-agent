@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "id": "req-001",
+  "method": "system.initialize",
+  "params": {
+    "protocolVersion": "0.1",
+    "client": { "name": "personal-agent-electron", "version": "0.1.0" }
+  }
+}

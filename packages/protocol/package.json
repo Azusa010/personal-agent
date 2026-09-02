@@ -5,5 +5,12 @@
   "private": true,
   "scripts": {
     "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
   }
 }

@@ -289,7 +289,18 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@22.20.1)(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0))
 
-  packages/protocol: {}
+  packages/protocol:
+    dependencies:
+      zod:
+        specifier: ^4.5.4
+        version: 4.5.4
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@22.20.1)(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0))
 
 packages:
 

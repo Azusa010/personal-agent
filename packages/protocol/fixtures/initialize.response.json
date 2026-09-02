@@ -1,0 +1,5 @@
+{
+  "jsonrpc": "2.0",
+  "id": "req-001",
+  "result": { "protocolVersion": "0.1", "server": { "name": "personal-agent-runtime", "version": "0.1.0" } }
+}

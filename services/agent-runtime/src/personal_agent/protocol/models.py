@@ -1,5 +1,4 @@
-import re
-from typing import Any, Literal, Optional, Self
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -9,7 +8,7 @@ METHOD_PATTERN = r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$"
 class JsonRpcError(BaseModel):
     code: str
     message: str
-    data: Optional[Any] = None
+    data: Any | None = None
 
 
 class Request(BaseModel):
@@ -22,8 +21,8 @@ class Request(BaseModel):
 class Response(BaseModel):
     jsonrpc: Literal["2.0"]
     id: str = Field(min_length=1)
-    result: Optional[Any] = None
-    error: Optional[JsonRpcError] = None
+    result: Any | None = None
+    error: JsonRpcError | None = None
 
     @model_validator(mode="after")
     def check_exactly_one(self) -> Self:
