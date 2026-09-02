@@ -1,0 +1,25 @@
+{
+  "name": "personal-agent",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "pnpm --dir apps/desktop start",
+    "typecheck": "pnpm --dir apps/desktop typecheck",
+    "test:ts": "pnpm --dir apps/desktop test",
+    "test:py": "uv run --project services/agent-runtime --locked pytest",
+    "lint:py": "uv run --project services/agent-runtime --locked ruff check ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.17.0",
+      "onFail": "download"
+    }
+  },
+  "type": "module"
+}
