@@ -4,7 +4,7 @@ export const METHOD_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/;
 
 export const Request = z.object({
   jsonrpc: z.literal("2.0"),
-  id: z.string(),
+  id: z.string().min(1),
   method: z.string().regex(METHOD_PATTERN),
   params: z.unknown(),
 });
