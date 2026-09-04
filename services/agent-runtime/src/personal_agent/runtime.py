@@ -6,10 +6,10 @@ import sys
 from pydantic import ValidationError
 
 from personal_agent.protocol.models import (
-    Request,
-    Response,
     InitializeParams,
     InitializeResult,
+    Request,
+    Response,
     ServerInfo,
 )
 
