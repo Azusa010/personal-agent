@@ -1,2 +1,5 @@
+from personal_agent.runtime import run
+
+
 def main() -> None:
-    print("Hello from agent-runtime!")
+    run()
