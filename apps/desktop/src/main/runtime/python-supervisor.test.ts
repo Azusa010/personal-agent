@@ -1,7 +1,7 @@
 import { ChildProcess } from 'node:child_process'
 import { PassThrough } from 'node:stream'
 import { EventEmitter } from 'node:events'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { PythonSupervisor } from './python-supervisor'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -82,3 +82,45 @@ itReal(
   },
   15000
 )
+
+describe('PythonSupervisor ~ Slice 2', () => {
+  it('并发：多个请求各按自己的 id 对上响应（乱序返回也行）', async () => {
+    const { child, written, stdout } = makeFakeChild()
+    const sup = new PythonSupervisor({ command: 'fake', args: [], spawnFn: () => child })
+    sup.start()
+    const p1 = sup.request('system.ping')
+    const p2 = sup.request('system.ping')
+    const id1 = JSON.parse(written[0]).id
+    const id2 = JSON.parse(written[1]).id
+    expect(id1).not.toBe(id2)
+
+    stdout.push(JSON.stringify({ jsonrpc: '2.0', id: id2, result: { which: 2 } }) + '\n')
+    stdout.push(JSON.stringify({ jsonrpc: '2.0', id: id1, result: { which: 1 } }) + '\n')
+    await expect(p1).resolves.toEqual({ which: 1 })
+    await expect(p2).resolves.toEqual({ which: 2 })
+  })
+  it('超时:无响应则 reject RUNTIME_TIMEOUT,不悬挂', async () => {
+    const { child } = makeFakeChild()
+    const sup = new PythonSupervisor({
+      command: 'fake',
+      args: [],
+      spawnFn: () => child,
+      defaultTimeoutMs: 50
+    })
+    sup.start()
+    const p = sup.request('system.ping')
+    await expect(p).rejects.toMatchObject({ code: 'RUNTIME_TIMEOUT' })
+  }, 100)
+  it('崩溃:pending全部reject且广播runtime.crashed', async () => {
+    const { child } = makeFakeChild()
+    const sup = new PythonSupervisor({ command: 'fake', args: [], spawnFn: () => child })
+    sup.start()
+
+    const onCrashed = vi.fn()
+    sup.on('runtime.crashed', onCrashed)
+    const p = sup.request('system.ping')
+    child.emit('exit', 1, null)
+    await expect(p).rejects.toMatchObject({ code: 'RUNTIME_CRASHED' })
+    expect(onCrashed).toHaveBeenCalledOnce()
+  })
+})

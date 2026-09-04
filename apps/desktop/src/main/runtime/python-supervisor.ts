@@ -93,6 +93,7 @@ export class PythonSupervisor extends EventEmitter {
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id)
+        reject(new RuntimeError('RUNTIME_TIMEOUT', `请求 ${method} 超时 (${timeoutMs}ms)`))
       }, timeoutMs)
       this.pending.set(id, { resolve, reject, timer })
       this.child!.stdin!.write(line)
