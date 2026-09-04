@@ -3,7 +3,13 @@ import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  main: {},
+  main: {
+    resolve: {
+      alias: {
+        '@personal-agent/protocol': resolve('../../packages/protocol/schemas/index.ts')
+      }
+    }
+  },
   preload: {},
   renderer: {
     resolve: {
