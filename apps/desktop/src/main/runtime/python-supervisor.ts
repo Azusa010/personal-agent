@@ -24,6 +24,7 @@ interface Pending {
   resolve: (value: unknown) => void
   reject: (reason: Error) => void
   timer: ReturnType<typeof setTimeout>
+  cleanup?: () => void
 }
 
 export class RuntimeError extends Error {
@@ -83,19 +84,39 @@ export class PythonSupervisor extends EventEmitter {
   }
 
   // 发送请求
-  request(method: string, params: unknown = {}, opts?: { timeoutMs?: number }): Promise<unknown> {
+  request(
+    method: string,
+    params: unknown = {},
+    opts?: { timeoutMs?: number; signal?: AbortSignal }
+  ): Promise<unknown> {
     if (!this.child?.stdin) {
       return Promise.reject(new RuntimeError('RUNTIME_NOT_STARTED', 'runtime 尚未启动'))
+    }
+    if (opts?.signal?.aborted) {
+      return Promise.reject(new RuntimeError('RUNTIME_CANCELLED', `请求 ${method} 已取消`))
     }
     const id = `req-${++this.idCounter}`
     const line = JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n'
     const timeoutMs = opts?.timeoutMs ?? this.defaultTimeoutMs
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.pending.delete(id)
-        reject(new RuntimeError('RUNTIME_TIMEOUT', `请求 ${method} 超时 (${timeoutMs}ms)`))
+        this.settle(id, (p) => {
+          p.reject(new RuntimeError('RUNTIME_TIMEOUT', `请求 ${method} 超时 (${timeoutMs}ms)`))
+        })
       }, timeoutMs)
-      this.pending.set(id, { resolve, reject, timer })
+
+      const onAbort = (): void => {
+        this.settle(id, (p) => {
+          p.reject(new RuntimeError('RUNTIME_CANCELLED', `请求 ${method} 已取消`))
+        })
+      }
+
+      opts?.signal?.addEventListener('abort', onAbort, { once: true })
+      const cleanup = (): void => {
+        opts?.signal?.removeEventListener('abort', onAbort)
+      }
+
+      this.pending.set(id, { resolve, reject, timer, cleanup })
       this.child!.stdin!.write(line)
     })
   }
@@ -138,28 +159,32 @@ export class PythonSupervisor extends EventEmitter {
       return
     }
     if (msg.id == null) return
-    const p = this.pending.get(msg.id)
-    if (!p) return
-    this.pending.delete(msg.id)
-    clearTimeout(p.timer)
-    if (msg.error) {
-      p.reject(new RuntimeError(msg.error.code, msg.error.message))
-    } else {
-      p.resolve(msg.result)
-    }
+    this.settle(msg.id, (p) => {
+      if (msg.error) p.reject(new RuntimeError(msg.error?.code, msg.error?.message))
+      else p.resolve(msg.result)
+    })
   }
 
   // 拒绝所有未决请求
   private failAllPending(code: string, message: string): void {
-    for (const p of this.pending.values()) {
-      clearTimeout(p.timer)
-      p.reject(new RuntimeError(code, message))
+    for (const id of [...this.pending.keys()]) {
+      this.settle(id, (p) => {
+        p.reject(new RuntimeError(code, message))
+      })
     }
-    this.pending.clear()
   }
 
   private handleCrash(reason: string, detail: string): void {
     this.failAllPending('RUNTIME_CRASHED', `子进程崩溃 (${reason}:${detail})`)
     this.emit('runtime.crashed', { reason, detail })
+  }
+
+  private settle(id: string, fn: (p: Pending) => void): void {
+    const p = this.pending.get(id)
+    if (!p) return
+    this.pending.delete(id)
+    clearTimeout(p.timer)
+    p.cleanup?.()
+    fn(p)
   }
 }

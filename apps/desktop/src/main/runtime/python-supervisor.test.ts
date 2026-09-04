@@ -8,7 +8,12 @@ import { fileURLToPath } from 'node:url'
 import { existsSync } from 'node:fs'
 
 // 假子进程
-function makeFakeChild(): { child: ChildProcess; written: string[]; stdout: PassThrough } {
+function makeFakeChild(): {
+  child: ChildProcess
+  written: string[]
+  stdout: PassThrough
+  stderr: PassThrough
+} {
   const written: string[] = []
   const stdout = new PassThrough()
   const stderr = new PassThrough()
@@ -24,7 +29,7 @@ function makeFakeChild(): { child: ChildProcess; written: string[]; stdout: Pass
     stderr,
     kill: (): void => {}
   })
-  return { child: fake as unknown as ChildProcess, written, stdout }
+  return { child: fake as unknown as ChildProcess, written, stdout, stderr }
 }
 
 describe('PythonSupervisor ~ Slice 1', () => {
@@ -122,5 +127,28 @@ describe('PythonSupervisor ~ Slice 2', () => {
     child.emit('exit', 1, null)
     await expect(p).rejects.toMatchObject({ code: 'RUNTIME_CRASHED' })
     expect(onCrashed).toHaveBeenCalledOnce()
+  })
+})
+
+describe('PythonSupervisor ~ Slice 3', () => {
+  it('stderr: 子进程 stderr 原样转发为 stderr 事件', async () => {
+    const { child, stderr } = makeFakeChild()
+    const sup = new PythonSupervisor({ command: 'fake', args: [], spawnFn: () => child })
+    sup.start()
+
+    const chunks: string[] = []
+    sup.on('stderr', (c: string) => chunks.push(c))
+    stderr.write('python 日志一行\n')
+    await new Promise((r) => setImmediate(r))
+    expect(chunks.join('')).toBe('python 日志一行\n')
+  })
+  it('cancel:AbortSignal 触发后 reject RUNTIME_CANCELLD', async () => {
+    const { child } = makeFakeChild()
+    const sup = new PythonSupervisor({ command: 'fake', args: [], spawnFn: () => child })
+    sup.start()
+    const ac = new AbortController()
+    const p = sup.request('system.ping', {}, { signal: ac.signal })
+    ac.abort()
+    await expect(p).rejects.toMatchObject({ code: 'RUNTIME_CANCELLED' })
   })
 })
