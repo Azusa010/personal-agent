@@ -47,7 +47,7 @@ export class PythonSupervisor extends EventEmitter {
   constructor(opts: PythonSupervisorPtions) {
     super()
     this.command = opts.command
-    this.args = opts.command
+    this.args = opts.args
     this.cwd = opts.cwd
     this.spawnFn = opts.spawnFn ?? spawn
   }
