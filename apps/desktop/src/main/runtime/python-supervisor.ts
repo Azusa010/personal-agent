@@ -8,6 +8,7 @@ export interface PythonSupervisorOptions {
   args: string[]
   cwd?: string
   spawnFn?: SpawnFn
+  defaultTimeoutMs?: number
 }
 
 interface ResponseMsg {
@@ -22,6 +23,7 @@ interface ResponseMsg {
 interface Pending {
   resolve: (value: unknown) => void
   reject: (reason: Error) => void
+  timer: ReturnType<typeof setTimeout>
 }
 
 export class RuntimeError extends Error {
@@ -43,6 +45,8 @@ export class PythonSupervisor extends EventEmitter {
   private readonly command: string
   private readonly args: string[]
   private readonly cwd?: string
+  private readonly defaultTimeoutMs: number
+  private stopping = false
 
   constructor(opts: PythonSupervisorOptions) {
     super()
@@ -50,6 +54,7 @@ export class PythonSupervisor extends EventEmitter {
     this.args = opts.args
     this.cwd = opts.cwd
     this.spawnFn = opts.spawnFn ?? (spawn as unknown as SpawnFn)
+    this.defaultTimeoutMs = opts.defaultTimeoutMs ?? 30000
   }
 
   // spawn 启动子进程，监听三个管道
@@ -65,23 +70,31 @@ export class PythonSupervisor extends EventEmitter {
     this.child.stderr?.on('data', (chunk: string) => this.emit('stderr', chunk))
 
     // 崩溃
-    this.child.on('error', (err) =>
+    this.child.on('error', (err) => {
       this.emit('stderr', `[supervisor] 子进程错误: ${err.message}\n`)
-    )
-    this.child.on('exit', (code, signal) =>
+      this.handleCrash('error', err.message)
+    })
+    this.child.on('exit', (code, signal) => {
       this.emit('stderr', `[supervisor] 子进程退出: code=${code} signal=${signal}\n`)
-    )
+      if (this.stopping)
+        this.failAllPending('RUNTIME_STOPPED', 'runtime 正在关闭') //通过stop()优雅退出
+      else this.handleCrash('exit', `code=${code} signal=${signal}`) // 意外退出
+    })
   }
 
   // 发送请求
-  request(method: string, params: unknown = {}): Promise<unknown> {
+  request(method: string, params: unknown = {}, opts?: { timeoutMs?: number }): Promise<unknown> {
     if (!this.child?.stdin) {
       return Promise.reject(new RuntimeError('RUNTIME_NOT_STARTED', 'runtime 尚未启动'))
     }
     const id = `req-${++this.idCounter}`
     const line = JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n'
+    const timeoutMs = opts?.timeoutMs ?? this.defaultTimeoutMs
     return new Promise<unknown>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject })
+      const timer = setTimeout(() => {
+        this.pending.delete(id)
+      }, timeoutMs)
+      this.pending.set(id, { resolve, reject, timer })
       this.child!.stdin!.write(line)
     })
   }
@@ -90,6 +103,7 @@ export class PythonSupervisor extends EventEmitter {
   stop(): Promise<void> {
     return new Promise<void>((resolve) => {
       if (!this.child) return resolve()
+      this.stopping = true
       const timer = setTimeout(() => this.child?.kill(), 3000)
       this.child.once('exit', () => {
         clearTimeout(timer)
@@ -126,10 +140,25 @@ export class PythonSupervisor extends EventEmitter {
     const p = this.pending.get(msg.id)
     if (!p) return
     this.pending.delete(msg.id)
+    clearTimeout(p.timer)
     if (msg.error) {
       p.reject(new RuntimeError(msg.error.code, msg.error.message))
     } else {
       p.resolve(msg.result)
     }
+  }
+
+  // 拒绝所有未决请求
+  private failAllPending(code: string, message: string): void {
+    for (const p of this.pending.values()) {
+      clearTimeout(p.timer)
+      p.reject(new RuntimeError(code, message))
+    }
+    this.pending.clear()
+  }
+
+  private handleCrash(reason: string, detail: string): void {
+    this.failAllPending('RUNTIME_CRASHED', `子进程崩溃 (${reason}:${detail})`)
+    this.emit('runtime.crashed', { reason, detail })
   }
 }
