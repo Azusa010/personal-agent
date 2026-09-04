@@ -3,9 +3,9 @@ import EventEmitter from 'events'
 
 export type SpawnFn = (cmd: string, args: string[], opts?: SpawnOptions) => ChildProcess
 
-export interface PythonSupervisorPtions {
+export interface PythonSupervisorOptions {
   command: string
-  args?: string[]
+  args: string[]
   cwd?: string
   spawnFn?: SpawnFn
 }
@@ -44,12 +44,12 @@ export class PythonSupervisor extends EventEmitter {
   private readonly args: string[]
   private readonly cwd?: string
 
-  constructor(opts: PythonSupervisorPtions) {
+  constructor(opts: PythonSupervisorOptions) {
     super()
     this.command = opts.command
     this.args = opts.args
     this.cwd = opts.cwd
-    this.spawnFn = opts.spawnFn ?? spawn
+    this.spawnFn = opts.spawnFn ?? (spawn as unknown as SpawnFn)
   }
 
   // spawn 启动子进程，监听三个管道
@@ -68,8 +68,8 @@ export class PythonSupervisor extends EventEmitter {
     this.child.on('error', (err) =>
       this.emit('stderr', `[supervisor] 子进程错误: ${err.message}\n`)
     )
-    this.child.on('exit', (code, singal) =>
-      this.emit('stderr', `[supervisor] 子进程退出: code=${code} signal=${singal}\n`)
+    this.child.on('exit', (code, signal) =>
+      this.emit('stderr', `[supervisor] 子进程退出: code=${code} signal=${signal}\n`)
     )
   }
 
@@ -122,7 +122,7 @@ export class PythonSupervisor extends EventEmitter {
       this.emit('stderr', `[supervisor] stdout 非法 JSON: ${text}\n`)
       return
     }
-    if (msg.id === null) return
+    if (msg.id == null) return
     const p = this.pending.get(msg.id)
     if (!p) return
     this.pending.delete(msg.id)

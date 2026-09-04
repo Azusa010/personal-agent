@@ -1,5 +1,6 @@
 import { ChildProcess } from 'node:child_process'
-import { EventEmitter, PassThrough } from 'node:stream'
+import { PassThrough } from 'node:stream'
+import { EventEmitter } from 'node:events'
 import { describe, it, expect } from 'vitest'
 import { PythonSupervisor } from './python-supervisor'
 import { dirname, join } from 'node:path'
