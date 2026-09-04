@@ -1,5 +1,135 @@
-class PythonSupervisor extends Supervisor {
-  constructor(opts:{
-    
-  })
+import { ChildProcess, spawn, SpawnOptions } from 'node:child_process'
+import EventEmitter from 'events'
+
+export type SpawnFn = (cmd: string, args: string[], opts?: SpawnOptions) => ChildProcess
+
+export interface PythonSupervisorPtions {
+  command: string
+  args?: string[]
+  cwd?: string
+  spawnFn?: SpawnFn
+}
+
+interface ResponseMsg {
+  id?: string | null
+  result?: unknown
+  error?: {
+    code: string
+    message: string
+  }
+}
+
+interface Pending {
+  resolve: (value: unknown) => void
+  reject: (reason: Error) => void
+}
+
+export class RuntimeError extends Error {
+  constructor(
+    readonly code: string,
+    message: string
+  ) {
+    super(message)
+    this.name = 'RuntimeError'
+  }
+}
+
+export class PythonSupervisor extends EventEmitter {
+  private child: ChildProcess | null = null
+  private buffer = ''
+  private readonly pending = new Map<string, Pending>()
+  private idCounter = 0
+  private readonly spawnFn: SpawnFn
+  private readonly command: string
+  private readonly args: string[]
+  private readonly cwd?: string
+
+  constructor(opts: PythonSupervisorPtions) {
+    super()
+    this.command = opts.command
+    this.args = opts.command
+    this.cwd = opts.cwd
+    this.spawnFn = opts.spawnFn ?? spawn
+  }
+
+  // spawn 启动子进程，监听三个管道
+  start(): void {
+    this.child = this.spawnFn(this.command, this.args, { cwd: this.cwd })
+
+    // stdout => onStdout(chunk)对块进行切分
+    this.child.stdout?.setEncoding('utf8')
+    this.child.stdout?.on('data', (chunk: string) => this.onStdout(chunk))
+
+    // stderr
+    this.child.stderr?.setEncoding('utf8')
+    this.child.stderr?.on('data', (chunk: string) => this.emit('stderr', chunk))
+
+    // 崩溃
+    this.child.on('error', (err) =>
+      this.emit('stderr', `[supervisor] 子进程错误: ${err.message}\n`)
+    )
+    this.child.on('exit', (code, singal) =>
+      this.emit('stderr', `[supervisor] 子进程退出: code=${code} signal=${singal}\n`)
+    )
+  }
+
+  // 发送请求
+  request(method: string, params: unknown = {}): Promise<unknown> {
+    if (!this.child?.stdin) {
+      return Promise.reject(new RuntimeError('RUNTIME_NOT_STARTED', 'runtime 尚未启动'))
+    }
+    const id = `req-${++this.idCounter}`
+    const line = JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n'
+    return new Promise<unknown>((resolve, reject) => {
+      this.pending.set(id, { resolve, reject })
+      this.child!.stdin!.write(line)
+    })
+  }
+
+  // 关闭
+  stop(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      if (!this.child) return resolve()
+      const timer = setTimeout(() => this.child?.kill(), 3000)
+      this.child.once('exit', () => {
+        clearTimeout(timer)
+        resolve()
+      })
+      this.child.stdin?.end()
+    })
+  }
+
+  // ===== 内部 =====
+  private onStdout(chunk: string): void {
+    this.buffer += chunk
+    let n1: number
+    // 取出所有完整行
+    while ((n1 = this.buffer.indexOf('\n')) >= 0) {
+      const line = this.buffer.slice(0, n1)
+      // 剩下的半行到下一块再拼
+      this.buffer = this.buffer.slice(n1 + 1)
+      this.routeLine(line)
+    }
+  }
+
+  private routeLine(line: string): void {
+    const text = line.trim()
+    if (!text) return
+    let msg: ResponseMsg
+    try {
+      msg = JSON.parse(text) as ResponseMsg
+    } catch {
+      this.emit('stderr', `[supervisor] stdout 非法 JSON: ${text}\n`)
+      return
+    }
+    if (msg.id === null) return
+    const p = this.pending.get(msg.id)
+    if (!p) return
+    this.pending.delete(msg.id)
+    if (msg.error) {
+      p.reject(new RuntimeError(msg.error.code, msg.error.message))
+    } else {
+      p.resolve(msg.result)
+    }
+  }
 }
