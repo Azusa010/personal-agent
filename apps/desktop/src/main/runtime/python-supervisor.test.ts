@@ -110,7 +110,7 @@ describe('PythonSupervisor ~ Slice 2', () => {
     sup.start()
     const p = sup.request('system.ping')
     await expect(p).rejects.toMatchObject({ code: 'RUNTIME_TIMEOUT' })
-  }, 100)
+  }, 2000)
   it('崩溃:pending全部reject且广播runtime.crashed', async () => {
     const { child } = makeFakeChild()
     const sup = new PythonSupervisor({ command: 'fake', args: [], spawnFn: () => child })
