@@ -3,6 +3,8 @@ from pathlib import Path
 
 import pytest
 from personal_agent.protocol.models import (
+    FilesystemListParams,
+    FilesystemListResult,
     InitializeParams,
     InitializeResult,
     Request,
@@ -26,6 +28,8 @@ def _load(name: str) -> dict:
         ("initialize.response.json", Response, InitializeResult, "result"),
         ("ping.request.json", Request, None, "params"),
         ("ping.response.json", Response, None, "result"),
+        ("filesystem-list.request.json",Request,FilesystemListParams,"params"),
+        ("filesystem-list.response.json", Response, FilesystemListResult, "result")
     ],
 )
 def test_legal_fixtures_are_accepted(name, envelope, payload, field):

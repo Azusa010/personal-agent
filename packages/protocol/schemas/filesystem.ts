@@ -1,6 +1,6 @@
 import * as z from "zod";
 
-export const RootId = z.enum(["downloads", "download"]);
+export const RootId = z.enum(["downloads"]);
 
 export const FilesystemListParams = z.object({
   rootId: RootId,
@@ -9,8 +9,8 @@ export const FilesystemListParams = z.object({
 export const PdfEntry = z.object({
   name: z.string(),
   absolutePath: z.string(),
-  modifiedAT: z.string(),
-  sizeBytes: z.uint64(),
+  modifiedAt: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
 });
 
 export const FilesystemListResult = z.object({

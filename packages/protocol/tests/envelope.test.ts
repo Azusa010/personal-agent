@@ -5,6 +5,10 @@ import { fileURLToPath } from "node:url";
 
 import { Request, Response } from "../schemas/envelope.js";
 import { InitializeParams, InitializeResult } from "../schemas/systems.js";
+import {
+  FilesystemListParams,
+  FilesystemListResult,
+} from "../schemas/filesystem.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, "../fixtures");
@@ -32,6 +36,18 @@ const legalCases = [
     file: "ping.response.json",
     envelope: Response,
     payload: null,
+    field: "result",
+  },
+  {
+    file: "filesystem-list.request.json",
+    envelope: Request,
+    payload: FilesystemListParams,
+    field: "params",
+  },
+  {
+    file: "filesystem-list.response.json",
+    envelope: Response,
+    payload: FilesystemListResult,
     field: "result",
   },
 ];

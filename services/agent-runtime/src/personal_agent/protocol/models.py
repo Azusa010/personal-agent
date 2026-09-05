@@ -41,7 +41,7 @@ class Notification(BaseModel):
 class PdfEntry(BaseModel):
     name: str
     absolutePath: str
-    modifiedAT: str
+    modifiedAt: str
     sizeBytes: int = Field(ge=0)
 
 

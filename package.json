@@ -9,7 +9,8 @@
     "typecheck": "pnpm --dir apps/desktop typecheck",
     "test:ts": "pnpm --dir apps/desktop test",
     "test:py": "uv run --project services/agent-runtime --locked pytest",
-    "lint:py": "uv run --project services/agent-runtime --locked ruff check ."
+    "lint:py": "uv run --project services/agent-runtime --locked ruff check .",
+    "test:pack":"pnpm --dir package/protocol test"
   },
   "keywords": [],
   "author": "",
