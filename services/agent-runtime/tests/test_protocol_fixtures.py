@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
+
 from personal_agent.protocol.models import (
     FilesystemListParams,
     FilesystemListResult,
@@ -10,7 +12,6 @@ from personal_agent.protocol.models import (
     Request,
     Response,
 )
-from pydantic import ValidationError
 
 FIXTURES_DIR = (
     Path(__file__).resolve().parents[3] / "packages" / "protocol" / "fixtures"
@@ -28,8 +29,8 @@ def _load(name: str) -> dict:
         ("initialize.response.json", Response, InitializeResult, "result"),
         ("ping.request.json", Request, None, "params"),
         ("ping.response.json", Response, None, "result"),
-        ("filesystem-list.request.json",Request,FilesystemListParams,"params"),
-        ("filesystem-list.response.json", Response, FilesystemListResult, "result")
+        ("filesystem-list.request.json", Request, FilesystemListParams, "params"),
+        ("filesystem-list.response.json", Response, FilesystemListResult, "result"),
     ],
 )
 def test_legal_fixtures_are_accepted(name, envelope, payload, field):
