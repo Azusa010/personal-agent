@@ -1,0 +1,8 @@
+{
+  "jsonrpc": "2.0",
+  "id": "req-002",
+  "method": "filesystem.list",
+  "params": {
+    "rootId":"downloads"
+  }
+}

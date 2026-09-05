@@ -1,0 +1,20 @@
+{
+  "jsonrpc": "2.0",
+  "id": "req-002",
+  "result": {
+    "entries": [
+      {
+        "name": "report-2026.pdf",
+        "absolutePath": "D:/Users/demo/Downloads/report-2026.pdf",
+        "modifiedAt": "2026-09-01T10:00:00Z",
+        "sizeBytes": 20480
+      },
+      {
+        "name": "invoice-aug.pdf",
+        "absolutePath": "D:/Users/demo/Downloads/invoice-aug.pdf",
+        "modifiedAt": "2026-08-15T08:30:00Z",
+        "sizeBytes": 1024
+      }
+    ]
+  }
+}

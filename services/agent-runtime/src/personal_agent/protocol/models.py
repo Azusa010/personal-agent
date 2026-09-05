@@ -37,6 +37,21 @@ class Notification(BaseModel):
     params: Any = None
 
 
+# ---- PDF ----
+class PdfEntry(BaseModel):
+    name: str
+    absolutePath: str
+    modifiedAT: str
+    sizeBytes: int = Field(ge=0)
+
+
+class FilesystemListParams(BaseModel):
+    rootId: Literal["downloads"]
+
+class FilesystemListResult(BaseModel):
+    entries: list[PdfEntry]
+
+
 # ---- system.initialize 的载荷模型 ----
 class ClientInfo(BaseModel):
     name: str
