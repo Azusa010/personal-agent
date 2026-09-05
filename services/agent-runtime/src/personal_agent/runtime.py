@@ -6,18 +6,40 @@ import sys
 from pydantic import ValidationError
 
 from personal_agent.protocol.models import (
+    FilesystemListParams,
+    FilesystemListResult,
     InitializeParams,
     InitializeResult,
     Request,
     Response,
     ServerInfo,
 )
+from personal_agent.tools.filesystem import list_pdfs, resolve_root
 
 SERVER_INFO = ServerInfo(name="personal-agent-runtime", version="0.1.0")
 
 
 def build_error(req_id, code: str, message: str) -> dict:
     return {"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}}
+
+
+def handle_filesystem_list(req: Request) -> dict:
+    try:
+        params = FilesystemListParams.model_validate(req.params)
+    except ValidationError:
+        return build_error(
+            req.id,
+            "PROTOCOL_INVALID_REQUEST",
+            "filesystem.list 参数不符合契约(rootId 不在白名单)",
+        )
+    base = resolve_root(params.rootId)
+    if not base.is_dir():
+        return build_error(
+            req.id, "FILESYSTEM_ROOT_UNAVAILABLE", f"根目录不可用: {base}"
+        )
+    entries = list_pdfs(base)
+    result = FilesystemListResult(entries=entries)
+    return Response(jsonrpc="2.0", id=req.id, result=result.model_dump()).model_dump(exclude_none=True)
 
 
 def dispatch(raw) -> dict:
@@ -35,6 +57,9 @@ def dispatch(raw) -> dict:
 
     if req.method == "system.initialize":
         return handle_initialize(req)
+
+    if req.method == "filesystem.list":
+        return handle_filesystem_list(req)
 
     return build_error(
         req_id=req.id, code="METHOD_NOT_FOUND", message=f"未知方法:{req.method}"
