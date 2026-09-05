@@ -65,29 +65,6 @@ describe('PythonSupervisor ~ Slice 1', () => {
   })
 })
 
-//  -----真实往返-----
-const here = dirname(fileURLToPath(import.meta.url))
-const repoRoot = join(here, '..', '..', '..', '..', '..')
-const venvPy = join(repoRoot, 'services', 'agent-runtime', '.venv', 'Scripts', 'python.exe')
-const runtimeCwd = join(repoRoot, 'services', 'agent-runtime')
-const itReal = existsSync(venvPy) ? it : it.skip
-
-itReal(
-  '真实 spawn Python:system.ping -> pong',
-  async () => {
-    const sup = new PythonSupervisor({
-      command: venvPy,
-      args: ['-m', 'personal_agent'],
-      cwd: runtimeCwd
-    })
-    sup.start()
-    const result = await sup.request('system.ping')
-    expect(result).toEqual({})
-    await sup.stop()
-  },
-  15000
-)
-
 describe('PythonSupervisor ~ Slice 2', () => {
   it('并发：多个请求各按自己的 id 对上响应（乱序返回也行）', async () => {
     const { child, written, stdout } = makeFakeChild()
@@ -152,3 +129,71 @@ describe('PythonSupervisor ~ Slice 3', () => {
     await expect(p).rejects.toMatchObject({ code: 'RUNTIME_CANCELLED' })
   })
 })
+
+describe('PythonSupervisor ~ Slice 2b (握手)', () => {
+  it('initialize:发出参数正确;版本不匹配的响应 -> RUNTIME_HANDSHAKE_FAILED', async () => {
+    const { child, written, stdout } = makeFakeChild()
+    const sup = new PythonSupervisor({ command: 'fake', args: [], spawnFn: () => child })
+    sup.start()
+    const p = sup.initialize()
+    const req = JSON.parse(written[0])
+    expect(req).toMatchObject({
+      method: 'system.initialize',
+      params: {
+        protocolVersion: '0.1',
+        client: { name: 'personal-agent-electron', version: '0.1.0' }
+      }
+    })
+    stdout.push(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: req.id,
+        result: { protocolVersion: '9.9', server: { name: 'x', version: '0' } }
+      }) + '\n'
+    )
+    await expect(p).rejects.toMatchObject({ code: 'RUNTIME_HANDSHAKE_FAILED' })
+  })
+})
+
+//  -----真实往返-----
+const here = dirname(fileURLToPath(import.meta.url))
+const repoRoot = join(here, '..', '..', '..', '..', '..')
+const venvPy = join(repoRoot, 'services', 'agent-runtime', '.venv', 'Scripts', 'python.exe')
+const runtimeCwd = join(repoRoot, 'services', 'agent-runtime')
+const itReal = existsSync(venvPy) ? it : it.skip
+
+itReal(
+  '真实 spawn Python:system.ping -> pong',
+  async () => {
+    const sup = new PythonSupervisor({
+      command: venvPy,
+      args: ['-m', 'personal_agent'],
+      cwd: runtimeCwd
+    })
+    sup.start()
+    const result = await sup.request('system.ping')
+    expect(result).toEqual({})
+    await sup.stop()
+  },
+  15000
+)
+itReal(
+  '真实 spawn Python:initialize 握手 -> 校验 server -> ping',
+  async () => {
+    const sup = new PythonSupervisor({
+      command: venvPy,
+      args: ['-m', 'personal_agent'],
+      cwd: runtimeCwd
+    })
+    sup.start()
+    const init = await sup.initialize()
+    expect(init.protocolVersion).toBe('0.1')
+    expect(init.server.name).toBe('personal-agent-runtime')
+    expect(init.server.version).toBe('0.1.0')
+
+    const ping = await sup.request('system.ping')
+    expect(ping).toEqual({})
+    await sup.stop()
+  },
+  15000
+)

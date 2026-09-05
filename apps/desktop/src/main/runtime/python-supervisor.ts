@@ -1,5 +1,7 @@
 import { ChildProcess, spawn, SpawnOptions } from 'node:child_process'
 import EventEmitter from 'events'
+import { PROTOCOL_VERSION, InitializeResult, InitializeParams } from '@personal-agent/protocol'
+import { z } from 'zod'
 
 export type SpawnFn = (cmd: string, args: string[], opts?: SpawnOptions) => ChildProcess
 
@@ -35,6 +37,11 @@ export class RuntimeError extends Error {
     super(message)
     this.name = 'RuntimeError'
   }
+}
+
+const CLIENT_INFO = {
+  name: 'personal-agent-electron',
+  version: '0.1.0'
 }
 
 export class PythonSupervisor extends EventEmitter {
@@ -81,6 +88,32 @@ export class PythonSupervisor extends EventEmitter {
         this.failAllPending('RUNTIME_STOPPED', 'runtime 正在关闭') //通过stop()优雅退出
       else this.handleCrash('exit', `code=${code} signal=${signal}`) // 意外退出
     })
+  }
+
+  // 握手
+  async initialize(): Promise<z.infer<typeof InitializeResult>> {
+    /**
+     * 与 Python runtime 做 initialize 握手。
+     */
+    const params = InitializeParams.safeParse({
+      protocolVersion: PROTOCOL_VERSION,
+      client: CLIENT_INFO
+    })
+    if (!params.success) {
+      throw new RuntimeError(
+        'RUNTIME_HANDSHAKE_FAILED',
+        `initialize 参数不符合契约 ${params.error.message}`
+      )
+    }
+    const result = await this.request('system.initialize', params.data)
+    const parsed = InitializeResult.safeParse(result)
+    if (!parsed.success) {
+      throw new RuntimeError(
+        'RUNTIME_HANDSHAKE_FAILED',
+        `initialize 握手不符合契约 ${parsed.error.message}`
+      )
+    }
+    return parsed.data
   }
 
   // 发送请求
