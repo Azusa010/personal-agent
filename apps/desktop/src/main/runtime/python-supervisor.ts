@@ -2,6 +2,7 @@ import { ChildProcess, spawn, SpawnOptions } from 'node:child_process'
 import EventEmitter from 'events'
 import { PROTOCOL_VERSION, InitializeResult, InitializeParams } from '@personal-agent/protocol'
 import { z } from 'zod'
+import { RUNTIME_ERROR_CODE } from './error-code'
 
 export type SpawnFn = (cmd: string, args: string[], opts?: SpawnOptions) => ChildProcess
 
@@ -85,7 +86,7 @@ export class PythonSupervisor extends EventEmitter {
     this.child.on('exit', (code, signal) => {
       this.emit('stderr', `[supervisor] 子进程退出: code=${code} signal=${signal}\n`)
       if (this.stopping)
-        this.failAllPending('RUNTIME_STOPPED', 'runtime 正在关闭') //通过stop()优雅退出
+        this.failAllPending(RUNTIME_ERROR_CODE.STOPPED, 'runtime 正在关闭') //通过stop()优雅退出
       else this.handleCrash('exit', `code=${code} signal=${signal}`) // 意外退出
     })
   }
@@ -101,7 +102,7 @@ export class PythonSupervisor extends EventEmitter {
     })
     if (!params.success) {
       throw new RuntimeError(
-        'RUNTIME_HANDSHAKE_FAILED',
+        RUNTIME_ERROR_CODE.HANDSHAKE_FAILED,
         `initialize 参数不符合契约 ${params.error.message}`
       )
     }
@@ -109,7 +110,7 @@ export class PythonSupervisor extends EventEmitter {
     const parsed = InitializeResult.safeParse(result)
     if (!parsed.success) {
       throw new RuntimeError(
-        'RUNTIME_HANDSHAKE_FAILED',
+        RUNTIME_ERROR_CODE.HANDSHAKE_FAILED,
         `initialize 握手不符合契约 ${parsed.error.message}`
       )
     }
@@ -123,10 +124,10 @@ export class PythonSupervisor extends EventEmitter {
     opts?: { timeoutMs?: number; signal?: AbortSignal }
   ): Promise<unknown> {
     if (!this.child?.stdin) {
-      return Promise.reject(new RuntimeError('RUNTIME_NOT_STARTED', 'runtime 尚未启动'))
+      return Promise.reject(new RuntimeError(RUNTIME_ERROR_CODE.NOT_STARTED, 'runtime 尚未启动'))
     }
     if (opts?.signal?.aborted) {
-      return Promise.reject(new RuntimeError('RUNTIME_CANCELLED', `请求 ${method} 已取消`))
+      return Promise.reject(new RuntimeError(RUNTIME_ERROR_CODE.CANCELLED, `请求 ${method} 已取消`))
     }
     const id = `req-${++this.idCounter}`
     const line = JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n'
@@ -134,13 +135,15 @@ export class PythonSupervisor extends EventEmitter {
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.settle(id, (p) => {
-          p.reject(new RuntimeError('RUNTIME_TIMEOUT', `请求 ${method} 超时 (${timeoutMs}ms)`))
+          p.reject(
+            new RuntimeError(RUNTIME_ERROR_CODE.TIMEOUT, `请求 ${method} 超时 (${timeoutMs}ms)`)
+          )
         })
       }, timeoutMs)
 
       const onAbort = (): void => {
         this.settle(id, (p) => {
-          p.reject(new RuntimeError('RUNTIME_CANCELLED', `请求 ${method} 已取消`))
+          p.reject(new RuntimeError(RUNTIME_ERROR_CODE.CANCELLED, `请求 ${method} 已取消`))
         })
       }
 
@@ -208,7 +211,7 @@ export class PythonSupervisor extends EventEmitter {
   }
 
   private handleCrash(reason: string, detail: string): void {
-    this.failAllPending('RUNTIME_CRASHED', `子进程崩溃 (${reason}:${detail})`)
+    this.failAllPending(RUNTIME_ERROR_CODE.CRASHED, `子进程崩溃 (${reason}:${detail})`)
     this.emit('runtime.crashed', { reason, detail })
   }
 

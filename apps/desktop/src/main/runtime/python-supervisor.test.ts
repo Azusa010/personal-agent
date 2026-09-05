@@ -6,6 +6,7 @@ import { PythonSupervisor } from './python-supervisor'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { existsSync } from 'node:fs'
+import { RUNTIME_ERROR_CODE } from './error-code'
 
 // 假子进程
 function makeFakeChild(): {
@@ -91,7 +92,7 @@ describe('PythonSupervisor ~ Slice 2', () => {
     })
     sup.start()
     const p = sup.request('system.ping')
-    await expect(p).rejects.toMatchObject({ code: 'RUNTIME_TIMEOUT' })
+    await expect(p).rejects.toMatchObject({ code: RUNTIME_ERROR_CODE.TIMEOUT })
   }, 2000)
   it('崩溃:pending全部reject且广播runtime.crashed', async () => {
     const { child } = makeFakeChild()
@@ -102,7 +103,7 @@ describe('PythonSupervisor ~ Slice 2', () => {
     sup.on('runtime.crashed', onCrashed)
     const p = sup.request('system.ping')
     child.emit('exit', 1, null)
-    await expect(p).rejects.toMatchObject({ code: 'RUNTIME_CRASHED' })
+    await expect(p).rejects.toMatchObject({ code: RUNTIME_ERROR_CODE.CRASHED })
     expect(onCrashed).toHaveBeenCalledOnce()
   })
 })
@@ -119,14 +120,14 @@ describe('PythonSupervisor ~ Slice 3', () => {
     await new Promise((r) => setImmediate(r))
     expect(chunks.join('')).toBe('python 日志一行\n')
   })
-  it('cancel:AbortSignal 触发后 reject RUNTIME_CANCELLD', async () => {
+  it('cancel:AbortSignal 触发后 reject RUNTIME_CANCELLED', async () => {
     const { child } = makeFakeChild()
     const sup = new PythonSupervisor({ command: 'fake', args: [], spawnFn: () => child })
     sup.start()
     const ac = new AbortController()
     const p = sup.request('system.ping', {}, { signal: ac.signal })
     ac.abort()
-    await expect(p).rejects.toMatchObject({ code: 'RUNTIME_CANCELLED' })
+    await expect(p).rejects.toMatchObject({ code: RUNTIME_ERROR_CODE.CANCELLED })
   })
 })
 
@@ -151,7 +152,20 @@ describe('PythonSupervisor ~ Slice 2b (握手)', () => {
         result: { protocolVersion: '9.9', server: { name: 'x', version: '0' } }
       }) + '\n'
     )
-    await expect(p).rejects.toMatchObject({ code: 'RUNTIME_HANDSHAKE_FAILED' })
+    await expect(p).rejects.toMatchObject({ code: RUNTIME_ERROR_CODE.HANDSHAKE_FAILED })
+  })
+})
+
+describe('RUNTIME_ERROR_CODE 注册表', () => {
+  it('码的字面值稳定（钉住契约，防 CANCELED/CANCELLED 那类拼写漂移）', () => {
+    expect(RUNTIME_ERROR_CODE).toEqual({
+      NOT_STARTED: 'RUNTIME_NOT_STARTED',
+      TIMEOUT: 'RUNTIME_TIMEOUT',
+      CANCELLED: 'RUNTIME_CANCELLED',
+      STOPPED: 'RUNTIME_STOPPED',
+      CRASHED: 'RUNTIME_CRASHED',
+      HANDSHAKE_FAILED: 'RUNTIME_HANDSHAKE_FAILED'
+    })
   })
 })
 
