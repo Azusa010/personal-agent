@@ -10,6 +10,7 @@
     "test:ts": "pnpm --dir apps/desktop test",
     "test:py": "uv run --project services/agent-runtime --locked pytest",
     "lint:py": "uv run --project services/agent-runtime --locked ruff check .",
+    "fix:py":"services/agent-runtime/.venv/Scripts/python.exe -m ruff check . --fix",
     "test:pack":"pnpm --dir package/protocol test"
   },
   "keywords": [],
