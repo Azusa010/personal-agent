@@ -58,8 +58,6 @@ export async function startRuntime(): Promise<void> {
     detail = err instanceof RuntimeError ? `${err.code}:${err.message}` : String(err)
     await supervisor.stop().catch(() => {})
     supervisor = null
-    state = 'stopped'
-    detail = undefined
   }
 }
 
