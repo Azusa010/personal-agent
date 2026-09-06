@@ -56,6 +56,7 @@ export class PythonSupervisor extends EventEmitter {
   private readonly cwd?: string
   private readonly defaultTimeoutMs: number
   private stopping = false
+  private crashInfo: string | null = null
 
   constructor(opts: PythonSupervisorOptions) {
     super()
@@ -68,6 +69,7 @@ export class PythonSupervisor extends EventEmitter {
 
   // spawn 启动子进程，监听三个管道
   start(): void {
+    this.crashInfo = null
     this.child = this.spawnFn(this.command, this.args, { cwd: this.cwd })
 
     // stdout => onStdout(chunk)对块进行切分
@@ -123,6 +125,14 @@ export class PythonSupervisor extends EventEmitter {
     params: unknown = {},
     opts?: { timeoutMs?: number; signal?: AbortSignal }
   ): Promise<unknown> {
+    if (this.crashInfo !== null) {
+      return Promise.reject(
+        new RuntimeError(
+          RUNTIME_ERROR_CODE.CRASHED,
+          `runtime 已崩溃(${this.crashInfo})，拒绝 ${method}`
+        )
+      )
+    }
     if (!this.child?.stdin) {
       return Promise.reject(new RuntimeError(RUNTIME_ERROR_CODE.NOT_STARTED, 'runtime 尚未启动'))
     }
@@ -211,6 +221,7 @@ export class PythonSupervisor extends EventEmitter {
   }
 
   private handleCrash(reason: string, detail: string): void {
+    this.crashInfo = `${reason}:${detail}`
     this.failAllPending(RUNTIME_ERROR_CODE.CRASHED, `子进程崩溃 (${reason}:${detail})`)
     this.emit('runtime.crashed', { reason, detail })
   }

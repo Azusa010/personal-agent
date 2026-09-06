@@ -106,6 +106,23 @@ describe('PythonSupervisor ~ Slice 2', () => {
     await expect(p).rejects.toMatchObject({ code: RUNTIME_ERROR_CODE.CRASHED })
     expect(onCrashed).toHaveBeenCalledOnce()
   })
+  it('崩溃后新发的 request 立刻 reject CRASHED,不写死管道也不挂 timeout', async () => {
+    const { child, written } = makeFakeChild()
+    const sup = new PythonSupervisor({
+      command: 'fake',
+      args: [],
+      spawnFn: () => child,
+      defaultTimeoutMs: 5000
+    })
+    sup.start()
+
+    child.emit('exit', null, 'SIGTERM')
+    const writtenBefore = written.length
+
+    const p = sup.request('filesystem.list')
+    await expect(p).rejects.toMatchObject({ code: RUNTIME_ERROR_CODE.CRASHED })
+    expect(written).toHaveLength(writtenBefore)
+  }, 2000)
 })
 
 describe('PythonSupervisor ~ Slice 3', () => {
