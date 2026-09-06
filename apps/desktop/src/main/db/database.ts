@@ -3,6 +3,8 @@ import { dirname, join } from 'path'
 import Database from 'better-sqlite3'
 import { app } from 'electron/main'
 
+export type SqliteDatabase = SqliteDatabase
+
 const CREATE_TABLE = `
   CREATE TABLE IF NOT EXISTS pdf_files (
     absolute_path TEXT PRIMARY KEY,
@@ -15,7 +17,7 @@ const CREATE_TABLE = `
   )
 `
 
-export function openDatabase(filePath: string): Database.Database {
+export function openDatabase(filePath: string): SqliteDatabase {
   if (filePath !== ':memory') {
     mkdirSync(dirname(filePath), { recursive: true })
   }
@@ -25,9 +27,9 @@ export function openDatabase(filePath: string): Database.Database {
   return db
 }
 
-let db: Database.Database | null = null
+let db: SqliteDatabase | null = null
 
-export function getDb(): Database.Database {
+export function getDb(): SqliteDatabase {
   if (!db) {
     db = openDatabase(join(app.getPath('userData'), 'personal-agent.db'))
   }

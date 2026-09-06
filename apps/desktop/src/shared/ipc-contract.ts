@@ -17,3 +17,12 @@ export type IpcErrorCode = WireErrorCode | RuntimeErrorCode
 
 export type ListPdfsResult =
   { ok: true; entries: PdfEntry[] } | { ok: false; code: IpcErrorCode; message: string }
+
+export interface IndexedPdfEntry extends PdfEntry {
+  rootId: string
+  firstSeenAt: string
+  lastSennAt: string
+}
+
+export type IndexedPdfsResult =
+  { ok: true; entries: IndexedPdfEntry[] } | { ok: false; code: IpcErrorCode; message: string }
