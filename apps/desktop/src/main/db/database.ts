@@ -5,6 +5,13 @@ import { app } from 'electron'
 
 export type SqliteDatabase = Database.Database
 
+export const MEMORY_DB = ':memory:'
+
+const PRAGMA_JOURNAL_MODE = 'journal_mode'
+
+const JOURNAL_MODE_FILE = 'wal'
+const JOURNAL_MODE_MEMORY = 'memory'
+
 const CREATE_TABLE = `
   CREATE TABLE IF NOT EXISTS pdf_files (
     absolute_path TEXT PRIMARY KEY,
@@ -18,11 +25,17 @@ const CREATE_TABLE = `
 `
 
 export function openDatabase(filePath: string): SqliteDatabase {
-  if (filePath !== ':memory:') {
+  const isMemory = filePath === MEMORY_DB
+  if (!isMemory) {
     mkdirSync(dirname(filePath), { recursive: true })
   }
   const db = new Database(filePath)
-  db.pragma('journal_model = WAL')
+  db.pragma(`${PRAGMA_JOURNAL_MODE} = WAL`)
+  const actual = db.pragma(PRAGMA_JOURNAL_MODE, { simple: true })
+  const expected = isMemory ? JOURNAL_MODE_MEMORY : JOURNAL_MODE_FILE
+  if (actual != expected) {
+    console.error(`[db] journal_mode 未生效: 期望 ${expected}, 实际 ${String(actual)}`)
+  }
   db.exec(CREATE_TABLE)
   return db
 }

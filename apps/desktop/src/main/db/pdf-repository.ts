@@ -54,7 +54,7 @@ export function upsertMany(
 
 export function findAll(db: SqliteDatabase): IndexedPdfEntry[] {
   const rows = db.prepare(SELECT_SQL).all() as DbRow[]
-  const all_rows = rows.map((r) => ({
+  return rows.map((r) => ({
     name: r.name,
     absolutePath: r.absolute_path,
     modifiedAt: r.modified_at,
@@ -63,5 +63,4 @@ export function findAll(db: SqliteDatabase): IndexedPdfEntry[] {
     firstSeenAt: r.first_seen_at,
     lastSeenAt: r.last_seen_at
   }))
-  return all_rows
 }
