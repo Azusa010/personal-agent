@@ -5,7 +5,9 @@ import { startRuntime, stopRuntime, getRuntimeStatus, requestRuntime } from './r
 import { FilesystemListParams, FilesystemListResult, ERROR_CODE } from '@personal-agent/protocol'
 import { RuntimeError } from './runtime/python-supervisor'
 import { RUNTIME_ERROR_CODE } from './runtime/error-code'
-import type { IpcErrorCode, ListPdfsResult } from '../shared/ipc-contract'
+import type { IpcErrorCode, ListPdfsResult, IndexedPdfsResult } from '../shared/ipc-contract'
+import { getDb, closeDb } from './db/database'
+import { upsertMany, findAll } from './db/pdf-repository'
 import icon from '../../resources/icon.png?asset'
 
 const PRELOAD_PATH = join(__dirname, '../preload/index.js')
@@ -83,6 +85,11 @@ app.whenReady().then(() => {
             message: 'Python 响应不符合 FilesystemListResult'
           }
         }
+        try {
+          upsertMany(getDb(), params.data.rootId, result.data.entries, new Date().toString())
+        } catch (dbErr) {
+          console.error('[db] 落库失败', dbErr)
+        }
         return { ok: true, entries: result.data.entries }
       } catch (err) {
         const code = (
@@ -92,6 +99,18 @@ app.whenReady().then(() => {
       }
     }
   )
+
+  ipcMain.handle('personal-agent:indexed-pdfs', async (): Promise<IndexedPdfsResult> => {
+    try {
+      return { ok: true, entries: findAll(getDb()) }
+    } catch (err) {
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: err instanceof Error ? err.message : String(err)
+      }
+    }
+  })
   createWindow()
 
   void startRuntime()
@@ -111,7 +130,9 @@ app.on('before-quit', (event) => {
   if (isQuitting) return
   event.preventDefault()
   isQuitting = true
-  void stopRuntime().finally(() => app.quit())
+  void stopRuntime()
+    .finally(() => closeDb())
+    .finally(() => app.quit())
 })
 
 app.on('window-all-closed', () => {
