@@ -6,7 +6,7 @@ import { existsSync } from 'fs'
 import { RUNTIME_ERROR_CODE } from './error-code'
 import type { RuntimeState, RuntimeStatus } from '../../shared/ipc-contract'
 
-export { RuntimeState, RuntimeStatus }
+export type { RuntimeState, RuntimeStatus }
 let supervisor: PythonSupervisor | null = null
 let state: RuntimeState = 'stopped'
 let detail: string | undefined

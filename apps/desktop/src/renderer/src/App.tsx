@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ListPdfsResult } from '../../shared/ipc-contract'
+import type { ListPdfsResult } from '../../shared/ipc-contract'
 function App(): React.JSX.Element {
   const [status, setStatus] = useState('Empty')
   const ipcHandle = async (): Promise<void> => {
