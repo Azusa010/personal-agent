@@ -13,6 +13,9 @@ export const PdfEntry = z.object({
   sizeBytes: z.number().int().nonnegative(),
 });
 
+export type PdfEntry = z.infer<typeof PdfEntry>
+
 export const FilesystemListResult = z.object({
   entries: z.array(PdfEntry),
 });
+

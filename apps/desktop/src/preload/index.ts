@@ -9,8 +9,8 @@ if (process.contextIsolated) {
       runtimeStatus: () => {
         return ipcRenderer.invoke('personal-agent:runtime-status')
       },
-      listPdfs: (_rootId: string) => {
-        throw new Error('NOT_IMPLEMENTED')
+      listPdfs: (rootId: 'downloads') => {
+        return ipcRenderer.invoke('personal-agent:list-pdfs', rootId)
       }
     })
   } catch (error) {

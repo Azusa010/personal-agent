@@ -3,14 +3,10 @@ import { PythonSupervisor, RuntimeError } from './python-supervisor'
 import { app } from 'electron/main'
 import { is } from '@electron-toolkit/utils'
 import { existsSync } from 'fs'
+import { RUNTIME_ERROR_CODE } from './error-code'
+import type { RuntimeState, RuntimeStatus } from 'src/shared/ipc-contract'
 
-export type RuntimeState = 'stopped' | 'starting' | 'ready' | 'crashed'
-
-export interface RuntimeStatus {
-  state: RuntimeState
-  detail?: string
-}
-
+export { RuntimeState, RuntimeStatus }
 let supervisor: PythonSupervisor | null = null
 let state: RuntimeState = 'stopped'
 let detail: string | undefined
@@ -71,4 +67,11 @@ export async function stopRuntime(): Promise<void> {
   supervisor = null
   state = 'stopped'
   detail = undefined
+}
+
+export async function requestRuntime(method: string, params?: unknown): Promise<unknown> {
+  if (!supervisor) {
+    throw new RuntimeError(RUNTIME_ERROR_CODE.NOT_STARTED, 'Python runtime 未启动')
+  }
+  return supervisor.request(method, params)
 }

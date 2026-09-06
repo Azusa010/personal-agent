@@ -1,7 +1,11 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { startRuntime, stopRuntime, getRuntimeStatus } from './runtime/runtime-host'
+import { startRuntime, stopRuntime, getRuntimeStatus, requestRuntime } from './runtime/runtime-host'
+import { FilesystemListParams, FilesystemListResult, ERROR_CODE } from '@personal-agent/protocol'
+import { RuntimeError } from './runtime/python-supervisor'
+import { RUNTIME_ERROR_CODE } from './runtime/error-code'
+import type { IpcErrorCode, ListPdfsResult } from '../shared/ipc-contract'
 import icon from '../../resources/icon.png?asset'
 
 const PRELOAD_PATH = join(__dirname, '../preload/index.js')
@@ -57,6 +61,37 @@ app.whenReady().then(() => {
   // IPC test
   ipcMain.handle('personal-agent:runtime-status', () => getRuntimeStatus())
 
+  ipcMain.handle(
+    'personal-agent:list-pdfs',
+    async (_e, rootId: unknown): Promise<ListPdfsResult> => {
+      const params = FilesystemListParams.safeParse({ rootId })
+      if (!params.success) {
+        return {
+          ok: false,
+          code: ERROR_CODE.PROTOCOL_INVALID_REQUEST,
+          message: `rootId 非法: ${String(rootId)}`
+        }
+      }
+
+      try {
+        const raw = await requestRuntime('filesystem.list', params.data)
+        const result = FilesystemListResult.safeParse(raw)
+        if (!result.success) {
+          return {
+            ok: false,
+            code: RUNTIME_ERROR_CODE.RESPONSE_INVALID,
+            message: 'Python 响应不符合 FilesystemListResult'
+          }
+        }
+        return { ok: true, entries: result.data.entries }
+      } catch (err) {
+        const code = (
+          err instanceof RuntimeError ? err.code : RUNTIME_ERROR_CODE.CRASHED
+        ) as IpcErrorCode
+        return { ok: false, code, message: err instanceof Error ? err.message : String(err) }
+      }
+    }
+  )
   createWindow()
 
   void startRuntime()
