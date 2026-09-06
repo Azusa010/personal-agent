@@ -3,7 +3,7 @@ import { dirname, join } from 'path'
 import Database from 'better-sqlite3'
 import { app } from 'electron/main'
 
-export type SqliteDatabase = SqliteDatabase
+export type SqliteDatabase = Database.Database
 
 const CREATE_TABLE = `
   CREATE TABLE IF NOT EXISTS pdf_files (
