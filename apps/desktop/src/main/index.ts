@@ -1,6 +1,7 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { startRuntime, stopRuntime, getRuntimeStatus } from './runtime/runtime-host'
 import icon from '../../resources/icon.png?asset'
 
 const PRELOAD_PATH = join(__dirname, '../preload/index.js')
@@ -54,11 +55,11 @@ app.whenReady().then(() => {
   })
 
   // IPC test
-  ipcMain.handle('personal-agent:runtime-status', () => {
-    return { state: 'stopped', detail: 'Python runtime 尚未启动 (TASK-005)' }
-  })
+  ipcMain.handle('personal-agent:runtime-status', () => getRuntimeStatus())
 
   createWindow()
+
+  void startRuntime()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -70,11 +71,18 @@ app.whenReady().then(() => {
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
+let isQuitting = false
+app.on('before-quit', (event) => {
+  if (isQuitting) return
+  event.preventDefault()
+  isQuitting = true
+  void stopRuntime().finally(() => app.quit())
+})
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
 })
-
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
