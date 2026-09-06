@@ -13,7 +13,6 @@ export type RuntimeStatus = {
   detail?: string
 }
 
-
 export type PersonalAgentApi = {
   runtimeStatus(): Promise<RuntimeStatus>
   listPdfs(rootId: 'downloads'): Promise<ListPdfsResult>
