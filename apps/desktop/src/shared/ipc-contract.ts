@@ -21,7 +21,7 @@ export type ListPdfsResult =
 export interface IndexedPdfEntry extends PdfEntry {
   rootId: string
   firstSeenAt: string
-  lastSennAt: string
+  lastSeenAt: string
 }
 
 export type IndexedPdfsResult =

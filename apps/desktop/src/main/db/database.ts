@@ -18,7 +18,7 @@ const CREATE_TABLE = `
 `
 
 export function openDatabase(filePath: string): SqliteDatabase {
-  if (filePath !== ':memory') {
+  if (filePath !== ':memory:') {
     mkdirSync(dirname(filePath), { recursive: true })
   }
   const db = new Database(filePath)
