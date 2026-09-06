@@ -1,6 +1,6 @@
-import type { RuntimeStatus, ListPdfsResult } from '../shared/ipc-contract'
+import type { RuntimeStatus, ListPdfsResult, IndexedPdfsResult } from '../shared/ipc-contract'
 
-export type { RuntimeStatus, ListPdfsResult }
+export type { RuntimeStatus, ListPdfsResult, IndexedPdfsResult }
 
 declare global {
   interface Window {
@@ -11,4 +11,5 @@ declare global {
 export type PersonalAgentApi = {
   runtimeStatus(): Promise<RuntimeStatus>
   listPdfs(rootId: 'downloads'): Promise<ListPdfsResult>
+  indexedPdfs(): Promise<IndexedPdfsResult>
 }

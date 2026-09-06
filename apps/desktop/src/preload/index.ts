@@ -11,6 +11,9 @@ if (process.contextIsolated) {
       },
       listPdfs: (rootId: 'downloads') => {
         return ipcRenderer.invoke('personal-agent:list-pdfs', rootId)
+      },
+      indexedPdfs: () => {
+        return ipcRenderer.invoke('personal-agent:indexed-pdfs')
       }
     })
   } catch (error) {

@@ -1,7 +1,7 @@
 import { mkdirSync } from 'fs'
 import { dirname, join } from 'path'
 import Database from 'better-sqlite3'
-import { app } from 'electron/main'
+import { app } from 'electron'
 
 export type SqliteDatabase = Database.Database
 

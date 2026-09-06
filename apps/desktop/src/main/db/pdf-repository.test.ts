@@ -52,8 +52,18 @@ describe('pdf-repository', () => {
       db,
       'downloads',
       [
-        { ...entry, absolutePath: 'C:/Downloads/old.pdf', modifiedAt: '2025-01-01T00:00:00Z' },
-        { ...entry, absolutePath: 'C:/Downloads/new.pdf', modifiedAt: '2026-01-01T00:00:00Z' }
+        {
+          ...entry,
+          name: 'old.pdf',
+          absolutePath: 'C:/Downloads/old.pdf',
+          modifiedAt: '2025-01-01T00:00:00Z'
+        },
+        {
+          ...entry,
+          name: 'new.pdf',
+          absolutePath: 'C:/Downloads/new.pdf',
+          modifiedAt: '2026-01-01T00:00:00Z'
+        }
       ],
       T1
     )
