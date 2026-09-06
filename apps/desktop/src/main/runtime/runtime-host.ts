@@ -4,7 +4,7 @@ import { app } from 'electron/main'
 import { is } from '@electron-toolkit/utils'
 import { existsSync } from 'fs'
 import { RUNTIME_ERROR_CODE } from './error-code'
-import type { RuntimeState, RuntimeStatus } from 'src/shared/ipc-contract'
+import type { RuntimeState, RuntimeStatus } from '../../shared/ipc-contract'
 
 export { RuntimeState, RuntimeStatus }
 let supervisor: PythonSupervisor | null = null

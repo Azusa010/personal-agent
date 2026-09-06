@@ -8,11 +8,6 @@ declare global {
   }
 }
 
-export type RuntimeStatus = {
-  state: 'stopped' | 'starting' | 'ready' | 'crashed'
-  detail?: string
-}
-
 export type PersonalAgentApi = {
   runtimeStatus(): Promise<RuntimeStatus>
   listPdfs(rootId: 'downloads'): Promise<ListPdfsResult>
