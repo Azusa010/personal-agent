@@ -33,7 +33,7 @@ export function openDatabase(filePath: string): SqliteDatabase {
   db.pragma(`${PRAGMA_JOURNAL_MODE} = WAL`)
   const actual = db.pragma(PRAGMA_JOURNAL_MODE, { simple: true })
   const expected = isMemory ? JOURNAL_MODE_MEMORY : JOURNAL_MODE_FILE
-  if (actual != expected) {
+  if (actual !== expected) {
     console.error(`[db] journal_mode 未生效: 期望 ${expected}, 实际 ${String(actual)}`)
   }
   db.exec(CREATE_TABLE)
