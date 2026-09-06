@@ -22,7 +22,7 @@ export function openDatabase(filePath: string): SqliteDatabase {
     mkdirSync(dirname(filePath), { recursive: true })
   }
   const db = new Database(filePath)
-  db.pragma('journal_model=WAL')
+  db.pragma('journal_model = WAL')
   db.exec(CREATE_TABLE)
   return db
 }

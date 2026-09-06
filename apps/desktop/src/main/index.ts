@@ -86,7 +86,7 @@ app.whenReady().then(() => {
           }
         }
         try {
-          upsertMany(getDb(), params.data.rootId, result.data.entries, new Date().toString())
+          upsertMany(getDb(), params.data.rootId, result.data.entries, new Date().toISOString())
         } catch (dbErr) {
           console.error('[db] 落库失败', dbErr)
         }

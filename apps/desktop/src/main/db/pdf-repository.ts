@@ -63,5 +63,5 @@ export function findAll(db: SqliteDatabase): IndexedPdfEntry[] {
     firstSeenAt: r.first_seen_at,
     lastSeenAt: r.last_seen_at
   }))
-  return all_rows as unknown as IndexedPdfEntry[]
+  return all_rows
 }

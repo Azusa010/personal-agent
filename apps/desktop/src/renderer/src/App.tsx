@@ -9,7 +9,7 @@ function App(): React.JSX.Element {
 
   const [pdfLoading, setPdfLoading] = useState(false)
   const [pdfResult, setPdfResult] = useState<ListPdfsResult | null>(null)
-  const [dbResult, setdbResult] = useState<IndexedPdfsResult | null>(null)
+  const [dbResult, setDbResult] = useState<IndexedPdfsResult | null>(null)
   const handleListPdfs = async (): Promise<void> => {
     setPdfLoading(true)
     setPdfResult(null)
@@ -27,7 +27,7 @@ function App(): React.JSX.Element {
   }
 
   const handleReadDb = async (): Promise<void> => {
-    setdbResult(await window.personalAgent.indexedPdfs())
+    setDbResult(await window.personalAgent.indexedPdfs())
   }
 
   return (
