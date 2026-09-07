@@ -13,7 +13,7 @@ const JOURNAL_MODE_FILE = 'wal'
 const JOURNAL_MODE_MEMORY = 'memory'
 
 export function openProductState(filePath: string): SqliteDatabase {
-  const isMemory = filePath === MEMORY_DB ? true : false
+  const isMemory = filePath === MEMORY_DB
   if (!isMemory) {
     mkdirSync(dirname(filePath), { recursive: true })
   }
@@ -27,7 +27,19 @@ export function openProductState(filePath: string): SqliteDatabase {
   return db
 }
 
+function assertVersionsUnique(migrations: Migration[]): void {
+  const seen = new Set<number>()
+  for (const m of migrations) {
+    if (seen.has(m.version)) {
+      throw new Error(`migration version 重复: ${m.version} (${m.name})`)
+    }
+    seen.add(m.version)
+  }
+}
+
 export function migrate(db: SqliteDatabase, migrations: Migration[] = MIGRATIONS): number[] {
+  assertVersionsUnique(migrations)
+
   // 把库从当前user_version 推进到注册表最新
   const from: number = db.pragma(PRAGMA_USER_VERSION, { simple: true }) as number
 
