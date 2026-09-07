@@ -86,12 +86,15 @@ describe('migrate', () => {
   })
 
   it('迁移中途失败：整批回滚，user_version 不前进，不留半成品表', () => {
-    memDb = openProductState(MEMORY_DB)
+    // 用局部 const 承接：memDb 被 afterEach 闭包赋值过，
+    // TS 在跨过下面的箭头函数后会放弃对它的 null 窄化。
+    const db = openProductState(MEMORY_DB)
+    memDb = db
 
     const good: Migration = {
       version: 1,
       name: 'good',
-      up: (db) => db.exec('CREATE TABLE good_t (id TEXT)')
+      up: (d) => d.exec('CREATE TABLE good_t (id TEXT)')
     }
     const bad: Migration = {
       version: 2,
@@ -101,15 +104,15 @@ describe('migrate', () => {
       }
     }
 
-    expect(() => migrate(memDb, [good, bad])).toThrow('模拟迁移失败')
+    expect(() => migrate(db, [good, bad])).toThrow('模拟迁移失败')
 
     // 实测依据：user_version 与 DDL 在事务内一起回滚
-    expect(version(memDb)).toBe(0)
-    expect(tables(memDb)).not.toContain('good_t')
+    expect(version(db)).toBe(0)
+    expect(tables(db)).not.toContain('good_t')
 
     // 回滚干净后，修好再跑仍能成功
-    expect(migrate(memDb, [good])).toEqual([1])
-    expect(tables(memDb)).toContain('good_t')
+    expect(migrate(db, [good])).toEqual([1])
+    expect(tables(db)).toContain('good_t')
   })
 
   it('status 的 CHECK 约束把状态机钉进 schema，非法值被 DB 拒绝', () => {

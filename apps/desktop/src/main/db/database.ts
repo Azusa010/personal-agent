@@ -2,7 +2,6 @@ import { mkdirSync } from 'fs'
 import { dirname, join } from 'path'
 import Database from 'better-sqlite3'
 import { app } from 'electron'
-import { Migration } from '../migrations'
 
 export type SqliteDatabase = Database.Database
 
@@ -31,7 +30,7 @@ export function openDatabase(filePath: string): SqliteDatabase {
     mkdirSync(dirname(filePath), { recursive: true })
   }
   const db = new Database(filePath)
-  db.pragma(`${PRAGMA_JOURNAL_MODE} = WAL`)
+  db.pragma(`${PRAGMA_JOURNAL_MODE} = ${JOURNAL_MODE_FILE}`)
   const actual = db.pragma(PRAGMA_JOURNAL_MODE, { simple: true })
   const expected = isMemory ? JOURNAL_MODE_MEMORY : JOURNAL_MODE_FILE
   if (actual !== expected) {

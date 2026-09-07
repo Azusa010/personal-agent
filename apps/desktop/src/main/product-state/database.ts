@@ -18,7 +18,7 @@ export function openProductState(filePath: string): SqliteDatabase {
     mkdirSync(dirname(filePath), { recursive: true })
   }
   const db = new Database(filePath)
-  db.pragma(`${PRAGMA_JOURNAL_MODE} = 'wal'`)
+  db.pragma(`${PRAGMA_JOURNAL_MODE} = ${JOURNAL_MODE_FILE}`)
   const actual = db.pragma(PRAGMA_JOURNAL_MODE, { simple: true })
   const expected = isMemory ? JOURNAL_MODE_MEMORY : JOURNAL_MODE_FILE
   if (actual !== expected) {
