@@ -49,6 +49,6 @@ export function listByKind(kind: CapabilityKind): readonly CapabilityDescriptor[
   return CAPABILITIES.filter((c) => c.kind === kind)
 }
 
-export function findCapability(name: CapabilityName): CapabilityDescriptor | null {
+export function findCapability(name: string): CapabilityDescriptor | null {
   return CAPABILITIES.find((c) => c.name === name) ?? null
 }

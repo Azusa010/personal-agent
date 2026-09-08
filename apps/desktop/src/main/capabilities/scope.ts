@@ -1,8 +1,8 @@
-import { CapabilityName, listByKind } from './registry'
+import { type CapabilityName, listByKind } from './registry'
 
 export interface TaskScope {
   taskId: string
-  capabilities: CapabilityName[]
+  capabilities: readonly CapabilityName[]
 }
 
 export function readOnlyScope(taskId: string): TaskScope {
