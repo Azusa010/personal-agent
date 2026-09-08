@@ -52,6 +52,7 @@ export function buildBlankPdf(): Uint8Array {
   return buildPdf(['', '   '])
 }
 
-export function fromLatin1(buf: Buffer | Uint8Array): Uint8Array {
+function fromLatin1(text: string | Uint8Array): Uint8Array {
+  const buf = Buffer.from(text, 'latin1')
   return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
 }
