@@ -6,7 +6,10 @@ import {
   PasswordException,
   PDFDocumentLoadingTask
 } from 'pdfjs-dist/legacy/build/pdf.mjs'
-import { toUint8 } from './pdf-fixtures'
+
+function toUint8(buf: Buffer | Uint8Array): Uint8Array {
+  return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+}
 
 export interface PageText {
   pageNumber: number
