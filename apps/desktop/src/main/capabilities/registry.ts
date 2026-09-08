@@ -6,7 +6,7 @@ export interface CapabilityDescriptor {
   description: string
 }
 
-const CAPABILITIES = [
+export const CAPABILITIES = [
   {
     name: 'filesystem.list',
     kind: 'READ',
