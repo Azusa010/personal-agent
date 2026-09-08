@@ -52,4 +52,3 @@ export function listByKind(kind: CapabilityKind): readonly CapabilityDescriptor[
 export function findCapability(name: CapabilityName): CapabilityDescriptor | null {
   return CAPABILITIES.find((c) => c.name === name) ?? null
 }
-
