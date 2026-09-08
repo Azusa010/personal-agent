@@ -5,6 +5,8 @@ import { join } from 'path'
 import { openProductState, migrate, MEMORY_DB, type SqliteDatabase } from './database'
 import { MIGRATIONS } from './migrations'
 import type { Migration } from './migrations'
+import { SqlitePlanRepository } from './plan-repository'
+import { SqliteEventRepository } from './event-repository'
 
 let memDb: SqliteDatabase | null = null
 let fileDb: SqliteDatabase | null = null
@@ -56,35 +58,60 @@ describe('migrate', () => {
     expect(tables(memDb).filter((n) => n === 'tasks')).toHaveLength(1)
   })
 
-  it('TASK-009 Validation：重开数据库后数据一致', () => {
+  it('TASK-009 Validation + Phase 1 Exit 第 2 条：重开后 Task、Plan 和 Event 都可读取', () => {
+    const TS = '2026-09-06T00:00:00Z'
     tmpDir = mkdtempSync(join(tmpdir(), 'pa-store-'))
     const file = join(tmpDir, 'product-state.db')
 
-    fileDb = openProductState(file)
-    migrate(fileDb, MIGRATIONS)
-    fileDb
+    // 用局部 const 承接：fileDb 被 afterEach 闭包赋值过，
+    // 下面出现任何箭头函数后 TS 就会放弃对它的 null 窄化。
+    const first = openProductState(file)
+    fileDb = first
+    migrate(first, MIGRATIONS)
+    first
       .prepare('INSERT INTO tasks (id, goal, status, created_at, updated_at) VALUES (?,?,?,?,?)')
-      .run(
-        't-1',
-        '整理 Downloads 的 PDF',
-        'pending',
-        '2026-09-06T00:00:00Z',
-        '2026-09-06T00:00:00Z'
-      )
-    fileDb.close()
+      .run('t-1', '整理 Downloads 的 PDF', 'pending', TS, TS)
+
+    // Plan 与 Event 走 repository 写入：
+    // 读回时才会真的经过 JSON.parse，验证 steps/payload 跨重启保真。
+    // 文件库走 WAL，内存库走 memory journal，两条路径不能互相代替。
+    new SqlitePlanRepository(first).append({
+      id: 'p-1',
+      taskId: 't-1',
+      steps: [{ description: '列出下载目录的 PDF', capability: 'filesystem.list' }],
+      createdAt: TS
+    })
+    new SqliteEventRepository(first).append({
+      taskId: 't-1',
+      type: 'task_started',
+      payload: { goal: '整理 Downloads 的 PDF' },
+      occurredAt: TS
+    })
+
+    first.close()
     fileDb = null
 
     // 重开同一个文件
-    fileDb = openProductState(file)
-    expect(migrate(fileDb, MIGRATIONS)).toEqual([])
-    expect(version(fileDb)).toBe(LATEST_VERSION)
+    const reopened = openProductState(file)
+    fileDb = reopened
+    expect(migrate(reopened, MIGRATIONS)).toEqual([])
+    expect(version(reopened)).toBe(LATEST_VERSION)
 
-    const row = fileDb.prepare('SELECT id, goal, status FROM tasks').get() as {
-      id: string
-      goal: string
-      status: string
-    }
-    expect(row).toEqual({ id: 't-1', goal: '整理 Downloads 的 PDF', status: 'pending' })
+    expect(reopened.prepare('SELECT id, goal, status FROM tasks').get()).toEqual({
+      id: 't-1',
+      goal: '整理 Downloads 的 PDF',
+      status: 'pending'
+    })
+
+    const plan = new SqlitePlanRepository(reopened).findLatest('t-1')
+    expect(plan?.version).toBe(1)
+    expect(plan?.steps).toEqual([
+      { description: '列出下载目录的 PDF', capability: 'filesystem.list' }
+    ])
+
+    const events = new SqliteEventRepository(reopened).listByTask('t-1')
+    expect(events.map((e) => e.seq)).toEqual([1])
+    expect(events[0]?.payload).toEqual({ goal: '整理 Downloads 的 PDF' })
   })
 
   it('迁移中途失败：整批回滚，user_version 不前进，不留半成品表', () => {

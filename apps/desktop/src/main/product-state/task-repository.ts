@@ -1,4 +1,4 @@
-import { SqliteDatabase } from './database'
+import type { SqliteDatabase } from './database'
 
 export const TASK_STATUSES = ['pending', 'running', 'completed', 'failed', 'cancelled'] as const
 
