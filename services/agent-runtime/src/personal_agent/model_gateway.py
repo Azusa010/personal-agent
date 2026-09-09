@@ -1,4 +1,4 @@
-from typing import Literal, Any, Annotated, Protocol, runtime_checkable
+from typing import Annotated, Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
@@ -36,8 +36,10 @@ class ScriptExhausted(Exception):
         super().__init__(f"ScriptedModel 脚本已用尽（共 {steps} 步）仍被要求决策")
         self.steps = steps
 
+
 @runtime_checkable
 class ModelGateway(Protocol):
     """模型抽象端口"""
-    def decide(self,context:ModelContext)->ToolCallDecision:
-        pass    
+
+    def decide(self, context: ModelContext) -> ModelDecision:
+        pass

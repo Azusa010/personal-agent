@@ -30,7 +30,7 @@ export function buildPdf(pageTexts: string[]): Uint8Array {
   }
   pdf += `trailer\n<< /Size ${bodies.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`
 
-  return fromLatin1(Buffer.from(pdf, 'latin1'))
+  return fromLatin1(pdf)
 }
 export function buildEncryptedPdf(): Uint8Array {
   const normal = Buffer.from(buildPdf(['secret content']))
@@ -40,19 +40,19 @@ export function buildEncryptedPdf(): Uint8Array {
       '/Root 1 0 R >>',
       '/Root 1 0 R /Encrypt << /Filter /Standard /V 1 /R 2 /O <00> /U <00> /P -4 >> >>'
     )
-  return fromLatin1(Buffer.from(tampered, 'latin1'))
+  return fromLatin1(tampered)
 }
 
 // 损坏 fixtures
 export function buildCorruptPdf(): Uint8Array {
-  return fromLatin1(Buffer.from('%PDF-1.4\nthis is not a valid pdf body\n', 'latin1'))
+  return fromLatin1('%PDF-1.4\nthis is not a valid pdf body\n')
 }
 // 空文本页
 export function buildBlankPdf(): Uint8Array {
   return buildPdf(['', '   '])
 }
 
-function fromLatin1(text: string | Uint8Array): Uint8Array {
+function fromLatin1(text: string): Uint8Array {
   const buf = Buffer.from(text, 'latin1')
   return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
 }
