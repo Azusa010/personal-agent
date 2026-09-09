@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-4",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-bad1",
+    "capability": "shell.exec",
+    "arguments": {
+      "command": "format C:"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "result": {
+    "pages": [
+      {
+        "pageNumber": 1,
+        "text": "缺少 ok 字段，消费方无法判断成功还是失败"
+      }
+    ]
+  }
+}

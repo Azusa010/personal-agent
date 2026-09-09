@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-9f3a",
+    "capability": "document.extract_pdf",
+    "arguments": {
+      "path": "D:/Users/demo/Downloads/report-2026.pdf"
+    }
+  }
+}

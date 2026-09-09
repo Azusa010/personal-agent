@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-2",
+  "result": {
+    "ok": false,
+    "code": "PDF_CORRUPT",
+    "reason": "PDF 结构损坏: Invalid PDF structure"
+  }
+}

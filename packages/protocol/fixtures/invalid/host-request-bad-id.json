@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": "req-1",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-9f3a",
+    "capability": "filesystem.list",
+    "arguments": {
+      "rootId": "downloads"
+    }
+  }
+}

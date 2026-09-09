@@ -1,6 +1,6 @@
 from typing import Any, Literal, Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 METHOD_PATTERN = r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$"
 
@@ -71,3 +71,50 @@ class InitializeParams(BaseModel):
 class InitializeResult(BaseModel):
     protocolVersion: Literal["0.1"]
     server: ServerInfo
+
+
+# ---- host.execute_tool：Python → TS 的反向 RPC ----
+HOST_EXECUTE_TOOL = "host.execute_tool"
+HOST_CALL_ID_PATTERN = r"^call-[0-9]+$"
+
+CapabilityId = Literal[
+    "filesystem.list",
+    "document.extract_pdf",
+    "filesystem.create_dir",
+    "filesystem.move",
+    "scheduler.create",
+    "notification.send",
+]
+
+
+class HostExecuteToolParams(BaseModel):
+
+    callId: str = Field(min_length=1)
+    capability: CapabilityId
+    arguments: dict[str, Any] = Field(default_factory=dict)
+
+class HostExecuteToolResult(BaseModel):
+
+    model_config = ConfigDict(extra="allow")
+
+    ok: bool
+
+
+class HostExecuteToolRequest(BaseModel):
+    jsonrpc: Literal["2.0"]
+    id: str = Field(pattern=HOST_CALL_ID_PATTERN)
+    method: Literal["host.execute_tool"]
+    params: HostExecuteToolParams
+
+
+class HostExecuteToolResponse(BaseModel):
+    jsonrpc: Literal["2.0"]
+    id: str = Field(pattern=HOST_CALL_ID_PATTERN)
+    result: HostExecuteToolResult | None = None
+    error: JsonRpcError | None = None
+
+    @model_validator(mode="after")
+    def check_exactly_one(self) -> Self:
+        if (self.result is None) == (self.error is None):
+            raise ValueError("result and error must not be present at the same time")
+        return self

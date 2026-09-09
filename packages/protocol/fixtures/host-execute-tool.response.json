@@ -1,0 +1,17 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "result": {
+    "ok": true,
+    "pages": [
+      {
+        "pageNumber": 1,
+        "text": "PersonalAgent fixture page one"
+      },
+      {
+        "pageNumber": 2,
+        "text": "PersonalAgent fixture page two"
+      }
+    ]
+  }
+}
