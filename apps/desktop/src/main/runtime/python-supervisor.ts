@@ -1,6 +1,13 @@
 import { ChildProcess, spawn, SpawnOptions } from 'node:child_process'
 import EventEmitter from 'events'
-import { PROTOCOL_VERSION, InitializeResult, InitializeParams } from '@personal-agent/protocol'
+import {
+  PROTOCOL_VERSION,
+  InitializeResult,
+  InitializeParams,
+  HostExecuteToolParams,
+  HostExecuteToolRequest,
+  ERROR_CODE
+} from '@personal-agent/protocol'
 import { z } from 'zod'
 import { RUNTIME_ERROR_CODE } from './error-code'
 
@@ -12,15 +19,7 @@ export interface PythonSupervisorOptions {
   cwd?: string
   spawnFn?: SpawnFn
   defaultTimeoutMs?: number
-}
-
-interface ResponseMsg {
-  id?: string | null
-  result?: unknown
-  error?: {
-    code: string
-    message: string
-  }
+  hostHandler?: HostHandler
 }
 
 interface Pending {
@@ -45,6 +44,18 @@ const CLIENT_INFO = {
   version: '0.1.0'
 }
 
+export type HostHandler = (
+  params: z.infer<typeof HostExecuteToolParams>
+) => Promise<Record<string, unknown>>
+
+interface IncomingMsg {
+  id?: string | null
+  method?: string
+  params?: unknown
+  result?: unknown
+  error?: { code: string; message: string }
+}
+
 export class PythonSupervisor extends EventEmitter {
   private child: ChildProcess | null = null
   private buffer = ''
@@ -57,6 +68,7 @@ export class PythonSupervisor extends EventEmitter {
   private readonly defaultTimeoutMs: number
   private stopping = false
   private crashInfo: string | null = null
+  private hostHandler: HostHandler | null
 
   constructor(opts: PythonSupervisorOptions) {
     super()
@@ -65,6 +77,7 @@ export class PythonSupervisor extends EventEmitter {
     this.cwd = opts.cwd
     this.spawnFn = opts.spawnFn ?? (spawn as unknown as SpawnFn)
     this.defaultTimeoutMs = opts.defaultTimeoutMs ?? 30000
+    this.hostHandler = opts.hostHandler ?? null
   }
 
   // spawn 启动子进程，监听三个管道
@@ -140,7 +153,6 @@ export class PythonSupervisor extends EventEmitter {
       return Promise.reject(new RuntimeError(RUNTIME_ERROR_CODE.CANCELLED, `请求 ${method} 已取消`))
     }
     const id = `req-${++this.idCounter}`
-    const line = JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n'
     const timeoutMs = opts?.timeoutMs ?? this.defaultTimeoutMs
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -163,7 +175,7 @@ export class PythonSupervisor extends EventEmitter {
       }
 
       this.pending.set(id, { resolve, reject, timer, cleanup })
-      this.child!.stdin!.write(line)
+      this.writeLine({ jsonrpc: '2.0', id, method, params })
     })
   }
 
@@ -197,11 +209,15 @@ export class PythonSupervisor extends EventEmitter {
   private routeLine(line: string): void {
     const text = line.trim()
     if (!text) return
-    let msg: ResponseMsg
+    let msg: IncomingMsg
     try {
-      msg = JSON.parse(text) as ResponseMsg
+      msg = JSON.parse(text) as IncomingMsg
     } catch {
       this.emit('stderr', `[supervisor] stdout 非法 JSON: ${text}\n`)
+      return
+    }
+    if (typeof msg.method === 'string') {
+      void this.handleHostRequest(msg)
       return
     }
     if (msg.id == null) return
@@ -209,6 +225,64 @@ export class PythonSupervisor extends EventEmitter {
       if (msg.error) p.reject(new RuntimeError(msg.error?.code, msg.error?.message))
       else p.resolve(msg.result)
     })
+  }
+
+  private async handleHostRequest(msg: IncomingMsg): Promise<void> {
+    const parsed = HostExecuteToolRequest.safeParse(msg)
+    if (!parsed.success) {
+      const rawId = typeof msg.id === 'string' ? msg.id : null
+      if (rawId === null) {
+        this.emit('stderr', `[supervisor] host 请求不合法且无 id 可回: ${parsed.error.message}\n`)
+        return
+      }
+      this.writeLine({
+        jsonrpc: '2.0',
+        id: rawId,
+        error: { code: ERROR_CODE.PROTOCOL_INVALID_REQUEST, message: parsed.error.message }
+      })
+      return
+    }
+    const id = parsed.data.id
+    if (this.hostHandler === null) {
+      this.writeLine({
+        jsonrpc: '2.0',
+        id,
+        error: {
+          code: ERROR_CODE.NOT_IMPLEMENTED,
+          message: `未注入 hostHandler，无法执行 ${parsed.data.params.capability}`
+        }
+      })
+      return
+    }
+    try {
+      const result = await this.hostHandler(parsed.data.params)
+      this.writeLine({ jsonrpc: '2.0', id, result })
+    } catch (e) {
+      this.writeLine({
+        jsonrpc: '2.0',
+        id,
+        error: {
+          code: ERROR_CODE.HOST_HANDLER_FAILED,
+          message: e instanceof Error ? e.message : String(e)
+        }
+      })
+    }
+  }
+  // 唯一的写管道出口
+  private writeLine(msg: Record<string, unknown>): void {
+    const stdin = this.child?.stdin
+    if (!stdin) {
+      this.emit('stderr', `[supervisor] stdin 不可用，丢弃: ${JSON.stringify(msg)}\n`)
+      return
+    }
+    try {
+      stdin.write(JSON.stringify(msg) + '\n')
+    } catch (e) {
+      this.emit(
+        'stderr',
+        `[supervisor] 写入 stdin 失败: ${e instanceof Error ? e.message : String(e)}\n`
+      )
+    }
   }
 
   // 拒绝所有未决请求

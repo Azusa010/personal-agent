@@ -2,11 +2,12 @@ import { ChildProcess } from 'node:child_process'
 import { PassThrough } from 'node:stream'
 import { EventEmitter } from 'node:events'
 import { describe, it, expect, vi } from 'vitest'
-import { PythonSupervisor } from './python-supervisor'
+import { PythonSupervisor, type HostHandler } from './python-supervisor'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { existsSync } from 'node:fs'
 import { RUNTIME_ERROR_CODE } from './error-code'
+import { ERROR_CODE } from '@personal-agent/protocol'
 
 // 假子进程
 function makeFakeChild(): {
@@ -230,3 +231,169 @@ itReal(
   },
   15000
 )
+
+// ----- 片 2b：反向 RPC（Python → TS）-----
+describe('PythonSupervisor ~ 片 2b (host.execute_tool)', () => {
+  interface Reply {
+    jsonrpc: string
+    id: string
+    result?: Record<string, unknown>
+    error?: { code: string; message: string }
+  }
+
+  /** 造一条 Python 发来的反向请求。over 用于覆盖字段制造非法输入。 */
+  function hostLine(over: Record<string, unknown> = {}): string {
+    return (
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'call-1',
+        method: 'host.execute_tool',
+        params: {
+          callId: 'tc-1',
+          capability: 'filesystem.list',
+          arguments: { rootId: 'downloads' }
+        },
+        ...over
+      }) + '\n'
+    )
+  }
+
+  function makeSup(handler?: HostHandler): {
+    sup: PythonSupervisor
+    written: string[]
+    stdout: PassThrough
+    stderr: PassThrough
+  } {
+    const fake = makeFakeChild()
+    const sup = new PythonSupervisor({
+      command: 'fake',
+      args: [],
+      spawnFn: () => fake.child,
+      defaultTimeoutMs: 5000,
+      hostHandler: handler
+    })
+    sup.start()
+    return { sup, written: fake.written, stdout: fake.stdout, stderr: fake.stderr }
+  }
+
+  /** handleHostRequest 是 async，回复不会同步出现在 written 里。 */
+  async function replyAt(written: string[], index: number): Promise<Reply> {
+    await vi.waitFor(() => expect(written.length).toBeGreaterThan(index))
+    return JSON.parse(written[index]) as Reply
+  }
+
+  it('收到 host 请求 -> 调 handler -> 把 result 写回 stdin', async () => {
+    const handler = vi.fn<HostHandler>(async () => ({ ok: true, entries: [] }))
+    const { written, stdout } = makeSup(handler)
+
+    stdout.push(hostLine())
+    const reply = await replyAt(written, 0)
+
+    expect(handler).toHaveBeenCalledOnce()
+    expect(handler.mock.calls[0][0]).toMatchObject({
+      callId: 'tc-1',
+      capability: 'filesystem.list',
+      arguments: { rootId: 'downloads' }
+    })
+    expect(reply).toEqual({ jsonrpc: '2.0', id: 'call-1', result: { ok: true, entries: [] } })
+  })
+
+  it('handler 返回 ok:false -> 原样进 result，不走 error', async () => {
+    // PDF 损坏是可预期的业务结果。塞进 error 会让 Python 侧
+    // 把正常返回值当成通道故障，两条路径的错误处理完全不同。
+    const { written, stdout } = makeSup(async () => ({
+      ok: false,
+      code: 'PDF_CORRUPT',
+      reason: 'PDF 结构损坏'
+    }))
+
+    stdout.push(hostLine())
+    const reply = await replyAt(written, 0)
+
+    expect(reply.error).toBeUndefined()
+    expect(reply.result).toMatchObject({ ok: false, code: 'PDF_CORRUPT' })
+  })
+
+  it('未注入 hostHandler -> 回 NOT_IMPLEMENTED', async () => {
+    const { written, stdout } = makeSup(undefined)
+
+    stdout.push(hostLine())
+    const reply = await replyAt(written, 0)
+
+    expect(reply.error?.code).toBe(ERROR_CODE.NOT_IMPLEMENTED)
+    expect(reply.id).toBe('call-1')
+  })
+
+  it('id 用了 TS 的 req- 命名空间 -> 回 PROTOCOL_INVALID_REQUEST', async () => {
+    const handler = vi.fn(async () => ({ ok: true }))
+    const { written, stdout } = makeSup(handler)
+
+    stdout.push(hostLine({ id: 'req-1' }))
+    const reply = await replyAt(written, 0)
+
+    expect(reply.error?.code).toBe(ERROR_CODE.PROTOCOL_INVALID_REQUEST)
+    // id 不合法也得回：Python 侧在阻塞等，靠 id 原样带回去才能对上
+    expect(reply.id).toBe('req-1')
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('capability 不在 REQ-006 白名单 -> 回错且不执行', async () => {
+    // SEC-007：shell.exec 这类根本不该被注册。
+    // 校验必须在调 handler 之前，否则白名单只是文档。
+    const handler = vi.fn(async () => ({ ok: true }))
+    const { written, stdout } = makeSup(handler)
+
+    stdout.push(
+      hostLine({
+        params: {
+          callId: 'tc-x',
+          capability: 'shell.exec',
+          arguments: { command: 'format C:' }
+        }
+      })
+    )
+    const reply = await replyAt(written, 0)
+
+    expect(reply.error?.code).toBe(ERROR_CODE.PROTOCOL_INVALID_REQUEST)
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('handler 抛异常 -> 回 HOST_HANDLER_FAILED，异常不冒泡', async () => {
+    const { written, stdout } = makeSup(async () => {
+      throw new Error('boom')
+    })
+
+    // routeLine 跑在 stdout 的 data 回调里，异常冒出去就是 unhandled exception
+    expect(() => stdout.push(hostLine())).not.toThrow()
+    const reply = await replyAt(written, 0)
+
+    expect(reply.error?.code).toBe(ERROR_CODE.HOST_HANDLER_FAILED)
+    expect(reply.error?.message).toContain('boom')
+  })
+
+  it('host 请求不会误 resolve TS 自己的 pending', async () => {
+    // 钉住 routeLine 分流后的那个 return。漏了的话同一条消息
+    // 会接着走 settle，把请求当成响应 resolve 掉。
+    const { sup, written, stdout } = makeSup(async () => ({ ok: true }))
+
+    const p = sup.request('system.ping')
+    expect(written).toHaveLength(1)
+    const tsId = (JSON.parse(written[0]) as Reply).id
+
+    // 构造撞车：Python 用了跟 TS pending 相同的 id
+    stdout.push(hostLine({ id: tsId }))
+    const reply = await replyAt(written, 1)
+    expect(reply.error?.code).toBe(ERROR_CODE.PROTOCOL_INVALID_REQUEST)
+
+    // pending 必须还挂着。被误 resolve 的话这里是 'resolved'，
+    // 调用方拿到 undefined 当成功结果，两边都不报错。
+    const state = await Promise.race([
+      p.then(
+        () => 'resolved',
+        () => 'rejected'
+      ),
+      new Promise<string>((r) => setTimeout(() => r('pending'), 100))
+    ])
+    expect(state).toBe('pending')
+  })
+})
