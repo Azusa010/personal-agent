@@ -258,7 +258,10 @@ describe('PythonSupervisor ~ 片 2b (host.execute_tool)', () => {
     )
   }
 
-  function makeSup(handler?: HostHandler): {
+  function makeSup(
+    handler?: HostHandler,
+    over: { defaultTimeoutMs?: number; hostTimeoutMs?: number } = {}
+  ): {
     sup: PythonSupervisor
     written: string[]
     stdout: PassThrough
@@ -270,7 +273,8 @@ describe('PythonSupervisor ~ 片 2b (host.execute_tool)', () => {
       args: [],
       spawnFn: () => fake.child,
       defaultTimeoutMs: 5000,
-      hostHandler: handler
+      hostHandler: handler,
+      ...over
     })
     sup.start()
     return { sup, written: fake.written, stdout: fake.stdout, stderr: fake.stderr }
@@ -395,5 +399,76 @@ describe('PythonSupervisor ~ 片 2b (host.execute_tool)', () => {
       new Promise<string>((r) => setTimeout(() => r('pending'), 100))
     ])
     expect(state).toBe('pending')
+  })
+
+  // ----- 片 2c：hostTimeoutMs -----
+  describe('host 超时', () => {
+    /** handler 挂 delay 毫秒后才 resolve，用来触发超时。 */
+    function slowHandler(delay: number): HostHandler {
+      return () =>
+        new Promise<Record<string, unknown>>((resolve) =>
+          setTimeout(() => resolve({ ok: true, late: true }), delay)
+        )
+    }
+
+    it('handler 超过 hostTimeoutMs -> 回 HOST_TIMEOUT', async () => {
+      const { written, stdout } = makeSup(slowHandler(500), { hostTimeoutMs: 30 })
+
+      stdout.push(hostLine())
+      const reply = await replyAt(written, 0)
+
+      expect(reply.error?.code).toBe(ERROR_CODE.HOST_TIMEOUT)
+      // Python 侧阻塞在 readline 上等这个 id，丢了就是永久挂起
+      expect(reply.id).toBe('call-1')
+      expect(reply.error?.message).toContain('30ms')
+    })
+
+    it('超时后 handler 晚到的 result 被丢弃，不写第二行', async () => {
+      const { written, stdout } = makeSup(slowHandler(120), { hostTimeoutMs: 20 })
+
+      stdout.push(hostLine())
+      await replyAt(written, 0)
+      // 等晚到的 handler resolve 完
+      await new Promise((r) => setTimeout(r, 250))
+
+      // 再写一行的话 Python 会收到两个同 id 的响应：第二个进 inbox，
+      // 主循环拿它去 dispatch，因缺 method 校验失败，白跑一轮往返。
+      expect(written).toHaveLength(1)
+      expect(written[0]).toContain(ERROR_CODE.HOST_TIMEOUT)
+    })
+
+    it('超时后 handler 晚到的异常也被丢弃，不写第二行', async () => {
+      const { written, stdout } = makeSup(
+        () =>
+          new Promise<Record<string, unknown>>((_, reject) =>
+            setTimeout(() => reject(new Error('late boom')), 120)
+          ),
+        { hostTimeoutMs: 20 }
+      )
+
+      stdout.push(hostLine())
+      await replyAt(written, 0)
+      await new Promise((r) => setTimeout(r, 250))
+
+      expect(written).toHaveLength(1)
+      expect(written[0]).not.toContain(ERROR_CODE.HOST_HANDLER_FAILED)
+    })
+
+    it('host 超时不影响 TS 自己的 pending 请求', async () => {
+      const { sup, written, stdout } = makeSup(slowHandler(300), { hostTimeoutMs: 20 })
+
+      const ping = sup.request('system.ping')
+      const pingId = (JSON.parse(written[0]) as Reply).id
+      stdout.push(hostLine())
+
+      const timeout = await replyAt(written, 1)
+      expect(timeout.error?.code).toBe(ERROR_CODE.HOST_TIMEOUT)
+
+      stdout.push(JSON.stringify({ jsonrpc: '2.0', id: pingId, result: {} }) + '\n')
+      await expect(ping).resolves.toEqual({})
+
+      await new Promise((r) => setTimeout(r, 350))
+      expect(written).toHaveLength(2)
+    })
   })
 })

@@ -20,6 +20,7 @@ export interface PythonSupervisorOptions {
   spawnFn?: SpawnFn
   defaultTimeoutMs?: number
   hostHandler?: HostHandler
+  hostTimeoutMs?: number
 }
 
 interface Pending {
@@ -69,6 +70,7 @@ export class PythonSupervisor extends EventEmitter {
   private stopping = false
   private crashInfo: string | null = null
   private hostHandler: HostHandler | null
+  private readonly hostTimeoutMs: number
 
   constructor(opts: PythonSupervisorOptions) {
     super()
@@ -78,6 +80,7 @@ export class PythonSupervisor extends EventEmitter {
     this.spawnFn = opts.spawnFn ?? (spawn as unknown as SpawnFn)
     this.defaultTimeoutMs = opts.defaultTimeoutMs ?? 30000
     this.hostHandler = opts.hostHandler ?? null
+    this.hostTimeoutMs = opts.hostTimeoutMs ?? 5000
   }
 
   // spawn 启动子进程，监听三个管道
@@ -254,10 +257,24 @@ export class PythonSupervisor extends EventEmitter {
       })
       return
     }
+    let timeOut = false
+    const timer = setTimeout(() => {
+      timeOut = true
+      this.writeLine({
+        jsonrpc: '2.0',
+        id,
+        error: {
+          code: ERROR_CODE.HOST_TIMEOUT,
+          message: `host.executeTool 请求超时 (${this.hostTimeoutMs}ms: ${parsed.data.params.capability})`
+        }
+      })
+    }, this.hostTimeoutMs)
     try {
       const result = await this.hostHandler(parsed.data.params)
+      if (timeOut) return
       this.writeLine({ jsonrpc: '2.0', id, result })
     } catch (e) {
+      if (timeOut) return
       this.writeLine({
         jsonrpc: '2.0',
         id,
@@ -266,6 +283,8 @@ export class PythonSupervisor extends EventEmitter {
           message: e instanceof Error ? e.message : String(e)
         }
       })
+    } finally {
+      clearTimeout(timer)
     }
   }
   // 唯一的写管道出口

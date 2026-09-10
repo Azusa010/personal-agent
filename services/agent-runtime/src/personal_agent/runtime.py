@@ -5,6 +5,7 @@ import sys
 
 from pydantic import ValidationError
 
+from personal_agent.host_channel import HostChannel
 from personal_agent.protocol.models import (
     FilesystemListParams,
     FilesystemListResult,
@@ -39,7 +40,9 @@ def handle_filesystem_list(req: Request) -> dict:
         )
     entries = list_pdfs(base)
     result = FilesystemListResult(entries=entries)
-    return Response(jsonrpc="2.0", id=req.id, result=result.model_dump()).model_dump(exclude_none=True)
+    return Response(jsonrpc="2.0", id=req.id, result=result.model_dump()).model_dump(
+        exclude_none=True
+    )
 
 
 def dispatch(raw) -> dict:
@@ -115,9 +118,20 @@ def _setup_logging() -> logging.Logger:
 log = _setup_logging()
 
 
-def run() -> None:
+def run(channel: HostChannel | None = None) -> None:
+    ch = (
+        channel
+        if channel is not None
+        else HostChannel(readline=sys.stdin.readline, write_msg=write)
+    )
     log.info("runtime started")
-    for line in sys.stdin:
+    while True:
+        line = ch.next_line()
+        # readline() 在 EOF 时返回空字符串，不是 None。判 is None 的话这个
+        # break 永远不触发：stdin 关闭后 next_line() 一直返回 ''，
+        # handle_line('') 返回 None 不写任何东西，进程 100% CPU 忙等死循环。
+        if not line:
+            break
         resp = handle_line(line)
         if resp is not None:
             write(resp)
