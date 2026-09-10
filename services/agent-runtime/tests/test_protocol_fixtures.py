@@ -5,6 +5,9 @@ import pytest
 from pydantic import ValidationError
 
 from personal_agent.protocol.models import (
+    CapabilityFailure,
+    DocumentExtractPdfParams,
+    DocumentExtractPdfResult,
     FilesystemListParams,
     FilesystemListResult,
     HostExecuteToolParams,
@@ -25,6 +28,23 @@ def _load(name: str) -> dict:
     return json.loads((FIXTURES_DIR / name).read_text(encoding="utf-8"))
 
 
+def _pick(raw: dict, path: str):
+    """按点路径取嵌套字段。
+
+    capability 的 arguments 住在 params.arguments 里，一层下标拿不到。
+    取不到就直接 fail，不要让后面的 model_validate 收到 None 再报一个
+    指向错误现场的 ValidationError。
+    """
+    node: object = raw
+    for key in path.split("."):
+        if not isinstance(node, dict) or key not in node:
+            pytest.fail(f"fixture 里取不到字段 {path}")
+        node = node[key]
+    return node
+
+
+# 与 packages/protocol/tests/envelope.test.ts 的 legalCases 一一对应。
+# 两边条目数或 field 不一致，说明有一侧偷偷放宽了，这里就是抓漂移的地方。
 @pytest.mark.parametrize(
     ("name", "envelope", "payload", "field"),
     [
@@ -32,25 +52,51 @@ def _load(name: str) -> dict:
         ("initialize.response.json", Response, InitializeResult, "result"),
         ("ping.request.json", Request, None, "params"),
         ("ping.response.json", Response, None, "result"),
-        ("filesystem-list.request.json", Request, FilesystemListParams, "params"),
-        ("filesystem-list.response.json", Response, FilesystemListResult, "result"),
+        # filesystem.list 不再是 TS→Python 的独立 method（执行体已移到 host 侧），
+        # 它的 params/result 挂在 host.execute_tool 的 arguments/result 上。
+        (
+            "host-filesystem-list.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-filesystem-list.request.json",
+            HostExecuteToolRequest,
+            FilesystemListParams,
+            "params.arguments",
+        ),
+        # FilesystemListResult 只钉 entries。host result 里的 ok 会被默认
+        # extra='ignore' 丢掉，ok 由 envelope 层的 HostExecuteToolResult 负责。
+        (
+            "host-filesystem-list.response.json",
+            HostExecuteToolResponse,
+            FilesystemListResult,
+            "result",
+        ),
         (
             "host-execute-tool.request.json",
             HostExecuteToolRequest,
             HostExecuteToolParams,
             "params",
         ),
-        # result 的具体形状不在契约层校验（只钉 ok），payload 给 None。
+        (
+            "host-execute-tool.request.json",
+            HostExecuteToolRequest,
+            DocumentExtractPdfParams,
+            "params.arguments",
+        ),
         (
             "host-execute-tool.response.json",
             HostExecuteToolResponse,
-            None,
+            DocumentExtractPdfResult,
             "result",
         ),
+        # 业务失败（PDF 损坏等）走 result 不走 error，形状由 CapabilityFailure 钉。
         (
             "host-execute-tool.failure.response.json",
             HostExecuteToolResponse,
-            None,
+            CapabilityFailure,
             "result",
         ),
     ],
@@ -59,7 +105,7 @@ def test_legal_fixtures_are_accepted(name, envelope, payload, field):
     raw = _load(name)
     envelope.model_validate(raw)
     if payload is not None:
-        payload.model_validate(raw[field])
+        payload.model_validate(_pick(raw, field))
 
 
 def test_illegal_fixtures_are_not_accepted():

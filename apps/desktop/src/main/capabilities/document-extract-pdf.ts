@@ -7,13 +7,10 @@ import {
   PDFDocumentLoadingTask
 } from 'pdfjs-dist/legacy/build/pdf.mjs'
 
+import type { PageText } from '@personal-agent/protocol'
+
 function toUint8(buf: Buffer | Uint8Array): Uint8Array {
   return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
-}
-
-export interface PageText {
-  pageNumber: number
-  text: string
 }
 
 export type PdfErrorCode = 'PDF_EMPTY' | 'PDF_CORRUPT' | 'PDF_ENCRYPTED' | 'PDF_NO_TEXT'

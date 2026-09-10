@@ -59,3 +59,8 @@ export const CapabilityFailure = z.object({
   code: z.string(),
   reason: z.string(),
 })
+
+// code 用宽松的 z.string()：收成枚举就得把 PDF_EMPTY / PDF_CORRUPT /
+// PDF_ENCRYPTED / PDF_NO_TEXT 全搬进 protocol 包，契约层会变成业务错误码字典。
+// 数据形状（PageText）进 protocol，错误码字典留在各自的 capability 文件。
+export type CapabilityFailure = z.infer<typeof CapabilityFailure>

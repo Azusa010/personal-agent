@@ -1,4 +1,4 @@
-from typing import Any, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -118,3 +118,25 @@ class HostExecuteToolResponse(BaseModel):
         if (self.result is None) == (self.error is None):
             raise ValueError("result and error must not be present at the same time")
         return self
+
+
+class CapabilityFailure(BaseModel):
+    ok: Literal[False]
+    code: str
+    reason: str
+
+class PageText(BaseModel):
+    pageNumber: int = Field(ge=1)
+    text: str
+
+class DocumentExtractPdfParams(BaseModel):
+    path:str = Field(min_length=1)
+
+
+class DocumentExtractPdfResult(BaseModel):
+    ok: Literal[True]
+    pages: list[PageText]
+
+DocumentExtractPdfOutcome = Annotated[
+    DocumentExtractPdfResult | CapabilityFailure, Field(discriminator="ok")
+]

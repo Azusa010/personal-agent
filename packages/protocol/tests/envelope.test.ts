@@ -13,10 +13,32 @@ import {
   HostExecuteToolParams,
   HostExecuteToolRequest,
   HostExecuteToolResponse,
+  CapabilityFailure,
 } from "../schemas/host.js";
+import {
+  DocumentExtractPdfParams,
+  DocumentExtractPdfResult,
+} from "../schemas/document.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, "../fixtures");
+
+/**
+ * 按点路径取嵌套字段。
+ *
+ * capability 的 arguments 住在 params.arguments 里，原来的一层取值拿不到。
+ */
+function pick(raw: unknown, path: string): unknown {
+  return path
+    .split(".")
+    .reduce<unknown>(
+      (acc, key) =>
+        acc === null || acc === undefined
+          ? undefined
+          : (acc as Record<string, unknown>)[key],
+      raw,
+    );
+}
 
 const legalCases = [
   {
@@ -43,15 +65,26 @@ const legalCases = [
     payload: null,
     field: "result",
   },
+  // filesystem.list 不再是 TS→Python 的独立 method（执行体已移到 host 侧），
+  // 所以它的 params/result 挂在 host.execute_tool 的 arguments/result 上。
   {
-    file: "filesystem-list.request.json",
-    envelope: Request,
-    payload: FilesystemListParams,
+    file: "host-filesystem-list.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
     field: "params",
   },
   {
-    file: "filesystem-list.response.json",
-    envelope: Response,
+    file: "host-filesystem-list.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: FilesystemListParams,
+    field: "params.arguments",
+  },
+  // FilesystemListResult 只钉 entries。host result 里的 ok 会被 z.object 剥掉
+  //（实测：parse({ok:true,entries:[…]}) 输出只剩 entries），
+  // ok 由 envelope 层的 HostExecuteToolResult 负责，两层各管一件事。
+  {
+    file: "host-filesystem-list.response.json",
+    envelope: HostExecuteToolResponse,
     payload: FilesystemListResult,
     field: "result",
   },
@@ -61,29 +94,36 @@ const legalCases = [
     payload: HostExecuteToolParams,
     field: "params",
   },
-  // result 的具体形状不在契约层校验（只钉 ok），所以 payload 给 null。
-  // 六个 capability 返回形状各异，穷举会让 protocol 包退化成业务字典。
+  {
+    file: "host-execute-tool.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: DocumentExtractPdfParams,
+    field: "params.arguments",
+  },
   {
     file: "host-execute-tool.response.json",
     envelope: HostExecuteToolResponse,
-    payload: null,
+    payload: DocumentExtractPdfResult,
     field: "result",
   },
+  // 业务失败（PDF 损坏等）走 result 不走 error，形状由 CapabilityFailure 钉。
   {
     file: "host-execute-tool.failure.response.json",
     envelope: HostExecuteToolResponse,
-    payload: null,
+    payload: CapabilityFailure,
     field: "result",
   },
 ];
 
 describe("协议契约：合法 Fixture 必须被接受", () => {
   for (const c of legalCases) {
-    it(`接受${c.file}`, () => {
+    // 名字带上 field：同一个 fixture 会被多条 case 用不同 payload 校验，
+    // 只写文件名的话测试报告里出现两条同名用例，红了分不清是哪一层。
+    it(`接受 ${c.file} 的 ${c.field}`, () => {
       const raw = JSON.parse(readFileSync(join(fixturesDir, c.file), "utf-8"));
       expect(() => c.envelope.parse(raw)).not.toThrow();
       if (c.payload) {
-        expect(() => c.payload.parse(raw[c.field])).not.toThrow();
+        expect(() => c.payload.parse(pick(raw, c.field))).not.toThrow();
       }
     });
   }
