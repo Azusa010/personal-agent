@@ -53,3 +53,9 @@ export const HostExecuteToolResponse = z
       });
     }
   });
+
+export const CapabilityFailure = z.object({
+  ok: z.literal(false),
+  code: z.string(),
+  reason: z.string(),
+})
