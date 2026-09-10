@@ -3,12 +3,12 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { startRuntime, stopRuntime, getRuntimeStatus, requestRuntime } from './runtime/runtime-host'
 import { FilesystemListParams, FilesystemListResult, ERROR_CODE } from '@personal-agent/protocol'
-import { RuntimeError } from './runtime/python-supervisor'
 import { RUNTIME_ERROR_CODE } from './runtime/error-code'
 import type { IpcErrorCode, ListPdfsResult, IndexedPdfsResult } from '../shared/ipc-contract'
 import { getDb, closeDb } from './db/database'
 import { upsertMany, findAll } from './db/pdf-repository'
 import icon from '../../resources/icon.png?asset'
+import { executeCapability } from './capabilities/host-executor'
 
 const PRELOAD_PATH = join(__dirname, '../preload/index.js')
 
@@ -75,28 +75,29 @@ app.whenReady().then(() => {
         }
       }
 
-      try {
-        const raw = await requestRuntime('filesystem.list', params.data)
-        const result = FilesystemListResult.safeParse(raw)
-        if (!result.success) {
-          return {
-            ok: false,
-            code: RUNTIME_ERROR_CODE.RESPONSE_INVALID,
-            message: 'Python 响应不符合 FilesystemListResult'
-          }
+      const outcome = await executeCapability('filesystem.list', { rootId: params.data.rootId })
+      if (outcome['ok'] !== true) {
+        return {
+          ok: false,
+          code: String(outcome['code']) as IpcErrorCode,
+          message: String(outcome['reason'])
         }
-        try {
-          upsertMany(getDb(), params.data.rootId, result.data.entries, new Date().toISOString())
-        } catch (dbErr) {
-          console.error('[db] 落库失败', dbErr)
-        }
-        return { ok: true, entries: result.data.entries }
-      } catch (err) {
-        const code = (
-          err instanceof RuntimeError ? err.code : RUNTIME_ERROR_CODE.CRASHED
-        ) as IpcErrorCode
-        return { ok: false, code, message: err instanceof Error ? err.message : String(err) }
       }
+      const result = FilesystemListResult.safeParse(outcome['result'])
+      if (!result.success) {
+        return {
+          ok: false,
+          code: RUNTIME_ERROR_CODE.RESPONSE_INVALID,
+          message: 'executor 输出不符合 FilesystemListResult'
+        }
+      }
+
+      try {
+        upsertMany(getDb(), params.data.rootId, result.data.entries, new Date().toISOString())
+      } catch (dbErr) {
+        console.error('[db] 落库失败', dbErr)
+      }
+      return { ok: true, entries: result.data.entries }
     }
   )
 
