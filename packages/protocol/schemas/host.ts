@@ -21,6 +21,8 @@ export const HostExecuteToolParams = z.object({
   arguments: z.record(z.string(), z.unknown()),
 });
 
+export type HostExecuteToolParams = z.infer<typeof HostExecuteToolParams>;
+
 export const HostExecuteToolResult = z.looseObject({
   ok: z.boolean(),
 });

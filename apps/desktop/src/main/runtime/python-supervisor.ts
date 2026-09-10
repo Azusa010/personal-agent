@@ -4,7 +4,7 @@ import {
   PROTOCOL_VERSION,
   InitializeResult,
   InitializeParams,
-  HostExecuteToolParams,
+  type HostExecuteToolParams,
   HostExecuteToolRequest,
   ERROR_CODE
 } from '@personal-agent/protocol'
@@ -45,9 +45,7 @@ const CLIENT_INFO = {
   version: '0.1.0'
 }
 
-export type HostHandler = (
-  params: z.infer<typeof HostExecuteToolParams>
-) => Promise<Record<string, unknown>>
+export type HostHandler = (params: HostExecuteToolParams) => Promise<Record<string, unknown>>
 
 interface IncomingMsg {
   id?: string | null

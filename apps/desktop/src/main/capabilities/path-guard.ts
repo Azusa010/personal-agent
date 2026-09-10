@@ -1,4 +1,5 @@
-import { resolve } from 'path'
+import { resolve } from 'node:path'
+
 import { toPosix } from './roots'
 
 export function resolveWithinRoot(root: string, candidate: string): string | null {
@@ -10,6 +11,5 @@ export function resolveWithinRoot(root: string, candidate: string): string | nul
   if (lowerAbs !== lowerBase && !lowerAbs.startsWith(lowerBase + '/')) {
     return null
   }
-
   return abs
 }

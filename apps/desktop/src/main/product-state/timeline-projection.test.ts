@@ -4,8 +4,7 @@ import { SqliteTaskRepository, type TaskRecord, type TaskRepository } from './ta
 import {
   SqliteEventRepository,
   type EventRepository,
-  type ExecutionEventRecord,
-  type NewExecutionEvent
+  type ExecutionEventRecord
 } from './event-repository'
 import { projectTimeline } from './timeline-projection'
 
@@ -139,7 +138,9 @@ describe('projectTimeline', () => {
       updateStatus: () => {}
     }
     const fakeEventRepo: EventRepository = {
-      append: (_e: NewExecutionEvent) => 7,
+      // 参数省略而不是写 _e 占位：TS 允许少参数的函数赋给多参数的签名，
+      // 而这个 fake 只关心返回值，不关心入参。
+      append: () => 7,
       listByTask: (id) => (id === 'fake-1' ? fakeEvents : [])
     }
 

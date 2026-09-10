@@ -15,11 +15,14 @@ export interface ToolRetriever {
   authorize(scope: TaskScope, name: string): AuthorizeResult
 }
 
+// 规则-based 的能力检索器
 export class RuleBasedToolRetriever implements ToolRetriever {
+  // 找到所有在 scope 之内的能力
   listVisible(scope: TaskScope): CapabilityDescriptor[] {
     return listCapabilities().filter((c) => isInScope(scope, c.name))
   }
 
+  // 授权检查
   authorize(scope: TaskScope, name: string): AuthorizeResult {
     const capability = findCapability(name)
     if (capability === null) {

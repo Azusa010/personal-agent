@@ -1,8 +1,8 @@
-import { homedir } from 'os'
-import { join } from 'path'
+import { homedir } from 'node:os'
+import { join, resolve } from 'node:path'
 
 export const ROOT_ENV: Record<string, string> = {
-  downloads: 'PERSONAL_AAGENT_DOWNLOADS_DIR'
+  downloads: 'PERSONAL_AGENT_DOWNLOADS_DIR'
 }
 
 // 反斜杠 -> 正斜杠
@@ -22,5 +22,5 @@ export function resolveRoot(rootId: string): string {
   }
   const fromEnv = process.env[envName]
   const base = fromEnv ? fromEnv : join(homedir(), 'Downloads')
-  return base
+  return toPosix(resolve(base))
 }
