@@ -1,7 +1,7 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { startRuntime, stopRuntime, getRuntimeStatus, requestRuntime } from './runtime/runtime-host'
+import { startRuntime, stopRuntime, getRuntimeStatus } from './runtime/runtime-host'
 import { FilesystemListParams, FilesystemListResult, ERROR_CODE } from '@personal-agent/protocol'
 import { RUNTIME_ERROR_CODE } from './runtime/error-code'
 import type { IpcErrorCode, ListPdfsResult, IndexedPdfsResult } from '../shared/ipc-contract'
@@ -83,7 +83,7 @@ app.whenReady().then(() => {
           message: String(outcome['reason'])
         }
       }
-      const result = FilesystemListResult.safeParse(outcome['result'])
+      const result = FilesystemListResult.safeParse(outcome)
       if (!result.success) {
         return {
           ok: false,
