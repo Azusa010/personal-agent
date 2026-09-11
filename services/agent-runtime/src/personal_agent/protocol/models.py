@@ -150,3 +150,33 @@ class InitializeParams(BaseModel):
     protocolVersion: Literal["0.1"]  # 字段名直接用 JSON 里的 key，保持两端一致
     capabilities: list[CapabilityDescriptor]
     client: ClientInfo
+
+AGENT_RUN_TASK = "agent.run_task"
+class RunTaskParams(BaseModel):
+    taskId: str = Field(min_length=1)
+    goal: str = Field(min_length=1)
+
+occurredAtRegex = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$"
+
+class RunTaskEvent(BaseModel):
+    type: str = Field(min_length=1)
+    payload: Any = None
+    occurredAt: str = Field(min_length=1, pattern=occurredAtRegex)
+
+class SummaryFact(BaseModel):
+    text: str = Field(min_length=1)
+    pageRefs: list[int] = Field(min_items=1)
+
+class RunTaskCompleted(BaseModel):
+    status: Literal["completed"]
+    facts: list[SummaryFact]
+    events: list[RunTaskEvent]
+
+class RunTaskFailed(BaseModel):
+    status: Literal["failed"]
+    reason: str = Field(min_length=1)
+    events: list[RunTaskEvent]
+
+RunTaskResult = Annotated[
+    RunTaskCompleted | RunTaskFailed, Field(discriminator="status")
+]
