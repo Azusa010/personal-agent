@@ -7,6 +7,7 @@ from personal_agent.model_gateway import (
     ModelContext,
     ModelDecision,
     ModelGateway,
+    Observation,
     ScriptExhausted,
     SummaryDecision,
     ToolCallDecision,
@@ -75,6 +76,57 @@ def test_model_context_defaults_to_no_capabilities():
     """
     ctx = ModelContext(taskGoal="整理 Downloads")
     assert ctx.visibleCapabilities == []
+
+
+def test_model_context_defaults_to_no_observations():
+    """第一步决策时历史必然是空的，默认空列表而不是 None。"""
+    ctx = ModelContext(taskGoal="整理 Downloads")
+    assert ctx.observations == []
+
+
+def test_model_context_accepts_observations_from_dicts():
+    ctx = ModelContext(
+        taskGoal="g",
+        observations=[
+            {
+                "callId": "call-1",
+                "capability": "filesystem.list",
+                "ok": True,
+                "payload": {"entries": []},
+            }
+        ],
+    )
+    assert isinstance(ctx.observations[0], Observation)
+    assert ctx.observations[0].callId == "call-1"
+
+
+def test_observation_rejects_empty_call_id():
+    """callId 是模型把「我上一步要求的那个调用」和结果对上的唯一凭据。
+
+    空着的话两条观察就分不清谁是谁，模型会把 A 工具的结果当 B 工具的读。
+    """
+    with pytest.raises(ValidationError):
+        Observation(callId="", capability="filesystem.list", ok=True)
+
+
+def test_observation_rejects_empty_capability():
+    with pytest.raises(ValidationError):
+        Observation(callId="call-1", capability="", ok=True)
+
+
+def test_observation_ok_is_required():
+    """ok 不给默认值。
+
+    默认 False 的话，engine 漏传 ok 会变成「工具失败了」被喂给模型，
+    模型会换路子重试一个其实已经成功的调用 —— 而这一切不报错。
+    """
+    with pytest.raises(ValidationError):
+        Observation(callId="call-1", capability="filesystem.list")
+
+
+def test_observation_payload_defaults_to_empty_dict():
+    o = Observation(callId="call-1", capability="filesystem.list", ok=True)
+    assert o.payload == {}
 
 
 def test_script_exhausted_carries_step_count():

@@ -3,11 +3,24 @@ from typing import Annotated, Any, Literal, Protocol, runtime_checkable
 from pydantic import BaseModel, Field
 
 
+class Observation(BaseModel):
+    """一次 host 工具调用的结果，engine 记下来喂回模型。
+
+    ok 单独提成顶层布尔而不是留在 payload 里：模型对成功和失败的处置
+    """
+
+    callId: str = Field(min_length=1)
+    capability: str = Field(min_length=1)
+    ok: bool
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
 class ModelContext(BaseModel):
     """模型上下文"""
 
     taskGoal: str
     visibleCapabilities: list[str] = Field(default_factory=list)
+    observations: list[Observation] = Field(default_factory=list)
 
 
 class ToolCallDecision(BaseModel):
