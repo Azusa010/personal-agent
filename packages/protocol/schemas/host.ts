@@ -15,6 +15,16 @@ export const CapabilityId = z.enum([
 
 export type CapabilityId = z.infer<typeof CapabilityId>;
 
+export const CapabilityKind = z.enum(["READ", "WRITE"]);
+export type CapabilityKind = z.infer<typeof CapabilityKind>;
+
+export const CapabilityDescriptor = z.object({
+  name: CapabilityId,
+  kind: CapabilityKind,
+  description: z.string().min(1),
+});
+export type CapabilityDescriptor = z.infer<typeof CapabilityDescriptor>;
+
 export const HostExecuteToolParams = z.object({
   callId: z.string().min(1),
   capability: CapabilityId,
@@ -60,9 +70,6 @@ export const CapabilityFailure = z.object({
   ok: z.literal(false),
   code: z.string(),
   reason: z.string(),
-})
+});
 
-// code 用宽松的 z.string()：收成枚举就得把 PDF_EMPTY / PDF_CORRUPT /
-// PDF_ENCRYPTED / PDF_NO_TEXT 全搬进 protocol 包，契约层会变成业务错误码字典。
-// 数据形状（PageText）进 protocol，错误码字典留在各自的 capability 文件。
-export type CapabilityFailure = z.infer<typeof CapabilityFailure>
+export type CapabilityFailure = z.infer<typeof CapabilityFailure>;
