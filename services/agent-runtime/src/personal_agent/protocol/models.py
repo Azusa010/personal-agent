@@ -170,7 +170,7 @@ class RunTaskEvent(BaseModel):
 
 class SummaryFact(BaseModel):
     text: str = Field(min_length=1)
-    pageRefs: list[int] = Field(min_items=1)
+    pageRefs: list[Annotated[int, Field(ge=1)]]
 
 
 class RunTaskCompleted(BaseModel):
