@@ -1,0 +1,20 @@
+{
+  "jsonrpc": "2.0",
+  "id": "req-003",
+  "result": {
+    "status": "failed",
+    "reason": "预算耗尽：已用 8 步仍未产出摘要",
+    "events": [
+      {
+        "type": "tool_called",
+        "payload": { "capability": "document.extract_pdf", "callId": "call-3" },
+        "occurredAt": "2026-09-11T10:00:02.010Z"
+      },
+      {
+        "type": "budget_exhausted",
+        "payload": { "steps": 8, "toolCalls": 5 },
+        "occurredAt": "2026-09-11T10:00:03.700Z"
+      }
+    ]
+  }
+}

@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from personal_agent.protocol.models import (
     CapabilityFailure,
@@ -17,6 +17,12 @@ from personal_agent.protocol.models import (
     InitializeResult,
     Request,
     Response,
+    RunTaskEvent,
+    RunTaskParams,
+    RunTaskRequest,
+    RunTaskResponse,
+    RunTaskResult,
+    SummaryFact,
 )
 
 FIXTURES_DIR = (
@@ -97,6 +103,27 @@ def _pick(raw: dict, path: str):
             "host-execute-tool.failure.response.json",
             HostExecuteToolResponse,
             CapabilityFailure,
+            "result",
+        ),
+        (
+            "agent-run-task.request.json",
+            RunTaskRequest,
+            RunTaskParams,
+            "params",
+        ),
+        # 两个 response 的 payload 层写 None：RunTaskResponse.result 已经是
+        # 强类型的判别联合，envelope 校验会递归到 facts 与 events。
+        # host 那边需要单独钉 payload，是因为 HostExecuteToolResult 只有 ok 一个字段。
+        (
+            "agent-run-task.completed.response.json",
+            RunTaskResponse,
+            None,
+            "result",
+        ),
+        (
+            "agent-run-task.failed.response.json",
+            RunTaskResponse,
+            None,
             "result",
         ),
     ],
@@ -196,3 +223,126 @@ def test_initialize_params_capabilities_constraints():
                 ],
             }
         )
+
+
+# ---- agent.run_task ----
+# 以下五个函数与 envelope.test.ts 的五个 describe 逐条对应。
+# RunTaskResult 是 Annotated 别名而不是 model，要用 TypeAdapter 才能校。
+TASK_EVENT = {
+    "type": "tool_called",
+    "payload": {"capability": "filesystem.list"},
+    "occurredAt": "2026-09-11T10:00:00.120Z",
+}
+
+RUN_TASK_RESULT = TypeAdapter(RunTaskResult)
+
+
+def test_run_task_params_constraints():
+    RunTaskParams.model_validate({"taskId": "t-1", "goal": "整理 PDF"})
+
+    with pytest.raises(ValidationError):
+        RunTaskParams.model_validate({"taskId": "t-1", "goal": ""})
+
+    with pytest.raises(ValidationError):
+        RunTaskParams.model_validate({"goal": "整理 PDF"})
+
+    # 多出预算字段就意味着 TS 能调预算，UI 就得暴露旋钮并校验范围，
+    # 而指导书没这个需求。
+    assert list(RunTaskParams.model_fields) == ["taskId", "goal"]
+
+
+def test_run_task_event_constraints():
+    # 带上 taskId 就允许 Python 把事件回传到别的任务上，而那个 id 恰好存在时
+    # DB 外键不会拦，Timeline 会静默串任务。
+    assert list(RunTaskEvent.model_fields) == ["type", "payload", "occurredAt"]
+
+    RunTaskEvent.model_validate(TASK_EVENT)
+
+    # Python 的 datetime.now(timezone.utc).isoformat() 默认就是 +00:00 结尾，
+    # engine 不显式格式化会在这里红。
+    for bad_occurred_at in (
+        "2026-09-11T10:00:00.120+00:00",
+        "2026-09-11T10:00:00Z",
+        "2026-09-11T10:00:00.120000Z",
+    ):
+        with pytest.raises(ValidationError):
+            RunTaskEvent.model_validate(
+                {**TASK_EVENT, "occurredAt": bad_occurred_at}
+            )
+
+    with pytest.raises(ValidationError):
+        RunTaskEvent.model_validate({**TASK_EVENT, "type": ""})
+
+    # execution_events.payload 是 TEXT NOT NULL，落库走 JSON.stringify(event.payload)。
+    # 契约允许缺键的话，undefined 会在 better-sqlite3 绑定处炸，或者 TS 侧
+    # 补一个 ?? {} 的静默默认，把生产端漏字段盖住。
+    with pytest.raises(ValidationError):
+        RunTaskEvent.model_validate(
+            {"type": "t", "occurredAt": TASK_EVENT["occurredAt"]}
+        )
+
+    # 显式 null 合法：JSON.stringify(null) 是 "null"，存得进 NOT NULL 列也读得回。
+    RunTaskEvent.model_validate(
+        {"type": "t", "payload": None, "occurredAt": TASK_EVENT["occurredAt"]}
+    )
+
+
+def test_summary_fact_constraints():
+    assert list(SummaryFact.model_fields) == ["text", "pageRefs"]
+
+    # REQ-007 的「必须有页码引用」是业务规则，判定它的是 TASK-014 的
+    # SummaryVerifier。契约层拒的话错误码会指向 PROTOCOL 而不是
+    # 「摘要不可信」，排查方向就错了。
+    SummaryFact.model_validate({"text": "结论", "pageRefs": []})
+
+    for bad_refs in ([0], [-1], [1.5]):
+        with pytest.raises(ValidationError):
+            SummaryFact.model_validate({"text": "结论", "pageRefs": bad_refs})
+
+    with pytest.raises(ValidationError):
+        SummaryFact.model_validate({"text": "", "pageRefs": [1]})
+
+
+def test_run_task_result_discriminated_union():
+    RUN_TASK_RESULT.validate_python(
+        {"status": "completed", "facts": [], "events": []}
+    )
+    RUN_TASK_RESULT.validate_python(
+        {"status": "failed", "reason": "预算耗尽", "events": []}
+    )
+
+    # tasks 表的 CHECK 允许五个值，但那是 TS 侧 ALLOWED_TRANSITIONS 管的。
+    # Python 能回 running 就等于给了它改任务生命周期的权力。
+    for bad_result in (
+        {"status": "running", "events": []},
+        {"status": "completed", "events": []},
+        {"status": "failed", "events": []},
+        {"status": "failed", "reason": "预算耗尽"},
+    ):
+        with pytest.raises(ValidationError):
+            RUN_TASK_RESULT.validate_python(bad_result)
+
+
+def test_run_task_envelope_constraints():
+    with pytest.raises(ValidationError):
+        RunTaskRequest.model_validate(
+            {
+                "jsonrpc": "2.0",
+                "id": "req-002",
+                "method": "agent.runTask",
+                "params": {"taskId": "t-1", "goal": "g"},
+            }
+        )
+
+    with pytest.raises(ValidationError):
+        RunTaskResponse.model_validate(
+            {
+                "jsonrpc": "2.0",
+                "id": "req-002",
+                "result": {"status": "completed", "facts": [], "events": []},
+                "error": {"code": "X", "message": "y"},
+            }
+        )
+
+    with pytest.raises(ValidationError):
+        RunTaskResponse.model_validate({"jsonrpc": "2.0", "id": "req-002"})

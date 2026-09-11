@@ -151,32 +151,60 @@ class InitializeParams(BaseModel):
     capabilities: list[CapabilityDescriptor]
     client: ClientInfo
 
+
+# ---- agent.run_task：TS → Python 触发一个任务 ----
 AGENT_RUN_TASK = "agent.run_task"
+OCCURRED_AT_PATTERN = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$"
+
+
 class RunTaskParams(BaseModel):
     taskId: str = Field(min_length=1)
     goal: str = Field(min_length=1)
 
-occurredAtRegex = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$"
 
 class RunTaskEvent(BaseModel):
     type: str = Field(min_length=1)
-    payload: Any = None
-    occurredAt: str = Field(min_length=1, pattern=occurredAtRegex)
+    payload: Any
+    occurredAt: str = Field(min_length=1, pattern=OCCURRED_AT_PATTERN)
+
 
 class SummaryFact(BaseModel):
     text: str = Field(min_length=1)
     pageRefs: list[int] = Field(min_items=1)
+
 
 class RunTaskCompleted(BaseModel):
     status: Literal["completed"]
     facts: list[SummaryFact]
     events: list[RunTaskEvent]
 
+
 class RunTaskFailed(BaseModel):
     status: Literal["failed"]
     reason: str = Field(min_length=1)
     events: list[RunTaskEvent]
 
+
 RunTaskResult = Annotated[
     RunTaskCompleted | RunTaskFailed, Field(discriminator="status")
 ]
+
+
+class RunTaskRequest(BaseModel):
+    jsonrpc: Literal["2.0"]
+    id: str = Field(min_length=1)
+    method: Literal["agent.run_task"]
+    params: RunTaskParams
+
+
+class RunTaskResponse(BaseModel):
+    jsonrpc: Literal["2.0"]
+    id: str = Field(min_length=1)
+    result: RunTaskResult | None = None
+    error: JsonRpcError | None = None
+
+    @model_validator(mode="after")
+    def check_exactly_one(self) -> Self:
+        if (self.result is None) == (self.error is None):
+            raise ValueError("result and error must not be present at the same time")
+        return self

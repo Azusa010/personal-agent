@@ -1,0 +1,28 @@
+{
+  "jsonrpc": "2.0",
+  "id": "req-002",
+  "result": {
+    "status": "completed",
+    "facts": [
+      { "text": "报告指出第三季度营收增长 12%", "pageRefs": [3] },
+      { "text": "附录列出了完整的实验参数", "pageRefs": [11, 12] }
+    ],
+    "events": [
+      {
+        "type": "tool_called",
+        "payload": { "capability": "filesystem.list", "callId": "call-1" },
+        "occurredAt": "2026-09-11T10:00:00.120Z"
+      },
+      {
+        "type": "tool_result",
+        "payload": { "ok": true, "count": 2 },
+        "occurredAt": "2026-09-11T10:00:00.340Z"
+      },
+      {
+        "type": "task_completed",
+        "payload": {},
+        "occurredAt": "2026-09-11T10:00:01.500Z"
+      }
+    ]
+  }
+}
