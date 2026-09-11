@@ -5,7 +5,7 @@ import { is } from '@electron-toolkit/utils'
 import { existsSync } from 'node:fs'
 import { RUNTIME_ERROR_CODE } from './error-code'
 import type { RuntimeState, RuntimeStatus } from '../../shared/ipc-contract'
-import { executeHostTool } from '../capabilities/host-executor'
+import { executeHostTool, listVisibleCapabilities } from '../capabilities/host-executor'
 
 export type { RuntimeState, RuntimeStatus }
 let supervisor: PythonSupervisor | null = null
@@ -35,7 +35,11 @@ export async function startRuntime(): Promise<void> {
     return
   }
 
-  supervisor = new PythonSupervisor({ ...launch, hostHandler: executeHostTool })
+  supervisor = new PythonSupervisor({
+    ...launch,
+    hostHandler: executeHostTool,
+    capabilities: listVisibleCapabilities()
+  })
   supervisor.on('runtime.crashed', (info: { reason: string; detail: string }) => {
     state = 'crashed'
     detail = `runtime 崩溃 (${info.reason}: ${info.detail})`

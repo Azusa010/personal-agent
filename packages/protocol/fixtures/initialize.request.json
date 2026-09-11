@@ -4,6 +4,18 @@
   "method": "system.initialize",
   "params": {
     "protocolVersion": "0.1",
+    "capabilities": [
+      {
+        "name": "filesystem.list",
+        "kind": "READ",
+        "description": "列出授权根目录下的条目"
+      },
+      {
+        "name": "document.extract_pdf",
+        "kind": "READ",
+        "description": "提取 PDF 每页文本与页码"
+      }
+    ],
     "client": { "name": "personal-agent-electron", "version": "0.1.0" }
   }
 }

@@ -5,7 +5,7 @@ export const PROTOCOL_VERSION = "0.1";
 
 export const InitializeParams = z.object({
   protocolVersion: z.literal(PROTOCOL_VERSION),
-  capabilities: CapabilityDescriptor,
+  capabilities: z.array(CapabilityDescriptor),
   client: z.object({
     name: z.string(),
     version: z.string(),

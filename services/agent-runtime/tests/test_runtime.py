@@ -37,6 +37,13 @@ def test_initialize_returns_server_info():
             "method": "system.initialize",
             "params": {
                 "protocolVersion": "0.1",
+                "capabilities": [
+                    {
+                        "name": "filesystem.list",
+                        "kind": "READ",
+                        "description": "列出授权根目录下的条目",
+                    }
+                ],
                 "client": {"name": "personal-agent-electron", "version": "0.1.0"},
             },
         }
@@ -55,6 +62,15 @@ def test_initialize_wrong_version_returns_error():
             "method": "system.initialize",
             "params": {
                 "protocolVersion": "0.2",
+                # 能力清单必须齐全，否则这条测的就不是“版本不匹配”
+                # 而是“缺字段”，两个失败原因叠在一起看不出钉的是哪个。
+                "capabilities": [
+                    {
+                        "name": "filesystem.list",
+                        "kind": "READ",
+                        "description": "列出授权根目录下的条目",
+                    }
+                ],
                 "client": {"name": "personal-agent-electron", "version": "0.1.0"},
             },
         }

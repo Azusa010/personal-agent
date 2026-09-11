@@ -1,10 +1,10 @@
-export type CapabilityKind = 'READ' | 'WRITE'
+import {
+  type CapabilityDescriptor,
+  type CapabilityId,
+  type CapabilityKind
+} from '@personal-agent/protocol'
 
-export interface CapabilityDescriptor {
-  name: string
-  kind: CapabilityKind
-  description: string
-}
+export type { CapabilityDescriptor, CapabilityKind }
 
 export const CAPABILITIES = [
   {
@@ -39,7 +39,7 @@ export const CAPABILITIES = [
   }
 ] as const satisfies readonly CapabilityDescriptor[]
 
-export type CapabilityName = (typeof CAPABILITIES)[number]['name']
+export type CapabilityName = CapabilityId
 
 export function listCapabilities(): readonly CapabilityDescriptor[] {
   return CAPABILITIES

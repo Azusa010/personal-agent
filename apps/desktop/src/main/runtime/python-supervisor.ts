@@ -4,6 +4,7 @@ import {
   PROTOCOL_VERSION,
   InitializeResult,
   InitializeParams,
+  type CapabilityDescriptor,
   type HostExecuteToolParams,
   HostExecuteToolRequest,
   ERROR_CODE
@@ -16,6 +17,7 @@ export type SpawnFn = (cmd: string, args: string[], opts?: SpawnOptions) => Chil
 export interface PythonSupervisorOptions {
   command: string
   args: string[]
+  capabilities: readonly CapabilityDescriptor[]
   cwd?: string
   spawnFn?: SpawnFn
   defaultTimeoutMs?: number
@@ -69,6 +71,7 @@ export class PythonSupervisor extends EventEmitter {
   private crashInfo: string | null = null
   private hostHandler: HostHandler | null
   private readonly hostTimeoutMs: number
+  private readonly capabilities: readonly CapabilityDescriptor[]
 
   constructor(opts: PythonSupervisorOptions) {
     super()
@@ -79,6 +82,7 @@ export class PythonSupervisor extends EventEmitter {
     this.defaultTimeoutMs = opts.defaultTimeoutMs ?? 30000
     this.hostHandler = opts.hostHandler ?? null
     this.hostTimeoutMs = opts.hostTimeoutMs ?? 5000
+    this.capabilities = opts.capabilities
   }
 
   // spawn 启动子进程，监听三个管道
@@ -114,6 +118,7 @@ export class PythonSupervisor extends EventEmitter {
      */
     const params = InitializeParams.safeParse({
       protocolVersion: PROTOCOL_VERSION,
+      capabilities: this.capabilities,
       client: CLIENT_INFO
     })
     if (!params.success) {

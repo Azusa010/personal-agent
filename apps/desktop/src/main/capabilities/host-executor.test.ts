@@ -12,7 +12,7 @@ import {
   HostExecuteToolResult
 } from '@personal-agent/protocol'
 
-import { executeCapability, executeHostTool } from './host-executor'
+import { executeCapability, executeHostTool, listVisibleCapabilities } from './host-executor'
 
 const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
 
@@ -126,5 +126,35 @@ describe('executeHostTool: supervisor 网关', () => {
     expect(out['ok']).toBe(false)
     expect(out['code']).toBe(ERROR_CODE.FILESYSTEM_ROOT_UNAVAILABLE)
     expect(() => CapabilityFailure.parse(out)).not.toThrow()
+  })
+})
+
+describe('listVisibleCapabilities: 握手时下发的清单', () => {
+  it('只含两个 READ 能力，顺序与 registry 一致', () => {
+    // Phase 1 Exit Checklist 第 3 条：Agent 只见两个 READ Capability。
+    // 顺序也要钉：清单每次不一样的话，REQ-010 的连续 20 次就无法靠快照对比定位。
+    expect(listVisibleCapabilities().map((c) => c.name)).toEqual([
+      'filesystem.list',
+      'document.extract_pdf'
+    ])
+  })
+
+  it('每项都是 READ 且带非空 description', () => {
+    for (const c of listVisibleCapabilities()) {
+      expect(c.kind, c.name).toBe('READ')
+      expect(c.description.length, c.name).toBeGreaterThan(0)
+    }
+  })
+
+  it('下发的清单与 executor 实际放行的一致', async () => {
+    // 清单里有但 executor 因 scope 拒，意味着握手骗了模型：
+    // 它会反复提一个永远不会被放行的能力，直到预算耗尽。
+    for (const c of listVisibleCapabilities()) {
+      const out = await executeCapability(c.name, {})
+      expect(out['code'], c.name).not.toBe(ERROR_CODE.CAPABILITY_OUT_OF_SCOPE)
+    }
+
+    const write = await executeCapability('filesystem.move', { from: 'a', to: 'b' })
+    expect(write['code']).toBe(ERROR_CODE.CAPABILITY_OUT_OF_SCOPE)
   })
 })

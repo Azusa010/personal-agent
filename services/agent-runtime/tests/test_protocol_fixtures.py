@@ -146,3 +146,53 @@ def test_host_schemas_do_not_drift_from_envelope():
         resp = _load(name)
         HostExecuteToolResponse.model_validate(resp)
         Response.model_validate(resp)
+
+
+# 与 packages/protocol/tests/envelope.test.ts 的「InitializeParams 的能力清单约束」
+# 一一对应。两边判定不一致就是契约漂移。
+def test_initialize_params_capabilities_constraints():
+    legal = {
+        "protocolVersion": "0.1",
+        "capabilities": [
+            {
+                "name": "filesystem.list",
+                "kind": "READ",
+                "description": "列出授权根目录下的条目",
+            }
+        ],
+        "client": {"name": "personal-agent-electron", "version": "0.1.0"},
+    }
+    InitializeParams.model_validate(legal)
+
+    # 缺字段必须拒。给默认空数组的话，TS 侧漏传与“真的没有可见能力”
+    # 在 wire 上无法分辨。
+    without = {k: v for k, v in legal.items() if k != "capabilities"}
+    with pytest.raises(ValidationError):
+        InitializeParams.model_validate(without)
+
+    # 单个对象而非数组：TS 侧漏写 z.array() 时会接受这个形状。
+    with pytest.raises(ValidationError):
+        InitializeParams.model_validate(
+            {**legal, "capabilities": legal["capabilities"][0]}
+        )
+
+    # 空数组合法：一个能力都不可见是合法配置，不是错误。
+    InitializeParams.model_validate({**legal, "capabilities": []})
+
+    with pytest.raises(ValidationError):
+        InitializeParams.model_validate(
+            {
+                **legal,
+                "capabilities": [{**legal["capabilities"][0], "description": ""}],
+            }
+        )
+
+    with pytest.raises(ValidationError):
+        InitializeParams.model_validate(
+            {
+                **legal,
+                "capabilities": [
+                    {**legal["capabilities"][0], "name": "filesystem.delete"}
+                ],
+            }
+        )

@@ -290,9 +290,9 @@ describe('executor：永不 throw', () => {
     // 只有 scope 放行了却没有执行体时才走到这里。用假 retriever 放行一切。
     const allowAll: ToolRetriever = {
       listVisible: () => [],
-      authorize: (_scope, name) => ({
+      authorize: () => ({
         allowed: true,
-        capability: { name, kind: 'WRITE', description: 'test' }
+        capability: { name: 'scheduler.create', kind: 'WRITE', description: 'test' }
       })
     }
     const permissive = createExecutor(readOnlyScope('task-1'), allowAll)

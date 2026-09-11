@@ -8,7 +8,7 @@ export interface TaskScope {
 export function readOnlyScope(taskId: string): TaskScope {
   return {
     taskId,
-    capabilities: listByKind('READ').map((c) => c.name as CapabilityName)
+    capabilities: listByKind('READ').map((c) => c.name)
   }
 }
 

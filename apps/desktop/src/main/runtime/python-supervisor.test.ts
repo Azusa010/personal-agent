@@ -37,7 +37,12 @@ function makeFakeChild(): {
 describe('PythonSupervisor ~ Slice 1', () => {
   it('request 写出合法 NDJSON,喂一行响应即 resolve', async () => {
     const { child, written, stdout } = makeFakeChild()
-    const sup = new PythonSupervisor({ command: 'fake', args: [], spawnFn: () => child })
+    const sup = new PythonSupervisor({
+      command: 'fake',
+      args: [],
+      capabilities: [],
+      spawnFn: () => child
+    })
     sup.start()
 
     const p = sup.request('system.ping')
@@ -53,7 +58,12 @@ describe('PythonSupervisor ~ Slice 1', () => {
 
   it('流≠行:响应被切成两块也能正常拼装', async () => {
     const { child, written, stdout } = makeFakeChild()
-    const sup = new PythonSupervisor({ command: 'fake', args: [], spawnFn: () => child })
+    const sup = new PythonSupervisor({
+      command: 'fake',
+      args: [],
+      capabilities: [],
+      spawnFn: () => child
+    })
     sup.start()
 
     const p = sup.request('system.ping')
@@ -70,7 +80,12 @@ describe('PythonSupervisor ~ Slice 1', () => {
 describe('PythonSupervisor ~ Slice 2', () => {
   it('并发：多个请求各按自己的 id 对上响应（乱序返回也行）', async () => {
     const { child, written, stdout } = makeFakeChild()
-    const sup = new PythonSupervisor({ command: 'fake', args: [], spawnFn: () => child })
+    const sup = new PythonSupervisor({
+      command: 'fake',
+      args: [],
+      capabilities: [],
+      spawnFn: () => child
+    })
     sup.start()
     const p1 = sup.request('system.ping')
     const p2 = sup.request('system.ping')
@@ -88,6 +103,7 @@ describe('PythonSupervisor ~ Slice 2', () => {
     const sup = new PythonSupervisor({
       command: 'fake',
       args: [],
+      capabilities: [],
       spawnFn: () => child,
       defaultTimeoutMs: 50
     })
@@ -97,7 +113,12 @@ describe('PythonSupervisor ~ Slice 2', () => {
   }, 2000)
   it('崩溃:pending全部reject且广播runtime.crashed', async () => {
     const { child } = makeFakeChild()
-    const sup = new PythonSupervisor({ command: 'fake', args: [], spawnFn: () => child })
+    const sup = new PythonSupervisor({
+      command: 'fake',
+      args: [],
+      capabilities: [],
+      spawnFn: () => child
+    })
     sup.start()
 
     const onCrashed = vi.fn()
@@ -112,6 +133,7 @@ describe('PythonSupervisor ~ Slice 2', () => {
     const sup = new PythonSupervisor({
       command: 'fake',
       args: [],
+      capabilities: [],
       spawnFn: () => child,
       defaultTimeoutMs: 5000
     })
@@ -129,7 +151,12 @@ describe('PythonSupervisor ~ Slice 2', () => {
 describe('PythonSupervisor ~ Slice 3', () => {
   it('stderr: 子进程 stderr 原样转发为 stderr 事件', async () => {
     const { child, stderr } = makeFakeChild()
-    const sup = new PythonSupervisor({ command: 'fake', args: [], spawnFn: () => child })
+    const sup = new PythonSupervisor({
+      command: 'fake',
+      args: [],
+      capabilities: [],
+      spawnFn: () => child
+    })
     sup.start()
 
     const chunks: string[] = []
@@ -140,7 +167,12 @@ describe('PythonSupervisor ~ Slice 3', () => {
   })
   it('cancel:AbortSignal 触发后 reject RUNTIME_CANCELLED', async () => {
     const { child } = makeFakeChild()
-    const sup = new PythonSupervisor({ command: 'fake', args: [], spawnFn: () => child })
+    const sup = new PythonSupervisor({
+      command: 'fake',
+      args: [],
+      capabilities: [],
+      spawnFn: () => child
+    })
     sup.start()
     const ac = new AbortController()
     const p = sup.request('system.ping', {}, { signal: ac.signal })
@@ -152,7 +184,19 @@ describe('PythonSupervisor ~ Slice 3', () => {
 describe('PythonSupervisor ~ Slice 2b (握手)', () => {
   it('initialize:发出参数正确;版本不匹配的响应 -> RUNTIME_HANDSHAKE_FAILED', async () => {
     const { child, written, stdout } = makeFakeChild()
-    const sup = new PythonSupervisor({ command: 'fake', args: [], spawnFn: () => child })
+    const sup = new PythonSupervisor({
+      command: 'fake',
+      args: [],
+      capabilities: [
+        { name: 'filesystem.list', kind: 'READ', description: '列出授权根目录下的条目' },
+        {
+          name: 'document.extract_pdf',
+          kind: 'READ',
+          description: '提取 PDF 每页文本与页码'
+        }
+      ],
+      spawnFn: () => child
+    })
     sup.start()
     const p = sup.initialize()
     const req = JSON.parse(written[0])
@@ -160,6 +204,12 @@ describe('PythonSupervisor ~ Slice 2b (握手)', () => {
       method: 'system.initialize',
       params: {
         protocolVersion: '0.1',
+        // 只钉 name 与 kind 的内容与顺序：这份清单是 Agent 的权限边界，
+        // 漂了就意味着模型看到的能力和它真正能调的不一致。
+        capabilities: [
+          { name: 'filesystem.list', kind: 'READ' },
+          { name: 'document.extract_pdf', kind: 'READ' }
+        ],
         client: { name: 'personal-agent-electron', version: '0.1.0' }
       }
     })
@@ -202,6 +252,7 @@ itReal(
     const sup = new PythonSupervisor({
       command: venvPy,
       args: ['-m', 'personal_agent'],
+      capabilities: [],
       cwd: runtimeCwd
     })
     sup.start()
@@ -217,7 +268,15 @@ itReal(
     const sup = new PythonSupervisor({
       command: venvPy,
       args: ['-m', 'personal_agent'],
-      cwd: runtimeCwd
+      cwd: runtimeCwd,
+      capabilities: [
+        { name: 'filesystem.list', kind: 'READ', description: '列出授权根目录下的条目' },
+        {
+          name: 'document.extract_pdf',
+          kind: 'READ',
+          description: '提取 PDF 每页文本与页码'
+        }
+      ]
     })
     sup.start()
     const init = await sup.initialize()
@@ -271,6 +330,7 @@ describe('PythonSupervisor ~ 片 2b (host.execute_tool)', () => {
     const sup = new PythonSupervisor({
       command: 'fake',
       args: [],
+      capabilities: [],
       spawnFn: () => fake.child,
       defaultTimeoutMs: 5000,
       hostHandler: handler,

@@ -162,7 +162,10 @@ describe("host schema 不得与 Envelope 漂移", () => {
   // superRefine，extend 行为不确定），改由这两条钉住包含关系。
   it("host 请求同时满足 Envelope Request", () => {
     const raw = JSON.parse(
-      readFileSync(join(fixturesDir, "host-execute-tool.request.json"), "utf-8"),
+      readFileSync(
+        join(fixturesDir, "host-execute-tool.request.json"),
+        "utf-8",
+      ),
     );
     expect(() => HostExecuteToolRequest.parse(raw)).not.toThrow();
     expect(() => Request.parse(raw)).not.toThrow();
@@ -177,5 +180,66 @@ describe("host schema 不得与 Envelope 漂移", () => {
       expect(() => HostExecuteToolResponse.parse(raw)).not.toThrow();
       expect(() => Response.parse(raw)).not.toThrow();
     }
+  });
+});
+
+describe("InitializeParams 的能力清单约束", () => {
+  const legal = {
+    protocolVersion: "0.1",
+    capabilities: [
+      {
+        name: "filesystem.list",
+        kind: "READ",
+        description: "列出授权根目录下的条目",
+      },
+    ],
+    client: { name: "personal-agent-electron", version: "0.1.0" },
+  };
+
+  it("合法清单被接受", () => {
+    expect(() => InitializeParams.parse(legal)).not.toThrow();
+  });
+
+  it("缺 capabilities 被拒", () => {
+    // 可选带默认空数组的话，TS 侧漏传与“真的一个能力都看不到”
+    // 在 wire 上长得一样，Python 无法分辨。
+    expect(() =>
+      InitializeParams.parse({
+        protocolVersion: "0.1",
+        client: { name: "personal-agent-electron", version: "0.1.0" },
+      }),
+    ).toThrow();
+  });
+
+  it("capabilities 是单个对象而不是数组时被拒", () => {
+    // Python 侧镜像是 list[...]。TS 侧漏写 z.array() 时这一条会红，
+    // 两端对同一份 wire 给出不同判定就是漂移。
+    expect(() =>
+      InitializeParams.parse({ ...legal, capabilities: legal.capabilities[0] }),
+    ).toThrow();
+  });
+
+  it("空数组合法：一个能力都不可见是合法配置", () => {
+    expect(() =>
+      InitializeParams.parse({ ...legal, capabilities: [] }),
+    ).not.toThrow();
+  });
+
+  it("description 为空串被拒", () => {
+    expect(() =>
+      InitializeParams.parse({
+        ...legal,
+        capabilities: [{ ...legal.capabilities[0], description: "" }],
+      }),
+    ).toThrow();
+  });
+
+  it("name 不在 CapabilityId 白名单里被拒", () => {
+    expect(() =>
+      InitializeParams.parse({
+        ...legal,
+        capabilities: [{ ...legal.capabilities[0], name: "filesystem.delete" }],
+      }),
+    ).toThrow();
   });
 });

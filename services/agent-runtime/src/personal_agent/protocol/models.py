@@ -63,16 +63,6 @@ class ServerInfo(BaseModel):
     version: str
 
 
-class InitializeParams(BaseModel):
-    protocolVersion: Literal["0.1"]  # 字段名直接用 JSON 里的 key，保持两端一致
-    client: ClientInfo
-
-
-class InitializeResult(BaseModel):
-    protocolVersion: Literal["0.1"]
-    server: ServerInfo
-
-
 # ---- host.execute_tool：Python → TS 的反向 RPC ----
 HOST_EXECUTE_TOOL = "host.execute_tool"
 HOST_CALL_ID_PATTERN = r"^call-[0-9]+$"
@@ -140,3 +130,23 @@ class DocumentExtractPdfResult(BaseModel):
 DocumentExtractPdfOutcome = Annotated[
     DocumentExtractPdfResult | CapabilityFailure, Field(discriminator="ok")
 ]
+
+
+CapabilityKind = Literal["READ", "WRITE"]
+
+
+class CapabilityDescriptor(BaseModel):
+    name: CapabilityId
+    kind: CapabilityKind
+    description: str = Field(min_length=1)
+
+
+class InitializeResult(BaseModel):
+    protocolVersion: Literal["0.1"]
+    server: ServerInfo
+
+
+class InitializeParams(BaseModel):
+    protocolVersion: Literal["0.1"]  # 字段名直接用 JSON 里的 key，保持两端一致
+    capabilities: list[CapabilityDescriptor]
+    client: ClientInfo
