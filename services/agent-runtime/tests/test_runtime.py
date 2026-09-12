@@ -25,6 +25,13 @@ class StubChannel:
         return HostExecuteToolResult.model_validate({"ok": True, "entries": []})
 
 
+class ExplodingModel:
+    """兜底路径用的假模型：抛一个 engine.run 不认识的异常。"""
+
+    def decide(self, context):
+        raise RuntimeError("模型适配器炸了")
+
+
 CAPABILITIES = [
     {
         "name": "filesystem.list",
@@ -184,6 +191,15 @@ def test_run_task_missing_goal_returns_protocol_error():
     )
     resp = handle_line(line, deps_with(ScriptedModel(golden_path())))
     assert resp["error"]["code"] == "PROTOCOL_INVALID_REQUEST"
+
+
+def test_run_task_unexpected_error_returns_runtime_internal():
+    # engine.run 只接住它自己列的那几种异常。别的冒上来时必须转成协议错误：
+    # 不转的话 traceback 走 stderr、stdout 一个字没有，TS 侧只能干等 120 秒超时。
+    resp = handle_line(run_task_line(), deps_with(ExplodingModel()))
+
+    assert resp["error"]["code"] == "RUNTIME_INTERNAL"
+    assert resp["id"] == "30"
 
 
 def test_run_task_returns_envelope_that_matches_contract():

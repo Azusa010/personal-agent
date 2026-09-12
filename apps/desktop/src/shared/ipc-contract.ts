@@ -1,7 +1,7 @@
-import type { ERROR_CODE, PdfEntry } from '@personal-agent/protocol'
+import type { ERROR_CODE, PdfEntry, RunTaskResult, SummaryFact } from '@personal-agent/protocol'
 import type { RUNTIME_ERROR_CODE } from '../main/runtime/error-code'
 
-export type { PdfEntry }
+export type { PdfEntry, SummaryFact }
 
 export type RuntimeState = 'stopped' | 'starting' | 'ready' | 'crashed'
 
@@ -26,3 +26,13 @@ export interface IndexedPdfEntry extends PdfEntry {
 
 export type IndexedPdfsResult =
   { ok: true; entries: IndexedPdfEntry[] } | { ok: false; code: IpcErrorCode; message: string }
+
+export type RunTaskIpcResult =
+  | {
+      ok: true
+      taskId: string
+      status: RunTaskResult['status']
+      facts?: SummaryFact[]
+      reason?: string
+    }
+  | { ok: false; code: IpcErrorCode; message: string }

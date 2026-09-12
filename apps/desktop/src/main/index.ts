@@ -1,12 +1,23 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { startRuntime, stopRuntime, getRuntimeStatus } from './runtime/runtime-host'
+import { startRuntime, stopRuntime, getRuntimeStatus, requestRuntime } from './runtime/runtime-host'
 import { FilesystemListParams, FilesystemListResult, ERROR_CODE } from '@personal-agent/protocol'
 import { RUNTIME_ERROR_CODE } from './runtime/error-code'
-import type { IpcErrorCode, ListPdfsResult, IndexedPdfsResult } from '../shared/ipc-contract'
+import type {
+  IpcErrorCode,
+  ListPdfsResult,
+  IndexedPdfsResult,
+  RunTaskIpcResult
+} from '../shared/ipc-contract'
 import { getDb, closeDb } from './db/database'
 import { upsertMany, findAll } from './db/pdf-repository'
+import { getStore, closeStore, type SqliteDatabase } from './product-state/database'
+import { SqliteTaskRepository } from './product-state/task-repository'
+import { SqlitePlanRepository } from './product-state/plan-repository'
+import { SqliteEventRepository } from './product-state/event-repository'
+import { runTask } from './tasks/run-task'
+import { reconcileOrphanTasks } from './tasks/reconcile'
 import icon from '../../resources/icon.png?asset'
 import { executeCapability } from './capabilities/host-executor'
 
@@ -60,6 +71,20 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  // 收尸必须在注册任何 IPC handler 之前：否则 Renderer 可能先读到一个僵尸 running。
+  // 失败不中断启动 —— PDF 列表走的是另一个库（db/database），不该被 product-state 连累。
+  try {
+    const store = getStore()
+    const orphans = reconcileOrphanTasks({
+      db: store,
+      tasks: new SqliteTaskRepository(store),
+      events: new SqliteEventRepository(store)
+    })
+    if (orphans > 0) console.warn(`[product-state] 启动时收成 ${orphans} 个孤儿任务`)
+  } catch (err) {
+    console.error('[product-state] 启动收尸失败', err)
+  }
+
   // IPC test
   ipcMain.handle('personal-agent:runtime-status', () => getRuntimeStatus())
 
@@ -112,6 +137,30 @@ app.whenReady().then(() => {
       }
     }
   })
+  ipcMain.handle(
+    'personal-agent:run-task',
+    async (_e, goal: unknown): Promise<RunTaskIpcResult> => {
+      let store: SqliteDatabase
+      try {
+        store = getStore()
+      } catch (err) {
+        return {
+          ok: false,
+          code: RUNTIME_ERROR_CODE.DB_FAILED,
+          message: err instanceof Error ? err.message : String(err)
+        }
+      }
+      // runTask 的契约是永不抛、总返回 RunTaskIpcResult：
+      // 任务失败（包括 runtime 未启动、超时、Python 回错）都是 ok:true + status:'failed'。
+      return runTask(goal, {
+        db: store,
+        tasks: new SqliteTaskRepository(store),
+        plans: new SqlitePlanRepository(store),
+        events: new SqliteEventRepository(store),
+        send: requestRuntime
+      })
+    }
+  )
   createWindow()
 
   void startRuntime()
@@ -133,6 +182,7 @@ app.on('before-quit', (event) => {
   isQuitting = true
   void stopRuntime()
     .finally(() => closeDb())
+    .finally(() => closeStore())
     .finally(() => app.quit())
 })
 

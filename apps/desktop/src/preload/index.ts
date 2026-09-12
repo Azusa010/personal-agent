@@ -14,6 +14,9 @@ if (process.contextIsolated) {
       },
       indexedPdfs: () => {
         return ipcRenderer.invoke('personal-agent:indexed-pdfs')
+      },
+      runTask: (goal: string) => {
+        return ipcRenderer.invoke('personal-agent:run-task', goal)
       }
     })
   } catch (error) {

@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 
 from pydantic import ValidationError
 
+from personal_agent.context import ContextManager
+from personal_agent.engine import AgentEngine
 from personal_agent.host_channel import HostChannel
 from personal_agent.model_gateway import ModelGateway
 from personal_agent.protocol.models import (
@@ -15,6 +17,7 @@ from personal_agent.protocol.models import (
     InitializeResult,
     Request,
     Response,
+    RunTaskParams,
     ServerInfo,
 )
 
@@ -100,42 +103,30 @@ def handle_initialize(req: Request, deps: RuntimeDeps | None = None) -> dict:
 
 
 def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
-    raise NotImplementedError(
-        """
-TODO: 跑一个任务，把 engine 的结果包成 RunTaskResponse 的 dict。
+    try:
+        params = RunTaskParams.model_validate(req.params)
+    except ValidationError:
+        return build_error(
+            req.id, "PROTOCOL_INVALID_REQUEST", "run_task 参数不符合契约"
+        )
 
-要做什么
-  - RunTaskParams.model_validate(req.params) 拿 taskId 与 goal，
-    不过就 build_error(req.id, "PROTOCOL_INVALID_REQUEST", …)
-  - deps 为 None 或 deps.model 为 None：
-    build_error(req.id, RUNTIME_MODEL_NOT_CONFIGURED, …)
-  - 现场造 ContextManager 与 AgentEngine（model 与 channel 从 deps 取）
-  - visibleCapabilities 是 [c.name for c in deps.capabilities]
-  - engine.run(goal, visibleCapabilities) 拿 RunTaskCompleted | RunTaskFailed
-  - 用 Response(jsonrpc="2.0", id=req.id, result=outcome.model_dump())
-    再 .model_dump(exclude_none=True) 返回，跟 handle_initialize 一个形状
+    if deps is None or deps.model is None:
+        return build_error(
+            req.id, RUNTIME_MODEL_NOT_CONFIGURED, "运行时未配置模型，无法执行任务"
+        )
 
-必须处理的边界
-  - engine.run 只接它自己列的那几种异常，其余的会冒到这儿。
-    要有一个兜底把它们转成 build_error(req.id, "RUNTIME_INTERNAL", …) 并
-    log.exception 到 stderr。不兜的话 Python traceback 上 stdout 是空的，
-    TS 侧只能等满 30 秒超时（GUD-003：stdout 只承载协议消息）
-  - 参数校验要在 deps 检查之前：调用方传错了参数和运行时没配模型
-    是两件事，错误码得能分开
-  - outcome 已经是 RunTaskCompleted / RunTaskFailed，不要重新拼 dict，
-    也不要在这儿改 status —— Python 不许回 running，那是 TS 侧
-    ALLOWED_TRANSITIONS 的权力（SEC-003）
-  - taskId 这一片用不上：engine 不发 taskId，RunTaskEvent 里也没有这个字段
-    （3b 钉死的），TS 侧自己知道这个响应属于哪个任务。不要把它塞进 payload
+    context = ContextManager()
+    engine = AgentEngine(model=deps.model, channel=deps.channel, context=context)
+    visible_capabilities = [c.name for c in deps.capabilities]
+    try:
+        outcome = engine.run(params.goal, visible_capabilities)
+    except Exception:
+        log.exception("agent.run_task 未预期异常 (id=%s)", req.id)
+        return build_error(req.id, "RUNTIME_INTERNAL", "运行时内部错误")
 
-不该做什么
-  - 不要在这里落库。持久化在 TS 侧，Python 只回传 events
-  - 不要 catch 住异常再返回一个 status="completed" 的空结果
-  - 不要复用上一个任务的 ContextManager
-
-验收：tests/test_runtime.py 的 test_run_task_*
-"""
-    )
+    return Response(
+        jsonrpc="2.0", id=req.id, result=outcome.model_dump()
+    ).model_dump(exclude_none=True)
 
 
 # ====== I/O 层 ========
