@@ -12,16 +12,24 @@ from personal_agent.runtime import (
     handle_line,
 )
 from personal_agent.scripted_model import ScriptedModel
+from personal_agent.summary import EXTRACT_PDF_CAPABILITY
 
 
 class StubChannel:
-    """runtime 层的测试不关心 host 结果的内容，只要 call_host 不炸。
+    """按 capability 分派一个够用的结果。
 
-    engine 的分派逻辑在 test_engine.py 里用可控的 FakeChannel 测，
-    这里再控一遗就是两份需要同步的假件。
+    以前对所有 capability 都回 {ok:true, entries:[]}，那时 runtime 层的测试
+    确实不关心 host 结果的内容。TASK-014 之后不一样了：SummaryVerifier 要从
+    extract_pdf 的 payload.pages 里挖页码当参照集合，host 结果的内容第一次
+    成了 runtime 层测试的依赖。engine 的分派逻辑仍在 test_engine.py 里用
+    可控的 FakeChannel 测。
     """
 
     def call_host(self, params):
+        if params.capability == EXTRACT_PDF_CAPABILITY:
+            return HostExecuteToolResult.model_validate(
+                {"ok": True, "pages": [{"pageNumber": 1, "text": "第一页正文"}]}
+            )
         return HostExecuteToolResult.model_validate({"ok": True, "entries": []})
 
 
@@ -37,7 +45,12 @@ CAPABILITIES = [
         "name": "filesystem.list",
         "kind": "READ",
         "description": "列出授权根目录下的条目",
-    }
+    },
+    {
+        "name": EXTRACT_PDF_CAPABILITY,
+        "kind": "READ",
+        "description": "提取 PDF 的逐页文本",
+    },
 ]
 
 
@@ -72,12 +85,23 @@ def deps_with(model=None):
 
 
 def golden_path():
+    """TASK-013 Validation 要求的 list→extract→summary 三步。
+
+    以前只有两步（list 之后直接 summary），摘要不核页码所以看不出缺。
+    参照集合到位之后，没调 extract_pdf 就没有任何合法页码可引。
+    """
     return [
         ToolCallDecision(
             kind="tool_call",
             callId="c-1",
             capability="filesystem.list",
             arguments={"rootId": "downloads"},
+        ),
+        ToolCallDecision(
+            kind="tool_call",
+            callId="c-2",
+            capability=EXTRACT_PDF_CAPABILITY,
+            arguments={"path": "D:/downloads/a.pdf"},
         ),
         SummaryDecision(kind="summary", facts=[{"text": "摘要", "pageRefs": [1]}]),
     ]
@@ -140,7 +164,10 @@ def test_initialize_stores_capabilities_into_deps():
     deps = deps_with()
     assert deps.capabilities == []
     handle_line(initialize_line(), deps)
-    assert [c.name for c in deps.capabilities] == ["filesystem.list"]
+    assert [c.name for c in deps.capabilities] == [
+        "filesystem.list",
+        EXTRACT_PDF_CAPABILITY,
+    ]
     assert isinstance(deps.capabilities[0], CapabilityDescriptor)
 
 
@@ -226,7 +253,7 @@ def test_run_task_capabilities_from_initialize_reach_model():
 
     assert model.receivedContexts
     for ctx in model.receivedContexts:
-        assert ctx.visibleCapabilities == ["filesystem.list"]
+        assert ctx.visibleCapabilities == ["filesystem.list", EXTRACT_PDF_CAPABILITY]
         assert ctx.taskGoal == "整理 Downloads 里的 PDF"
 
 
@@ -263,8 +290,9 @@ def test_run_task_uses_a_fresh_context_per_task():
     second = handle_line(run_task_line(req_id="41"), deps)
 
     # 第二个任务的第一步必须看到空历史，否则上一个任务的观察会串进来。
+    # 三步剧本每任务消耗三次 decide，所以第二个任务的第一步在下标 3。
     assert second["result"]["status"] == "completed"
-    assert model.receivedContexts[2].observations == []
+    assert model.receivedContexts[3].observations == []
 
 
 def test_run_task_engine_failure_does_not_leak_traceback():

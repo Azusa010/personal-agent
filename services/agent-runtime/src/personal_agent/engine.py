@@ -32,7 +32,11 @@ from personal_agent.protocol.models import (
     RunTaskCompleted,
     RunTaskEvent,
     RunTaskFailed,
-    SummaryFact,
+)
+from personal_agent.summary import (
+    SummaryRejected,
+    collect_extracted_pages,
+    verify_summary,
 )
 
 log = logging.getLogger("personal_agent")
@@ -67,14 +71,6 @@ class Budget(BaseModel):
 
     maxSteps: int = Field(default=DEFAULT_MAX_STEPS, ge=1)
     maxToolCalls: int = Field(default=DEFAULT_MAX_TOOL_CALLS, ge=1)
-
-
-class SummaryRejected(Exception):
-    """模型给的摘要没通过结构校验，不能算任务完成。"""
-
-    def __init__(self, reason: str) -> None:
-        super().__init__(reason)
-        self.reason = reason
 
 
 class AgentEngine:
@@ -114,7 +110,10 @@ class AgentEngine:
             steps += 1
             if isinstance(decision, SummaryDecision):
                 try:
-                    facts: list[SummaryFact] = self._verify_summary(decision.facts)
+                    facts = verify_summary(
+                        decision.facts,
+                        collect_extracted_pages(self._context.observations),
+                    )
                 except SummaryRejected as e:
                     return self._fail(events, e.reason)
                 self._emit(events, EVENT_TASK_COMPLETED, {"factCount": len(facts)})
@@ -193,17 +192,3 @@ class AgentEngine:
             payload=dict(result.model_extra or {}),
         )
 
-    def _verify_summary(self, facts: Sequence[dict[str, Any]]) -> list[SummaryFact]:
-        if not facts:
-            raise SummaryRejected("模型没有给出任何 fact，不构成 PAT-003 要的 evidence")
-        verified: list[SummaryFact] = []
-        for index, fact in enumerate(facts, start=1):
-            try:
-                verified.append(SummaryFact.model_validate(fact))
-            except ValidationError as e:
-                details = "; ".join(
-                    f"{'.'.join(str(part) for part in err['loc'])}: {err['msg']}"
-                    for err in e.errors()
-                )
-                raise SummaryRejected(f"第 {index} 条 fact 不合法: {details}") from e
-        return verified

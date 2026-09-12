@@ -2,9 +2,11 @@
 
 对应 3d 的决定：
 决定 3 → 预算两维独立，默认 8 / 5
-决定 4 → 只做结构校验，不核页码存在性
 决定 5 → 六个 event type 字面值钉死
 决定 6 → ok:false 喂回模型继续跑，系统级异常中断
+
+摘要的判定规则本身在 test_summary.py 里逐条钉（TASK-014）。这里只钉
+engine 把参照集合从 ContextManager 接到验证器上、拒绝时走 _fail 收场。
 """
 
 import re
@@ -25,7 +27,6 @@ from personal_agent.engine import (
     EVENT_TOOL_RESULT,
     AgentEngine,
     Budget,
-    SummaryRejected,
     now_occurred_at,
 )
 from personal_agent.host_channel import HostChannelClosed, HostRequestFailed
@@ -39,7 +40,6 @@ from personal_agent.protocol.models import (
     HostExecuteToolResult,
     RunTaskCompleted,
     RunTaskFailed,
-    SummaryFact,
 )
 from personal_agent.scripted_model import ScriptedModel
 
@@ -245,50 +245,72 @@ def test_execute_lets_channel_closed_propagate():
         engine._execute(tool_call())
 
 
-# ---- _verify_summary ----
+# ---- run：摘要页码校验的接线 ----
 
 
-def test_verify_summary_returns_summary_facts():
-    engine, *_ = make_engine([], [])
-    facts = engine._verify_summary([{"text": "结论", "pageRefs": [1, 2]}])
-    assert len(facts) == 1
-    assert isinstance(facts[0], SummaryFact)
-    assert facts[0].pageRefs == [1, 2]
+def test_run_rejects_page_ref_that_was_never_extracted():
+    engine, _, _, _ = make_engine(
+        [list_result(), pdf_result()],
+        [
+            tool_call(call_id="c-1"),
+            tool_call(call_id="c-2", capability="document.extract_pdf", path="D:/a.pdf"),
+            SummaryDecision(
+                kind="summary", facts=[{"text": "编的", "pageRefs": [9999]}]
+            ),
+        ],
+    )
+    outcome = engine.run("g", VISIBLE)
+    # Exit Checklist「虚假页码被 SummaryVerifier 拒绝」在 loop 层的落点。
+    assert isinstance(outcome, RunTaskFailed)
+    assert outcome.events[-1].type == EVENT_TASK_FAILED
+    assert outcome.reason
 
 
-def test_verify_summary_rejects_page_ref_zero():
-    engine, *_ = make_engine([], [])
-    with pytest.raises(SummaryRejected) as exc:
-        engine._verify_summary([{"text": "结论", "pageRefs": [0]}])
-    # reason 要能定位到第几条，否则模型给的 facts 一多就没法排查。
-    assert exc.value.reason
+def test_run_rejects_summary_when_nothing_was_extracted():
+    engine, _, _, _ = make_engine(
+        [list_result()],
+        [
+            tool_call(call_id="c-1"),
+            SummaryDecision(kind="summary", facts=[{"text": "结论", "pageRefs": [1]}]),
+        ],
+    )
+    outcome = engine.run("g", VISIBLE)
+    # 只 list 没 extract：参照集合为空，任何页码引用都无处核对。
+    assert isinstance(outcome, RunTaskFailed)
+    assert outcome.reason
 
 
-def test_verify_summary_rejects_empty_text():
-    engine, *_ = make_engine([], [])
-    with pytest.raises(SummaryRejected):
-        engine._verify_summary([{"text": "", "pageRefs": [1]}])
+def test_run_failed_extract_contributes_no_pages():
+    engine, _, _, _ = make_engine(
+        [{"ok": False, "code": "FILE_UNREADABLE", "reason": "PDF 已加密"}],
+        [
+            tool_call(
+                call_id="c-1", capability="document.extract_pdf", path="D:/bad.pdf"
+            ),
+            SummaryDecision(kind="summary", facts=[{"text": "结论", "pageRefs": [1]}]),
+        ],
+    )
+    outcome = engine.run("g", VISIBLE)
+    # 提取失败却贡献页码，等于给模型发通行证。
+    assert isinstance(outcome, RunTaskFailed)
 
 
-def test_verify_summary_rejects_empty_list():
-    engine, *_ = make_engine([], [])
-    # 一个 fact 都没有的摘要不构成 PAT-003 要的 evidence。
-    with pytest.raises(SummaryRejected):
-        engine._verify_summary([])
-
-
-def test_verify_summary_rejects_non_dict_fact():
-    engine, *_ = make_engine([], [])
-    with pytest.raises(SummaryRejected):
-        engine._verify_summary(["模型直接回了一句散文"])
-
-
-def test_verify_summary_does_not_check_page_existence():
-    engine, *_ = make_engine([], [])
-    # 决定 4：页码存在性是 TASK-014 的 SummaryVerifier，它需要 extract_pdf
-    # 的原始 pages 才能比对。这一片只要结构合法就放行。
-    facts = engine._verify_summary([{"text": "编的", "pageRefs": [9999]}])
-    assert facts[0].pageRefs == [9999]
+def test_run_accepts_page_ref_from_a_second_extract():
+    engine, _, _, _ = make_engine(
+        [
+            {"ok": True, "pages": [{"pageNumber": 1, "text": "第一份"}]},
+            {"ok": True, "pages": [{"pageNumber": 4, "text": "第二份"}]},
+        ],
+        [
+            tool_call(call_id="c-1", capability="document.extract_pdf", path="D:/a.pdf"),
+            tool_call(call_id="c-2", capability="document.extract_pdf", path="D:/b.pdf"),
+            SummaryDecision(kind="summary", facts=[{"text": "结论", "pageRefs": [4]}]),
+        ],
+    )
+    outcome = engine.run("g", VISIBLE)
+    # 参照集合是并集：第二份 PDF 的页码同样可引。
+    assert isinstance(outcome, RunTaskCompleted)
+    assert outcome.facts[0].pageRefs == [4]
 
 
 # ---- run：主循环 ----
@@ -492,17 +514,17 @@ def test_run_script_exhausted_fails_task_instead_of_crashing():
     assert outcome.events[-1].type == EVENT_TASK_FAILED
 
 
-def test_run_immediate_summary_completes_without_tools():
+def test_run_immediate_summary_without_tools_fails():
     engine, _, channel, _ = make_engine(
         [], [SummaryDecision(kind="summary", facts=[{"text": "无需工具", "pageRefs": []}])]
     )
     outcome = engine.run("g", VISIBLE)
-    # pageRefs 允许为空是 3b 的决定：REQ-007 的判定者是 TASK-014，不是契约层。
-    assert isinstance(outcome, RunTaskCompleted)
+    # REQ-007 的判定者到位了：一页都没提取过，pageRefs 还是空的，两条都不过。
+    assert isinstance(outcome, RunTaskFailed)
     assert channel.calls == []
     assert [e.type for e in outcome.events] == [
         EVENT_TASK_STARTED,
-        EVENT_TASK_COMPLETED,
+        EVENT_TASK_FAILED,
     ]
 
 
