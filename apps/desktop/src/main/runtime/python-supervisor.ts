@@ -19,6 +19,9 @@ export interface PythonSupervisorOptions {
   args: string[]
   capabilities: readonly CapabilityDescriptor[]
   cwd?: string
+  /** 不传就是继承 process.env（Node spawn 的默认行为）。传了就整份替换，
+   * 调用方要自己把 PATH 之类需要的变量带进去。 */
+  env?: NodeJS.ProcessEnv
   spawnFn?: SpawnFn
   defaultTimeoutMs?: number
   hostHandler?: HostHandler
@@ -66,6 +69,7 @@ export class PythonSupervisor extends EventEmitter {
   private readonly command: string
   private readonly args: string[]
   private readonly cwd?: string
+  private readonly env: NodeJS.ProcessEnv | undefined
   private readonly defaultTimeoutMs: number
   private stopping = false
   private crashInfo: string | null = null
@@ -78,6 +82,7 @@ export class PythonSupervisor extends EventEmitter {
     this.command = opts.command
     this.args = opts.args
     this.cwd = opts.cwd
+    this.env = opts.env
     this.spawnFn = opts.spawnFn ?? (spawn as unknown as SpawnFn)
     this.defaultTimeoutMs = opts.defaultTimeoutMs ?? 30000
     this.hostHandler = opts.hostHandler ?? null
@@ -88,7 +93,7 @@ export class PythonSupervisor extends EventEmitter {
   // spawn 启动子进程，监听三个管道
   start(): void {
     this.crashInfo = null
-    this.child = this.spawnFn(this.command, this.args, { cwd: this.cwd })
+    this.child = this.spawnFn(this.command, this.args, { cwd: this.cwd, env: this.env })
 
     // stdout => onStdout(chunk)对块进行切分
     this.child.stdout?.setEncoding('utf8')

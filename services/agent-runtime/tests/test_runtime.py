@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from personal_agent.model_gateway import SummaryDecision, ToolCallDecision
 from personal_agent.protocol.models import (
@@ -8,11 +9,16 @@ from personal_agent.protocol.models import (
 )
 from personal_agent.runtime import (
     RUNTIME_MODEL_NOT_CONFIGURED,
+    SCRIPT_ENV,
     RuntimeDeps,
     handle_line,
+    resolve_model_factory,
 )
-from personal_agent.scripted_model import ScriptedModel
+from personal_agent.scripted_model import ScriptedModel, load_script
 from personal_agent.summary import EXTRACT_PDF_CAPABILITY
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+FIXTURE_SCRIPT = REPO_ROOT / "tests" / "fixtures" / "scripts" / "golden-path.json"
 
 
 class StubChannel:
@@ -80,8 +86,40 @@ def run_task_line(req_id="30", task_id="task-001", goal="整理 Downloads 里的
     )
 
 
-def deps_with(model=None):
-    return RuntimeDeps(channel=StubChannel(), model=model)
+class RecordingFactory:
+    """每次 run_task 造一个新 ScriptedModel，造出来的都留着给断言看。
+
+    存工厂之后测试拿不到 model 实例了，而 receivedContexts 是验证
+    visibleCapabilities 一路通到模型的唯一窗口，所以记下来。
+    """
+
+    def __init__(self, decisions):
+        self.decisions = decisions
+        self.instances = []
+
+    def __call__(self):
+        model = ScriptedModel(self.decisions)
+        self.instances.append(model)
+        return model
+
+
+def deps_with(decisions=None):
+    factory = None if decisions is None else RecordingFactory(decisions)
+    return RuntimeDeps(channel=StubChannel(), model_factory=factory)
+
+
+def deps_with_factory(factory):
+    return RuntimeDeps(channel=StubChannel(), model_factory=factory)
+
+
+def write_script(tmp_path, payload=None):
+    """把剧本落盘。payload 传字符串就是写坏文件用的。"""
+    if payload is None:
+        payload = [d.model_dump() for d in golden_path()]
+    text = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)
+    path = tmp_path / "script.json"
+    path.write_text(text, encoding="utf-8")
+    return path
 
 
 def golden_path():
@@ -202,7 +240,7 @@ def test_run_task_without_model_returns_model_not_configured():
 
 def test_run_task_invalid_params_returns_protocol_error():
     resp = handle_line(
-        run_task_line(goal=""), deps_with(ScriptedModel(golden_path()))
+        run_task_line(goal=""), deps_with(golden_path())
     )
     assert resp["error"]["code"] == "PROTOCOL_INVALID_REQUEST"
 
@@ -216,22 +254,21 @@ def test_run_task_missing_goal_returns_protocol_error():
             "params": {"taskId": "task-001"},
         }
     )
-    resp = handle_line(line, deps_with(ScriptedModel(golden_path())))
+    resp = handle_line(line, deps_with(golden_path()))
     assert resp["error"]["code"] == "PROTOCOL_INVALID_REQUEST"
 
 
 def test_run_task_unexpected_error_returns_runtime_internal():
     # engine.run 只接住它自己列的那几种异常。别的冒上来时必须转成协议错误：
     # 不转的话 traceback 走 stderr、stdout 一个字没有，TS 侧只能干等 120 秒超时。
-    resp = handle_line(run_task_line(), deps_with(ExplodingModel()))
+    resp = handle_line(run_task_line(), deps_with_factory(lambda: ExplodingModel()))
 
     assert resp["error"]["code"] == "RUNTIME_INTERNAL"
     assert resp["id"] == "30"
 
 
 def test_run_task_returns_envelope_that_matches_contract():
-    model = ScriptedModel(golden_path())
-    deps = deps_with(model)
+    deps = deps_with(golden_path())
     handle_line(initialize_line(), deps)
     resp = handle_line(run_task_line(), deps)
 
@@ -246,13 +283,13 @@ def test_run_task_returns_envelope_that_matches_contract():
 def test_run_task_capabilities_from_initialize_reach_model():
     # Exit Checklist 第 3 条的活体验证：initialize 下发的清单要一路走到
     # ModelContext.visibleCapabilities，中间不能断也不能多。
-    model = ScriptedModel(golden_path())
-    deps = deps_with(model)
+    factory = RecordingFactory(golden_path())
+    deps = deps_with_factory(factory)
     handle_line(initialize_line(), deps)
     handle_line(run_task_line(), deps)
 
-    assert model.receivedContexts
-    for ctx in model.receivedContexts:
+    assert factory.instances[0].receivedContexts
+    for ctx in factory.instances[0].receivedContexts:
         assert ctx.visibleCapabilities == ["filesystem.list", EXTRACT_PDF_CAPABILITY]
         assert ctx.taskGoal == "整理 Downloads 里的 PDF"
 
@@ -260,17 +297,16 @@ def test_run_task_capabilities_from_initialize_reach_model():
 def test_run_task_without_initialize_gives_model_no_capabilities():
     # 没握手就跑任务不是错误，但模型什么工具都看不到，
     # 自然会在预算里耗尽 —— 不需要额外拦一道。
-    model = ScriptedModel(golden_path())
-    deps = deps_with(model)
+    factory = RecordingFactory(golden_path())
+    deps = deps_with_factory(factory)
     resp = handle_line(run_task_line(), deps)
     RunTaskResponse.model_validate(resp)
-    for ctx in model.receivedContexts:
+    for ctx in factory.instances[0].receivedContexts:
         assert ctx.visibleCapabilities == []
 
 
 def test_run_task_events_do_not_carry_task_id():
-    model = ScriptedModel(golden_path())
-    deps = deps_with(model)
+    deps = deps_with(golden_path())
     handle_line(initialize_line(), deps)
     resp = handle_line(run_task_line(task_id="task-777"), deps)
 
@@ -283,22 +319,24 @@ def test_run_task_events_do_not_carry_task_id():
 
 
 def test_run_task_uses_a_fresh_context_per_task():
-    model = ScriptedModel(golden_path() + golden_path())
-    deps = deps_with(model)
+    factory = RecordingFactory(golden_path())
+    deps = deps_with_factory(factory)
     handle_line(initialize_line(), deps)
     handle_line(run_task_line(req_id="40"), deps)
     second = handle_line(run_task_line(req_id="41"), deps)
 
     # 第二个任务的第一步必须看到空历史，否则上一个任务的观察会串进来。
-    # 三步剧本每任务消耗三次 decide，所以第二个任务的第一步在下标 3。
+    # 这里以前要喂双份剧本，因为一个实例的游标是跨任务接着走的；
+    # 换成工厂之后每任务一个新实例，三步剧本跑两次刚好。
     assert second["result"]["status"] == "completed"
-    assert model.receivedContexts[3].observations == []
+    assert len(factory.instances) == 2
+    assert factory.instances[1].receivedContexts[0].observations == []
 
 
 def test_run_task_engine_failure_does_not_leak_traceback():
     # ScriptExhausted 要在 engine 里接住。不接的话它冒到 dispatch，
     # stdout 一个字节都没有，TS 侧只能等满 30 秒超时（GUD-003）。
-    deps = deps_with(ScriptedModel([]))
+    deps = deps_with([])
     handle_line(initialize_line(), deps)
     resp = handle_line(run_task_line(), deps)
     assert "error" not in resp
@@ -346,3 +384,98 @@ def test_filesystem_list_is_not_a_python_method():
     resp = handle_line(line)
     assert resp["error"]["code"] == "METHOD_NOT_FOUND"
     assert resp["id"] == "20"
+
+
+# ====== 连续 20 次（REQ-010 / TEST-012）======
+
+
+def test_run_task_twenty_times_in_a_row_all_complete():
+    # 三步剧本配一个实例只够跑一次。这条钉的是每任务换一个工厂产物，
+    # 存实例的话第 2 次就开始 ScriptExhausted，20 次里 19 次失败。
+    deps = deps_with(golden_path())
+    handle_line(initialize_line(), deps)
+
+    statuses = [
+        handle_line(run_task_line(req_id=str(40 + i)), deps)["result"]["status"]
+        for i in range(20)
+    ]
+
+    assert statuses == ["completed"] * 20
+
+
+def test_run_task_twenty_times_facts_are_identical_every_round():
+    # 确定性链路的意思不只是「都跑完」，还有「每次结果一样」。
+    # 游标或 observations 泄漏会让后面的轮次拿到不同的上下文，fact 就飘了。
+    deps = deps_with(golden_path())
+    handle_line(initialize_line(), deps)
+
+    facts = [
+        handle_line(run_task_line(req_id=str(60 + i)), deps)["result"]["facts"]
+        for i in range(20)
+    ]
+
+    assert facts == [facts[0]] * 20
+
+
+def test_model_factory_is_called_exactly_once_per_task():
+    factory = RecordingFactory(golden_path())
+    deps = deps_with_factory(factory)
+    handle_line(initialize_line(), deps)
+    handle_line(run_task_line(req_id="40"), deps)
+    handle_line(run_task_line(req_id="41"), deps)
+
+    assert len(factory.instances) == 2
+
+
+# ====== 剧本装配（TASK-016）======
+
+
+def test_resolve_model_factory_returns_none_without_env(monkeypatch):
+    # 生产默认不配模型，收到 run_task 回 RUNTIME_MODEL_NOT_CONFIGURED。
+    monkeypatch.delenv(SCRIPT_ENV, raising=False)
+    assert resolve_model_factory() is None
+
+
+def test_resolve_model_factory_builds_a_fresh_model_per_call(monkeypatch, tmp_path):
+    monkeypatch.setenv(SCRIPT_ENV, str(write_script(tmp_path)))
+    factory = resolve_model_factory()
+
+    assert factory is not None
+    first, second = factory(), factory()
+    assert isinstance(first, ScriptedModel)
+    assert first is not second
+    assert first.remaining == second.remaining == 3
+
+
+def test_resolve_model_factory_returns_none_when_script_is_broken(monkeypatch, tmp_path):
+    # 剧本坏了不能让进程起不来：握手与 ping 都得照常，
+    # 只是 run_task 回 NOT_CONFIGURED。抛出去的话整个 runtime 启不了。
+    monkeypatch.setenv(SCRIPT_ENV, str(tmp_path / "不存在.json"))
+    assert resolve_model_factory() is None
+
+
+def test_resolve_model_factory_returns_none_when_script_is_not_json(monkeypatch, tmp_path):
+    monkeypatch.setenv(SCRIPT_ENV, str(write_script(tmp_path, "{ 这不是 JSON")))
+    assert resolve_model_factory() is None
+
+
+def test_resolve_model_factory_reads_the_repo_fixture(monkeypatch):
+    # 把 tests/fixtures/scripts/golden-path.json 钉进链路：TS 侧 E2E 指的就是这份，
+    # 形状错了要先在这儿红，而不是在跑了一整个子进程之后。
+    assert FIXTURE_SCRIPT.exists(), f"缺剧本 fixture: {FIXTURE_SCRIPT}"
+    monkeypatch.setenv(SCRIPT_ENV, str(FIXTURE_SCRIPT))
+    factory = resolve_model_factory()
+
+    assert factory is not None
+    assert factory().remaining == 3
+
+
+def test_fixture_script_is_the_read_only_golden_path():
+    decisions = load_script(FIXTURE_SCRIPT)
+
+    assert [d.kind for d in decisions] == ["tool_call", "tool_call", "summary"]
+    assert decisions[0].capability == "filesystem.list"
+    assert decisions[1].capability == EXTRACT_PDF_CAPABILITY
+    # 页码只能用 1/2/3：固定 PDF 就三页，引用到第 4 页会被 SummaryVerifier 拒掉。
+    assert decisions[2].facts[0]["pageRefs"] == [1]
+    assert decisions[2].facts[1]["pageRefs"] == [2, 3]

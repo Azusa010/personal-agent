@@ -1,5 +1,7 @@
 """ScriptedModel 的行为测试。"""
 
+import json
+
 import pytest
 
 from personal_agent.model_gateway import (
@@ -9,7 +11,7 @@ from personal_agent.model_gateway import (
     SummaryDecision,
     ToolCallDecision,
 )
-from personal_agent.scripted_model import ScriptedModel
+from personal_agent.scripted_model import ScriptedModel, ScriptLoadError, load_script
 
 
 def golden_path() -> list:
@@ -115,3 +117,86 @@ def test_two_instances_do_not_share_cursor():
 def test_satisfies_model_gateway_protocol():
     m = ScriptedModel(golden_path())
     assert isinstance(m, ModelGateway)
+
+
+# ====== 剧本加载（TASK-016）======
+
+SCRIPT = [
+    {
+        "kind": "tool_call",
+        "callId": "c-1",
+        "capability": "filesystem.list",
+        "arguments": {"rootId": "downloads"},
+    },
+    {"kind": "summary", "facts": [{"text": "摘要", "pageRefs": [1]}]},
+]
+
+
+def write_script(tmp_path, payload, name="script.json"):
+    path = tmp_path / name
+    text = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_load_script_returns_decisions_in_file_order(tmp_path):
+    assert load_script(write_script(tmp_path, SCRIPT)) == [
+        ToolCallDecision(
+            kind="tool_call",
+            callId="c-1",
+            capability="filesystem.list",
+            arguments={"rootId": "downloads"},
+        ),
+        SummaryDecision(kind="summary", facts=[{"text": "摘要", "pageRefs": [1]}]),
+    ]
+
+
+def test_load_script_accepts_str_and_path_alike(tmp_path):
+    # 调用方从 env 拿到的是 str，测试里习惯传 Path，两边都得收。
+    path = write_script(tmp_path, SCRIPT)
+    assert load_script(str(path)) == load_script(path)
+
+
+def test_load_script_keeps_unicode_text(tmp_path):
+    assert load_script(write_script(tmp_path, SCRIPT))[1].facts[0]["text"] == "摘要"
+
+
+def test_load_script_missing_file_raises_script_load_error(tmp_path):
+    with pytest.raises(ScriptLoadError):
+        load_script(tmp_path / "不存在.json")
+
+
+def test_load_script_broken_json_raises_script_load_error(tmp_path):
+    with pytest.raises(ScriptLoadError):
+        load_script(write_script(tmp_path, "{ 这不是 JSON"))
+
+
+def test_load_script_top_level_not_a_list_raises(tmp_path):
+    # 顶层是对象时逐项校验会去迭代 dict 的键，报出来的错会指向字符串而不是形状。
+    with pytest.raises(ScriptLoadError):
+        load_script(write_script(tmp_path, {"kind": "summary"}))
+
+
+def test_load_script_unknown_kind_raises(tmp_path):
+    with pytest.raises(ScriptLoadError):
+        load_script(write_script(tmp_path, [{"kind": "闲聊"}]))
+
+
+def test_load_script_item_missing_required_field_raises(tmp_path):
+    with pytest.raises(ScriptLoadError):
+        load_script(
+            write_script(tmp_path, [{"kind": "tool_call", "capability": "filesystem.list"}])
+        )
+
+
+def test_load_script_error_message_names_the_file(tmp_path):
+    # 启动时读不到剧本只记一条日志，日志里没有路径就只能猜是哪个环境变量指错了。
+    path = tmp_path / "不存在.json"
+    with pytest.raises(ScriptLoadError, match="不存在.json"):
+        load_script(path)
+
+
+def test_load_script_empty_list_is_legal(tmp_path):
+    # 空剧本不是坏剧本：它会跑出 ScriptExhausted，那是 engine 该接的，
+    # 加载层不替它做判断。
+    assert load_script(write_script(tmp_path, [])) == []

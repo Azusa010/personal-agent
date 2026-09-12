@@ -1,0 +1,21 @@
+[
+  {
+    "kind": "tool_call",
+    "callId": "c-1",
+    "capability": "filesystem.list",
+    "arguments": { "rootId": "downloads" }
+  },
+  {
+    "kind": "tool_call",
+    "callId": "c-2",
+    "capability": "document.extract_pdf",
+    "arguments": { "path": "{{DOWNLOADS_ROOT}}/three-page-text.pdf" }
+  },
+  {
+    "kind": "summary",
+    "facts": [
+      { "text": "第一页的正文是 PersonalAgent fixture page one", "pageRefs": [1] },
+      { "text": "第二页与第三页分别是 page two 和 page three", "pageRefs": [2, 3] }
+    ]
+  }
+]
