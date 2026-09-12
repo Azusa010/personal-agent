@@ -5,9 +5,11 @@ import type {
   RunTaskIpcResult,
   TimelineIpcResult
 } from '../../shared/ipc-contract'
-import { describeRunOutcome, type RunOutcomeView } from './view-model'
+import { describeRunOutcome, extractFactCount, type RunOutcomeView } from './view-model'
 import { RunTaskPanel } from './components/RunTaskPanel'
+import { PlanView } from './components/PlanView'
 import { TimelineView } from './components/TimelineView'
+import { SummaryView } from './components/SummaryView'
 
 function App(): React.JSX.Element {
   const [status, setStatus] = useState('Empty')
@@ -83,6 +85,10 @@ function App(): React.JSX.Element {
     await loadTimeline(result.ok ? result.taskId : null)
   }
 
+  const timeline = timelineResult !== null && timelineResult.ok ? timelineResult.timeline : null
+  // 摘要正文只在跑完那一次的 IPC 返回值里，库里只有条数。
+  const persistedFactCount = timeline === null ? null : extractFactCount(timeline.events)
+
   return (
     <>
       <div>
@@ -144,11 +150,15 @@ function App(): React.JSX.Element {
 
         <RunTaskPanel running={running} outcome={outcome} onRun={handleRunTask} />
 
+        <PlanView plan={timeline?.plan ?? null} />
+
         <TimelineView
           result={timelineResult}
           loading={timelineLoading}
           onReload={() => void loadTimeline(null)}
         />
+
+        <SummaryView facts={outcome?.facts ?? []} persistedCount={persistedFactCount} />
       </div>
     </>
   )

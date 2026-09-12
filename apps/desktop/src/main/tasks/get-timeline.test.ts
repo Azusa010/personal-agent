@@ -7,7 +7,9 @@ import {
 } from '../product-state/database'
 import { SqliteTaskRepository } from '../product-state/task-repository'
 import { SqliteEventRepository } from '../product-state/event-repository'
+import { SqlitePlanRepository } from '../product-state/plan-repository'
 import type { EventRepository, ExecutionEventRecord } from '../product-state/event-repository'
+import type { PlanRepository } from '../product-state/plan-repository'
 import type { TaskRecord, TaskRepository } from '../product-state/task-repository'
 import { ERROR_CODE } from '@personal-agent/protocol'
 import { RUNTIME_ERROR_CODE } from '../runtime/error-code'
@@ -20,11 +22,19 @@ afterEach(() => {
   db = null
 })
 
-function makeDeps(): { tasks: SqliteTaskRepository; events: SqliteEventRepository } {
+function makeDeps(): {
+  tasks: SqliteTaskRepository
+  events: SqliteEventRepository
+  plans: SqlitePlanRepository
+} {
   const d = openProductState(MEMORY_DB)
   db = d
   migrate(d)
-  return { tasks: new SqliteTaskRepository(d), events: new SqliteEventRepository(d) }
+  return {
+    tasks: new SqliteTaskRepository(d),
+    events: new SqliteEventRepository(d),
+    plans: new SqlitePlanRepository(d)
+  }
 }
 
 function seed(
@@ -115,6 +125,27 @@ describe('getTimeline', () => {
     if (res.ok) expect(res.timeline?.events).toEqual([])
   })
 
+  it('timeline 带上最新版 plan，没 plan 的任务该字段是 null', () => {
+    const deps = makeDeps()
+    seed(deps.tasks, 't-1', '2026-09-07T00:00:00Z')
+    seed(deps.tasks, 't-2', '2026-09-07T00:00:00Z')
+    deps.plans.append({
+      id: 'p-1',
+      taskId: 't-1',
+      steps: [{ description: '列出 Downloads 下的 PDF', capability: 'filesystem.list' }],
+      createdAt: '2026-09-07T00:00:00Z'
+    })
+
+    const withPlan = getTimeline('t-1', deps)
+    const withoutPlan = getTimeline('t-2', deps)
+
+    if (withPlan.ok) {
+      expect(withPlan.timeline?.plan?.version).toBe(1)
+      expect(withPlan.timeline?.plan?.steps).toHaveLength(1)
+    }
+    if (withoutPlan.ok) expect(withoutPlan.timeline?.plan).toBeNull()
+  })
+
   it.each([
     ['undefined', undefined],
     ['空串', ''],
@@ -160,8 +191,21 @@ describe('getTimeline', () => {
       }
     }
 
-    const byId = getTimeline('t-1', { tasks: throwingTasks, events: throwingEvents })
-    const byNull = getTimeline(null, { tasks: throwingTasks, events: throwingEvents })
+    const throwingPlans: PlanRepository = {
+      append: () => {
+        throw boom
+      },
+      findLatest: () => {
+        throw boom
+      },
+      findAllVersions: () => {
+        throw boom
+      }
+    }
+
+    const broken = { tasks: throwingTasks, events: throwingEvents, plans: throwingPlans }
+    const byId = getTimeline('t-1', broken)
+    const byNull = getTimeline(null, broken)
 
     expect(byId).toEqual({ ok: false, code: RUNTIME_ERROR_CODE.DB_FAILED, message: boom.message })
     expect(byNull).toEqual({
@@ -194,7 +238,7 @@ describe('getTimeline', () => {
         payload: { code: 'RUNTIME_MODEL_NOT_CONFIGURED', message: '运行时未配置模型' },
         occurredAt: '2026-09-07T00:00:02Z'
       } satisfies ExecutionEventRecord)
-      expect(Object.keys(res.timeline!).sort()).toEqual(['events', 'task'])
+      expect(Object.keys(res.timeline!).sort()).toEqual(['events', 'plan', 'task'])
     }
   })
 })

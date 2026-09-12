@@ -1,17 +1,8 @@
 import { SqliteDatabase } from './database'
+import type { PlanRecord, PlanStep } from '../../shared/domain'
 
-export interface PlanStep {
-  description: string
-  capability?: string
-}
-
-export interface PlanRecord {
-  id: string
-  taskId: string
-  version: number
-  steps: PlanStep[]
-  createdAt: string
-}
+// 形状的定义在 shared/domain.ts，这里 re-export，既有的 import 路径不用改。
+export type { PlanRecord, PlanStep }
 
 export type NewPlan = Omit<PlanRecord, 'version'>
 

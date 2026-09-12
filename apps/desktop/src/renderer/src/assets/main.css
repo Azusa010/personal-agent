@@ -369,12 +369,56 @@ button:disabled {
   color: #e08b7d;
 }
 
+.plan {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0;
+  list-style: none;
+}
+
+.plan li {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 180px;
+  gap: 8px;
+  align-items: baseline;
+  padding: 4px 8px;
+  font-size: 13px;
+  border-radius: 4px;
+  background-color: var(--color-background-mute);
+}
+
+.plan .seq {
+  text-align: right;
+  color: var(--ev-c-text-3);
+}
+
+.plan .label {
+  font-weight: 600;
+}
+
+.plan .capability {
+  text-align: right;
+  color: var(--ev-c-text-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-all;
+}
+
 @media (max-width: 620px) {
   .timeline .ev {
     grid-template-columns: 32px minmax(0, 1fr);
   }
 
   .ev .time {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .plan li {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .plan .capability {
     grid-column: 2;
     text-align: left;
   }

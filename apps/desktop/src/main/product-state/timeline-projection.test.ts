@@ -6,6 +6,12 @@ import {
   type EventRepository,
   type ExecutionEventRecord
 } from './event-repository'
+import {
+  SqlitePlanRepository,
+  type PlanRecord,
+  type PlanRepository,
+  type PlanStep
+} from './plan-repository'
 import { projectTimeline } from './timeline-projection'
 
 let db: SqliteDatabase | null = null
@@ -15,11 +21,19 @@ afterEach(() => {
   db = null
 })
 
-function makeRepos(): { tasks: SqliteTaskRepository; events: SqliteEventRepository } {
+function makeRepos(): {
+  tasks: SqliteTaskRepository
+  events: SqliteEventRepository
+  plans: SqlitePlanRepository
+} {
   const d = openProductState(MEMORY_DB)
   db = d
   migrate(d)
-  return { tasks: new SqliteTaskRepository(d), events: new SqliteEventRepository(d) }
+  return {
+    tasks: new SqliteTaskRepository(d),
+    events: new SqliteEventRepository(d),
+    plans: new SqlitePlanRepository(d)
+  }
 }
 
 function seed(
@@ -38,7 +52,7 @@ function seed(
 
 describe('projectTimeline', () => {
   it('组合 task 与其事件，事件按 seq 升序', () => {
-    const { tasks, events } = makeRepos()
+    const { tasks, events, plans } = makeRepos()
     seed(tasks, 't-1')
     tasks.updateStatus('t-1', 'running', '2026-09-07T00:00:01Z')
 
@@ -51,7 +65,7 @@ describe('projectTimeline', () => {
       occurredAt: at
     })
 
-    const timeline = projectTimeline(tasks, events, 't-1')
+    const timeline = projectTimeline(tasks, events, plans, 't-1')
 
     expect(timeline?.task.id).toBe('t-1')
     expect(timeline?.task.status).toBe('running')
@@ -62,7 +76,7 @@ describe('projectTimeline', () => {
   })
 
   it('多 task 隔离：t-1 的投影不含 t-2 的事件', () => {
-    const { tasks, events } = makeRepos()
+    const { tasks, events, plans } = makeRepos()
     seed(tasks, 't-1')
     seed(tasks, 't-2')
 
@@ -71,29 +85,75 @@ describe('projectTimeline', () => {
     events.append({ taskId: 't-2', type: '别人的', payload: {}, occurredAt: at })
     events.append({ taskId: 't-1', type: 'b', payload: {}, occurredAt: at })
 
-    const timeline = projectTimeline(tasks, events, 't-1')
+    const timeline = projectTimeline(tasks, events, plans, 't-1')
 
     expect(timeline?.events.map((e) => e.seq)).toEqual([1, 3])
     expect(timeline?.events.map((e) => e.type)).toEqual(['a', 'b'])
   })
 
   it('task 不存在返回 null；无事件的 task 返回空数组而非 null', () => {
-    const { tasks, events } = makeRepos()
+    const { tasks, events, plans } = makeRepos()
     seed(tasks, 't-1')
 
-    expect(projectTimeline(tasks, events, '不存在')).toBeNull()
+    expect(projectTimeline(tasks, events, plans, '不存在')).toBeNull()
 
-    const empty = projectTimeline(tasks, events, 't-1')
+    const empty = projectTimeline(tasks, events, plans, 't-1')
     expect(empty).not.toBeNull()
     expect(empty?.events).toEqual([]) // 空数组，调用方不用判 null
     expect(empty?.task.status).toBe('pending')
   })
 
-  it('投影反映最新状态：状态推进后再次投影即更新', () => {
-    const { tasks, events } = makeRepos()
+  it('没有 plan 的 task，投影里 plan 是 null 而不是 undefined', () => {
+    const { tasks, events, plans } = makeRepos()
     seed(tasks, 't-1')
 
-    expect(projectTimeline(tasks, events, 't-1')?.task.status).toBe('pending')
+    const timeline = projectTimeline(tasks, events, plans, 't-1')
+
+    // UI 要能区分「没计划」与「计划里没步骤」，null 才是前者。
+    expect(timeline).not.toBeNull()
+    expect(timeline?.plan).toBeNull()
+  })
+
+  it('带上最新版 plan；追加 v2 后投影立即反映 v2', () => {
+    const { tasks, events, plans } = makeRepos()
+    seed(tasks, 't-1')
+    const steps: PlanStep[] = [{ description: '第一步', capability: 'filesystem.list' }]
+    plans.append({ id: 'p-1', taskId: 't-1', steps, createdAt: '2026-09-07T00:00:01Z' })
+
+    expect(projectTimeline(tasks, events, plans, 't-1')?.plan?.version).toBe(1)
+
+    plans.append({
+      id: 'p-2',
+      taskId: 't-1',
+      steps: [...steps, { description: '第二步' }],
+      createdAt: '2026-09-07T00:00:02Z'
+    })
+
+    const after = projectTimeline(tasks, events, plans, 't-1')
+    expect(after?.plan?.id).toBe('p-2')
+    expect(after?.plan?.version).toBe(2)
+    expect(after?.plan?.steps).toHaveLength(2)
+  })
+
+  it('plan 也按 task 隔离：t-1 的投影不含 t-2 的计划', () => {
+    const { tasks, events, plans } = makeRepos()
+    seed(tasks, 't-1')
+    seed(tasks, 't-2')
+    plans.append({
+      id: 'p-2',
+      taskId: 't-2',
+      steps: [{ description: '别人的计划' }],
+      createdAt: '2026-09-07T00:00:01Z'
+    })
+
+    expect(projectTimeline(tasks, events, plans, 't-1')?.plan).toBeNull()
+  })
+
+  it('投影反映最新状态：状态推进后再次投影即更新', () => {
+    const { tasks, events, plans } = makeRepos()
+    seed(tasks, 't-1')
+
+    expect(projectTimeline(tasks, events, plans, 't-1')?.task.status).toBe('pending')
 
     const d = db!
     const commit = d.transaction(() => {
@@ -107,7 +167,7 @@ describe('projectTimeline', () => {
     })
     commit()
 
-    const after = projectTimeline(tasks, events, 't-1')
+    const after = projectTimeline(tasks, events, plans, 't-1')
     expect(after?.task.status).toBe('running')
     expect(after?.task.updatedAt).toBe('2026-09-07T00:00:05Z')
     expect(after?.events.map((e) => e.type)).toEqual(['task_running'])
@@ -143,10 +203,23 @@ describe('projectTimeline', () => {
       append: () => 7,
       listByTask: (id) => (id === 'fake-1' ? fakeEvents : [])
     }
+    const fakePlan: PlanRecord = {
+      id: 'p-fake',
+      taskId: 'fake-1',
+      version: 3,
+      steps: [{ description: '内存计划' }],
+      createdAt: '2026-09-07T00:00:01Z'
+    }
+    const fakePlanRepo: PlanRepository = {
+      append: () => fakePlan,
+      findLatest: (id) => (id === 'fake-1' ? fakePlan : null),
+      findAllVersions: () => [fakePlan]
+    }
 
-    const timeline = projectTimeline(fakeTasks, fakeEventRepo, 'fake-1')
+    const timeline = projectTimeline(fakeTasks, fakeEventRepo, fakePlanRepo, 'fake-1')
     expect(timeline?.task.goal).toBe('内存 fake')
+    expect(timeline?.plan?.version).toBe(3)
     expect(timeline?.events.map((e) => e.seq)).toEqual([7]) // seq 原样透传，不被重新编号
-    expect(projectTimeline(fakeTasks, fakeEventRepo, '别的')).toBeNull()
+    expect(projectTimeline(fakeTasks, fakeEventRepo, fakePlanRepo, '别的')).toBeNull()
   })
 })

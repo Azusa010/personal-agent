@@ -38,18 +38,6 @@ export function RunTaskPanel({ running, outcome, onRun }: RunTaskPanelProps): Re
           <div className="headline">{outcome.headline}</div>
           {outcome.detail !== null && <div className="detail">{outcome.detail}</div>}
           {outcome.taskId !== null && <div className="detail">taskId {outcome.taskId}</div>}
-          {outcome.facts.length > 0 && (
-            <ul className="facts">
-              {outcome.facts.map((fact, i) => (
-                <li key={i}>
-                  <span>{fact.text}</span>
-                  <span className="refs">
-                    {fact.pageRefs.length > 0 ? `第 ${fact.pageRefs.join('、')} 页` : '无页码引用'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
       )}
     </section>

@@ -1,5 +1,6 @@
 import type {
   ExecutionEventRecord,
+  PlanRecord,
   RunTaskIpcResult,
   SummaryFact,
   TaskStatus
@@ -185,4 +186,43 @@ export function summarizePayload(type: string, payload: unknown): string {
     default:
       return fallback(payload)
   }
+}
+
+// ---- 六、计划步骤 ----
+
+export interface PlanStepView {
+  /** 1-based，UI 直接当序号显示 */
+  index: number
+  description: string
+  /** 第三步是 null：那一步由模型自己产出，不经 host 工具 */
+  capability: string | null
+  capabilityLabel: string
+}
+
+export function describePlanSteps(plan: PlanRecord | null): PlanStepView[] {
+  if (plan === null) return []
+  return plan.steps.map((step, i) => ({
+    index: i + 1,
+    description: step.description,
+    capability: step.capability ?? null,
+    capabilityLabel: step.capability ?? '模型产出，不经工具'
+  }))
+}
+
+// ---- 七、从事件流里挖摘要条数 ----
+
+/**
+ * task_completed 的 payload 里只有 factCount，没有正文。
+ * 返回 null 表示根本没跑完过（没有这条事件）。
+ */
+export function extractFactCount(events: ExecutionEventRecord[]): number | null {
+  // 倒着找：一个任务正常只有一条 task_completed，但库里可能有脏数据，
+  // 取最后一条才是最终结局。
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i]
+    if (event === undefined || event.type !== 'task_completed') continue
+    const raw = asRecord(event.payload)['factCount']
+    if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+  }
+  return null
 }

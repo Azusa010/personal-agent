@@ -1,10 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import type { ExecutionEventRecord, RunTaskIpcResult } from '../../shared/ipc-contract'
+import type {
+  ExecutionEventRecord,
+  PlanRecord,
+  PlanStep,
+  RunTaskIpcResult
+} from '../../shared/ipc-contract'
 import {
   EVENT_LABELS,
   STATUS_LABELS,
   describeEvent,
+  describePlanSteps,
   describeRunOutcome,
+  extractFactCount,
   formatOccurredAt,
   summarizePayload
 } from './view-model'
@@ -302,5 +309,83 @@ describe('describeEvent', () => {
 
     expect(line.time).toBe('不是时间')
     expect(line.label).toBe('任务开始')
+  })
+})
+
+describe('describePlanSteps', () => {
+  function plan(steps: PlanStep[], version = 1): PlanRecord {
+    return { id: 'p-1', taskId: 't-1', version, steps, createdAt: AT }
+  }
+
+  it('plan 为 null → 空数组，UI 不用先判 null', () => {
+    expect(describePlanSteps(null)).toEqual([])
+  })
+
+  it('序号 1-based，capability 原样，没有 capability 的一步给中文说明', () => {
+    const steps = describePlanSteps(
+      plan([
+        { description: '列出 Downloads 下的 PDF', capability: 'filesystem.list' },
+        { description: '提取目标 PDF 的每页文本', capability: 'document.extract_pdf' },
+        { description: '基于页面内容生成带页码引用的摘要' }
+      ])
+    )
+
+    expect(steps.map((s) => s.index)).toEqual([1, 2, 3])
+    expect(steps.map((s) => s.capability)).toEqual([
+      'filesystem.list',
+      'document.extract_pdf',
+      null
+    ])
+    expect(steps[0]?.capabilityLabel).toBe('filesystem.list')
+    expect(steps[2]?.capabilityLabel).toBe('模型产出，不经工具')
+  })
+
+  it('description 原样透传，不截断也不压平换行', () => {
+    // 计划文本是产品钉死的模板，不是模型输出，不需要像事件 payload 那样防脏数据。
+    const long = '很长的描述'.repeat(50)
+
+    expect(describePlanSteps(plan([{ description: long }]))[0]?.description).toBe(long)
+  })
+
+  it('steps 是空数组时返回空数组，UI 据此显示「计划里没有步骤」', () => {
+    expect(describePlanSteps(plan([]))).toEqual([])
+  })
+})
+
+describe('extractFactCount', () => {
+  it('task_completed 的 factCount 原样取出', () => {
+    expect(extractFactCount([ev('task_completed', { factCount: 3 })])).toBe(3)
+  })
+
+  it('没有 task_completed → null，表示这个任务没跑完过', () => {
+    expect(extractFactCount([ev('task_started', { goal: '目标' })])).toBeNull()
+    expect(extractFactCount([])).toBeNull()
+  })
+
+  it('factCount 缺失或不是有限数字 → null，不当成 0', () => {
+    // 0 与 null 语义不同：0 是「跑完了但没产出」，null 是「这条事件形状不对」。
+    expect(extractFactCount([ev('task_completed', {})])).toBeNull()
+    expect(extractFactCount([ev('task_completed', { factCount: '3' })])).toBeNull()
+    expect(extractFactCount([ev('task_completed', { factCount: NaN })])).toBeNull()
+    expect(extractFactCount([ev('task_completed', { factCount: Infinity })])).toBeNull()
+  })
+
+  it('factCount 是 0 时返回 0，不是 null', () => {
+    expect(extractFactCount([ev('task_completed', { factCount: 0 })])).toBe(0)
+  })
+
+  it('多条 task_completed 取最后一条，那才是最终结局', () => {
+    const events = [
+      ev('task_completed', { factCount: 1 }, 1),
+      ev('task_failed', { reason: '第一次不算' }, 2),
+      ev('task_completed', { factCount: 5 }, 3)
+    ]
+
+    expect(extractFactCount(events)).toBe(5)
+  })
+
+  it('payload 不是对象时不炸', () => {
+    expect(extractFactCount([ev('task_completed', null)])).toBeNull()
+    expect(extractFactCount([ev('task_completed', '散文')])).toBeNull()
   })
 })

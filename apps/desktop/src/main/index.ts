@@ -163,7 +163,7 @@ app.whenReady().then(() => {
       })
     }
   )
-  // 只读通道：不写库，因此不需要事务，也不需要 plans。
+  // 只读通道：不写库，因此不需要事务。
   // getTimeline 同样永不抛，库层面的失败由它自己转成 ok:false。
   ipcMain.handle('personal-agent:get-timeline', (_e, taskId: unknown): TimelineIpcResult => {
     let store: SqliteDatabase
@@ -178,7 +178,8 @@ app.whenReady().then(() => {
     }
     return getTimeline(taskId, {
       tasks: new SqliteTaskRepository(store),
-      events: new SqliteEventRepository(store)
+      events: new SqliteEventRepository(store),
+      plans: new SqlitePlanRepository(store)
     })
   })
   createWindow()

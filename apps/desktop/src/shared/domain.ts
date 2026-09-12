@@ -20,8 +20,24 @@ export interface ExecutionEventRecord {
   occurredAt: string
 }
 
-/** 一个任务的完整投影：任务本体 + 按 seq 升序的事件 */
+/** 计划里的一步。capability 缺失表示这一步不经工具，由模型自己产出 */
+export interface PlanStep {
+  description: string
+  capability?: string
+}
+
+export interface PlanRecord {
+  id: string
+  taskId: string
+  version: number
+  steps: PlanStep[]
+  createdAt: string
+}
+
+/** 一个任务的完整投影：任务本体 + 最新版计划 + 按 seq 升序的事件 */
 export interface TaskTimeline {
   task: TaskRecord
+  /** null = 这个任务没有计划（比如启动时被收成的孤儿任务） */
+  plan: PlanRecord | null
   events: ExecutionEventRecord[]
 }
