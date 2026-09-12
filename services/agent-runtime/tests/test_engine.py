@@ -9,6 +9,7 @@
 engine 把参照集合从 ContextManager 接到验证器上、拒绝时走 _fail 收场。
 """
 
+import json
 import re
 
 import pytest
@@ -348,10 +349,87 @@ def test_run_task_started_payload_carries_goal():
     assert outcome.events[0].payload == {"goal": "整理 Downloads 里的 PDF"}
 
 
-def test_run_task_completed_payload_carries_fact_count():
+def _completed_payload(outcome):
+    """走 runtime.py 同一条序列化路径取 payload。
+
+    钉的是上线的 JSON 形状，不是 payload 属性里可能还挂着的 SummaryFact 实例：
+    RunTaskEvent.payload 声明是 Any，塞模型实例还是塞普通 dict 都能过契约，
+    但 TS 那边看到的只能是 model_dump 之后的形状。
+    """
+    return outcome.events[-1].model_dump()["payload"]
+
+
+def test_run_task_completed_payload_carries_fact_count_and_facts():
     engine, *_ = make_engine([list_result(), pdf_result()], golden_path())
     outcome = engine.run("g", VISIBLE)
-    assert outcome.events[-1].payload == {"factCount": 1}
+
+    assert _completed_payload(outcome) == {
+        "factCount": 1,
+        "facts": [{"text": "摘要", "pageRefs": [1]}],
+    }
+
+
+def test_run_task_completed_payload_keeps_fact_count_alongside_facts():
+    # TS 侧 summarizePayload 的 task_completed 分支只认 factCount。
+    # 只发 facts 不发 factCount，timeline 那行会退化成整段 JSON。
+    engine, *_ = make_engine([list_result(), pdf_result()], golden_path())
+    payload = _completed_payload(engine.run("g", VISIBLE))
+
+    assert "factCount" in payload
+    assert payload["factCount"] == len(payload["facts"])
+
+
+def test_run_task_completed_payload_facts_match_the_verified_ones():
+    # 进 payload 的必须是 verify_summary 之后的结果，不是模型原样交上来的那份。
+    # 两者在 golden path 上看着一样，差别在页码被强转或补全的时候才出来。
+    engine, *_ = make_engine([list_result(), pdf_result()], golden_path())
+    outcome = engine.run("g", VISIBLE)
+
+    assert _completed_payload(outcome)["facts"] == [f.model_dump() for f in outcome.facts]
+
+
+def test_run_task_completed_payload_carries_every_fact_not_just_the_first():
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId="c-1",
+            capability="filesystem.list",
+            arguments={"rootId": "downloads"},
+        ),
+        ToolCallDecision(
+            kind="tool_call",
+            callId="c-2",
+            capability="document.extract_pdf",
+            arguments={"path": "D:/downloads/a.pdf"},
+        ),
+        SummaryDecision(
+            kind="summary",
+            facts=[
+                {"text": "第一条", "pageRefs": [1]},
+                {"text": "第二条", "pageRefs": [1]},
+            ],
+        ),
+    ]
+    engine, *_ = make_engine([list_result(), pdf_result()], decisions)
+
+    assert _completed_payload(engine.run("g", VISIBLE))["facts"] == [
+        {"text": "第一条", "pageRefs": [1]},
+        {"text": "第二条", "pageRefs": [1]},
+    ]
+
+
+def test_run_task_completed_payload_survives_json_dumps():
+    # runtime.py 是 model_dump() 之后交给 json.dumps 的。payload 声明是 Any，
+    # 直接塞 SummaryFact 实例能不能过这一关，取决于 pydantic 会不会递归进 Any。
+    # 不递归的话这里是 TypeError，整个 run_task 响应发不出去。
+    engine, *_ = make_engine([list_result(), pdf_result()], golden_path())
+    outcome = engine.run("g", VISIBLE)
+
+    text = json.dumps(outcome.model_dump(), ensure_ascii=False)
+
+    assert json.loads(text)["events"][-1]["payload"]["facts"] == [
+        {"text": "摘要", "pageRefs": [1]}
+    ]
 
 
 def test_run_all_occurred_at_match_contract():

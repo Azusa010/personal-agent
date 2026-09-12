@@ -116,7 +116,7 @@ class AgentEngine:
                     )
                 except SummaryRejected as e:
                     return self._fail(events, e.reason)
-                self._emit(events, EVENT_TASK_COMPLETED, {"factCount": len(facts)})
+                self._emit(events, EVENT_TASK_COMPLETED, {"factCount": len(facts),"facts": facts})
                 return RunTaskCompleted(status="completed", facts=facts, events=events)
             self._emit(
                 events,

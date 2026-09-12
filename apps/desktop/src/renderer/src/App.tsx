@@ -5,7 +5,12 @@ import type {
   RunTaskIpcResult,
   TimelineIpcResult
 } from '../../shared/ipc-contract'
-import { describeRunOutcome, extractFactCount, type RunOutcomeView } from './view-model'
+import {
+  describeRunOutcome,
+  extractFactCount,
+  extractFacts,
+  type RunOutcomeView
+} from './view-model'
 import { RunTaskPanel } from './components/RunTaskPanel'
 import { PlanView } from './components/PlanView'
 import { TimelineView } from './components/TimelineView'
@@ -86,8 +91,11 @@ function App(): React.JSX.Element {
   }
 
   const timeline = timelineResult !== null && timelineResult.ok ? timelineResult.timeline : null
-  // 摘要正文只在跑完那一次的 IPC 返回值里，库里只有条数。
   const persistedFactCount = timeline === null ? null : extractFactCount(timeline.events)
+  // 库是事实来源。只有从库里一条也还原不出来时才退回本次 IPC 的返回值，
+  // 那一支盖的是事件写库失败、但任务确实跑完了的情况。
+  const persistedFacts = timeline === null ? [] : extractFacts(timeline.events)
+  const facts = persistedFacts.length > 0 ? persistedFacts : (outcome?.facts ?? [])
 
   return (
     <>
@@ -158,7 +166,7 @@ function App(): React.JSX.Element {
           onReload={() => void loadTimeline(null)}
         />
 
-        <SummaryView facts={outcome?.facts ?? []} persistedCount={persistedFactCount} />
+        <SummaryView facts={facts} persistedCount={persistedFactCount} />
       </div>
     </>
   )

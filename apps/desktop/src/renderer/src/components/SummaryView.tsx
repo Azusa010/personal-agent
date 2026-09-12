@@ -1,7 +1,7 @@
 import type { SummaryFact } from '../../../shared/ipc-contract'
 
 export interface SummaryViewProps {
-  /** 本次会话跑出来的摘要正文。重启后是空数组：正文没落库 */
+  /** 摘要正文。优先是库里还原出来的，还原不出来才是本次 IPC 的返回值 */
   facts: SummaryFact[]
   /** 库里 task_completed 记的条数。null = 这个任务没跑完过 */
   persistedCount: number | null
@@ -29,8 +29,8 @@ export function SummaryView({ facts, persistedCount }: SummaryViewProps): React.
 
       {factsLost && (
         <p className="hint">
-          库里记着这个任务产出了 {persistedCount} 条摘要，但正文没落库 —— task_completed 事件的
-          payload 只有 factCount。重启之后就只能看到这个条数。
+          库里记着这个任务产出了 {persistedCount} 条摘要，但正文读不出来 —— 这条 task_completed 是在
+          payload 带上 facts 之前写下的，那时候只存了 factCount。
         </p>
       )}
 

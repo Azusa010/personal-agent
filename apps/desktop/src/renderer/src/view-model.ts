@@ -209,20 +209,58 @@ export function describePlanSteps(plan: PlanRecord | null): PlanStepView[] {
   }))
 }
 
-// ---- 七、从事件流里挖摘要条数 ----
+// ---- 七、从事件流里挖摘要 ----
 
 /**
- * task_completed 的 payload 里只有 factCount，没有正文。
  * 返回 null 表示根本没跑完过（没有这条事件）。
+ * factCount 与 facts 两个字段各自取，取不到各自降级：库里存着改契约之前写的
+ * 旧记录，那些只有 factCount 没有 facts。
  */
+
+// 从最后一条 task_completed 的 payload 里还原摘要数量。
 export function extractFactCount(events: ExecutionEventRecord[]): number | null {
-  // 倒着找：一个任务正常只有一条 task_completed，但库里可能有脏数据，
-  // 取最后一条才是最终结局。
+  const record = lastCompletedPayload(events)
+  if (record === null) return null
+  const raw = record['factCount']
+  return typeof raw === 'number' && Number.isFinite(raw) ? raw : null
+}
+
+/**
+ * 从最后一条 task_completed 的 payload 里还原摘要正文。
+ */
+export function extractFacts(events: ExecutionEventRecord[]): SummaryFact[] {
+  const record = lastCompletedPayload(events)
+  if (record === null) return []
+  const raw = record['facts']
+  if (!Array.isArray(raw)) return []
+
+  const facts: SummaryFact[] = []
+  for (const item of raw) {
+    const fact = asFact(item)
+    // 形状不对的整条丢掉，不剔里面坏的页码：剩下半个引用列表会把
+    // 「这条摘要来自第 1、3 页」渲染成「第 1 页」，看上去像真的。
+    if (fact !== null) facts.push(fact)
+  }
+  return facts
+}
+
+// 倒着找：一个任务正常只有一条 task_completed，但库里可能有脏数据，
+// 取最后一条才是最终结局。
+function lastCompletedPayload(events: ExecutionEventRecord[]): Record<string, unknown> | null {
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i]
     if (event === undefined || event.type !== 'task_completed') continue
-    const raw = asRecord(event.payload)['factCount']
-    if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+    return asRecord(event.payload)
   }
   return null
+}
+
+function asFact(value: unknown): SummaryFact | null {
+  const record = asRecord(value)
+  const text = record['text']
+  const refs = record['pageRefs']
+  if (typeof text !== 'string' || text.length === 0) return null
+  if (!Array.isArray(refs)) return null
+  const ok = refs.every((ref) => typeof ref === 'number' && Number.isInteger(ref) && ref >= 1)
+  return ok ? { text, pageRefs: refs as number[] } : null
 }

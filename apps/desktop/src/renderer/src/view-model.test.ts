@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import type {
   ExecutionEventRecord,
   PlanRecord,
   PlanStep,
-  RunTaskIpcResult
+  RunTaskIpcResult,
+  SummaryFact
 } from '../../shared/ipc-contract'
 import {
   EVENT_LABELS,
@@ -12,6 +15,7 @@ import {
   describePlanSteps,
   describeRunOutcome,
   extractFactCount,
+  extractFacts,
   formatOccurredAt,
   summarizePayload
 } from './view-model'
@@ -387,5 +391,136 @@ describe('extractFactCount', () => {
   it('payload 不是对象时不炸', () => {
     expect(extractFactCount([ev('task_completed', null)])).toBeNull()
     expect(extractFactCount([ev('task_completed', '散文')])).toBeNull()
+  })
+})
+
+describe('extractFacts', () => {
+  const FACTS = [
+    { text: '第一条', pageRefs: [1, 2] },
+    { text: '第二条', pageRefs: [3] }
+  ]
+
+  it('payload 里的 facts 原样还原', () => {
+    const events = [ev('task_completed', { factCount: 2, facts: FACTS })]
+
+    expect(extractFacts(events)).toEqual(FACTS)
+  })
+
+  it('没有 task_completed → 空数组', () => {
+    expect(extractFacts([ev('task_started', { goal: '目标' })])).toEqual([])
+    expect(extractFacts([])).toEqual([])
+  })
+
+  it('改契约之前写的旧记录：只有 factCount，正文还原不出来但条数还在', () => {
+    // SummaryView 靠这两个返回值的不一致判定「正文读不出来」，不能两个都降级成空。
+    const events = [ev('task_completed', { factCount: 3 })]
+
+    expect(extractFacts(events)).toEqual([])
+    expect(extractFactCount(events)).toBe(3)
+  })
+
+  it('facts 不是数组 → 空数组，不当成一条也不是数组的东西去 map', () => {
+    expect(extractFacts([ev('task_completed', { facts: '散文' })])).toEqual([])
+    expect(extractFacts([ev('task_completed', { facts: null })])).toEqual([])
+    expect(extractFacts([ev('task_completed', { facts: { text: 'a' } })])).toEqual([])
+  })
+
+  it('形状不对的整条丢掉，其余照常还原', () => {
+    const events = [
+      ev('task_completed', {
+        factCount: 3,
+        facts: [{ text: '好的', pageRefs: [1] }, { text: '', pageRefs: [1] }, '不是对象']
+      })
+    ]
+
+    expect(extractFacts(events)).toEqual([{ text: '好的', pageRefs: [1] }])
+  })
+
+  it('pageRefs 里混进坏页码 → 整条丢，不剔坏的留好的', () => {
+    // 剔完再渲染会把「来自第 1、3 页」变成「第 1 页」，看上去像真的。
+    const events = [
+      ev('task_completed', {
+        facts: [
+          { text: '混了字符串页码', pageRefs: [1, '3'] },
+          { text: '混了 0', pageRefs: [0] },
+          { text: '混了小数', pageRefs: [1.5] },
+          { text: '干净的', pageRefs: [2] }
+        ]
+      })
+    ]
+
+    expect(extractFacts(events)).toEqual([{ text: '干净的', pageRefs: [2] }])
+  })
+
+  it('pageRefs 缺字段 → 整条丢', () => {
+    expect(extractFacts([ev('task_completed', { facts: [{ text: '没页码' }] })])).toEqual([])
+  })
+
+  it('多条 task_completed 取最后一条', () => {
+    const events = [
+      ev('task_completed', { facts: [{ text: '旧的', pageRefs: [1] }] }, 1),
+      ev('task_completed', { facts: [{ text: '新的', pageRefs: [2] }] }, 2)
+    ]
+
+    expect(extractFacts(events)).toEqual([{ text: '新的', pageRefs: [2] }])
+  })
+
+  it('payload 不是对象时不炸', () => {
+    expect(extractFacts([ev('task_completed', null)])).toEqual([])
+  })
+})
+
+describe('task_completed 的 payload 带上 facts 之后对 timeline 行的影响', () => {
+  it('factCount 还在时，timeline 那行照旧只显示条数，不被 facts 的 JSON 撑爆', () => {
+    const line = summarizePayload('task_completed', {
+      factCount: 2,
+      facts: [
+        { text: '很长的正文'.repeat(40), pageRefs: [1] },
+        { text: '另一条', pageRefs: [2, 3] }
+      ]
+    })
+
+    expect(line).toBe('产出 2 条摘要')
+  })
+
+  it('factCount 从 payload 里去掉，timeline 那行就退化成整段 JSON', () => {
+    // 钉的是 engine 侧不能只发 facts 不发 factCount 的原因：两个字段都得在。
+    const line = summarizePayload('task_completed', {
+      facts: [{ text: '很长的正文'.repeat(40), pageRefs: [1] }]
+    })
+
+    expect(line).not.toBe('产出 1 条摘要')
+    expect(line.startsWith('{')).toBe(true)
+    expect(line.length).toBeLessThanOrEqual(160)
+  })
+})
+
+// 双端共用的那份 fixture。Python 侧 test_protocol_fixtures.py 拿它验 Pydantic 镜像，
+// 这里拿它验展示层能不能还原。两边各绿不代表对得上，共用一份样本才钉得住。
+describe('protocol fixture 交叉验证：Python 发出的 task_completed，TS 这边能还原', () => {
+  const FIXTURE = fileURLToPath(
+    new URL(
+      '../../../../../packages/protocol/fixtures/agent-run-task.completed.response.json',
+      import.meta.url
+    )
+  )
+  const { result } = JSON.parse(readFileSync(FIXTURE, 'utf8')) as {
+    result: { facts: SummaryFact[]; events: ExecutionEventRecord[] }
+  }
+
+  it('extractFacts 还原出的正文与 result.facts 逐条一致', () => {
+    expect(extractFacts(result.events)).toEqual(result.facts)
+  })
+
+  it('extractFactCount 与 result.facts 的条数一致', () => {
+    expect(extractFactCount(result.events)).toBe(result.facts.length)
+  })
+
+  it('timeline 那行只显示条数，不被 facts 撑爆', () => {
+    const completed = result.events.find((e) => e.type === 'task_completed')
+
+    expect(summarizePayload('task_completed', completed?.payload)).toBe(
+      `产出 ${result.facts.length} 条摘要`
+    )
   })
 })
