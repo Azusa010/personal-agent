@@ -1,6 +1,63 @@
 import * as z from "zod";
+import { CapabilityId } from "./host";
 
 export const AGENT_RUN_TASK = "agent.run_task";
+export const AGENT_MAKE_PLAN = "agent.make_plan";
+
+export const MakePlanParams = z.object({
+  taskId: z.string().min(1),
+  goal: z.string().min(1),
+});
+
+// 计划里的一步。capability 可选：摘要那一步不经工具，由模型自己产出，
+// 线上形状里没有这个键（Python 侧 Response.model_dump(exclude_none=True) 剔掉 None）。
+// 注意 zod 的 optional 收 undefined 但不收 null，所以 Python 必须 exclude_none。
+export const PlanStepDto = z.object({
+  description: z.string().min(1),
+  capability: CapabilityId.optional(),
+});
+
+// steps 至少一步：空计划会让 Main 侧的 ActionAlignment 没有比对基准，
+// 任何 tool call 都对不上，任务永远跑不起来。
+export const MakePlanResult = z.object({
+  steps: z.array(PlanStepDto).min(1),
+});
+
+export type MakePlanParams = z.infer<typeof MakePlanParams>;
+export type PlanStepDto = z.infer<typeof PlanStepDto>;
+export type MakePlanResult = z.infer<typeof MakePlanResult>;
+
+export const MakePlanRequest = z.object({
+  jsonrpc: z.literal("2.0"),
+  id: z.string().min(1),
+  method: z.literal(AGENT_MAKE_PLAN),
+  params: MakePlanParams,
+});
+
+export const MakePlanResponse = z
+  .object({
+    jsonrpc: z.literal("2.0"),
+    id: z.string().min(1),
+    result: MakePlanResult.optional(),
+    error: z
+      .object({
+        code: z.string(),
+        message: z.string(),
+        data: z.unknown().optional(),
+      })
+      .optional(),
+  })
+  .superRefine((res, ctx) => {
+    if ((res.result !== undefined) === (res.error !== undefined)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "result and error must not be present at the same time",
+      });
+    }
+  });
+
+export type MakePlanRequest = z.infer<typeof MakePlanRequest>;
+export type MakePlanResponse = z.infer<typeof MakePlanResponse>;
 
 // TS 触发一个 Agent 任务的入参
 export const RunTaskParams = z.object({

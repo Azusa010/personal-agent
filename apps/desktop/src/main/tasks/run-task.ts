@@ -1,10 +1,16 @@
-import { AGENT_RUN_TASK, ERROR_CODE, RunTaskParams, RunTaskResult } from '@personal-agent/protocol'
-import type { RunTaskIpcResult } from '../../shared/ipc-contract'
+import {
+  AGENT_MAKE_PLAN,
+  AGENT_RUN_TASK,
+  ERROR_CODE,
+  MakePlanResult,
+  RunTaskParams,
+  RunTaskResult
+} from '@personal-agent/protocol'
+import type { IpcErrorCode, RunTaskIpcResult } from '../../shared/ipc-contract'
 import type { SqliteDatabase } from '../product-state/database'
 import type { EventRepository } from '../product-state/event-repository'
 import type { PlanRepository } from '../product-state/plan-repository'
 import type { TaskRepository } from '../product-state/task-repository'
-import { PHASE1_PLAN_STEPS } from './plan-template'
 import { RuntimeError } from '../runtime/python-supervisor'
 import { RUNTIME_ERROR_CODE } from '../runtime/error-code'
 
@@ -14,6 +20,25 @@ import { RUNTIME_ERROR_CODE } from '../runtime/error-code'
 // Budget 在 Python 侧、契约里不传（3b 钉死 RunTaskParams 只有 taskId/goal），
 // 所以这个值只能硬编码，由 run-task.test.ts 的钉值测试守住不等式。
 export const RUN_TASK_TIMEOUT_MS = 120_000
+
+// agent.make_plan 是纯计算（查一次能力清单 + 返回固定三步），10 秒已经宽得离谱。
+// 真超过就是子进程卡死或 stdout 堵了，早点报错比跟着等 120 秒强：
+// 那 120 秒里库里连一条 Task 都没有，UI 上什么都看不见。
+export const MAKE_PLAN_TIMEOUT_MS = 10_000
+
+// supervisor 把 error envelope 里的 code 原样塞进 RuntimeError.code（类型是 string），
+// 而 IPC 返回值的 code 是闭合联合。认得出的原样透传，认不出的收成 CRASHED——
+// 那种情况是 Python 新加了码没在 error-code.ts 登记，让它显式变成可识别的码，
+// 比把一个 UI 查不到的字符串推上去好。
+const KNOWN_IPC_CODES: ReadonlySet<IpcErrorCode> = new Set<IpcErrorCode>([
+  ...Object.values(RUNTIME_ERROR_CODE),
+  ...Object.values(ERROR_CODE)
+])
+
+function toIpcCode(code: string): IpcErrorCode {
+  const known = code as IpcErrorCode
+  return KNOWN_IPC_CODES.has(known) ? known : RUNTIME_ERROR_CODE.CRASHED
+}
 
 /** runtime-host 的窄网关形状。测试注入 stub，生产传 requestRuntime。 */
 export type RuntimeSend = (
@@ -63,7 +88,7 @@ function persistRuntimeFailure(
 }
 
 export async function runTask(goal: unknown, deps: RunTaskDeps): Promise<RunTaskIpcResult> {
-  // 跑一个完整的完整编排：建 Task → 写 Plan → 调 Python → 落 events → 推状态。
+  // 跑一个完整的编排：索要计划 → 建 Task → 写 Plan → 调 Python → 落 events → 推状态。
   const taskId = deps.newId?.() ?? crypto.randomUUID()
   const planId = deps.newId?.() ?? crypto.randomUUID()
   const parsedParams = RunTaskParams.safeParse({ taskId, goal })
@@ -75,6 +100,33 @@ export async function runTask(goal: unknown, deps: RunTaskDeps): Promise<RunTask
     }
   }
   const request = parsedParams.data
+
+  // 计划在建 Task 之前索要：拿不到计划就是任务从没开始，库里不该留一条
+  // 永远停在 pending 的 Task——reconcileOrphanTasks 只收 running 的，收了也不会动它。
+  // MakePlanParams 与 RunTaskParams 字段逐字相同（envelope.test.ts 钉着），所以 request 直接复用。
+  let rawPlan: unknown
+  try {
+    rawPlan = await deps.send(AGENT_MAKE_PLAN, request, { timeoutMs: MAKE_PLAN_TIMEOUT_MS })
+  } catch (e) {
+    // PLAN_NOT_BUILDABLE 走这条路：supervisor 把 error envelope 转成 RuntimeError，
+    // code 原样透传给 UI，TS 不替 Python 改写错误语义。
+    return {
+      ok: false,
+      code: e instanceof RuntimeError ? toIpcCode(e.code) : RUNTIME_ERROR_CODE.CRASHED,
+      message: e instanceof Error ? e.message : String(e)
+    }
+  }
+  const parsedPlan = MakePlanResult.safeParse(rawPlan)
+  if (!parsedPlan.success) {
+    return {
+      ok: false,
+      code: RUNTIME_ERROR_CODE.PLAN_INVALID,
+      message: parsedPlan.error.message
+    }
+  }
+  // 顺序原样落库：ActionAlignment 要拿计划里第 i 个带 capability 的步骤去比对
+  // 第 i 次 tool call，这里裁剪或重排就等于把比对基准改了。
+  const steps = parsedPlan.data.steps
 
   // 事务 A:
   // insert Pending -> running ->append plan
@@ -91,7 +143,7 @@ export async function runTask(goal: unknown, deps: RunTaskDeps): Promise<RunTask
       deps.plans.append({
         id: planId,
         taskId,
-        steps: [...PHASE1_PLAN_STEPS],
+        steps: [...steps],
         createdAt: deps.now?.() ?? new Date().toISOString()
       })
     })

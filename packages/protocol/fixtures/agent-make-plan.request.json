@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "id": "req-001",
+  "method": "agent.make_plan",
+  "params": {
+    "taskId": "task-001",
+    "goal": "整理下载目录里的 PDF 并给出摘要"
+  }
+}

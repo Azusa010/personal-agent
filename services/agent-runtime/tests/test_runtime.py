@@ -5,9 +5,11 @@ from personal_agent.model_gateway import SummaryDecision, ToolCallDecision
 from personal_agent.protocol.models import (
     CapabilityDescriptor,
     HostExecuteToolResult,
+    MakePlanResponse,
     RunTaskResponse,
 )
 from personal_agent.runtime import (
+    PLAN_NOT_BUILDABLE,
     RUNTIME_MODEL_NOT_CONFIGURED,
     SCRIPT_ENV,
     RuntimeDeps,
@@ -81,6 +83,17 @@ def run_task_line(req_id="30", task_id="task-001", goal="整理 Downloads 里的
             "jsonrpc": "2.0",
             "id": req_id,
             "method": "agent.run_task",
+            "params": {"taskId": task_id, "goal": goal},
+        }
+    )
+
+
+def make_plan_line(req_id="20", task_id="task-001", goal="整理 Downloads 里的 PDF"):
+    return json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "method": "agent.make_plan",
             "params": {"taskId": task_id, "goal": goal},
         }
     )
@@ -479,3 +492,113 @@ def test_fixture_script_is_the_read_only_golden_path():
     # 页码只能用 1/2/3：固定 PDF 就三页，引用到第 4 页会被 SummaryVerifier 拒掉。
     assert decisions[2].facts[0]["pageRefs"] == [1]
     assert decisions[2].facts[1]["pageRefs"] == [2, 3]
+
+
+# ---- agent.make_plan ----
+EXPECTED_PLAN_CAPABILITIES = ["filesystem.list", EXTRACT_PDF_CAPABILITY]
+
+
+def test_make_plan_returns_the_three_step_plan_after_initialize():
+    deps = deps_with(golden_path())
+    handle_line(initialize_line(), deps)
+
+    out = handle_line(make_plan_line(), deps)
+
+    steps = out["result"]["steps"]
+    assert [s.get("capability") for s in steps] == [*EXPECTED_PLAN_CAPABILITIES, None]
+    assert [s["description"] for s in steps] == [
+        "列出 Downloads 下的 PDF",
+        "提取目标 PDF 的每页文本",
+        "基于页面内容生成带页码引用的摘要",
+    ]
+
+
+def test_make_plan_response_matches_the_contract():
+    deps = deps_with(golden_path())
+    handle_line(initialize_line(), deps)
+
+    MakePlanResponse.model_validate(handle_line(make_plan_line(), deps))
+
+
+def test_make_plan_summary_step_has_no_capability_key_at_all():
+    """zod 的 optional 不收 null，所以这里不能只是值为 None，键必须不存在。"""
+    deps = deps_with(golden_path())
+    handle_line(initialize_line(), deps)
+
+    steps = handle_line(make_plan_line(), deps)["result"]["steps"]
+
+    assert "capability" not in steps[2]
+    assert json.dumps(steps[2], ensure_ascii=False).find("capability") == -1
+
+
+def test_make_plan_does_not_need_a_model():
+    """计划是确定性的，没配剧本的进程也得能回答；只有 run_task 才拦模型。"""
+    deps = deps_with(None)
+    handle_line(initialize_line(), deps)
+
+    out = handle_line(make_plan_line(), deps)
+
+    assert "error" not in out
+    assert len(out["result"]["steps"]) == 3
+
+
+def test_make_plan_is_deterministic_across_calls():
+    deps = deps_with(golden_path())
+    handle_line(initialize_line(), deps)
+
+    first = handle_line(make_plan_line(), deps)["result"]
+    second = handle_line(make_plan_line(req_id="21"), deps)["result"]
+
+    assert first == second
+
+
+def test_make_plan_without_initialize_returns_plan_not_buildable():
+    """没握手就没有可见能力清单，计划不该凭空承诺两个 READ。"""
+    out = handle_line(make_plan_line(), deps_with(golden_path()))
+
+    assert out["error"]["code"] == PLAN_NOT_BUILDABLE
+
+
+def test_make_plan_without_deps_returns_plan_not_buildable():
+    out = handle_line(make_plan_line())
+
+    assert out["error"]["code"] == PLAN_NOT_BUILDABLE
+
+
+def test_make_plan_error_names_the_missing_capability():
+    """只说「建不出来」没用：得知道是 Scope 少了哪个能力。"""
+    only_list = [CAPABILITIES[0]]
+    deps = deps_with(golden_path())
+    handle_line(initialize_line(capabilities=only_list), deps)
+
+    out = handle_line(make_plan_line(), deps)
+
+    assert out["error"]["code"] == PLAN_NOT_BUILDABLE
+    assert EXTRACT_PDF_CAPABILITY in out["error"]["message"]
+
+
+def test_make_plan_invalid_params_returns_protocol_error():
+    deps = deps_with(golden_path())
+    handle_line(initialize_line(), deps)
+    line = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": "22",
+            "method": "agent.make_plan",
+            "params": {"taskId": "task-001"},
+        }
+    )
+
+    out = handle_line(line, deps)
+
+    assert out["error"]["code"] == "PROTOCOL_INVALID_REQUEST"
+
+
+def test_make_plan_wrong_version_initialize_does_not_leak_capabilities():
+    """握手版本不对时 deps.capabilities 不会被写，计划也就建不出来。"""
+    deps = deps_with(golden_path())
+    handle_line(initialize_line(version="9.9"), deps)
+
+    out = handle_line(make_plan_line(), deps)
+
+    assert out["error"]["code"] == PLAN_NOT_BUILDABLE

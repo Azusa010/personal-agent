@@ -23,6 +23,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { executeHostTool, listVisibleCapabilities } from '../capabilities/host-executor'
+import { findCapability } from '../capabilities/registry'
 import { ROOT_ENV, toPosix } from '../capabilities/roots'
 import { migrate, openProductState, type SqliteDatabase } from '../product-state/database'
 import { SqliteEventRepository } from '../product-state/event-repository'
@@ -65,6 +66,14 @@ const GOLDEN_EVENT_TYPES = [
   'tool_called',
   'tool_result',
   'task_completed'
+]
+// 与 Python 侧 planning.make_plan 的三步逐字一致。跟 SCRIPT_ENV 同一个处境：
+// 跨语言没有共享常量表，只能在这儿钉一份当漂移探测器。钉在 E2E 而不是
+// 单元测试里的理由：只有这里走真进程，中文描述真的穿过一次 stdin/stdout。
+const PLAN_DESCRIPTIONS = [
+  '列出 Downloads 下的 PDF',
+  '提取目标 PDF 的每页文本',
+  '基于页面内容生成带页码引用的摘要'
 ]
 
 let tempDir = ''
@@ -206,7 +215,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
       // 单轮卡住时由 supervisor 自己超时并转成 failed，这里只是一个够宽的观察窗口。
     }, 300_000)
 
-    it('每轮事件流形状一致：三步模板跑出六条事件', () => {
+    it('每轮事件流形状一致：三步计划跑出六条事件', () => {
       const deps = makeDeps()
 
       for (const [i, taskId] of taskIds().entries()) {
@@ -222,7 +231,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
       }
     })
 
-    it('每轮都落一份 v1 计划，内容是钉死的三步', () => {
+    it('每轮都落一份 v1 计划，内容从 Python 回传且逐字稳定', () => {
       const deps = makeDeps()
 
       for (const taskId of taskIds()) {
@@ -234,6 +243,16 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
           'document.extract_pdf',
           undefined
         ])
+        // 编码错的话这里就是一串 mojibake，而上面那条 capability 断言照样绿。
+        expect(plan?.steps.map((s) => s.description)).toEqual(PLAN_DESCRIPTIONS)
+        // 计划里出现 WRITE 能力就是范围漂移：Scope 只放行 READ，
+        // 而 ActionAlignment 会照着计划放行调用，所以必须在这里拦住。
+        for (const step of plan?.steps ?? []) {
+          if (step.capability === undefined) continue
+          const found = findCapability(step.capability)
+          expect(found, `${step.capability} 不在 registry 里`).not.toBeNull()
+          expect(found?.kind, `${step.capability} 不是 READ`).toBe('READ')
+        }
       }
     })
 

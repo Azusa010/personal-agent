@@ -11,11 +11,15 @@ from personal_agent.context import ContextManager
 from personal_agent.engine import AgentEngine
 from personal_agent.host_channel import HostChannel
 from personal_agent.model_gateway import ModelGateway
+from personal_agent.planning import PlanError, make_plan
 from personal_agent.protocol.models import (
+    AGENT_MAKE_PLAN,
     AGENT_RUN_TASK,
     CapabilityDescriptor,
     InitializeParams,
     InitializeResult,
+    MakePlanParams,
+    MakePlanResult,
     Request,
     Response,
     RunTaskParams,
@@ -29,6 +33,11 @@ SERVER_INFO = ServerInfo(name="personal-agent-runtime", version="0.1.0")
 # 所以 main() 起的进程握手与 ping 都正常，收到 agent.run_task 时回这个码，
 # 而不是拿一个空脚本的 ScriptedModel 去跑然后立即耗尽。
 RUNTIME_MODEL_NOT_CONFIGURED = "RUNTIME_MODEL_NOT_CONFIGURED"
+
+# 计划建不出来：握手时下发的能力清单缺了计划需要的能力。
+# 与 RUNTIME_MODEL_NOT_CONFIGURED 同一条规矩：Python 单侧产生的码不进
+# packages/protocol 的 ERROR_CODE 注册表，TS 侧只把它当不透明字符串透传。
+PLAN_NOT_BUILDABLE = "PLAN_NOT_BUILDABLE"
 
 # 剧本路径从这个环境变量读。与 DEP-012 的 OPENAI_MODEL 同构：
 # 默认不配，要用就显式开启。
@@ -71,6 +80,9 @@ def dispatch(raw, deps: RuntimeDeps | None = None) -> dict:
     if req.method == "system.initialize":
         return handle_initialize(req, deps)
 
+    if req.method == AGENT_MAKE_PLAN:
+        return handle_make_plan(req, deps)
+
     if req.method == AGENT_RUN_TASK:
         return handle_run_task(req, deps)
 
@@ -109,6 +121,36 @@ def handle_initialize(req: Request, deps: RuntimeDeps | None = None) -> dict:
     return Response(jsonrpc="2.0", id=req.id, result=result.model_dump()).model_dump(
         exclude_none=True
     )
+
+
+def handle_make_plan(req: Request, deps: RuntimeDeps | None = None) -> dict:
+    """产出一份计划回给 Main。
+
+    不需要 model_factory：计划是确定性的，没配剧本的进程也该能回答。
+    真正跑任务时才需要模型，那边自己拦。
+    """
+    try:
+        params = MakePlanParams.model_validate(req.params)
+    except ValidationError:
+        return build_error(
+            req.id, "PROTOCOL_INVALID_REQUEST", "make_plan 参数不符合契约"
+        )
+
+    visible = [c.name for c in deps.capabilities] if deps is not None else []
+    try:
+        steps = make_plan(params.goal, visible)
+    except PlanError as e:
+        return build_error(req.id, PLAN_NOT_BUILDABLE, str(e))
+    except Exception:
+        log.exception("agent.make_plan 未预期异常 (id=%s)", req.id)
+        return build_error(req.id, "RUNTIME_INTERNAL", "运行时内部错误")
+
+    # exclude_none 必须一路带到底：摘要那一步的 capability 是 None，
+    # 而 zod 的 optional 不收 null，漏剔就是两端判定相反的契约漂移。
+    result = MakePlanResult(steps=[s.model_dump(exclude_none=True) for s in steps])
+    return Response(
+        jsonrpc="2.0", id=req.id, result=result.model_dump(exclude_none=True)
+    ).model_dump(exclude_none=True)
 
 
 def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:

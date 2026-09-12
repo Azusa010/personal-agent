@@ -16,11 +16,16 @@ import {
   type PlanRecord
 } from '../product-state/plan-repository'
 import { SqliteEventRepository, type EventRepository } from '../product-state/event-repository'
-import { AGENT_RUN_TASK, ERROR_CODE } from '@personal-agent/protocol'
+import { AGENT_MAKE_PLAN, AGENT_RUN_TASK, ERROR_CODE } from '@personal-agent/protocol'
 import { RuntimeError } from '../runtime/python-supervisor'
 import { RUNTIME_ERROR_CODE } from '../runtime/error-code'
-import { runTask, RUN_TASK_TIMEOUT_MS, type RunTaskDeps, type RuntimeSend } from './run-task'
-import { PHASE1_PLAN_STEPS } from './plan-template'
+import {
+  runTask,
+  RUN_TASK_TIMEOUT_MS,
+  MAKE_PLAN_TIMEOUT_MS,
+  type RunTaskDeps,
+  type RuntimeSend
+} from './run-task'
 
 const GOAL = '整理 Downloads 里的 PDF'
 const T0 = '2026-09-11T00:00:00.000Z'
@@ -84,22 +89,48 @@ interface RecordedCall {
   opts?: { timeoutMs?: number }
 }
 
-function sendReturning(result: unknown): RuntimeSend & { calls: RecordedCall[] } {
+/** Python 侧 planning.make_plan 的真回包。第三步没有 capability 键（exclude_none 剔掉了，
+ *  不是 null）——zod 的 optional 不收 null，写成 null 这条 stub 就跟真链路不一样了。 */
+const PLAN_STEPS = [
+  { description: '列出 Downloads 下的 PDF', capability: 'filesystem.list' },
+  { description: '提取目标 PDF 的每页文本', capability: 'document.extract_pdf' },
+  { description: '基于页面内容生成带页码引用的摘要' }
+]
+
+function planResult(steps: unknown = PLAN_STEPS): unknown {
+  return { steps }
+}
+
+type Responder = (method: string) => unknown
+
+function makeStub(respond: Responder): RuntimeSend & { calls: RecordedCall[] } {
   const fn = ((method: string, params: unknown, opts?: { timeoutMs?: number }) => {
     fn.calls.push({ method, params, opts })
-    return Promise.resolve(result)
+    const value = respond(method)
+    // 值是 Error 就 reject：模拟 supervisor 把 error envelope 或超时转成的 RuntimeError。
+    return value instanceof Error ? Promise.reject(value) : Promise.resolve(value)
   }) as RuntimeSend & { calls: RecordedCall[] }
   fn.calls = []
   return fn
 }
 
-function sendThrowing(err: unknown): RuntimeSend & { calls: RecordedCall[] } {
-  const fn = ((method: string, params: unknown, opts?: { timeoutMs?: number }) => {
-    fn.calls.push({ method, params, opts })
-    return Promise.reject(err)
-  }) as RuntimeSend & { calls: RecordedCall[] }
-  fn.calls = []
-  return fn
+/** 按 method 分流：make_plan 回计划，其余（就只run_task）回执行结果。 */
+function sendReturning(
+  result: unknown,
+  plan: unknown = planResult()
+): RuntimeSend & { calls: RecordedCall[] } {
+  return makeStub((m) => (m === AGENT_MAKE_PLAN ? plan : result))
+}
+
+/** 默认只在 run_task 上抛：make_plan 排在前面，那边抛的话根本走不到 run_task。 */
+function sendThrowing(
+  err: unknown,
+  method: string = AGENT_RUN_TASK
+): RuntimeSend & { calls: RecordedCall[] } {
+  return makeStub((m) => {
+    if (m === method) return err
+    return m === AGENT_MAKE_PLAN ? planResult() : completedResult()
+  })
 }
 
 function openHarness(send: RuntimeSend = sendReturning(completedResult())): Harness {
@@ -141,7 +172,10 @@ function eventsFailingAfter(inner: EventRepository, allowed: number): EventRepos
 }
 
 function sentTaskId(send: RuntimeSend & { calls: RecordedCall[] }): string {
-  return (send.calls[0]?.params as { taskId: string }).taskId
+  // 现在一个任务发两次 RPC，两次的 taskId 必须相同（计划要绑到同一个任务上），
+  // 所以取哪个都行；显式找 run_task 是为了让意图看得懂。
+  const call = send.calls.find((c) => c.method === AGENT_RUN_TASK) ?? send.calls[0]
+  return (call?.params as { taskId: string }).taskId
 }
 
 describe('runTask：Golden Path', () => {
@@ -169,7 +203,7 @@ describe('runTask：Golden Path', () => {
     expect(record?.updatedAt).toBe(T0)
   })
 
-  it('Plan v1 落库，steps 就是静态模板', async () => {
+  it('Plan v1 落库，steps 就是 make_plan 的回包', async () => {
     const h = openHarness()
     const out = await runTask(GOAL, h)
     if (!out.ok) throw new Error('预期 ok:true')
@@ -177,41 +211,49 @@ describe('runTask：Golden Path', () => {
     const plan = h.plans.findLatest(out.taskId)
     expect(plan?.version).toBe(1)
     expect(plan?.taskId).toBe(out.taskId)
-    expect(plan?.steps).toEqual([...PHASE1_PLAN_STEPS])
+    expect(plan?.steps).toEqual(PLAN_STEPS)
     expect(plan?.createdAt).toBe(T0)
   })
 
-  it('调 Python 之前 Task 已经是 running，不是 pending', async () => {
+  it('调 agent.run_task 之前 Task 已经是 running，索要计划时还没建', async () => {
     const h = openHarness()
-    let statusDuringSend: TaskStatus | undefined
-    h.send = (_method, params) => {
-      statusDuringSend = h.tasks.findById((params as { taskId: string }).taskId)?.status
-      return Promise.resolve(completedResult())
+    let statusDuringRun: TaskStatus | undefined
+    let statusDuringPlan: TaskStatus | null = 'running'
+    h.send = (method, params) => {
+      const found = h.tasks.findById((params as { taskId: string }).taskId)?.status
+      if (method === AGENT_MAKE_PLAN) statusDuringPlan = found ?? null
+      else statusDuringRun = found
+      return Promise.resolve(method === AGENT_MAKE_PLAN ? planResult() : completedResult())
     }
     await runTask(GOAL, h)
 
-    // 事务 A 必须在 RPC 之前提交：否则这 120 秒里 UI 查到的还是 pending，
+    // 事务 A 必须在 run_task 之前提交：否则这 120 秒里 UI 查到的还是 pending，
     // 而进程此刻崩了就没人知道这个任务曾经跑过。
-    expect(statusDuringSend).toBe('running')
+    expect(statusDuringRun).toBe('running')
+    // 反过来，索要计划时库里应该什么都没有：计划拿不到就不建 Task，
+    // 否则会留一条永远停在 pending 的孤儿（reconcileOrphanTasks 只收 running 的）。
+    expect(statusDuringPlan).toBeNull()
   })
 
-  it('发的是 agent.run_task，params 只有 taskId 与 goal', async () => {
+  it('两次 RPC：先 make_plan 后 run_task，params 都只有 taskId 与 goal', async () => {
     const send = sendReturning(completedResult())
     const h = openHarness(send)
     await runTask(GOAL, h)
 
-    expect(send.calls).toHaveLength(1)
-    expect(send.calls[0]?.method).toBe(AGENT_RUN_TASK)
-    // 3b 钉死的 RunTaskParams 就这两个字段。多塞东西 Python 侧会校验失败。
-    expect(send.calls[0]?.params).toEqual({ taskId: sentTaskId(send), goal: GOAL })
+    const taskId = sentTaskId(send)
+    expect(send.calls.map((c) => c.method)).toEqual([AGENT_MAKE_PLAN, AGENT_RUN_TASK])
+    // 两个 Params 的字段逐字相同（envelope.test.ts 钉着），多塞东西 Python 侧会校验失败。
+    expect(send.calls[0]?.params).toEqual({ taskId, goal: GOAL })
+    expect(send.calls[1]?.params).toEqual({ taskId, goal: GOAL })
   })
 
-  it('超时用 RUN_TASK_TIMEOUT_MS，不吃 supervisor 的 30 秒默认值', async () => {
+  it('两次 RPC 各用自己的超时，不吃 supervisor 的 30 秒默认值', async () => {
     const send = sendReturning(completedResult())
     const h = openHarness(send)
     await runTask(GOAL, h)
 
-    expect(send.calls[0]?.opts?.timeoutMs).toBe(RUN_TASK_TIMEOUT_MS)
+    expect(send.calls[0]?.opts?.timeoutMs).toBe(MAKE_PLAN_TIMEOUT_MS)
+    expect(send.calls[1]?.opts?.timeoutMs).toBe(RUN_TASK_TIMEOUT_MS)
   })
 
   it('events 一条不增不减全落，seq 从 1 递增', async () => {
@@ -373,9 +415,9 @@ describe('runTask：参数与故障', () => {
     if (out.ok) return
     expect(out.code).toBe(RUNTIME_ERROR_CODE.DB_FAILED)
     // 三步没包在一个事务里的话，这里会留下一条永远停在 running 的 Task，
-    // 而且 send 从没被调用过，没人会来收它。
+    // 而且 run_task 从没被调用过，没人会来收它。
     expect(h.tasks.findAll()).toEqual([])
-    expect(send.calls).toEqual([])
+    expect(send.calls.map((c) => c.method)).toEqual([AGENT_MAKE_PLAN])
   })
 
   it('事务 B 原子性：事件写一半失败时状态不推进，已写的事件也回滚', async () => {
@@ -424,6 +466,100 @@ describe('runTask：参数与故障', () => {
     expect(h.events.listByTask(second.taskId)).toHaveLength(4)
     // seq 是库级自增，跨任务连续，不是每个任务从 1 开始
     expect(h.events.listByTask(second.taskId)[0]?.seq).toBe(5)
+  })
+})
+
+describe('runTask：索要计划', () => {
+  it('计划原样落库：Python 回四步就落四步，TS 不裁剪不重排', async () => {
+    const four = [...PLAN_STEPS, { description: '多出来的一步', capability: 'filesystem.list' }]
+    const h = openHarness(sendReturning(completedResult(), planResult(four)))
+    const out = await runTask(GOAL, h)
+    if (!out.ok) throw new Error('预期 ok:true')
+
+    // ActionAlignment 拿计划里第 i 个带 capability 的步骤比对第 i 次 tool call，
+    // TS 在这儿动一下手脚，比对基准就与实际执行对不上了。
+    expect(h.plans.findLatest(out.taskId)?.steps).toEqual(four)
+  })
+
+  it('Python 回 PLAN_NOT_BUILDABLE → 码原样透传，不建 Task，不发 run_task', async () => {
+    const send = sendThrowing(
+      new RuntimeError(
+        RUNTIME_ERROR_CODE.PLAN_NOT_BUILDABLE,
+        '计划需要 filesystem.list，但它不在模型可见的能力清单里'
+      ),
+      AGENT_MAKE_PLAN
+    )
+    const h = openHarness(send)
+    const out = await runTask(GOAL, h)
+
+    expect(out).toEqual({
+      ok: false,
+      code: RUNTIME_ERROR_CODE.PLAN_NOT_BUILDABLE,
+      message: expect.stringContaining('filesystem.list')
+    })
+    expect(h.tasks.findAll()).toEqual([])
+    expect(send.calls.map((c) => c.method)).toEqual([AGENT_MAKE_PLAN])
+  })
+
+  it('make_plan 超时 → RUNTIME_TIMEOUT，任务根本没开始', async () => {
+    const send = sendThrowing(
+      new RuntimeError(RUNTIME_ERROR_CODE.TIMEOUT, '请求 agent.make_plan 超时 (10000ms)'),
+      AGENT_MAKE_PLAN
+    )
+    const h = openHarness(send)
+    const out = await runTask(GOAL, h)
+
+    expect(out.ok).toBe(false)
+    if (out.ok) return
+    expect(out.code).toBe(RUNTIME_ERROR_CODE.TIMEOUT)
+    expect(h.tasks.findAll()).toEqual([])
+  })
+
+  it('计划回包不合契约 → PLAN_INVALID，且不建 Task', async () => {
+    // steps 为空：Main 侧的 ActionAlignment 会没有比对基准。
+    // capability 是 null：zod 的 optional 收 undefined 不收 null，Python 侧靠
+    // exclude_none 剔键才两边对得上。
+    // capability 是枚举外的能力名：契约层就该拦，不能等执行时才发现。
+    const bad = [
+      {},
+      { steps: [] },
+      { steps: [{ description: '' }] },
+      { steps: [{ description: '一', capability: null }] },
+      { steps: [{ description: '一', capability: 'filesystem.delete' }] }
+    ]
+    // 共用一个 harness：五次尝试里哪一次偷偷建了 Task，后面的 findAll 就会看见。
+    const h = openHarness()
+    for (const plan of bad) {
+      h.send = sendReturning(completedResult(), plan)
+      const out = await runTask(GOAL, h)
+
+      expect(out.ok, `${JSON.stringify(plan)} 应该被拒`).toBe(false)
+      if (out.ok) continue
+      expect(out.code).toBe(RUNTIME_ERROR_CODE.PLAN_INVALID)
+    }
+    expect(h.tasks.findAll()).toEqual([])
+  })
+
+  it('未登记的 Python 码收成 CRASHED，不把陌生字符串推给 UI', async () => {
+    const send = sendThrowing(new RuntimeError('PLAN_STEP_MISSING', '新码'), AGENT_MAKE_PLAN)
+    const h = openHarness(send)
+    const out = await runTask(GOAL, h)
+
+    expect(out.ok).toBe(false)
+    if (out.ok) return
+    // IpcErrorCode 是闭合联合：Python 新加的码没在 error-code.ts 登记就漏到 UI，
+    // 前端会拿到一个查不到含义的字符串。
+    expect(out.code).toBe(RUNTIME_ERROR_CODE.CRASHED)
+    expect(out.message).toContain('新码')
+  })
+})
+
+describe('MAKE_PLAN_TIMEOUT_MS', () => {
+  it('钉住字面值，且必须比 run_task 短', () => {
+    expect(MAKE_PLAN_TIMEOUT_MS).toBe(10_000)
+    // 计划是纯计算，真卡住要早报错。跟 run_task 用同一个值的话，
+    // 库里连 Task 都没有的那段时间会被拖到 120 秒。
+    expect(MAKE_PLAN_TIMEOUT_MS).toBeLessThan(RUN_TASK_TIMEOUT_MS)
   })
 })
 

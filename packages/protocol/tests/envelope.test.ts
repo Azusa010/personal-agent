@@ -20,6 +20,11 @@ import {
   DocumentExtractPdfResult,
 } from "../schemas/document.js";
 import {
+  MakePlanParams,
+  MakePlanRequest,
+  MakePlanResponse,
+  MakePlanResult,
+  PlanStepDto,
   RunTaskEvent,
   RunTaskParams,
   RunTaskRequest,
@@ -119,6 +124,19 @@ const legalCases = [
     file: "host-execute-tool.failure.response.json",
     envelope: HostExecuteToolResponse,
     payload: CapabilityFailure,
+    field: "result",
+  },
+  {
+    file: "agent-make-plan.request.json",
+    envelope: MakePlanRequest,
+    payload: MakePlanParams,
+    field: "params",
+  },
+  // result 已经是强类型的 MakePlanResult，envelope 校验会递归到 steps。
+  {
+    file: "agent-make-plan.response.json",
+    envelope: MakePlanResponse,
+    payload: null,
     field: "result",
   },
   {
@@ -464,6 +482,80 @@ describe("InitializeParams 的能力清单约束", () => {
         ...legal,
         capabilities: [{ ...legal.capabilities[0], name: "filesystem.delete" }],
       }),
+    ).toThrow();
+  });
+});
+
+describe("MakePlan 的约束", () => {
+  it("MakePlanParams 字段清单钉死", () => {
+    expect(Object.keys(MakePlanParams.shape)).toEqual(["taskId", "goal"]);
+  });
+
+  it("PlanStepDto 字段清单钉死", () => {
+    expect(Object.keys(PlanStepDto.shape)).toEqual(["description", "capability"]);
+  });
+
+  it("capability 缺失合法：摘要那一步不经工具", () => {
+    expect(() => PlanStepDto.parse({ description: "生成摘要" })).not.toThrow();
+  });
+
+  it("capability 为 null 被拒", () => {
+    // Python 侧 PlanStepDto.capability 默认 None，靠 Response.model_dump(exclude_none=True)
+    // 剔掉才与这里一致。哪天漏了 exclude_none，线上就会多一个 null 键，
+    // Main 拿到的计划第三步 capability 会从 undefined 变成解析失败。
+    expect(() =>
+      PlanStepDto.parse({ description: "生成摘要", capability: null }),
+    ).toThrow();
+  });
+
+  it("capability 不在白名单被拒：计划不能承诺不存在的能力", () => {
+    expect(() =>
+      PlanStepDto.parse({ description: "x", capability: "filesystem.delete" }),
+    ).toThrow();
+  });
+
+  it("description 为空串被拒", () => {
+    expect(() => PlanStepDto.parse({ description: "" })).toThrow();
+  });
+
+  it("steps 为空数组被拒：空计划让 ActionAlignment 没有比对基准", () => {
+    expect(() => MakePlanResult.parse({ steps: [] })).toThrow();
+  });
+
+  it("response fixture 的第三步没有 capability 键", () => {
+    const raw = JSON.parse(
+      readFileSync(join(fixturesDir, "agent-make-plan.response.json"), "utf-8"),
+    );
+    expect(raw.result.steps[2]).toEqual({
+      description: "基于页面内容生成带页码引用的摘要",
+    });
+  });
+
+  it("method 字面值钉死", () => {
+    expect(() =>
+      MakePlanRequest.parse({
+        jsonrpc: "2.0",
+        id: "req-001",
+        method: "agent.makePlan",
+        params: { taskId: "t-1", goal: "g" },
+      }),
+    ).toThrow();
+  });
+
+  it("result 与 error 同时出现被拒", () => {
+    expect(() =>
+      MakePlanResponse.parse({
+        jsonrpc: "2.0",
+        id: "req-001",
+        result: { steps: [{ description: "x" }] },
+        error: { code: "X", message: "y" },
+      }),
+    ).toThrow();
+  });
+
+  it("result 与 error 都缺失被拒", () => {
+    expect(() =>
+      MakePlanResponse.parse({ jsonrpc: "2.0", id: "req-001" }),
     ).toThrow();
   });
 });

@@ -15,6 +15,11 @@ from personal_agent.protocol.models import (
     HostExecuteToolResponse,
     InitializeParams,
     InitializeResult,
+    MakePlanParams,
+    MakePlanRequest,
+    MakePlanResponse,
+    MakePlanResult,
+    PlanStepDto,
     Request,
     Response,
     RunTaskEvent,
@@ -103,6 +108,19 @@ def _pick(raw: dict, path: str):
             "host-execute-tool.failure.response.json",
             HostExecuteToolResponse,
             CapabilityFailure,
+            "result",
+        ),
+        (
+            "agent-make-plan.request.json",
+            MakePlanRequest,
+            MakePlanParams,
+            "params",
+        ),
+        # result 已经是强类型的 MakePlanResult，envelope 校验会递归到 steps。
+        (
+            "agent-make-plan.response.json",
+            MakePlanResponse,
+            None,
             "result",
         ),
         (
@@ -346,3 +364,93 @@ def test_run_task_envelope_constraints():
 
     with pytest.raises(ValidationError):
         RunTaskResponse.model_validate({"jsonrpc": "2.0", "id": "req-002"})
+
+
+# ---- agent.make_plan ----
+# 与 envelope.test.ts 的「MakePlan 的约束」逐条对应。两边判定不一致就是契约漂移。
+SUMMARY_STEP_DESCRIPTION = "基于页面内容生成带页码引用的摘要"
+
+
+def test_make_plan_constraints():
+    assert list(MakePlanParams.model_fields) == ["taskId", "goal"]
+    assert list(PlanStepDto.model_fields) == ["description", "capability"]
+
+    # capability 缺失合法：摘要那一步不经工具。
+    PlanStepDto.model_validate({"description": SUMMARY_STEP_DESCRIPTION})
+
+    # 与 TS 的差别就在这一条：这边 None 是合法值，zod 那边 null 被拒。
+    # 两端能对上，靠的是 Response.model_dump(exclude_none=True) 把 None 剔掉，
+    # 下面一条钉的就是这个剔除行为。
+    PlanStepDto.model_validate(
+        {"description": SUMMARY_STEP_DESCRIPTION, "capability": None}
+    )
+
+    # 计划不能承诺不存在的能力，也不能承诺空描述。
+    with pytest.raises(ValidationError):
+        PlanStepDto.model_validate(
+            {"description": "x", "capability": "filesystem.delete"}
+        )
+    with pytest.raises(ValidationError):
+        PlanStepDto.model_validate({"description": ""})
+
+    # 空计划会让 Main 侧的 ActionAlignment 没有比对基准。
+    with pytest.raises(ValidationError):
+        MakePlanResult.model_validate({"steps": []})
+
+    with pytest.raises(ValidationError):
+        MakePlanRequest.model_validate(
+            {
+                "jsonrpc": "2.0",
+                "id": "req-001",
+                "method": "agent.makePlan",
+                "params": {"taskId": "t-1", "goal": "g"},
+            }
+        )
+
+    with pytest.raises(ValidationError):
+        MakePlanResponse.model_validate(
+            {
+                "jsonrpc": "2.0",
+                "id": "req-001",
+                "result": {"steps": [{"description": "x"}]},
+                "error": {"code": "X", "message": "y"},
+            }
+        )
+
+    with pytest.raises(ValidationError):
+        MakePlanResponse.model_validate({"jsonrpc": "2.0", "id": "req-001"})
+
+
+def test_make_plan_response_dumps_without_a_null_capability():
+    """exclude_none 必须递归到 steps 里面，否则线上形状与 zod 的 optional 相反。
+
+    直接用 Python 自己的模型重建一份回包，要求与共享 fixture 逐键相等：
+    这一步同时钉住了 planning.py 的三步描述、exclude_none 的递归行为、
+    以及 fixture 本身没被人手改过。
+    """
+    fixture = _load("agent-make-plan.response.json")
+    MakePlanResponse.model_validate(fixture)
+    assert fixture["result"]["steps"][2] == {
+        "description": SUMMARY_STEP_DESCRIPTION
+    }
+
+    rebuilt = MakePlanResponse.model_validate(
+        {
+            "jsonrpc": "2.0",
+            "id": "req-001",
+            "result": MakePlanResult(
+                steps=[
+                    PlanStepDto(
+                        description="列出 Downloads 下的 PDF",
+                        capability="filesystem.list",
+                    ),
+                    PlanStepDto(
+                        description="提取目标 PDF 的每页文本",
+                        capability="document.extract_pdf",
+                    ),
+                    PlanStepDto(description=SUMMARY_STEP_DESCRIPTION),
+                ]
+            ).model_dump(exclude_none=True),
+        }
+    ).model_dump(exclude_none=True)
+    assert rebuilt == fixture
