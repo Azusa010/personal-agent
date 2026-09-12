@@ -1,7 +1,10 @@
 import type { ERROR_CODE, PdfEntry, RunTaskResult, SummaryFact } from '@personal-agent/protocol'
 import type { RUNTIME_ERROR_CODE } from '../main/runtime/error-code'
+import type { ExecutionEventRecord, TaskRecord, TaskStatus, TaskTimeline } from './domain'
 
 export type { PdfEntry, SummaryFact }
+
+export type { ExecutionEventRecord, TaskRecord, TaskStatus, TaskTimeline }
 
 export type RuntimeState = 'stopped' | 'starting' | 'ready' | 'crashed'
 
@@ -36,3 +39,6 @@ export type RunTaskIpcResult =
       reason?: string
     }
   | { ok: false; code: IpcErrorCode; message: string }
+
+export type TimelineIpcResult =
+  { ok: true; timeline: TaskTimeline | null } | { ok: false; code: IpcErrorCode; message: string }

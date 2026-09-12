@@ -17,6 +17,9 @@ if (process.contextIsolated) {
       },
       runTask: (goal: string) => {
         return ipcRenderer.invoke('personal-agent:run-task', goal)
+      },
+      getTimeline: (taskId: string | null) => {
+        return ipcRenderer.invoke('personal-agent:get-timeline', taskId)
       }
     })
   } catch (error) {

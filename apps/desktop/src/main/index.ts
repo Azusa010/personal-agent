@@ -8,7 +8,8 @@ import type {
   IpcErrorCode,
   ListPdfsResult,
   IndexedPdfsResult,
-  RunTaskIpcResult
+  RunTaskIpcResult,
+  TimelineIpcResult
 } from '../shared/ipc-contract'
 import { getDb, closeDb } from './db/database'
 import { upsertMany, findAll } from './db/pdf-repository'
@@ -17,6 +18,7 @@ import { SqliteTaskRepository } from './product-state/task-repository'
 import { SqlitePlanRepository } from './product-state/plan-repository'
 import { SqliteEventRepository } from './product-state/event-repository'
 import { runTask } from './tasks/run-task'
+import { getTimeline } from './tasks/get-timeline'
 import { reconcileOrphanTasks } from './tasks/reconcile'
 import icon from '../../resources/icon.png?asset'
 import { executeCapability } from './capabilities/host-executor'
@@ -161,6 +163,24 @@ app.whenReady().then(() => {
       })
     }
   )
+  // 只读通道：不写库，因此不需要事务，也不需要 plans。
+  // getTimeline 同样永不抛，库层面的失败由它自己转成 ok:false。
+  ipcMain.handle('personal-agent:get-timeline', (_e, taskId: unknown): TimelineIpcResult => {
+    let store: SqliteDatabase
+    try {
+      store = getStore()
+    } catch (err) {
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: err instanceof Error ? err.message : String(err)
+      }
+    }
+    return getTimeline(taskId, {
+      tasks: new SqliteTaskRepository(store),
+      events: new SqliteEventRepository(store)
+    })
+  })
   createWindow()
 
   void startRuntime()

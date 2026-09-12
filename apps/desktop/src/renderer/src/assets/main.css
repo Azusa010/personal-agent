@@ -2,9 +2,9 @@
 
 body {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  overflow: hidden;
+  overflow-y: auto;
   background-image: url('./wavy-lines.svg');
   background-size: cover;
   user-select: none;
@@ -28,10 +28,12 @@ code {
 
 #root {
   display: flex;
-  align-items: center;
-  justify-content: center;
   flex-direction: column;
-  margin-bottom: 80px;
+  align-items: stretch;
+  gap: 20px;
+  width: 100%;
+  max-width: 760px;
+  padding: 24px 20px 64px;
 }
 
 .logo {
@@ -167,5 +169,213 @@ code {
   .tip,
   .actions {
     display: none;
+  }
+}
+
+/* 下面这些是跑任务与时间线两块用的。模板原来假设页面只有一屏居中的
+   logo + 两个按钮，所以 body 是 overflow: hidden；内容一长就滚不动也看不全。 */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--ev-c-gray-3);
+  border-radius: 8px;
+  background-color: var(--color-background-soft);
+  /* body 是 user-select: none，但 taskId 与摘要是需要复制去查的东西 */
+  user-select: text;
+}
+
+.panel h2 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--ev-c-text-2);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.row input[type='text'] {
+  flex: 1 1 240px;
+  padding: 6px 10px;
+  font-size: 14px;
+  color: var(--color-text);
+  border: 1px solid var(--ev-c-gray-2);
+  border-radius: 6px;
+  background-color: var(--color-background-mute);
+}
+
+button {
+  padding: 6px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  color: var(--ev-button-alt-text);
+  border: 1px solid var(--ev-button-alt-border);
+  border-radius: 20px;
+  background-color: var(--ev-button-alt-bg);
+}
+
+button:hover:not(:disabled) {
+  color: var(--ev-button-alt-hover-text);
+  border-color: var(--ev-button-alt-hover-border);
+  background-color: var(--ev-button-alt-hover-bg);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.outcome {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  border-left: 3px solid var(--ev-c-gray-1);
+  border-radius: 4px;
+  background-color: var(--color-background-mute);
+}
+
+.outcome .headline {
+  font-weight: 600;
+}
+
+.outcome .detail {
+  font-size: 13px;
+  color: var(--ev-c-text-2);
+  word-break: break-all;
+}
+
+/* 三态的颜色必须分得开：任务失败是正常业务结局，调用本身坏了才是故障 */
+.outcome-success {
+  border-left-color: #4caf7d;
+}
+
+.outcome-failed {
+  border-left-color: #e0a33e;
+}
+
+.outcome-error {
+  border-left-color: #d9534f;
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.facts li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.refs {
+  white-space: nowrap;
+  color: var(--ev-c-text-3);
+}
+
+.task-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+}
+
+.task-head .goal {
+  font-weight: 600;
+}
+
+.badge {
+  padding: 2px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  border-radius: 10px;
+  background-color: var(--ev-c-gray-3);
+}
+
+.badge-pending,
+.badge-cancelled {
+  background-color: var(--ev-c-gray-2);
+}
+
+.badge-running {
+  background-color: #3a5a8c;
+}
+
+.badge-completed {
+  background-color: #2f6b4f;
+}
+
+.badge-failed {
+  background-color: #7a4a2b;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline .ev {
+  display: grid;
+  grid-template-columns: 32px 88px minmax(0, 1fr) 150px;
+  gap: 8px;
+  align-items: baseline;
+  padding: 4px 8px;
+  font-size: 13px;
+  border-radius: 4px;
+  background-color: var(--color-background-mute);
+}
+
+.ev .seq {
+  text-align: right;
+  color: var(--ev-c-text-3);
+}
+
+.ev .label {
+  font-weight: 600;
+}
+
+.ev .summary {
+  color: var(--ev-c-text-2);
+  word-break: break-all;
+}
+
+.ev .time {
+  text-align: right;
+  color: var(--ev-c-text-3);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.ev-task_failed .summary {
+  color: #e08b7d;
+}
+
+@media (max-width: 620px) {
+  .timeline .ev {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .ev .time {
+    grid-column: 2;
+    text-align: left;
   }
 }

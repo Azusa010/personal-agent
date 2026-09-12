@@ -1,10 +1,9 @@
-import type { TaskRecord, TaskRepository } from './task-repository'
-import type { ExecutionEventRecord, EventRepository } from './event-repository'
+import type { TaskRepository } from './task-repository'
+import type { EventRepository } from './event-repository'
+import type { TaskTimeline } from '../../shared/domain'
 
-export interface TaskTimeline {
-  task: TaskRecord
-  events: ExecutionEventRecord[]
-}
+// 形状的定义在 shared/domain.ts，这里 re-export，既有的 import 路径不用改。
+export type { TaskTimeline }
 
 export function projectTimeline(
   tasks: TaskRepository,

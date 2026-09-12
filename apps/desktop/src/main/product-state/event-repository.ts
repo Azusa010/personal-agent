@@ -1,12 +1,8 @@
 import type { SqliteDatabase } from './database'
+import type { ExecutionEventRecord } from '../../shared/domain'
 
-export interface ExecutionEventRecord {
-  seq: number
-  taskId: string
-  type: string
-  payload: unknown
-  occurredAt: string
-}
+// 形状的定义在 shared/domain.ts，这里 re-export，既有的 import 路径不用改。
+export type { ExecutionEventRecord }
 
 export type NewExecutionEvent = Omit<ExecutionEventRecord, 'seq'>
 

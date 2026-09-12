@@ -3,10 +3,20 @@ import type {
   ListPdfsResult,
   IndexedPdfsResult,
   RunTaskIpcResult,
-  SummaryFact
+  TimelineIpcResult,
+  SummaryFact,
+  TaskTimeline
 } from '../shared/ipc-contract'
 
-export type { RuntimeStatus, ListPdfsResult, IndexedPdfsResult, RunTaskIpcResult, SummaryFact }
+export type {
+  RuntimeStatus,
+  ListPdfsResult,
+  IndexedPdfsResult,
+  RunTaskIpcResult,
+  TimelineIpcResult,
+  SummaryFact,
+  TaskTimeline
+}
 
 declare global {
   interface Window {
@@ -19,4 +29,6 @@ export type PersonalAgentApi = {
   listPdfs(rootId: 'downloads'): Promise<ListPdfsResult>
   indexedPdfs(): Promise<IndexedPdfsResult>
   runTask(goal: string): Promise<RunTaskIpcResult>
+  /** taskId 传 null 表示读最近创建的任务：应用重启后 renderer 的 state 已清空，没有这个入口就再也指不回上一个任务 */
+  getTimeline(taskId: string | null): Promise<TimelineIpcResult>
 }

@@ -1,8 +1,10 @@
 import type { SqliteDatabase } from './database'
+import { TASK_STATUSES } from '../../shared/domain'
+import type { TaskRecord, TaskStatus } from '../../shared/domain'
 
-export const TASK_STATUSES = ['pending', 'running', 'completed', 'failed', 'cancelled'] as const
-
-export type TaskStatus = (typeof TASK_STATUSES)[number]
+// 形状的定义在 shared/domain.ts，这里 re-export，既有的 import 路径不用改。
+export { TASK_STATUSES }
+export type { TaskRecord, TaskStatus }
 
 export function isTaskStatus(value: string): value is TaskStatus {
   return (TASK_STATUSES as readonly string[]).includes(value)
@@ -30,15 +32,6 @@ export function assertTransitionAllowed(from: TaskStatus, to: TaskStatus): void 
   if (!ALLOWED_TRANSITIONS[from].includes(to)) {
     throw new IllegalTaskTransition(from, to)
   }
-}
-
-/** 领域对象 */
-export interface TaskRecord {
-  id: string
-  goal: string
-  status: TaskStatus
-  createdAt: string
-  updatedAt: string
 }
 
 /** 数据库行的形状 */

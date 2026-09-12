@@ -1,5 +1,14 @@
 import { useState } from 'react'
-import type { ListPdfsResult, IndexedPdfsResult } from '../../shared/ipc-contract'
+import type {
+  ListPdfsResult,
+  IndexedPdfsResult,
+  RunTaskIpcResult,
+  TimelineIpcResult
+} from '../../shared/ipc-contract'
+import { describeRunOutcome, type RunOutcomeView } from './view-model'
+import { RunTaskPanel } from './components/RunTaskPanel'
+import { TimelineView } from './components/TimelineView'
+
 function App(): React.JSX.Element {
   const [status, setStatus] = useState('Empty')
   const ipcHandle = async (): Promise<void> => {
@@ -28,6 +37,50 @@ function App(): React.JSX.Element {
 
   const handleReadDb = async (): Promise<void> => {
     setDbResult(await window.personalAgent.indexedPdfs())
+  }
+
+  const [running, setRunning] = useState(false)
+  const [outcome, setOutcome] = useState<RunOutcomeView | null>(null)
+  const [timelineResult, setTimelineResult] = useState<TimelineIpcResult | null>(null)
+  const [timelineLoading, setTimelineLoading] = useState(false)
+
+  // taskId 传 null 就是「读最近创建的那个」。手动刷新走这一支，
+  // 因为重启之后 state 里的 taskId 已经没了。
+  const loadTimeline = async (taskId: string | null): Promise<void> => {
+    setTimelineLoading(true)
+    try {
+      setTimelineResult(await window.personalAgent.getTimeline(taskId))
+    } catch (err) {
+      setTimelineResult({
+        ok: false,
+        code: 'RUNTIME_CRASHED',
+        message: err instanceof Error ? err.message : String(err)
+      })
+    } finally {
+      setTimelineLoading(false)
+    }
+  }
+
+  const handleRunTask = async (goal: string): Promise<void> => {
+    setRunning(true)
+    setOutcome(null)
+    let result: RunTaskIpcResult
+    try {
+      result = await window.personalAgent.runTask(goal)
+    } catch (err) {
+      // 正常不会进这里：runTask 的契约是永不抛。真抛了说明是 preload / IPC 层坏了，
+      // 那也要给用户一句话，而不是让 promise 静默 reject。
+      result = {
+        ok: false,
+        code: 'RUNTIME_CRASHED',
+        message: err instanceof Error ? err.message : String(err)
+      }
+    } finally {
+      setRunning(false)
+    }
+    setOutcome(describeRunOutcome(result))
+    // 跑完自动读一次：Phase 1 没有流式，事件是任务结束时一次性落库的，这一次就是全部。
+    await loadTimeline(result.ok ? result.taskId : null)
   }
 
   return (
@@ -88,6 +141,14 @@ function App(): React.JSX.Element {
             ))}
           </ul>
         )}
+
+        <RunTaskPanel running={running} outcome={outcome} onRun={handleRunTask} />
+
+        <TimelineView
+          result={timelineResult}
+          loading={timelineLoading}
+          onReload={() => void loadTimeline(null)}
+        />
       </div>
     </>
   )
