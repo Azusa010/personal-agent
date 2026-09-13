@@ -238,6 +238,7 @@ describe('RUNTIME_ERROR_CODE 注册表', () => {
       // 这一条不是 RUNTIME_ 前缀：字面值由 Python 侧 runtime.py 定，两边必须逐字一致。
       PLAN_NOT_BUILDABLE: 'PLAN_NOT_BUILDABLE',
       DB_FAILED: 'RUNTIME_DB_FAILED',
+      TASK_BUSY: 'RUNTIME_TASK_BUSY',
       ORPHANED: 'RUNTIME_ORPHANED'
     })
   })

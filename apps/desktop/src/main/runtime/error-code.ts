@@ -9,5 +9,9 @@ export const RUNTIME_ERROR_CODE = {
   PLAN_INVALID: 'RUNTIME_PLAN_INVALID',
   PLAN_NOT_BUILDABLE: 'PLAN_NOT_BUILDABLE',
   DB_FAILED: 'RUNTIME_DB_FAILED',
+  // 单槽设计：ActionAlignment 的比对基准是「当前任务的计划」，两个任务并发时
+  // 第二个会拿第一个的计划对齐，判定结果看起来合法却毫无意义。所以这不是业务
+  // 失败而是编程错误，直接拒，不排队。
+  TASK_BUSY: 'RUNTIME_TASK_BUSY',
   ORPHANED: 'RUNTIME_ORPHANED'
 } as const

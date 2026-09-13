@@ -7,6 +7,8 @@ import {
   RunTaskResult
 } from '@personal-agent/protocol'
 import type { IpcErrorCode, RunTaskIpcResult } from '../../shared/ipc-contract'
+import type { PlanStep } from '../../shared/domain'
+import { beginTask, endTask, TaskBusyError } from '../policy/task-context'
 import type { SqliteDatabase } from '../product-state/database'
 import type { EventRepository } from '../product-state/event-repository'
 import type { PlanRepository } from '../product-state/plan-repository'
@@ -128,6 +130,33 @@ export async function runTask(goal: unknown, deps: RunTaskDeps): Promise<RunTask
   // 第 i 次 tool call，这里裁剪或重排就等于把比对基准改了。
   const steps = parsedPlan.data.steps
 
+  try {
+    beginTask(taskId, request.goal, steps)
+  } catch (e) {
+    if (e instanceof TaskBusyError) {
+      return { ok: false, code: RUNTIME_ERROR_CODE.TASK_BUSY, message: e.message }
+    }
+    throw e
+  }
+
+  // ActionAlignment 的比对基准从这里生效：接下来 agent.run_task 回来的每一次
+  // host.execute_tool 都要按这份计划排队。endTask 必须放 finally：Python 崩了、
+  try {
+    return await runAgentPhase(taskId, planId, request, steps, deps)
+  } finally {
+    endTask()
+  }
+}
+
+/** 占槽之后的全部流程：事务 A（建 Task + 写 Plan）→ agent.run_task → 事务 B。
+ *  拆出来的唯一理由是让 endTask 有一个干净的 finally 可挂。 */
+async function runAgentPhase(
+  taskId: string,
+  planId: string,
+  request: RunTaskParams,
+  steps: readonly PlanStep[],
+  deps: RunTaskDeps
+): Promise<RunTaskIpcResult> {
   // 事务 A:
   // insert Pending -> running ->append plan
   try {

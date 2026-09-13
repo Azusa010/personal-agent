@@ -13,6 +13,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createExecutor } from './executor'
+import { UI_ORIGIN } from '../policy/execution-policy'
 import { buildCorruptPdf, buildEncryptedPdf, buildPdf } from './pdf-fixtures'
 import type { AuthorizeDenialCode, ToolRetriever } from './retriever'
 import { readOnlyScope } from './scope'
@@ -45,7 +46,9 @@ function denyRetriever(code: AuthorizeDenialCode): ToolRetriever {
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'pa-exec-'))
   vi.stubEnv(ENV_NAME, dir)
-  run = createExecutor(readOnlyScope('task-1'))
+  // ui origin：本文件测的是契约校验、路径关卡、错误码三件事，
+  // 不该被任务槽耦合进去。agent origin 的行为在 execution-policy.test.ts。
+  run = createExecutor(readOnlyScope('task-1'), UI_ORIGIN)
 })
 
 afterEach(async () => {
@@ -72,7 +75,11 @@ describe('executor：authorize 是唯一关口（TEST-005）', () => {
     // 根指向不存在的目录：若执行体跑了会返回 FILESYSTEM_ROOT_UNAVAILABLE。
     // 返回 CAPABILITY_OUT_OF_SCOPE 就证明 listPdfs 一次都没被调用。
     vi.stubEnv(ENV_NAME, join(dir, 'nope'))
-    const denied = createExecutor(readOnlyScope('task-1'), denyRetriever('CAPABILITY_OUT_OF_SCOPE'))
+    const denied = createExecutor(
+      readOnlyScope('task-1'),
+      UI_ORIGIN,
+      denyRetriever('CAPABILITY_OUT_OF_SCOPE')
+    )
     const out = await denied(params('filesystem.list', { rootId: 'downloads' }))
     expect(out['code']).toBe(ERROR_CODE.CAPABILITY_OUT_OF_SCOPE)
   })
@@ -83,6 +90,7 @@ describe('executor：authorize 是唯一关口（TEST-005）', () => {
     // RISK-005 的"错工具"和"越权"在日志里分不开。
     const denied = createExecutor(
       readOnlyScope('task-1'),
+      UI_ORIGIN,
       denyRetriever('CAPABILITY_NOT_REGISTERED')
     )
     const out = await denied(params('filesystem.list', { rootId: 'downloads' }))
@@ -288,14 +296,16 @@ describe('executor：永不 throw', () => {
 
   it('未实现的能力回 NOT_IMPLEMENTED', async () => {
     // 只有 scope 放行了却没有执行体时才走到这里。用假 retriever 放行一切。
+    // kind 必须是 READ：WRITE 会先在第⑤关被风险模型以 PERMISSION_REQUIRED 拒掉，
+    // 永远走不到绑定器，这条就测不到它声称要测的东西了。
     const allowAll: ToolRetriever = {
       listVisible: () => [],
       authorize: () => ({
         allowed: true,
-        capability: { name: 'scheduler.create', kind: 'WRITE', description: 'test' }
+        capability: { name: 'scheduler.create', kind: 'READ', description: 'test' }
       })
     }
-    const permissive = createExecutor(readOnlyScope('task-1'), allowAll)
+    const permissive = createExecutor(readOnlyScope('task-1'), UI_ORIGIN, allowAll)
     const out = await permissive(params('scheduler.create', {}))
     expect(out['code']).toBe(ERROR_CODE.NOT_IMPLEMENTED)
   })

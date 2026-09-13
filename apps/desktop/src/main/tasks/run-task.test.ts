@@ -19,6 +19,7 @@ import { SqliteEventRepository, type EventRepository } from '../product-state/ev
 import { AGENT_MAKE_PLAN, AGENT_RUN_TASK, ERROR_CODE } from '@personal-agent/protocol'
 import { RuntimeError } from '../runtime/python-supervisor'
 import { RUNTIME_ERROR_CODE } from '../runtime/error-code'
+import { currentTask, endTask, type ActiveTask } from '../policy/task-context'
 import {
   runTask,
   RUN_TASK_TIMEOUT_MS,
@@ -38,6 +39,9 @@ let db: SqliteDatabase | null = null
 let idCounter = 0
 
 afterEach(() => {
+  // 安全网：某条测试把槽位漏下了，后面的测试会全数吃 TASK_BUSY，
+  // 而失败信息会指向毫不相干的断言。
+  endTask()
   db?.close()
   db = null
 })
@@ -606,5 +610,139 @@ describe('runTask：依赖注入', () => {
     // 状态机路径必须是 pending → running → completed，不能跳级。
     // 直接 insert 成 running 会被 ALLOWED_TRANSITIONS 放行但绕过状态机语义。
     expect(taskCalls).toEqual(['insert:pending', 'update:running', 'update:completed'])
+  })
+})
+
+describe('runTask：任务槽位（ActionAlignment 的比对基准）', () => {
+  /** 等到条件成立。runTask 里有两个 await 才走到 beginTask，
+   *  数微任务的个数等于把内部实现钉进测试，所以轮询。 */
+  async function waitFor(cond: () => boolean): Promise<void> {
+    for (let i = 0; i < 500 && !cond(); i++) {
+      await new Promise((r) => setTimeout(r, 1))
+    }
+    if (!cond()) throw new Error('等待超时')
+  }
+
+  /** 把 resolve 带出 Promise 构造器。用 `let release: (() => void) | null`
+   *  写在测试里的话，TS 看不到回调里的赋值，会把变量窄成 null。 */
+  function deferred(): { promise: Promise<void>; resolve: () => void } {
+    let resolve!: () => void
+    const promise = new Promise<void>((r) => {
+      resolve = r
+    })
+    return { promise, resolve }
+  }
+
+  it('run_task 期间 host 侧看得见当前任务，内容就是 make_plan 的回包', async () => {
+    // 这条是整条链的接头：Python 回来的 host.execute_tool 靠它拿计划。
+    // 看不到或看到的是别人的计划，ActionAlignment 就没得比。
+    const h = openHarness()
+    // 用数组接快照而不是用 let 变量：赋值发生在回调里，
+    // TS 的控制流分析会把后者窄成 null，读的时候变成 never。
+    const snapshots: ActiveTask[] = []
+    h.send = (method) => {
+      if (method === AGENT_RUN_TASK) {
+        const task = currentTask()
+        if (task !== null) snapshots.push(task)
+        return Promise.resolve(completedResult())
+      }
+      return Promise.resolve(planResult())
+    }
+
+    const out = await runTask(GOAL, h)
+
+    expect(out.ok).toBe(true)
+    expect(snapshots).toHaveLength(1)
+    expect(snapshots[0]?.taskId).toBe('id-1')
+    expect(snapshots[0]?.goal).toBe(GOAL)
+    expect(snapshots[0]?.plan).toEqual(PLAN_STEPS)
+    expect(snapshots[0]?.executedCalls).toBe(0)
+  })
+
+  it('成功返回后槽位让出来，下一次 runTask 能直接开始', async () => {
+    const h = openHarness()
+
+    expect((await runTask(GOAL, h)).ok).toBe(true)
+    expect(currentTask()).toBeNull()
+    expect((await runTask(GOAL, h)).ok).toBe(true)
+    expect(currentTask()).toBeNull()
+    expect(h.tasks.findAll()).toHaveLength(2)
+  })
+
+  it('run_task 抛错时也让出槽位（finally，不是正常路径才管）', async () => {
+    const h = openHarness(sendThrowing(new RuntimeError('BUDGET_EXHAUSTED', '预算耗尽')))
+
+    const out = await runTask(GOAL, h)
+
+    expect(out.ok && out.status).toBe('failed')
+    expect(currentTask()).toBeNull()
+  })
+
+  it('回包不合契约时也让出槽位', async () => {
+    const h = openHarness(sendReturning({ status: 'weird' }))
+
+    const out = await runTask(GOAL, h)
+
+    // RESPONSE_INVALID 走的是 persistRuntimeFailure，对外仍是 ok:true + status:failed，
+    // 码落在 task_failed 事件的 payload 里。
+    expect(out.ok && out.status).toBe('failed')
+    expect(currentTask()).toBeNull()
+  })
+
+  it('事务 A 失败时也让出槽位，而且库里不留 Task', async () => {
+    // beginTask 排在事务 A 之前，所以这条路径上槽位已经占了。
+    // 占了不让的话，一次写库失败就把整个应用锁死在 TASK_BUSY 上。
+    const h = openHarness()
+    h.tasks = {
+      ...h.tasks,
+      insert: () => {
+        throw new Error('DB 坏了')
+      }
+    }
+
+    const out = await runTask(GOAL, h)
+
+    expect(out.ok).toBe(false)
+    if (!out.ok) expect(out.code).toBe(RUNTIME_ERROR_CODE.DB_FAILED)
+    expect(currentTask()).toBeNull()
+  })
+
+  it('索要计划失败时根本没占槽', async () => {
+    // 拿不到计划就是任务从没开始，不该把槽位扣住。
+    const h = openHarness(
+      sendThrowing(new RuntimeError('PLAN_NOT_BUILDABLE', '缺能力'), AGENT_MAKE_PLAN)
+    )
+
+    const out = await runTask(GOAL, h)
+
+    expect(out.ok).toBe(false)
+    expect(currentTask()).toBeNull()
+  })
+
+  it('并发：第二个 runTask 得到 TASK_BUSY，且库里只留一条 Task', async () => {
+    const gate = deferred()
+    const h = openHarness()
+    h.send = (method) =>
+      method === AGENT_RUN_TASK
+        ? gate.promise.then(() => completedResult())
+        : Promise.resolve(planResult())
+
+    const first = runTask(GOAL, h)
+    await waitFor(() => currentTask() !== null)
+
+    const second = await runTask('另一个目标', h)
+
+    expect(second.ok).toBe(false)
+    if (!second.ok) {
+      expect(second.code).toBe(RUNTIME_ERROR_CODE.TASK_BUSY)
+      // 消息里带正在跑的 taskId：UI 上只看到「有任务在跑」是查不下去的。
+      expect(second.message).toContain('id-1')
+    }
+    // 第二个任务一条库都没写：TASK_BUSY 发生在事务 A 之前。
+    expect(h.tasks.findAll()).toHaveLength(1)
+
+    gate.resolve()
+    expect((await first).ok).toBe(true)
+    expect(currentTask()).toBeNull()
   })
 })

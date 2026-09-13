@@ -13,8 +13,18 @@ import {
 } from '@personal-agent/protocol'
 
 import { executeCapability, executeHostTool, listVisibleCapabilities } from './host-executor'
+import { beginTask, endTask } from '../policy/task-context'
+import type { PlanStep } from '../../shared/domain'
 
 const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
+
+// executeHostTool 走 agent origin，必须有当前任务、调用还得对齐计划。
+// 这份就是 planning.make_plan 的字面值：第三步没有 capability 键。
+const PLAN: readonly PlanStep[] = [
+  { description: '列出 Downloads 下的 PDF', capability: 'filesystem.list' },
+  { description: '提取目标 PDF 的每页文本', capability: 'document.extract_pdf' },
+  { description: '基于页面内容生成带页码引用的摘要' }
+]
 
 let dir: string
 
@@ -32,6 +42,8 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  // 单槽：漏了 endTask，下一个测试文件的 executeHostTool 会全数吃 NO_ACTIVE_TASK。
+  endTask()
   vi.unstubAllEnvs()
   await rm(dir, { recursive: true, force: true })
 })
@@ -95,9 +107,10 @@ describe('executeCapability: IPC 网关', () => {
 
 describe('executeHostTool: supervisor 网关', () => {
   it('与 executeCapability 对同一输入给同样结果', async () => {
-    // 两个入口共用一个 executor 实例。结果不一致就说明 scope 或分发漂了，
-    // TEST-005 的「单一关口」也就不成立。
+    // 两个入口共用同一个 scope 与 retriever，只差 origin：结果不一致就说明
+    // scope 或分发漂了，TEST-005 的「单一关口」也就不成立。
     await writeFile(join(dir, 'c.pdf'), 'CCC')
+    beginTask('task-host', '整理 PDF', PLAN)
 
     const viaHost = await executeHostTool(
       hostParams('tc-1', 'filesystem.list', { rootId: 'downloads' })
@@ -108,6 +121,7 @@ describe('executeHostTool: supervisor 网关', () => {
   })
 
   it('WRITE 能力同样被拒：两个网关共用同一个 scope', async () => {
+    // Scope 检查排在「有没有当前任务」之前，所以这条不需要 beginTask。
     const out = await executeHostTool(hostParams('tc-2', 'filesystem.move', { from: 'a', to: 'b' }))
 
     expect(out['ok']).toBe(false)
@@ -118,6 +132,7 @@ describe('executeHostTool: supervisor 网关', () => {
     // 冒泡的话 supervisor 的 catch 会把 code 写死成 HOST_HANDLER_FAILED，
     // Python engine 就分不清是权限问题还是崩溃。
     vi.stubEnv(ENV_NAME, join(dir, 'nope'))
+    beginTask('task-host', '整理 PDF', PLAN)
 
     const out = await executeHostTool(
       hostParams('tc-3', 'filesystem.list', { rootId: 'downloads' })
@@ -126,6 +141,32 @@ describe('executeHostTool: supervisor 网关', () => {
     expect(out['ok']).toBe(false)
     expect(out['code']).toBe(ERROR_CODE.FILESYSTEM_ROOT_UNAVAILABLE)
     expect(() => CapabilityFailure.parse(out)).not.toThrow()
+  })
+
+  it('没有当前任务时拒绝：这是 agent origin 与 ui origin 唯一的分岭', async () => {
+    // 两个断言必须一起看：executeHostTool 拒、executeCapability 不拒。
+    // 把它们弄成同一个 origin（任一方向）都会让其中一条红。
+    const viaHost = await executeHostTool(
+      hostParams('tc-4', 'filesystem.list', { rootId: 'downloads' })
+    )
+    const viaIpc = await executeCapability('filesystem.list', { rootId: 'downloads' })
+
+    expect(viaHost['ok']).toBe(false)
+    expect(viaHost['code']).toBe(ERROR_CODE.NO_ACTIVE_TASK)
+    expect(viaIpc['ok']).toBe(true)
+  })
+
+  it('任务结束后槽位真的让了出来', async () => {
+    // endTask 漏了的话 run-task.ts 的 finally 就是个装饰，
+    // 下一个任务永远吃 TASK_BUSY。这里从网关这一头反向验证。
+    beginTask('task-host', '整理 PDF', PLAN)
+    endTask()
+
+    const out = await executeHostTool(
+      hostParams('tc-5', 'filesystem.list', { rootId: 'downloads' })
+    )
+
+    expect(out['code']).toBe(ERROR_CODE.NO_ACTIVE_TASK)
   })
 })
 
