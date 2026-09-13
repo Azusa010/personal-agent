@@ -7,6 +7,7 @@ import { RUNTIME_ERROR_CODE } from './runtime/error-code'
 import type {
   IpcErrorCode,
   ListPdfsResult,
+  ListTasksResult,
   IndexedPdfsResult,
   RunTaskIpcResult,
   TimelineIpcResult
@@ -30,6 +31,8 @@ function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
+    minWidth: 720,
+    minHeight: 560,
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -131,6 +134,28 @@ app.whenReady().then(() => {
   ipcMain.handle('personal-agent:indexed-pdfs', async (): Promise<IndexedPdfsResult> => {
     try {
       return { ok: true, entries: findAll(getDb()) }
+    } catch (err) {
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: err instanceof Error ? err.message : String(err)
+      }
+    }
+  })
+  // 侧栏历史会话列表的数据源。只读，不写库；排序交给 Renderer 按 createdAt 分组。
+  ipcMain.handle('personal-agent:list-tasks', (): ListTasksResult => {
+    let store: SqliteDatabase
+    try {
+      store = getStore()
+    } catch (err) {
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: err instanceof Error ? err.message : String(err)
+      }
+    }
+    try {
+      return { ok: true, tasks: new SqliteTaskRepository(store).findAll() }
     } catch (err) {
       return {
         ok: false,

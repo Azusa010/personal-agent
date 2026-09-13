@@ -28,6 +28,10 @@ export type IpcErrorCode = WireErrorCode | RuntimeErrorCode
 export type ListPdfsResult =
   { ok: true; entries: PdfEntry[] } | { ok: false; code: IpcErrorCode; message: string }
 
+/** 侧栏历史会话列表的数据源：全量任务，按创建时间升序。只读，不写库。 */
+export type ListTasksResult =
+  { ok: true; tasks: TaskRecord[] } | { ok: false; code: IpcErrorCode; message: string }
+
 export interface IndexedPdfEntry extends PdfEntry {
   rootId: string
   firstSeenAt: string
