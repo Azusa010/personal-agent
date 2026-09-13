@@ -17,7 +17,7 @@ import { resolveRoot } from '../capabilities/roots'
 export interface BoundArgs {
   /** 过了契约校验的参数，原样字段名。 */
   args: Record<string, unknown>
-  /** 键与参数名一致，值是规范化后的绝对路径（realpath 解过链接、正斜杠）。 */
+  /** 键与参数名一致，值是规范化后的绝对路径。 */
   paths: Record<string, string>
 }
 

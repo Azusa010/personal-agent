@@ -41,3 +41,37 @@ export interface TaskTimeline {
   plan: PlanRecord | null
   events: ExecutionEventRecord[]
 }
+
+export const PERMISSION_DECISIONS = ['approved', 'denied'] as const
+
+export type PermissionDecision = (typeof PERMISSION_DECISIONS)[number]
+
+/** pending = 还没人点；approved / denied = 用户已决定。
+ *
+ *  没有 expired：过期由 `status === 'pending' && now > expiresAt` 投影得出，不落库。
+ */
+export type PermissionStatus = 'pending' | PermissionDecision
+
+/** 查询时投影出的第四种状态 */
+export type PermissionViewState = PermissionStatus | 'expired'
+
+/** 一次工具调用的授权记录。批准之后内容不可变，只有 status 与 decidedAt 会被写第二次 */
+export interface PermissionRecord {
+  id: string
+  taskId: string
+  /** Python 侧 host.execute_tool 带来的 callId。一条 Permission 只对应一个 callId */
+  toolCallId: string
+  capability: string
+  /** 绑定与路径规范化之后的参数的 canonical JSON 串 */
+  argsCanonical: string
+  argsHash: string
+  status: PermissionStatus
+  requestedAt: string
+  expiresAt: string
+  /** null = 还没决定 */
+  decidedAt: string | null
+  /** 批准当时 UI 展示的来源绝对路径。影响文件数量就是它的长度，不单独存 */
+  sourcePaths: string[]
+  /** 批准当时 UI 展示的目标绝对路径。不是每个能力都有 */
+  targetPath: string | null
+}

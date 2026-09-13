@@ -160,13 +160,15 @@ describe('migrate', () => {
       insert.run('t-3', 'g', 'running', '2026-09-06T00:00:00Z', '2026-09-06T00:00:00Z')
     ).not.toThrow()
   })
-  it('0002/0003 应用后：user_version = 3，三张表都在', () => {
+  it('全量 migration 应用后：user_version = 4，四张表都在', () => {
     const db = openProductState(MEMORY_DB)
     memDb = db
 
-    expect(migrate(db, MIGRATIONS)).toEqual([1, 2, 3])
-    expect(version(db)).toBe(3)
-    expect(tables(db)).toEqual(expect.arrayContaining(['tasks', 'plans', 'execution_events']))
+    expect(migrate(db, MIGRATIONS)).toEqual([1, 2, 3, 4])
+    expect(version(db)).toBe(4)
+    expect(tables(db)).toEqual(
+      expect.arrayContaining(['tasks', 'plans', 'execution_events', 'permissions'])
+    )
   })
 
   it('execution_events 是 append-only：UPDATE 与 DELETE 被库层拒绝', () => {
