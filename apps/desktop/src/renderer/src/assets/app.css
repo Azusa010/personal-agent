@@ -1,0 +1,135 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/* shadcn 的组件用 dark: 前缀写暗色分支，这个变体让 dark: 等于「.dark 祖先之下」。
+   不加这一行，dark: 会退回成 @media (prefers-color-scheme: dark)，
+   跟着系统走而不是跟着我们钉在 <html> 上的 class 走。 */
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans:
+    Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* 三个不是 shadcn 自带、但这个产品必须有的语义色：
+     任务成功、任务失败、调用本身坏了。原来的 main.css 用 .outcome-success /
+     .outcome-failed / .outcome-error 三个类分别钉死颜色，现在挪进 token，
+     这样 Badge 与 Alert 都能用 bg-success / text-warning 直接引用。 */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+/* 亮色这一套用不上（index.html 把 dark 钉在 <html> 上），
+   但 token 必须两套都齐：shadcn 的组件类里凡是没带 dark: 前缀的分支走的就是这里，
+   少定义一个变量就会渲染成 Tailwind 的默认灰，而不是「看不见」。 */
+:root {
+  --radius: 0.5rem;
+
+  --background: #ffffff;
+  --foreground: #1b1b1f;
+  --card: #ffffff;
+  --card-foreground: #1b1b1f;
+  --popover: #ffffff;
+  --popover-foreground: #1b1b1f;
+  --primary: #1b1b1f;
+  --primary-foreground: #fafafa;
+  --secondary: #f2f2f2;
+  --secondary-foreground: #1b1b1f;
+  --muted: #f2f2f2;
+  --muted-foreground: #515c67;
+  --accent: #f2f2f2;
+  --accent-foreground: #1b1b1f;
+  --destructive: #d9534f;
+  --destructive-foreground: #ffffff;
+  --border: #e4e4e7;
+  --input: #d4d4d8;
+  --ring: #a1a1aa;
+
+  --success: #2f6b4f;
+  --success-foreground: #f2fbf6;
+  --warning: #8a6420;
+  --warning-foreground: #fdf8ee;
+  --info: #3a5a8c;
+  --info-foreground: #f2f6fc;
+}
+
+/* 暗色取自定稿设计稿：#252525 底、#333333 卡片、#434343 次级面与 hover、
+   #fafafa 文字、#b5b5b5 弱文字、white/10 描边。换库不换脸，界面上不会出现两套配色。 */
+.dark {
+  --background: #252525;
+  --foreground: #fafafa;
+  --card: #333333;
+  --card-foreground: #fafafa;
+  --popover: #333333;
+  --popover-foreground: #fafafa;
+  /* 主操作（发送、批准）走高对比的浅底深字：一个界面上只有一个东西该被第一眼看到。 */
+  --primary: #fafafa;
+  --primary-foreground: #252525;
+  --secondary: #434343;
+  --secondary-foreground: #fafafa;
+  --muted: #333333;
+  --muted-foreground: #b5b5b5;
+  /* hover 要比 muted 亮一档，否则鼠标移上去看不出反馈 */
+  --accent: #434343;
+  --accent-foreground: #fafafa;
+  --destructive: #d9534f;
+  --destructive-foreground: #ffffff;
+  --border: rgb(255 255 255 / 0.1);
+  --input: rgb(255 255 255 / 0.14);
+  --ring: #6b6b6b;
+
+  --success: #66c587;
+  --success-foreground: #0d1512;
+  --warning: #e0a33e;
+  --warning-foreground: #1a1408;
+  --info: #3a5a8c;
+  --info-foreground: #eaf0fa;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply font-sans;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    /* taskId、路径、错误码这些都是要复制出去查的，不能选不中。
+       Electron 模板原来在 body 上写死 user-select: none，这里显式翻回来。 */
+    user-select: text;
+  }
+}

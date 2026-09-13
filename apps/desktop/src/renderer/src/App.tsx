@@ -1,174 +1,224 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Ellipsis } from 'lucide-react'
 import type {
-  ListPdfsResult,
-  IndexedPdfsResult,
   RunTaskIpcResult,
+  RuntimeStatus,
+  TaskRecord,
+  TaskTimeline,
   TimelineIpcResult
 } from '../../shared/ipc-contract'
-import {
-  describeRunOutcome,
-  extractFactCount,
-  extractFacts,
-  type RunOutcomeView
-} from './view-model'
-import { RunTaskPanel } from './components/RunTaskPanel'
-import { PlanView } from './components/PlanView'
-import { TimelineView } from './components/TimelineView'
-import { SummaryView } from './components/SummaryView'
+import { Composer } from './components/Composer'
+import { DiagnosticsDialog } from './components/DiagnosticsDialog'
+import { IndexDialog } from './components/IndexDialog'
+import { MessageStream } from './components/MessageStream'
+import { Sidebar } from './components/Sidebar'
+import { formatOccurredAt, STATUS_LABELS, timelineToMarkdown } from './view-model'
 
 function App(): React.JSX.Element {
-  const [status, setStatus] = useState('Empty')
-  const ipcHandle = async (): Promise<void> => {
-    const response = await window.personalAgent.runtimeStatus()
-    setStatus(JSON.stringify(response, null, 2))
-  }
-
-  const [pdfLoading, setPdfLoading] = useState(false)
-  const [pdfResult, setPdfResult] = useState<ListPdfsResult | null>(null)
-  const [dbResult, setDbResult] = useState<IndexedPdfsResult | null>(null)
-  const handleListPdfs = async (): Promise<void> => {
-    setPdfLoading(true)
-    setPdfResult(null)
-    try {
-      setPdfResult(await window.personalAgent.listPdfs('downloads'))
-    } catch (err) {
-      setPdfResult({
-        ok: false,
-        code: 'RUNTIME_CRASHED',
-        message: err instanceof Error ? err.message : String(err)
-      })
-    } finally {
-      setPdfLoading(false)
-    }
-  }
-
-  const handleReadDb = async (): Promise<void> => {
-    setDbResult(await window.personalAgent.indexedPdfs())
-  }
-
+  const [tasks, setTasks] = useState<TaskRecord[]>([])
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [timeline, setTimeline] = useState<TaskTimeline | null>(null)
+  const [timelineError, setTimelineError] = useState<string | null>(null)
+  const [pendingGoal, setPendingGoal] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
-  const [outcome, setOutcome] = useState<RunOutcomeView | null>(null)
-  const [timelineResult, setTimelineResult] = useState<TimelineIpcResult | null>(null)
-  const [timelineLoading, setTimelineLoading] = useState(false)
+  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null)
+  const [indexedCount, setIndexedCount] = useState<number | null>(null)
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const [indexOpen, setIndexOpen] = useState(false)
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
+  const inputRef = useRef<HTMLTextAreaElement | null>(null)
+  const feedbackTimer = useRef<number | null>(null)
 
-  // taskId 传 null 就是「读最近创建的那个」。手动刷新走这一支，
-  // 因为重启之后 state 里的 taskId 已经没了。
-  const loadTimeline = async (taskId: string | null): Promise<void> => {
-    setTimelineLoading(true)
-    try {
-      setTimelineResult(await window.personalAgent.getTimeline(taskId))
-    } catch (err) {
-      setTimelineResult({
-        ok: false,
-        code: 'RUNTIME_CRASHED',
-        message: err instanceof Error ? err.message : String(err)
-      })
-    } finally {
-      setTimelineLoading(false)
-    }
+  const showFeedback = (text: string): void => {
+    setFeedback(text)
+    if (feedbackTimer.current !== null) window.clearTimeout(feedbackTimer.current)
+    feedbackTimer.current = window.setTimeout(() => setFeedback(null), 2600)
   }
 
-  const handleRunTask = async (goal: string): Promise<void> => {
+  const loadTasks = useCallback(async (): Promise<void> => {
+    try {
+      const result = await window.personalAgent.listTasks()
+      if (result.ok) setTasks(result.tasks)
+    } catch (err) {
+      console.error('[renderer] 读任务列表失败', err)
+    }
+  }, [])
+
+  const loadTimeline = useCallback(async (taskId: string | null): Promise<void> => {
+    setTimelineError(null)
+    let result: TimelineIpcResult
+    try {
+      result = await window.personalAgent.getTimeline(taskId)
+    } catch (err) {
+      setTimeline(null)
+      setTimelineError(err instanceof Error ? err.message : String(err))
+      return
+    }
+    if (result.ok) setTimeline(result.timeline)
+    else {
+      setTimeline(null)
+      setTimelineError(`[${result.code}] ${result.message}`)
+    }
+  }, [])
+
+  const loadIndexedCount = useCallback(async (): Promise<void> => {
+    try {
+      const result = await window.personalAgent.indexedPdfs()
+      if (result.ok) setIndexedCount(result.entries.length)
+    } catch (err) {
+      console.error('[renderer] 读索引数量失败', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    void window.personalAgent
+      .listTasks()
+      .then((result) => {
+        if (result.ok) setTasks(result.tasks)
+      })
+      .catch((err) => console.error('[renderer] 读任务列表失败', err))
+    void window.personalAgent
+      .indexedPdfs()
+      .then((result) => {
+        if (result.ok) setIndexedCount(result.entries.length)
+      })
+      .catch((err) => console.error('[renderer] 读索引数量失败', err))
+    void window.personalAgent.runtimeStatus().then(setRuntimeStatus)
+  }, [])
+
+  const handleSelectTask = (taskId: string): void => {
+    setSelectedTaskId(taskId)
+    void loadTimeline(taskId)
+  }
+
+  const handleNewChat = (): void => {
+    setSelectedTaskId(null)
+    setTimeline(null)
+    setTimelineError(null)
+    inputRef.current?.focus()
+  }
+
+  const handleSend = async (goal: string): Promise<void> => {
     setRunning(true)
-    setOutcome(null)
+    setPendingGoal(goal)
+    setSelectedTaskId(null)
+    setTimeline(null)
+    setTimelineError(null)
     let result: RunTaskIpcResult
     try {
       result = await window.personalAgent.runTask(goal)
     } catch (err) {
-      // 正常不会进这里：runTask 的契约是永不抛。真抛了说明是 preload / IPC 层坏了，
-      // 那也要给用户一句话，而不是让 promise 静默 reject。
+      // 正常不会进这里：runTask 的契约是永不抛。真抛了说明 preload / IPC 层坏了。
       result = {
         ok: false,
         code: 'RUNTIME_CRASHED',
         message: err instanceof Error ? err.message : String(err)
       }
-    } finally {
-      setRunning(false)
     }
-    setOutcome(describeRunOutcome(result))
-    // 跑完自动读一次：Phase 1 没有流式，事件是任务结束时一次性落库的，这一次就是全部。
-    await loadTimeline(result.ok ? result.taskId : null)
+    setRunning(false)
+    setPendingGoal(null)
+    await loadTasks()
+    if (result.ok) {
+      setSelectedTaskId(result.taskId)
+      await loadTimeline(result.taskId)
+      showFeedback(
+        result.status === 'completed'
+          ? '任务完成，回答仅基于本地文件。'
+          : `任务结束：${result.status}`
+      )
+    } else {
+      setTimelineError(`[${result.code}] ${result.message}`)
+    }
+    void loadIndexedCount()
   }
 
-  const timeline = timelineResult !== null && timelineResult.ok ? timelineResult.timeline : null
-  const persistedFactCount = timeline === null ? null : extractFactCount(timeline.events)
-  // 库是事实来源。只有从库里一条也还原不出来时才退回本次 IPC 的返回值，
-  // 那一支盖的是事件写库失败、但任务确实跑完了的情况。
-  const persistedFacts = timeline === null ? [] : extractFacts(timeline.events)
-  const facts = persistedFacts.length > 0 ? persistedFacts : (outcome?.facts ?? [])
+  const handleScan = async (): Promise<void> => {
+    showFeedback('正在扫描 Downloads 里的 PDF…')
+    try {
+      const result = await window.personalAgent.listPdfs('downloads')
+      if (result.ok) {
+        showFeedback(`扫描完成，共索引 ${result.entries.length} 份 PDF。`)
+        void loadIndexedCount()
+      } else {
+        showFeedback(`扫描失败（${result.code}）：${result.message}`)
+      }
+    } catch (err) {
+      showFeedback(`扫描失败：${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  const handleExport = async (): Promise<void> => {
+    if (timeline === null) {
+      showFeedback('当前没有可导出的会话。')
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(timelineToMarkdown(timeline))
+      showFeedback('已复制为 Markdown，可粘贴保存。')
+    } catch {
+      showFeedback('复制失败：剪贴板不可用。')
+    }
+  }
+
+  const selected = tasks.find((task) => task.id === selectedTaskId) ?? null
 
   return (
-    <>
-      <div>
-        <h1>Personal Agent</h1>
-        <button onClick={ipcHandle}>Send IPC</button>
-        <div id="response">{status}</div>
-        <h2>PDF 列表</h2>
-        <button onClick={handleListPdfs} disabled={pdfLoading}>
-          {pdfLoading ? '加载中…' : '列出 PDF'}
-        </button>
+    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
+      <Sidebar
+        tasks={tasks}
+        selectedTaskId={selectedTaskId}
+        runtimeStatus={runtimeStatus}
+        indexedCount={indexedCount}
+        onSelectTask={handleSelectTask}
+        onNewChat={handleNewChat}
+        onOpenIndex={() => setIndexOpen(true)}
+        onOpenDiagnostics={() => setDiagnosticsOpen(true)}
+        onSettings={() => showFeedback('设置面板暂未实现。')}
+      />
 
-        {pdfResult !== null && !pdfResult.ok && (
-          <p>
-            [{pdfResult.code}] {pdfResult.message}
-          </p>
-        )}
+      <section className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-[70px] shrink-0 items-center justify-between border-b border-border px-6">
+          <div className="min-w-0">
+            <h2 className="m-0 truncate text-[15px] font-semibold">
+              {selected === null ? '新对话' : selected.goal}
+            </h2>
+            <p className="m-0 mt-1 truncate text-[11px] text-muted-foreground">
+              {selected === null
+                ? '尚未引用本地文件'
+                : `${STATUS_LABELS[selected.status]} · ${formatOccurredAt(selected.createdAt)}`}
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="更多操作"
+            onClick={() => showFeedback('更多会话操作暂未实现。')}
+            className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            <Ellipsis size={18} />
+          </button>
+        </header>
 
-        {pdfResult !== null && pdfResult.ok && pdfResult.entries.length === 0 && (
-          <p>~/Downloads 里没有 PDF</p>
-        )}
-
-        {pdfResult !== null && pdfResult.ok && pdfResult.entries.length > 0 && (
-          <ul>
-            {pdfResult.entries.map((entry) => (
-              <li key={entry.absolutePath}>
-                <div>{entry.name}</div>
-                <div>
-                  {entry.modifiedAt} · {Math.round(entry.sizeBytes / 1024)} KB
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-        <h2>库里的索引</h2>
-        <button onClick={handleReadDb}>从库读</button>
-
-        {dbResult !== null && !dbResult.ok && (
-          <p>
-            [{dbResult.code}] {dbResult.message}
-          </p>
-        )}
-
-        {dbResult !== null && dbResult.ok && (
-          <p>共 {dbResult.entries.length} 条（先点上面「列出 PDF」才会有数据）</p>
-        )}
-
-        {dbResult !== null && dbResult.ok && (
-          <ul>
-            {dbResult.entries.map((row) => (
-              <li key={row.absolutePath}>
-                <div>{row.name}</div>
-                <div>
-                  首次入库 {row.firstSeenAt} · 最近见到 {row.lastSeenAt}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <RunTaskPanel running={running} outcome={outcome} onRun={handleRunTask} />
-
-        <PlanView plan={timeline?.plan ?? null} />
-
-        <TimelineView
-          result={timelineResult}
-          loading={timelineLoading}
-          onReload={() => void loadTimeline(null)}
+        <MessageStream
+          timeline={timeline}
+          pendingGoal={pendingGoal}
+          timelineError={timelineError}
+          feedback={feedback}
         />
 
-        <SummaryView facts={facts} persistedCount={persistedFactCount} />
-      </div>
-    </>
+        <Composer
+          running={running}
+          inputRef={inputRef}
+          onSend={(goal) => void handleSend(goal)}
+          onScan={() => void handleScan()}
+          onOpenIndex={() => setIndexOpen(true)}
+          onOpenDiagnostics={() => setDiagnosticsOpen(true)}
+          onExport={() => void handleExport()}
+        />
+      </section>
+
+      <IndexDialog open={indexOpen} onOpenChange={setIndexOpen} />
+      <DiagnosticsDialog open={diagnosticsOpen} onOpenChange={setDiagnosticsOpen} />
+    </div>
   )
 }
 
