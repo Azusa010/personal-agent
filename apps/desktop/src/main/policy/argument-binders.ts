@@ -1,7 +1,9 @@
 import {
   DocumentExtractPdfParams,
   ERROR_CODE,
+  FilesystemCreateDirParams,
   FilesystemListParams,
+  FilesystemMoveParams,
   type CapabilityId
 } from '@personal-agent/protocol'
 
@@ -59,13 +61,68 @@ const bindExtractPdf: Binder = async (args) => {
   }
 }
 
+// 要建的目录几乎一定还不存在，所以这里依赖 resolveWithinRootReal 对
+// 「不存在」的处理：它只对最近的存在祖先做 realpath，其余段原样拼回。
+// 「已存在」也不在这拦——那要么由执行体幂等处理，要么就是一次无害的重建。
+const bindCreateDir: Binder = async (args) => {
+  const parsed = FilesystemCreateDirParams.safeParse(args)
+  if (!parsed.success) return invalid('filesystem.create_dir', parsed.error.message)
+
+  const root = resolveRoot('downloads')
+  const guarded = await resolveWithinRootReal(root, parsed.data.path)
+  if (!guarded.ok) {
+    return { ok: false, code: guarded.code, reason: guarded.reason }
+  }
+  return {
+    ok: true,
+    bound: { args: { path: parsed.data.path }, paths: { path: guarded.path } }
+  }
+}
+
+const bindMove: Binder = async (args) => {
+  const parsed = FilesystemMoveParams.safeParse(args)
+  if (!parsed.success) return invalid('filesystem.move', parsed.error.message)
+
+  const root = resolveRoot('downloads')
+
+  // 获得 source 的 realpath
+  const source = await resolveWithinRootReal(root, parsed.data.source)
+  if (!source.ok) {
+    return {
+      ok: false,
+      code: source.code,
+      reason: `${source.reason}（filesystem.move 的 source 参数）`
+    }
+  }
+
+  // 获得 target 的 realpath
+  const target = await resolveWithinRootReal(root, parsed.data.target)
+  if (!target.ok) {
+    return {
+      ok: false,
+      code: target.code,
+      reason: `${target.reason}（filesystem.move 的 target 参数）`
+    }
+  }
+
+  return {
+    ok: true,
+    bound: {
+      args: { source: parsed.data.source, target: parsed.data.target },
+      paths: { source: source.path, target: target.path }
+    }
+  }
+}
+
 /** 每个能力的参数绑定器。没有登记的能力回 NOT_IMPLEMENTED：
  *  Scope 放行了却没有执行体，与「模型幻觉出一个不存在的工具」是两件事，
  *  后者在 CAPABILITY_NOT_REGISTERED 就被拦掉了。
  */
 const BINDERS: Partial<Record<CapabilityId, Binder>> = {
   'filesystem.list': bindFilesystemList,
-  'document.extract_pdf': bindExtractPdf
+  'document.extract_pdf': bindExtractPdf,
+  'filesystem.create_dir': bindCreateDir,
+  'filesystem.move': bindMove
 }
 
 export async function bindArguments(

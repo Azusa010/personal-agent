@@ -29,7 +29,7 @@
 | FILE-011 `renderer/App.tsx` | `renderer/src/App.tsx` | 模板在 renderer 下多一层 `src` |
 | FILE-013 `personal_agent/main.py` | `personal_agent/__main__.py` + `runtime.py` | `python -m personal_agent` 要求入口叫 `__main__.py`；进程入口与协议主循环分开 |
 | FILE-017 `personal_agent/verification.py` | `personal_agent/summary.py` | SummaryVerifier 与摘要 Schema 同源，拆成两个文件会互相 import 成环 |
-| Phase 1 `renderer/features/{tasks,timeline,summary}/` | `renderer/src/components/{RunTaskPanel,PlanView,TimelineView,SummaryView}.tsx` + `renderer/src/view-model.ts` | 四个组件共用同一份 view-model（把 IPC 结果映射成渲染形状）。按 feature 拆会让三个 feature 目录都去 import 第四个，比扁平放更耦合 |
+| Phase 1 `renderer/features/{tasks,timeline,summary}/` | `renderer/src/components/{Sidebar,MessageStream,Composer,IndexDialog,DiagnosticsDialog}.tsx` + `renderer/src/components/ui/` + `renderer/src/view-model.ts` | 组件共用同一份 view-model（把 IPC 结果映射成渲染形状）。按 feature 拆会让三个 feature 目录都去 import 第四个，比扁平放更耦合。`ui/` 是 shadcn CLI 生成的组件源码，属生成物，eslint 对这一目录关了两条规则 |
 | Phase 0 规划的 Python 侧 Trusted Tool | `main/capabilities/filesystem-list.ts`、`document-extract-pdf.ts` | SEC-003 定 Main 是唯一 Permission Authority。工具在 Python 侧执行，路径校验就只能在 Python 侧做，Main 事后才看到结果。执行搬回 Main 之后，Python 只产出「想调什么」，判定与执行都留在可信侧 |
 
 ### 指导书未规划，实际新增
@@ -61,6 +61,7 @@ protocol 包：
 - FILE-020 `tests/fixtures/pdfs/`——目录只有 `.gitkeep`，没有二进制 PDF。测试用的 PDF 由 `main/capabilities/pdf-fixtures.ts` 提供。
 - FILE-021 `tests/evals/cases.json`——Live Eval 属 Phase 3 范围，尚未开始。
 - `personal_agent/tools/`——只剩一个 `__init__.py`，实现已迁到 TS 侧（见上表最后一行）。全仓无任何 import 引用它，pytest 与 ruff 都不再触及。属于可删的残留。
+- ASSUMPTION-004 规划的 Reading 授权根——`RootId` 枚举与 `ROOT_ENV` 都只有 `downloads` 一项。TASK-019 补 `filesystem.create_dir` 与 `filesystem.move` 的参数绑定器时，两者的路径都只用 downloads 根校验，fixture 里的目标路径写成 `Downloads/Reading/...`，即 downloads 根下的子目录。理由：批准链路要验的是「展示完整路径 → 挂起 → 批准 → 落库」，与路径落在哪个根无关；而引入独立 Reading 根要改双端枚举并新增环境变量，它真正被用到是 TASK-020 移动文件的时候。届时两个 fixture 的目标路径要跟着改。
 
 ### 路径一致但职责有偏差
 

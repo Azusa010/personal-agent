@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-3",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-8d21",
+    "capability": "filesystem.move",
+    "arguments": {
+      "source": "D:/Users/demo/Downloads/report-2026.pdf",
+      "target": "D:/Users/demo/Downloads/Reading/report-2026.pdf"
+    }
+  }
+}

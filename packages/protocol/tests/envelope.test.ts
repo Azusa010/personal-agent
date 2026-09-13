@@ -6,8 +6,10 @@ import { fileURLToPath } from "node:url";
 import { Request, Response } from "../schemas/envelope.js";
 import { InitializeParams, InitializeResult } from "../schemas/systems.js";
 import {
+  FilesystemCreateDirParams,
   FilesystemListParams,
   FilesystemListResult,
+  FilesystemMoveParams,
 } from "../schemas/filesystem.js";
 import {
   HostExecuteToolParams,
@@ -111,6 +113,33 @@ const legalCases = [
     file: "host-execute-tool.request.json",
     envelope: HostExecuteToolRequest,
     payload: DocumentExtractPdfParams,
+    field: "params.arguments",
+  },
+  // 两个 WRITE 能力只有 request fixture：response 的形状要等 TASK-020 的执行体
+  // 与结果 DTO 定下来才有东西可钉。这里先钉住 arguments 的双端一致性——
+  // 字段名在一侧写错（source/target 写成 from/to）会立刻红。
+  {
+    file: "host-filesystem-create-dir.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-filesystem-create-dir.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: FilesystemCreateDirParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-filesystem-move.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-filesystem-move.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: FilesystemMoveParams,
     field: "params.arguments",
   },
   {

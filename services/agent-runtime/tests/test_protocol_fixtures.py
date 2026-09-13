@@ -8,8 +8,10 @@ from personal_agent.protocol.models import (
     CapabilityFailure,
     DocumentExtractPdfParams,
     DocumentExtractPdfResult,
+    FilesystemCreateDirParams,
     FilesystemListParams,
     FilesystemListResult,
+    FilesystemMoveParams,
     HostExecuteToolParams,
     HostExecuteToolRequest,
     HostExecuteToolResponse,
@@ -95,6 +97,32 @@ def _pick(raw: dict, path: str):
             "host-execute-tool.request.json",
             HostExecuteToolRequest,
             DocumentExtractPdfParams,
+            "params.arguments",
+        ),
+        # 两个 WRITE 能力只有 request fixture，response 要等 TASK-020 的结果 DTO。
+        # 这四条与 TS 侧 envelope.test.ts 的 legalCases 逐条对应，少一条就是漂移。
+        (
+            "host-filesystem-create-dir.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-filesystem-create-dir.request.json",
+            HostExecuteToolRequest,
+            FilesystemCreateDirParams,
+            "params.arguments",
+        ),
+        (
+            "host-filesystem-move.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-filesystem-move.request.json",
+            HostExecuteToolRequest,
+            FilesystemMoveParams,
             "params.arguments",
         ),
         (

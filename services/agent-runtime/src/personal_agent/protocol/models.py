@@ -52,6 +52,15 @@ class FilesystemListResult(BaseModel):
     entries: list[PdfEntry]
 
 
+class FilesystemCreateDirParams(BaseModel):
+    path: str = Field(min_length=1)
+
+
+class FilesystemMoveParams(BaseModel):
+    source: str = Field(min_length=1)
+    target: str = Field(min_length=1)
+
+
 # ---- system.initialize 的载荷模型 ----
 class ClientInfo(BaseModel):
     name: str

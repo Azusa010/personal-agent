@@ -180,11 +180,208 @@ describe('bindArguments：document.extract_pdf', () => {
   })
 })
 
+describe('bindArguments：filesystem.create_dir', () => {
+  it('根内还不存在的目录 -> 绑定成功，paths.path 是规范化后的绝对路径', async () => {
+    // 要建的目录当然还不存在，guard 必须能处理这种输入，
+    // 否则 create_dir 永远绑不成功。
+    const out = await bindArguments('filesystem.create_dir', { path: join(dir, 'Reading') })
+
+    expect(out).toEqual({
+      ok: true,
+      bound: { args: { path: join(dir, 'Reading') }, paths: { path: `${realRoot}/Reading` } }
+    })
+  })
+
+  it('多层不存在的目录也过：guard 只管边界，不管深度', async () => {
+    const out = await bindArguments('filesystem.create_dir', { path: join(dir, 'a', 'b', 'c') })
+
+    expect(out.ok && out.bound.paths['path']).toBe(`${realRoot}/a/b/c`)
+  })
+
+  it('根内已存在的目录也绑定成功：是否已存在归执行体判', async () => {
+    await mkdir(join(dir, 'exists'))
+
+    const out = await bindArguments('filesystem.create_dir', { path: join(dir, 'exists') })
+
+    expect(out.ok && out.bound.paths['path']).toBe(`${realRoot}/exists`)
+  })
+
+  it('根外 -> PATH_OUT_OF_ROOT', async () => {
+    const out = await bindArguments('filesystem.create_dir', { path: 'C:/Windows/Temp/evil' })
+
+    expect(out.ok).toBe(false)
+    expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+  })
+
+  it('.. 逃逸 -> PATH_OUT_OF_ROOT', async () => {
+    const out = await bindArguments('filesystem.create_dir', { path: join(dir, '..', 'escaped') })
+
+    expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+  })
+
+  it('根内 junction 指向根外 -> PATH_ESCAPES_ROOT_VIA_LINK', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'pa-bind-cd-outside-'))
+    try {
+      await symlink(outside, join(dir, 'escape'), 'junction')
+
+      const out = await bindArguments('filesystem.create_dir', {
+        path: join(dir, 'escape', 'sub')
+      })
+
+      expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_ESCAPES_ROOT_VIA_LINK)
+    } finally {
+      await rm(outside, { recursive: true, force: true })
+    }
+  })
+
+  it('空 path / 缺 path / 类型错 -> INVALID_ARGUMENT', async () => {
+    for (const args of [{ path: '' }, {}, { path: 123 }]) {
+      const out = await bindArguments('filesystem.create_dir', args)
+      expect(out.ok, JSON.stringify(args)).toBe(false)
+      expect(!out.ok && out.code, JSON.stringify(args)).toBe(ERROR_CODE.INVALID_ARGUMENT)
+    }
+  })
+
+  it('多余字段被剔掉：绑出来的 args 只有 path', async () => {
+    // Permission 的 hash 基于这个 args 算。混进模型塞的垃圾，
+    // 同一个操作两次批准会算出两个 hash。
+    const out = await bindArguments('filesystem.create_dir', {
+      path: join(dir, 'Reading'),
+      recursive: true,
+      mode: 511
+    })
+
+    expect(out.ok && out.bound.args).toEqual({ path: join(dir, 'Reading') })
+  })
+})
+
+describe('bindArguments：filesystem.move', () => {
+  it('根内真实文件 -> 根内不存在的目标：两个路径都规范化', async () => {
+    await writeFile(join(dir, 'a.pdf'), 'A')
+
+    const out = await bindArguments('filesystem.move', {
+      source: join(dir, 'a.pdf'),
+      target: join(dir, 'Reading', 'a.pdf')
+    })
+
+    expect(out).toEqual({
+      ok: true,
+      bound: {
+        args: { source: join(dir, 'a.pdf'), target: join(dir, 'Reading', 'a.pdf') },
+        paths: { source: `${realRoot}/a.pdf`, target: `${realRoot}/Reading/a.pdf` }
+      }
+    })
+  })
+
+  it('source 越界 -> PATH_OUT_OF_ROOT，reason 点名 source', async () => {
+    const out = await bindArguments('filesystem.move', {
+      source: 'C:/Windows/win.ini',
+      target: join(dir, 'a.pdf')
+    })
+
+    expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+    expect(!out.ok && out.reason).toContain('source 参数')
+  })
+
+  it('target 越界 -> PATH_OUT_OF_ROOT，reason 点名 target', async () => {
+    // 只校验 source 的话，这一条就是「从合法位置搬到根外」，正是要拦的。
+    await writeFile(join(dir, 'a.pdf'), 'A')
+
+    const out = await bindArguments('filesystem.move', {
+      source: join(dir, 'a.pdf'),
+      target: 'C:/Windows/Temp/a.pdf'
+    })
+
+    expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+    expect(!out.ok && out.reason).toContain('target 参数')
+  })
+
+  it('source 经 junction 逃出根 -> PATH_ESCAPES_ROOT_VIA_LINK', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'pa-bind-mv-src-'))
+    try {
+      await writeFile(join(outside, 'secret.pdf'), 'S')
+      await symlink(outside, join(dir, 'escape'), 'junction')
+
+      const out = await bindArguments('filesystem.move', {
+        source: join(dir, 'escape', 'secret.pdf'),
+        target: join(dir, 'moved.pdf')
+      })
+
+      expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_ESCAPES_ROOT_VIA_LINK)
+      expect(!out.ok && out.reason).toContain('source 参数')
+    } finally {
+      await rm(outside, { recursive: true, force: true })
+    }
+  })
+
+  it('target 经 junction 逃出根 -> PATH_ESCAPES_ROOT_VIA_LINK', async () => {
+    // 写入侧的逃逸比读取侧严重：它会把文件落在根外，而且落完就不在授权范围内了。
+    const outside = await mkdtemp(join(tmpdir(), 'pa-bind-mv-dst-'))
+    try {
+      await writeFile(join(dir, 'a.pdf'), 'A')
+      await symlink(outside, join(dir, 'escape'), 'junction')
+
+      const out = await bindArguments('filesystem.move', {
+        source: join(dir, 'a.pdf'),
+        target: join(dir, 'escape', 'a.pdf')
+      })
+
+      expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_ESCAPES_ROOT_VIA_LINK)
+      expect(!out.ok && out.reason).toContain('target 参数')
+    } finally {
+      await rm(outside, { recursive: true, force: true })
+    }
+  })
+
+  it('target 是 UNC -> PATH_UNC_NOT_ALLOWED', async () => {
+    const out = await bindArguments('filesystem.move', {
+      source: join(dir, 'a.pdf'),
+      target: '\\\\evil-server\\share\\a.pdf'
+    })
+
+    expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_UNC_NOT_ALLOWED)
+  })
+
+  it('缺 target / 空 source / 用旧字段名 from-to -> INVALID_ARGUMENT', async () => {
+    for (const args of [
+      { source: join(dir, 'a.pdf') },
+      { source: '', target: join(dir, 'b.pdf') },
+      { from: join(dir, 'a.pdf'), to: join(dir, 'b.pdf') }
+    ]) {
+      const out = await bindArguments('filesystem.move', args)
+      expect(out.ok, JSON.stringify(args)).toBe(false)
+      expect(!out.ok && out.code, JSON.stringify(args)).toBe(ERROR_CODE.INVALID_ARGUMENT)
+    }
+  })
+
+  it('source === target 不拦：无效操作不是越权，归执行体判', async () => {
+    await writeFile(join(dir, 'a.pdf'), 'A')
+    const same = join(dir, 'a.pdf')
+
+    const out = await bindArguments('filesystem.move', { source: same, target: same })
+
+    expect(out.ok).toBe(true)
+  })
+
+  it('多余字段被剔掉：绑出来的 args 只有 source 与 target', async () => {
+    const out = await bindArguments('filesystem.move', {
+      source: join(dir, 'a.pdf'),
+      target: join(dir, 'b.pdf'),
+      overwrite: true
+    })
+
+    expect(out.ok && out.bound.args).toEqual({
+      source: join(dir, 'a.pdf'),
+      target: join(dir, 'b.pdf')
+    })
+  })
+})
+
 describe('bindArguments：没有绑定器的能力', () => {
   it('registry 里有、执行体没有 -> NOT_IMPLEMENTED', async () => {
     // 与 INVALID_ARGUMENT 分开：前者是「我们还没写」，后者是「你说错了」。
     // 混成一个码之后，TASK-020 落地前 UI 上会把缺功能显示成参数错误。
-    for (const name of ['filesystem.create_dir', 'filesystem.move', 'scheduler.create']) {
+    for (const name of ['scheduler.create', 'notification.send']) {
       const out = await bindArguments(name, {})
       expect(out.ok, name).toBe(false)
       expect(!out.ok && out.code, name).toBe(ERROR_CODE.NOT_IMPLEMENTED)
@@ -209,6 +406,9 @@ describe('bindArguments：没有绑定器的能力', () => {
       ['document.extract_pdf', { path: dir }],
       ['document.extract_pdf', { path: join(dir, 'sub') }],
       ['document.extract_pdf', { path: join(dir, 'ghost.pdf') }],
+      ['filesystem.create_dir', { path: '' }],
+      ['filesystem.create_dir', { path: join(dir, 'sub', 'deep') }],
+      ['filesystem.move', { source: 'a', target: 'b' }],
       ['filesystem.move', { from: 'a', to: 'b' }],
       ['nope.nope', {}]
     ]
