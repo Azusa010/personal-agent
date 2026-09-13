@@ -3,7 +3,8 @@ import type {
   PlanRecord,
   RunTaskIpcResult,
   SummaryFact,
-  TaskStatus
+  TaskStatus,
+  TaskTimeline
 } from '../../shared/ipc-contract'
 
 // ---- 一、跑任务结果的三态文案 ----
@@ -263,4 +264,34 @@ function asFact(value: unknown): SummaryFact | null {
   if (!Array.isArray(refs)) return null
   const ok = refs.every((ref) => typeof ref === 'number' && Number.isInteger(ref) && ref >= 1)
   return ok ? { text, pageRefs: refs as number[] } : null
+}
+
+// ---- 八、导出 Markdown ----
+
+/** 「导出 Markdown」芯片的剪贴板内容：goal、状态、带页码的摘要事实与计划步骤。 */
+export function timelineToMarkdown(timeline: TaskTimeline): string {
+  const lines: string[] = [
+    `# ${timeline.task.goal}`,
+    '',
+    `状态：${STATUS_LABELS[timeline.task.status]}`,
+    ''
+  ]
+  const facts = extractFacts(timeline.events)
+  if (facts.length > 0) {
+    lines.push('## 摘要', '')
+    for (const fact of facts) {
+      const pages = fact.pageRefs.map((page) => `p.${page}`).join(', ')
+      lines.push(`- ${fact.text}${pages.length > 0 ? `（${pages}）` : ''}`)
+    }
+    lines.push('')
+  }
+  const steps = describePlanSteps(timeline.plan)
+  if (steps.length > 0) {
+    lines.push('## 计划', '')
+    for (const step of steps) {
+      lines.push(`${step.index}. ${step.description}（${step.capabilityLabel}）`)
+    }
+    lines.push('')
+  }
+  return lines.join('\n')
 }

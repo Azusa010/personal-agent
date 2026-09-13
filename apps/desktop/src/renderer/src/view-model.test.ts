@@ -412,7 +412,7 @@ describe('extractFacts', () => {
   })
 
   it('改契约之前写的旧记录：只有 factCount，正文还原不出来但条数还在', () => {
-    // SummaryView 靠这两个返回值的不一致判定「正文读不出来」，不能两个都降级成空。
+    // 消息流靠这两个返回值的不一致判定「正文读不出来」，不能两个都降级成空。
     const events = [ev('task_completed', { factCount: 3 })]
 
     expect(extractFacts(events)).toEqual([])
