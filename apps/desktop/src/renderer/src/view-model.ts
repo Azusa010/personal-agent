@@ -5,8 +5,7 @@ import type {
   RunTaskIpcResult,
   SummaryFact,
   TaskStatus,
-  TaskTimeline,
-  PermissionDecision
+  TaskTimeline
 } from '../../shared/ipc-contract'
 
 // ---- 一、跑任务结果的三态文案 ----
@@ -213,25 +212,27 @@ export function summarizePayload(type: string, payload: unknown): string {
       return fallback(payload)
     }
     case 'permission_requested': {
-      const capabilities = record['capability']
-      const sourcePaths = record['sourcePaths'] as string[]
+      const capability = str(record['capability']) ?? '未知能力'
       const targetPath = str(record['targetPath'])
-      let msg = `使用 ${capabilities} 访问`
+      const rawSourcePaths = record['sourcePaths']
+      const sourcePaths = Array.isArray(rawSourcePaths)
+        ? rawSourcePaths.filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
+        : []
+      let msg = `使用 ${capability} 访问`
       if (targetPath !== null) {
         msg += `目标路径：${targetPath}`
       } else if (sourcePaths.length > 0) {
-        const filteredPaths = sourcePaths.filter(
-          (path) => typeof path === 'string' && path.length > 0
-        )
-        msg += `源路径：${join(filteredPaths)}`
+        msg += `源路径：${join(sourcePaths)}`
       } else {
         msg += fallback(payload)
       }
       return oneLine(msg)
     }
     case 'permission_decision': {
-      const decision = record['decision'] as PermissionDecision
-      return oneLine(`${PERMISSION_STATE_LABELS[decision] ?? decision}`)
+      const decision = str(record['decision'])
+      if (decision === null) return fallback(payload)
+      const label = (PERMISSION_STATE_LABELS as Readonly<Record<string, string>>)[decision]
+      return label ?? oneLine(decision)
     }
     case 'permission_expired': {
       return '批准窗口内没有响应'

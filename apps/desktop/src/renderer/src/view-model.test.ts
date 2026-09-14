@@ -347,6 +347,40 @@ describe('summarizePayload', () => {
     expect(line.trim().length).toBeGreaterThan(0)
   })
 
+  it('permission_requested 缺 sourcePaths 字段时不抛异常', () => {
+    // broker 现在总会写 sourcePaths（可能是空数组），但 summarizePayload 读的是库里的
+    // JSON TEXT：历史事件与脏数据都可能整个字段缺失。`as string[]` 只是编译期的断言，
+    // 运行时 undefined.length 会抛 TypeError——describeEvent 在 MessageStream 里是逐条
+    // map 的，一条抛异常整列时间线都渲染不出来。
+    const line = summarizePayload('permission_requested', { capability: 'scheduler.create' })
+
+    expect(line.trim().length).toBeGreaterThan(0)
+    expect(line).not.toContain('undefined')
+  })
+
+  it('permission_requested 的 sourcePaths 不是数组时不抛异常', () => {
+    // `as unknown[] | null` 只拦住了 undefined，拦不住「字段在但类型不对」。
+    // 字符串也有 .length，会走进 else-if 分支，而字符串没有 .filter。
+    const line = summarizePayload('permission_requested', {
+      capability: 'filesystem.move',
+      sourcePaths: 'D:/downloads/a.pdf',
+      targetPath: null
+    })
+
+    expect(line.trim().length).toBeGreaterThan(0)
+    expect(line).not.toContain('undefined')
+  })
+
+  it('permission_requested 缺 capability 时不把 undefined 拼进摘要', () => {
+    const line = summarizePayload('permission_requested', {
+      sourcePaths: [],
+      targetPath: 'D:/downloads/reports'
+    })
+
+    expect(line).toContain('D:/downloads/reports')
+    expect(line).not.toContain('undefined')
+  })
+
   it('permission_decision 复用状态标签表，未知值原样显示', () => {
     expect(
       summarizePayload('permission_decision', { permissionId: 'p-1', decision: 'approved' })
@@ -357,10 +391,20 @@ describe('summarizePayload', () => {
     expect(summarizePayload('permission_decision', { decision: '也许' })).toBe('也许')
   })
 
-  it('permission_decision 缺 decision 时退回原始 payload', () => {
+  it('permission_decision 缺 decision 时退回原始 payload，不显示字面量 undefined', () => {
     const line = summarizePayload('permission_decision', { permissionId: 'p-1' })
 
+    expect(line).toContain('p-1')
+    expect(line).not.toContain('undefined')
+  })
+
+  it('permission_decision 的 decision 是空串时不给空行', () => {
+    // `??` 只拦 null 与 undefined，空串会直接穿过去，最终得到一行空白。
+    // 本文件的 str() 助手就是为这种情况存在的：它把空串与纯空白也归为无效。
+    const line = summarizePayload('permission_decision', { permissionId: 'p-1', decision: '  ' })
+
     expect(line.trim().length).toBeGreaterThan(0)
+    expect(line).toContain('p-1')
   })
 
   it('permission_expired 给固定文案，不受 payload 影响', () => {
