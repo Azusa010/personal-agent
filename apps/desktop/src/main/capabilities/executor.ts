@@ -10,7 +10,9 @@ import {
   type TaskStatePort
 } from '../policy/execution-policy'
 import { extractPdf } from './document-extract-pdf'
+import { createDir } from './filesystem-create-dir'
 import { listPdfs } from './filesystem-list'
+import { moveFile } from './filesystem-move'
 import { RuleBasedToolRetriever, type ToolRetriever } from './retriever'
 import { resolveRoot } from './roots'
 import type { TaskScope } from './scope'
@@ -59,6 +61,10 @@ async function runCapability(call: AuthorizedCall): Promise<CapabilityOutcome> {
       return runFilesystemList(call)
     case 'document.extract_pdf':
       return runExtractPdf(call)
+    case 'filesystem.create_dir':
+      return runCreateDir(call)
+    case 'filesystem.move':
+      return runMove(call)
     default:
       // BINDERS 与这个 switch 是两张必须同步的表。加了 binder 忘了执行体，
       // 会走到这里而不是崩掉——这是故意留的兜底。
@@ -92,6 +98,27 @@ async function runExtractPdf(call: AuthorizedCall): Promise<CapabilityOutcome> {
     return await extractPdf(raw)
   } catch (e) {
     return fail(ERROR_CODE.PDF_EXTRACTION_FAILED, `PDF 解析失败 (${describe(e)})`)
+  }
+}
+
+async function runCreateDir(call: AuthorizedCall): Promise<CapabilityOutcome> {
+  const abs = call.bound.paths['path']
+  try {
+    return await createDir(abs)
+  } catch (e) {
+    // createDir 契约上永不 throw；这里兜底是防实现意外抛，把精确码留住。
+    return fail(ERROR_CODE.CREATE_DIR_FAILED, `创建目录失败 (${describe(e)}): ${abs}`)
+  }
+}
+
+async function runMove(call: AuthorizedCall): Promise<CapabilityOutcome> {
+  // source/target 同样是 realpath 后的绝对路径，与批准时算 hash 的那份一致。
+  const source = call.bound.paths['source']
+  const target = call.bound.paths['target']
+  try {
+    return await moveFile(source, target)
+  } catch (e) {
+    return fail(ERROR_CODE.MOVE_FAILED, `移动失败 (${describe(e)}): ${source} -> ${target}`)
   }
 }
 

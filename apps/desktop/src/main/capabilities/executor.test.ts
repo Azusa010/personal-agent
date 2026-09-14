@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -13,10 +13,11 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createExecutor } from './executor'
-import { UI_ORIGIN } from '../policy/execution-policy'
+import { UI_ORIGIN, type PermissionGate } from '../policy/execution-policy'
 import { buildCorruptPdf, buildEncryptedPdf, buildPdf } from './pdf-fixtures'
-import type { AuthorizeDenialCode, ToolRetriever } from './retriever'
-import { readOnlyScope } from './scope'
+import { RuleBasedToolRetriever, type AuthorizeDenialCode, type ToolRetriever } from './retriever'
+import { toPosix } from './roots'
+import { readOnlyScope, type TaskScope } from './scope'
 
 const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
 
@@ -309,5 +310,90 @@ describe('executor：永不 throw', () => {
     const permissive = createExecutor(readOnlyScope('task-1'), UI_ORIGIN, allowAll)
     const out = await permissive(params('scheduler.create', {}))
     expect(out['code']).toBe(ERROR_CODE.NOT_IMPLEMENTED)
+  })
+})
+
+describe('executor：WRITE 能力经批准后执行（TASK-020 接线）', () => {
+  // readOnlyScope 不放 WRITE，这里自定义一个只含两个目标能力的 scope。
+  const writeScope: TaskScope = {
+    taskId: 'task-1',
+    capabilities: ['filesystem.create_dir', 'filesystem.move']
+  }
+  // 自动批准的 gate：request 直接 approved，verify 直接 ok。
+  // 真实批准流程在 execution-policy.test.ts / permission-broker.test.ts。
+  const approveGate: PermissionGate = {
+    request: async () => ({ approved: true }),
+    verify: async () => ({ ok: true })
+  }
+
+  function writeRun(): (params: HostExecuteToolParams) => Promise<Record<string, unknown>> {
+    return createExecutor(writeScope, UI_ORIGIN, new RuleBasedToolRetriever(), {
+      gate: approveGate
+    })
+  }
+
+  async function isDir(p: string): Promise<boolean> {
+    try {
+      return (await stat(p)).isDirectory()
+    } catch {
+      return false
+    }
+  }
+
+  async function exists(p: string): Promise<boolean> {
+    try {
+      await stat(p)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  it('create_dir：批准后走执行体，path 是 bound.paths 的 realpath（正斜杠）', async () => {
+    const reading = toPosix(join(dir, 'Reading'))
+    const out = await writeRun()(params('filesystem.create_dir', { path: join(dir, 'Reading') }))
+
+    // 未实现占位返回 CREATE_DIR_FAILED；填完 createDir 后应为 ok:true created:true。
+    // path 必须是 realpath 后的正斜杠形式，证明接线传的是 bound.paths 而非原始 arguments。
+    expect(out['ok']).toBe(true)
+    expect(out['path']).toBe(reading)
+    expect(out['created']).toBe(true)
+    expect(await isDir(reading)).toBe(true)
+  })
+
+  it('move：批准后走执行体，source/target 是 bound.paths 的 realpath', async () => {
+    const source = join(dir, 'report.pdf')
+    await writeFile(source, 'X')
+    await mkdir(join(dir, 'Reading'))
+    const target = join(dir, 'Reading', 'report.pdf')
+
+    const out = await writeRun()(params('filesystem.move', { source, target }))
+    expect(out['ok']).toBe(true)
+    expect(out['source']).toBe(toPosix(source))
+    expect(out['target']).toBe(toPosix(target))
+    // 真的搬走了：source 不在，target 在。
+    expect(await exists(source)).toBe(false)
+    expect(await exists(target)).toBe(true)
+  })
+
+  it('Deny：gate 拒绝时执行体不跑，目录不建（Phase2 Exit: Deny 后不变化）', async () => {
+    const denyGate: PermissionGate = {
+      request: async () => ({
+        approved: false,
+        code: ERROR_CODE.PERMISSION_DENIED,
+        reason: '用户拒绝'
+      }),
+      verify: async () => ({ ok: true })
+    }
+    const denyRun = createExecutor(writeScope, UI_ORIGIN, new RuleBasedToolRetriever(), {
+      gate: denyGate
+    })
+    const reading = join(dir, 'Reading')
+    const out = await denyRun(params('filesystem.create_dir', { path: reading }))
+
+    expect(out['ok']).toBe(false)
+    expect(out['code']).toBe(ERROR_CODE.PERMISSION_DENIED)
+    // 这条现在就该绿：拒绝发生在执行体之前，与 createDir 是否实现无关。
+    expect(await isDir(reading)).toBe(false)
   })
 })

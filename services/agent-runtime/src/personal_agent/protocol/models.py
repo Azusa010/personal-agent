@@ -141,6 +141,28 @@ DocumentExtractPdfOutcome = Annotated[
 ]
 
 
+class FilesystemCreateDirResult(BaseModel):
+    ok: Literal[True]
+    path: str = Field(min_length=1)
+    created: bool
+
+
+FilesystemCreateDirOutcome = Annotated[
+    FilesystemCreateDirResult | CapabilityFailure, Field(discriminator="ok")
+]
+
+
+class FilesystemMoveResult(BaseModel):
+    ok: Literal[True]
+    source: str = Field(min_length=1)
+    target: str = Field(min_length=1)
+
+
+FilesystemMoveOutcome = Annotated[
+    FilesystemMoveResult | CapabilityFailure, Field(discriminator="ok")
+]
+
+
 CapabilityKind = Literal["READ", "WRITE"]
 
 

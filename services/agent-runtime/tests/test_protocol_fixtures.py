@@ -9,9 +9,11 @@ from personal_agent.protocol.models import (
     DocumentExtractPdfParams,
     DocumentExtractPdfResult,
     FilesystemCreateDirParams,
+    FilesystemCreateDirResult,
     FilesystemListParams,
     FilesystemListResult,
     FilesystemMoveParams,
+    FilesystemMoveResult,
     HostExecuteToolParams,
     HostExecuteToolRequest,
     HostExecuteToolResponse,
@@ -99,8 +101,9 @@ def _pick(raw: dict, path: str):
             DocumentExtractPdfParams,
             "params.arguments",
         ),
-        # 两个 WRITE 能力只有 request fixture，response 要等 TASK-020 的结果 DTO。
-        # 这四条与 TS 侧 envelope.test.ts 的 legalCases 逐条对应，少一条就是漂移。
+        # 两个 WRITE 能力的 request 钉 arguments 双端一致，response 钉 TASK-020
+        # 的结果 DTO。这六条与 TS 侧 envelope.test.ts 的 legalCases 逐条对应，
+        # 少一条就是漂移。
         (
             "host-filesystem-create-dir.request.json",
             HostExecuteToolRequest,
@@ -114,6 +117,12 @@ def _pick(raw: dict, path: str):
             "params.arguments",
         ),
         (
+            "host-filesystem-create-dir.response.json",
+            HostExecuteToolResponse,
+            FilesystemCreateDirResult,
+            "result",
+        ),
+        (
             "host-filesystem-move.request.json",
             HostExecuteToolRequest,
             HostExecuteToolParams,
@@ -124,6 +133,12 @@ def _pick(raw: dict, path: str):
             HostExecuteToolRequest,
             FilesystemMoveParams,
             "params.arguments",
+        ),
+        (
+            "host-filesystem-move.response.json",
+            HostExecuteToolResponse,
+            FilesystemMoveResult,
+            "result",
         ),
         (
             "host-execute-tool.response.json",
