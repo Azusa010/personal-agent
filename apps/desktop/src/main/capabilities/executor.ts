@@ -9,10 +9,12 @@ import {
   type PermissionGate,
   type TaskStatePort
 } from '../policy/execution-policy'
+import type { ToolExecutionRepository } from '../product-state/tool-execution-repository'
 import { extractPdf } from './document-extract-pdf'
 import { createDir } from './filesystem-create-dir'
 import { listPdfs } from './filesystem-list'
 import { moveFile } from './filesystem-move'
+import { afterExecute, beginAttempt, isWriteCapability, type IdempotencyDeps } from './idempotency'
 import { RuleBasedToolRetriever, type ToolRetriever } from './retriever'
 import { resolveRoot } from './roots'
 import type { TaskScope } from './scope'
@@ -26,11 +28,19 @@ export interface ExecutorPermissionWiring {
   readonly now?: () => string
 }
 
+/** 幂等关的集成。不传就是没有幂等保护：WRITE 能力照常执行但不登记、不查重复。
+ */
+export interface ExecutorIdempotencyWiring {
+  readonly executions: ToolExecutionRepository
+  readonly now?: () => string
+}
+
 export function createExecutor(
   scope: TaskScope,
   origin: CallOrigin,
   retriever: ToolRetriever = new RuleBasedToolRetriever(),
-  permission?: ExecutorPermissionWiring
+  permission?: ExecutorPermissionWiring,
+  idempotency?: ExecutorIdempotencyWiring
 ): (params: HostExecuteToolParams) => Promise<CapabilityOutcome> {
   const policy = createExecutionPolicy({
     scope,
@@ -45,7 +55,21 @@ export function createExecutor(
     if (!decision.allowed) {
       return fail(decision.code, decision.reason)
     }
-    return runCapability(decision.call)
+    const call = decision.call
+    // 没接幂等 store，或不是 WRITE 能力（只读无副作用）→ 直接执行，维持原行为。
+    if (idempotency === undefined || !isWriteCapability(call.capability.name)) {
+      return runCapability(call)
+    }
+    // WRITE 能力过幂等关：执行前查重复决定跑不跑，执行后把 attempting 翻成终态。
+    const deps: IdempotencyDeps = { executions: idempotency.executions, now: idempotency.now }
+    const before = await beginAttempt(deps, call)
+    if (before.kind !== 'proceed') {
+      // skip（已成功）或 reject（矛盾态）都直接返回结果，不跑副作用。
+      return before.result
+    }
+    const outcome = await runCapability(call)
+    afterExecute(deps, before.key, outcome)
+    return outcome
   }
 }
 

@@ -2,7 +2,7 @@
 
 - 状态：已接受
 - 日期：2026-09-13
-- 最后修订：2026-09-14（TASK-019 完成：FILE-007 已实现，补记 permission / product-state / runtime 三处的新增文件）
+- 最后修订：2026-09-14（TASK-021 完成：补记 TASK-020 的 filesystem-create-dir / filesystem-move 执行体，与 TASK-021 的 idempotency 编排层、tool-execution-repository、migration 0006）
 - 对照对象：`architecture-personal-agent-v0.1.md` 的 §5 Files（FILE-001~022）与 Phase 1 File Boundaries
 
 ## 上下文
@@ -40,10 +40,10 @@ TS 侧：
 - `main/tasks/`（run-task.ts、reconcile.ts、get-timeline.ts）——RunTask 编排同时依赖 product-state 与 runtime，放进任何一层都会产生反向依赖，所以单独成层。
 - `main/policy/`（execution-policy.ts、task-context.ts、risk.ts、argument-binders.ts、alignment.ts）——FILE-006 只规划了 execution-policy.ts，另外四个是同一条校验管道的组成部分，与它同生共死。
 - `main/db/`（database.ts、pdf-repository.ts）——PDF 索引库与 Product Store 是两个独立 SQLite 库。索引失败不该连累任务状态，所以不共用连接与迁移。
-- `main/product-state/` 里 FILE-008 之外的文件（task-repository.ts、plan-repository.ts、event-repository.ts、permission-repository.ts、timeline-projection.ts、migrations/0001~0005）——FILE-008 只规划了 database.ts。迁移按序号拆成独立文件而不是写进一份 schema，因为 0005 要改 tasks 的 status CHECK 约束：SQLite 只能走「事务外关外键 → 事务内重建表 → finally 开回 → foreign_key_check 兜底」，这段必须独占一个迁移。
+- `main/product-state/` 里 FILE-008 之外的文件（task-repository.ts、plan-repository.ts、event-repository.ts、permission-repository.ts、timeline-projection.ts、tool-execution-repository.ts、migrations/0001~0006）——FILE-008 只规划了 database.ts。迁移按序号拆成独立文件而不是写进一份 schema，因为 0005 要改 tasks 的 status CHECK 约束：SQLite 只能走「事务外关外键 → 事务内重建表 → finally 开回 → foreign_key_check 兜底」，这段必须独占一个迁移。0006 建 tool_executions 表承载 TASK-021 的幂等 store，tool-execution-repository.ts 是其仓储层（insert / findByKey / transition），状态转换规则放在 Repository 层校验、与 DB CHECK 约束分离。
 - `main/permission/` 里的 args-hash.ts、canonical-json.ts、expiry.ts、permission-ipc.ts——FILE-007 只规划了 permission-broker.ts。前三个是 TASK-018 的产物（参数规范化、哈希、过期投影），broker 依赖它们；permission-ipc.ts 是 IPC 边界的入参收窄与错误码映射，纯函数不 import electron，以便单测直接覆盖。
 - `main/e2e/`（golden-path.test.ts）——确定性 E2E 要启真 Python 与真 SQLite，与被测单元同级放会污染单元测试的收集范围。
-- `main/capabilities/` 里的 executor.ts、host-executor.ts、path-guard.ts、roots.ts、filesystem-list.ts、pdf-fixtures.ts——Phase 1 File Boundaries 只列了 registry / scope / retriever / document-extract-pdf。
+- `main/capabilities/` 里的 executor.ts、host-executor.ts、path-guard.ts、roots.ts、filesystem-list.ts、filesystem-create-dir.ts、filesystem-move.ts、pdf-fixtures.ts、idempotency.ts——Phase 1 File Boundaries 只列了 registry / scope / retriever / document-extract-pdf。filesystem-create-dir / filesystem-move 是 TASK-020 的两个 WRITE 执行体；idempotency.ts 是 TASK-021 的幂等编排层（key 计算 + 恢复 resolver + 执行前后状态翻转），由 executor.ts 在 WRITE 能力上挂载。
 - `main/runtime/` 里的 runtime-host.ts、error-code.ts、timeouts.ts——FILE-005 只规划了 python-supervisor.ts。runtime-host 是私有单例的窄网关，error-code 是 IPC 侧错误码登记表，timeouts 集中推导三层超时（批准窗口 300s < host 传输层 305s < run_task 1585s），避免三个值各自硬编码后失去大小关系。
 - `shared/`（domain.ts、ipc-contract.ts）——Main 与 Renderer 的共同类型归属地。Renderer 直接 import main 下的模块会把 SQLite 依赖带进渲染层。
 - `preload/index.d.ts`——FILE-010 只规划了 preload/index.ts。

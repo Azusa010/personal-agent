@@ -92,3 +92,33 @@ export type PermissionNotice =
       readonly permissionId: string
       readonly state: PermissionViewState
     }
+
+/** tool_executions 表的三种执行状态。
+ *
+ *  attempting = 执行前写入，副作用结果未知；succeeded / failed = 执行后翻转的终态。
+ */
+export const TOOL_EXECUTION_STATUSES = ['attempting', 'succeeded', 'failed'] as const
+
+export type ToolExecutionStatus = (typeof TOOL_EXECUTION_STATUSES)[number]
+
+/** 一次 WRITE 副作用的幂等执行记录。idempotencyKey = capability + ':' + argsHash
+ *  只要移动的是同一批绝对路径，key 不变就命中同一条。
+ */
+export interface ToolExecutionRecord {
+  idempotencyKey: string
+  taskId: string
+  /** 最近一次执行的 callId。重启后会变，只作诊断，不参与幂等判定 */
+  toolCallId: string
+  capability: string
+  argsHash: string
+  /** recovery resolver 判定文件系统真实状态要用的来源绝对路径 */
+  sourcePaths: string[]
+  /** recovery resolver 判定文件系统真实状态要用的目标绝对路径。不是每个能力都有 */
+  targetPath: string | null
+  status: ToolExecutionStatus
+  attemptedAt: string
+  /** null = 还没翻转终态（attempting 中，或崩溃遗留） */
+  finishedAt: string | null
+  /** succeeded 时缓存的执行结果，命中已执行时原样返回。null = 非 succeeded */
+  resultPayload: unknown | null
+}
