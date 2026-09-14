@@ -82,3 +82,13 @@ export interface PermissionRecord {
   /** 批准当时 UI 展示的目标绝对路径。不是每个能力都有 */
   targetPath: string | null
 }
+
+/** main → renderer 的批准通道载荷。broker 产出，preload 原样转发，renderer 不做二次解析。
+ */
+export type PermissionNotice =
+  | { readonly kind: 'requested'; readonly permission: PermissionRecord }
+  | {
+      readonly kind: 'resolved'
+      readonly permissionId: string
+      readonly state: PermissionViewState
+    }

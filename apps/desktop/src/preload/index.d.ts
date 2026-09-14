@@ -3,6 +3,10 @@ import type {
   ListPdfsResult,
   ListTasksResult,
   IndexedPdfsResult,
+  PermissionDecision,
+  PermissionListResult,
+  PermissionNotice,
+  PermissionRespondResult,
   RunTaskIpcResult,
   TimelineIpcResult,
   SummaryFact,
@@ -15,6 +19,10 @@ export type {
   ListPdfsResult,
   ListTasksResult,
   IndexedPdfsResult,
+  PermissionDecision,
+  PermissionListResult,
+  PermissionNotice,
+  PermissionRespondResult,
   RunTaskIpcResult,
   TimelineIpcResult,
   SummaryFact,
@@ -37,4 +45,13 @@ export type PersonalAgentApi = {
   runTask(goal: string): Promise<RunTaskIpcResult>
   /** taskId 传 null 表示读最近创建的任务：应用重启后 renderer 的 state 已清空，没有这个入口就再也指不回上一个任务 */
   getTimeline(taskId: string | null): Promise<TimelineIpcResult>
+  /** 批准面板的「批准 / 拒绝」。同结论重复调用无副作用，repeated 会是 true */
+  respondPermission(
+    permissionId: string,
+    decision: PermissionDecision
+  ): Promise<PermissionRespondResult>
+  /** 诊断面板的权限记录。taskId 不接受 null：没有选中会话时调用方自己显示提示 */
+  listPermissions(taskId: string): Promise<PermissionListResult>
+  /** 订阅 main 推来的批准事件。返回的函数取消订阅，组件卸载时必须调 */
+  onPermissionNotice(listener: (notice: PermissionNotice) => void): () => void
 }

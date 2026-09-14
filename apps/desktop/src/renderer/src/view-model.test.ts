@@ -10,6 +10,7 @@ import type {
 } from '../../shared/ipc-contract'
 import {
   EVENT_LABELS,
+  PERMISSION_STATE_LABELS,
   STATUS_LABELS,
   describeEvent,
   describePlanSteps,
@@ -17,6 +18,7 @@ import {
   extractFactCount,
   extractFacts,
   formatOccurredAt,
+  formatRemaining,
   summarizePayload
 } from './view-model'
 
@@ -101,12 +103,16 @@ describe('describeRunOutcome', () => {
 })
 
 describe('EVENT_LABELS', () => {
-  it('登记的键就是 engine.py 的六个 EVENT_* 常量，一个不多一个不少', () => {
-    // 这六个字符串是跨语言契约：Python 写库、TS 读库。任一边改名，
-    // timeline 上就会出现没翻译的英文 type。这条测试钉住 TS 这一半。
+  it('登记的键就是写库方用的九个事件类型，一个不多一个不少', () => {
+    // 前六个是跨语言契约：Python 写库、TS 读库，字符串来自 engine.py 的 EVENT_*。
+    // 后三个来自 permission-broker 的 PERMISSION_EVENT，写库方是 TS 自己。
+    // 任一边改名，timeline 上就会出现没翻译的英文 type。这条测试钉住展示层这一半。
     expect(Object.keys(EVENT_LABELS).sort()).toEqual(
       [
         'budget_exhausted',
+        'permission_decision',
+        'permission_expired',
+        'permission_requested',
         'task_completed',
         'task_failed',
         'task_started',
@@ -139,6 +145,31 @@ describe('STATUS_LABELS', () => {
   })
 })
 
+describe('PERMISSION_STATE_LABELS', () => {
+  it('四个状态全都有标签，含不落库的 expired', () => {
+    // expired 不在 permissions.status 的 CHECK 里，它是投影值。
+    // 这里少了它，诊断表遇到过期记录就会显示 undefined。
+    expect(Object.keys(PERMISSION_STATE_LABELS).sort()).toEqual(
+      ['approved', 'denied', 'expired', 'pending'].sort()
+    )
+  })
+
+  it('标签都非空且互不重复', () => {
+    const labels = Object.values(PERMISSION_STATE_LABELS)
+
+    expect(labels.every((l) => l.trim().length > 0)).toBe(true)
+    expect(new Set(labels).size).toBe(labels.length)
+  })
+
+  it('与 STATUS_LABELS 不共用词：任务状态与批准结论是两回事', () => {
+    // 两张表会出现在同一个界面上。用词撞了的话，「已失败」到底是任务还是权限就分不清。
+    const taskLabels = Object.values(STATUS_LABELS)
+    const overlap = Object.values(PERMISSION_STATE_LABELS).filter((l) => taskLabels.includes(l))
+
+    expect(overlap).toEqual([])
+  })
+})
+
 describe('formatOccurredAt', () => {
   it('输出 YYYY-MM-DD HH:mm:ss，且按本地时区读回是同一个瞬间', () => {
     // 断言写成「形状 + 瞬间往返」而不是钉死字符串：机器时区不同，
@@ -157,6 +188,40 @@ describe('formatOccurredAt', () => {
   it.each([['不是时间'], [''], ['2026-13-45T99:99:99Z']])('脏数据 %s 原样返回', (bad) => {
     // occurredAt 在库里是 TEXT 没有 CHECK。一行脏数据不该让整条 timeline 渲染失败。
     expect(formatOccurredAt(bad)).toBe(bad)
+  })
+})
+
+describe('formatRemaining', () => {
+  const NOW = Date.parse('2026-09-07T08:00:00.000Z')
+
+  it('剩余时间输出 mm:ss', () => {
+    expect(formatRemaining('2026-09-07T08:04:32.000Z', NOW)).toBe('04:32')
+  })
+
+  it('超过一小时也按分钟累加，不换成小时', () => {
+    // 批准窗口是 5 分钟，出现 90 分钟就说明 expiresAt 被写坏了。
+    // 换成 '1:30:00' 反而看不出异常，累加分钟更直白。
+    expect(formatRemaining('2026-09-07T09:30:00.000Z', NOW)).toBe('90:00')
+  })
+
+  it('已过期与正好到点都归零，不出现负数', () => {
+    expect(formatRemaining('2026-09-07T07:59:59.000Z', NOW)).toBe('00:00')
+    expect(formatRemaining('2026-09-07T08:00:00.000Z', NOW)).toBe('00:00')
+  })
+
+  it('不足一秒的余量向下取整', () => {
+    expect(formatRemaining('2026-09-07T08:00:00.900Z', NOW)).toBe('00:00')
+  })
+
+  it.each([['不是时间'], [''], ['2026-13-45T99:99:99Z']])(
+    'expiresAt 是脏数据 %s 时返回空串，由调用方降级成不显示倒计时',
+    (bad) => {
+      expect(formatRemaining(bad, NOW)).toBe('')
+    }
+  )
+
+  it('now 是 NaN 时同样返回空串', () => {
+    expect(formatRemaining('2026-09-07T08:04:32.000Z', Number.NaN)).toBe('')
   })
 })
 
@@ -220,6 +285,92 @@ describe('summarizePayload', () => {
     expect(line).toContain('运行时未配置模型')
   })
 
+  it('permission_requested 的摘要里能看到能力与目标路径', () => {
+    // broker 写的 payload 形状：{ permissionId, capability, sourcePaths, targetPath, expiresAt }。
+    // create_dir 只有 targetPath，sourcePaths 是空数组。
+    const line = summarizePayload('permission_requested', {
+      permissionId: 'p-1',
+      capability: 'filesystem.create_dir',
+      sourcePaths: [],
+      targetPath: 'D:/downloads/reports',
+      expiresAt: '2026-09-07T08:05:00.000Z'
+    })
+
+    expect(line).toContain('filesystem.create_dir')
+    expect(line).toContain('D:/downloads/reports')
+  })
+
+  it('permission_requested 两个路径都有时优先显示 targetPath', () => {
+    // move 两个都写。摘要只有一行，完整的两个路径在批准 Dialog 里看。
+    const line = summarizePayload('permission_requested', {
+      permissionId: 'p-2',
+      capability: 'filesystem.move',
+      sourcePaths: ['D:/downloads/a.pdf'],
+      targetPath: 'D:/downloads/reports/a.pdf',
+      expiresAt: '2026-09-07T08:05:00.000Z'
+    })
+
+    expect(line).toContain('D:/downloads/reports/a.pdf')
+  })
+
+  it('permission_requested 只有 sourcePaths 时把它们都列出来', () => {
+    const line = summarizePayload('permission_requested', {
+      capability: 'filesystem.move',
+      sourcePaths: ['D:/a.pdf', 'D:/b.pdf'],
+      targetPath: null
+    })
+
+    expect(line).toContain('D:/a.pdf')
+    expect(line).toContain('D:/b.pdf')
+  })
+
+  it('permission_requested 的 sourcePaths 里混进非字符串时丢掉那一项，不丢整个列表', () => {
+    const line = summarizePayload('permission_requested', {
+      capability: 'filesystem.move',
+      sourcePaths: ['D:/a.pdf', 42, ''],
+      targetPath: null
+    })
+
+    expect(line).toContain('D:/a.pdf')
+    expect(line).not.toContain('42')
+  })
+
+  it('permission_requested 路径全空时退回原始 payload，不给空行', () => {
+    // scheduler.create 这类能力两个路径都没有。「批准什么」是这条事件唯一有用的信息，
+    // 拿不到就显示原始 JSON，总比一行空白强。
+    const line = summarizePayload('permission_requested', {
+      capability: 'scheduler.create',
+      sourcePaths: [],
+      targetPath: null
+    })
+
+    expect(line.trim().length).toBeGreaterThan(0)
+  })
+
+  it('permission_decision 复用状态标签表，未知值原样显示', () => {
+    expect(
+      summarizePayload('permission_decision', { permissionId: 'p-1', decision: 'approved' })
+    ).toBe(PERMISSION_STATE_LABELS.approved)
+    expect(
+      summarizePayload('permission_decision', { permissionId: 'p-1', decision: 'denied' })
+    ).toBe(PERMISSION_STATE_LABELS.denied)
+    expect(summarizePayload('permission_decision', { decision: '也许' })).toBe('也许')
+  })
+
+  it('permission_decision 缺 decision 时退回原始 payload', () => {
+    const line = summarizePayload('permission_decision', { permissionId: 'p-1' })
+
+    expect(line.trim().length).toBeGreaterThan(0)
+  })
+
+  it('permission_expired 给固定文案，不受 payload 影响', () => {
+    const a = summarizePayload('permission_expired', { permissionId: 'p-1', expiresAt: AT })
+    const b = summarizePayload('permission_expired', {})
+
+    expect(a).toBe(b)
+    expect(a.trim().length).toBeGreaterThan(0)
+  })
+
   it.each([
     ['null', null],
     ['undefined', undefined],
@@ -251,7 +402,12 @@ describe('summarizePayload', () => {
       ['task_started', { goal: '第一行\n第二行' }],
       ['tool_called', { capability: 'a\nb', arguments: { x: 'y\nz' } }],
       ['task_failed', { reason: '原因\n补充' }],
-      ['task_failed', { code: 'C', message: 'm1\nm2' }]
+      ['task_failed', { code: 'C', message: 'm1\nm2' }],
+      [
+        'permission_requested',
+        { capability: 'filesystem.move', sourcePaths: ['a\nb'], targetPath: 'c\nd' }
+      ],
+      ['permission_decision', { decision: ' approved\ndenied ' }]
     ]
 
     for (const [type, payload] of inputs) {

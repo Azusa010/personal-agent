@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react'
+import { Bot, ChevronDown, ChevronRight, LoaderCircle, ShieldAlert } from 'lucide-react'
 import type { TaskTimeline } from '../../../shared/ipc-contract'
 import {
   describeEvent,
@@ -86,6 +86,13 @@ export function MessageStream({
               <p className="m-0 flex items-center gap-2 text-muted-foreground">
                 <LoaderCircle size={14} className="animate-spin" />
                 {STATUS_LABELS[status]}，正在仅基于本地文件整理回答…
+              </p>
+            )}
+            {status === 'waiting_permission' && (
+              <p className="m-0 flex items-start gap-2 text-muted-foreground">
+                <ShieldAlert size={14} className="mt-0.5 shrink-0 text-destructive" />
+                任务卡在一个会改动文件的操作上，正在等你批准。请在弹出的面板里做决定， 批准窗口只有
+                5 分钟。
               </p>
             )}
             {status === 'failed' && timeline !== null && (

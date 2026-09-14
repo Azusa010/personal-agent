@@ -9,6 +9,9 @@ import type {
   ListPdfsResult,
   ListTasksResult,
   IndexedPdfsResult,
+  PermissionListResult,
+  PermissionNotice,
+  PermissionRespondResult,
   RunTaskIpcResult,
   TimelineIpcResult
 } from '../shared/ipc-contract'
@@ -18,6 +21,9 @@ import { getStore, closeStore, type SqliteDatabase } from './product-state/datab
 import { SqliteTaskRepository } from './product-state/task-repository'
 import { SqlitePlanRepository } from './product-state/plan-repository'
 import { SqliteEventRepository } from './product-state/event-repository'
+import { SqlitePermissionRepository } from './product-state/permission-repository'
+import { createPermissionBroker, type PermissionBroker } from './permission/permission-broker'
+import { listTaskPermissions, respondToPermission } from './permission/permission-ipc'
 import { runTask } from './tasks/run-task'
 import { getTimeline } from './tasks/get-timeline'
 import { reconcileOrphanTasks } from './tasks/reconcile'
@@ -25,6 +31,22 @@ import icon from '../../resources/icon.png?asset'
 import { executeCapability } from './capabilities/host-executor'
 
 const PRELOAD_PATH = join(__dirname, '../preload/index.js')
+
+// 批准通道的三个通道名。respond 与 list 是 renderer 发起的 invoke，
+// notice 是 main 主动推的——preload 里唯一一个 ipcRenderer.on。
+const PERMISSION_RESPOND_CHANNEL = 'personal-agent:permission-respond'
+const PERMISSION_LIST_CHANNEL = 'personal-agent:list-permissions'
+const PERMISSION_NOTICE_CHANNEL = 'personal-agent:permission-notice'
+
+// null = 库没打开，批准通道不可用。
+let permissionBroker: PermissionBroker | null = null
+
+// 推给所有窗口。当前只有一个窗口；多窗口时每个都会收到同一条 notice，
+function broadcastPermissionNotice(notice: PermissionNotice): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send(PERMISSION_NOTICE_CHANNEL, notice)
+  }
+}
 
 function createWindow(): void {
   // Create the browser window.
@@ -88,6 +110,17 @@ app.whenReady().then(() => {
     if (orphans > 0) console.warn(`[product-state] 启动时收成 ${orphans} 个孤儿任务`)
   } catch (err) {
     console.error('[product-state] 启动收尸失败', err)
+  }
+
+  try {
+    const store = getStore()
+    permissionBroker = createPermissionBroker({
+      permissions: new SqlitePermissionRepository(store),
+      events: new SqliteEventRepository(store),
+      notify: broadcastPermissionNotice
+    })
+  } catch (err) {
+    console.error('[permission] broker 构造失败，批准通道不可用', err)
   }
 
   // IPC test
@@ -207,6 +240,33 @@ app.whenReady().then(() => {
       plans: new SqlitePlanRepository(store)
     })
   })
+
+  // 批准面板的「批准 / 拒绝」。respondToPermission 永不抛，入参收窄与错误码映射都在里面。
+  ipcMain.handle(
+    PERMISSION_RESPOND_CHANNEL,
+    (_e, permissionId: unknown, decision: unknown): PermissionRespondResult => {
+      if (permissionBroker === null) {
+        return {
+          ok: false,
+          code: RUNTIME_ERROR_CODE.DB_FAILED,
+          message: '批准通道未就绪：product-state 库没打开'
+        }
+      }
+      return respondToPermission({ permissionId, decision }, { broker: permissionBroker })
+    }
+  )
+
+  // 诊断面板的权限记录观察区。走 broker.listForTask，state 是含 expired 的投影值。
+  ipcMain.handle(PERMISSION_LIST_CHANNEL, (_e, taskId: unknown): PermissionListResult => {
+    if (permissionBroker === null) {
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: '批准通道未就绪：product-state 库没打开'
+      }
+    }
+    return listTaskPermissions(taskId, { broker: permissionBroker })
+  })
   createWindow()
 
   void startRuntime()
@@ -227,6 +287,7 @@ app.on('before-quit', (event) => {
   event.preventDefault()
   isQuitting = true
   void stopRuntime()
+    .finally(() => permissionBroker?.dispose())
     .finally(() => closeDb())
     .finally(() => closeStore())
     .finally(() => app.quit())

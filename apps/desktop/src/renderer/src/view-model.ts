@@ -1,10 +1,12 @@
 import type {
   ExecutionEventRecord,
   PlanRecord,
+  PermissionViewState,
   RunTaskIpcResult,
   SummaryFact,
   TaskStatus,
-  TaskTimeline
+  TaskTimeline,
+  PermissionDecision
 } from '../../shared/ipc-contract'
 
 // ---- 一、跑任务结果的三态文案 ----
@@ -52,7 +54,8 @@ export function describeRunOutcome(result: RunTaskIpcResult): RunOutcomeView {
 
 // ---- 二、事件类型标签 ----
 
-// 六个类型来自 engine.py 的 EVENT_* 常量。这里故意用 Record<string, string>
+// 前六个类型来自 engine.py 的 EVENT_* 常量，后三个来自 permission-broker 的 PERMISSION_EVENT。
+// 这里故意用 Record<string, string>
 // 而不是把键收窄成联合：库里可能躺着旧版本写入的行，遇到没登记的 type 时
 // describeEvent 原样显示英文 type，比崩掉或者显示空白都好。
 export const EVENT_LABELS: Readonly<Record<string, string>> = {
@@ -61,7 +64,10 @@ export const EVENT_LABELS: Readonly<Record<string, string>> = {
   tool_result: '工具返回',
   budget_exhausted: '预算耗尽',
   task_completed: '任务完成',
-  task_failed: '任务失败'
+  task_failed: '任务失败',
+  permission_requested: '请求批准',
+  permission_decision: '批准结论',
+  permission_expired: '批准超时'
 }
 
 // ---- 三、任务状态标签 ----
@@ -76,6 +82,13 @@ export const STATUS_LABELS: Readonly<Record<TaskStatus, string>> = {
   cancelled: '已取消'
 }
 
+export const PERMISSION_STATE_LABELS: Readonly<Record<PermissionViewState, string>> = {
+  pending: '等待决定',
+  approved: '已批准',
+  denied: '已拒绝',
+  expired: '已过期'
+}
+
 // ---- 四、时间格式化 ----
 
 export function formatOccurredAt(iso: string): string {
@@ -88,6 +101,20 @@ export function formatOccurredAt(iso: string): string {
     `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
     `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
   )
+}
+
+export function formatRemaining(expiresAt: string, now: number): string {
+  const expires = Date.parse(expiresAt)
+  if (Number.isNaN(expires) || !Number.isFinite(expires)) {
+    return ''
+  }
+  const remaining = expires - now
+  if (remaining <= 0) {
+    return '00:00'
+  }
+  return remaining > 0
+    ? `${String(Math.floor(remaining / 60000)).padStart(2, '0')}:${String(Math.floor((remaining % 60000) / 1000)).padStart(2, '0')}`
+    : ''
 }
 
 // ---- 五、事件行 ----
@@ -184,6 +211,30 @@ export function summarizePayload(type: string, payload: unknown): string {
       const message = str(record['message'])
       if (code !== null || message !== null) return join([code, message])
       return fallback(payload)
+    }
+    case 'permission_requested': {
+      const capabilities = record['capability']
+      const sourcePaths = record['sourcePaths'] as string[]
+      const targetPath = str(record['targetPath'])
+      let msg = `使用 ${capabilities} 访问`
+      if (targetPath !== null) {
+        msg += `目标路径：${targetPath}`
+      } else if (sourcePaths.length > 0) {
+        const filteredPaths = sourcePaths.filter(
+          (path) => typeof path === 'string' && path.length > 0
+        )
+        msg += `源路径：${join(filteredPaths)}`
+      } else {
+        msg += fallback(payload)
+      }
+      return oneLine(msg)
+    }
+    case 'permission_decision': {
+      const decision = record['decision'] as PermissionDecision
+      return oneLine(`${PERMISSION_STATE_LABELS[decision] ?? decision}`)
+    }
+    case 'permission_expired': {
+      return '批准窗口内没有响应'
     }
     default:
       return fallback(payload)

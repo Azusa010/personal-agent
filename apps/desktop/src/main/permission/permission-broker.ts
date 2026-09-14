@@ -2,7 +2,12 @@ import { randomUUID } from 'node:crypto'
 
 import { ERROR_CODE } from '@personal-agent/protocol'
 
-import type { PermissionDecision, PermissionRecord, PermissionViewState } from '../../shared/domain'
+import type {
+  PermissionDecision,
+  PermissionNotice,
+  PermissionRecord,
+  PermissionViewState
+} from '../../shared/domain'
 import { resolveRoot } from '../capabilities/roots'
 import type { BoundArgs } from '../policy/argument-binders'
 import type { EventRepository } from '../product-state/event-repository'
@@ -17,14 +22,7 @@ export const PERMISSION_EVENT = {
   EXPIRED: 'permission_expired'
 } as const
 
-/** 推给 Renderer 的通知 */
-export type PermissionNotice =
-  | { readonly kind: 'requested'; readonly permission: PermissionRecord }
-  | {
-      readonly kind: 'resolved'
-      readonly permissionId: string
-      readonly state: PermissionViewState
-    }
+export type { PermissionNotice }
 
 export interface PermissionRequestInput {
   readonly taskId: string

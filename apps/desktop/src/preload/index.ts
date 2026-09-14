@@ -1,4 +1,6 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+
+import type { PermissionDecision, PermissionNotice } from '../shared/ipc-contract'
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -23,6 +25,23 @@ if (process.contextIsolated) {
       },
       getTimeline: (taskId: string | null) => {
         return ipcRenderer.invoke('personal-agent:get-timeline', taskId)
+      },
+      respondPermission: (permissionId: string, decision: PermissionDecision) => {
+        return ipcRenderer.invoke('personal-agent:permission-respond', permissionId, decision)
+      },
+      listPermissions: (taskId: string) => {
+        return ipcRenderer.invoke('personal-agent:list-permissions', taskId)
+      },
+      // 唯一一个 main → renderer 的推送通道。返回的函数取消订阅，
+      // removeListener 必须传同一个包装引用：传原始 listener 取消不掉。
+      onPermissionNotice: (listener: (notice: PermissionNotice) => void) => {
+        const wrapped = (_event: IpcRendererEvent, notice: PermissionNotice): void => {
+          listener(notice)
+        }
+        ipcRenderer.on('personal-agent:permission-notice', wrapped)
+        return () => {
+          ipcRenderer.removeListener('personal-agent:permission-notice', wrapped)
+        }
       }
     })
   } catch (error) {

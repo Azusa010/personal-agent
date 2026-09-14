@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Ellipsis } from 'lucide-react'
 import type {
+  PermissionDecision,
+  PermissionRecord,
+  PermissionRespondResult,
   RunTaskIpcResult,
   RuntimeStatus,
   TaskRecord,
@@ -11,6 +14,7 @@ import { Composer } from './components/Composer'
 import { DiagnosticsDialog } from './components/DiagnosticsDialog'
 import { IndexDialog } from './components/IndexDialog'
 import { MessageStream } from './components/MessageStream'
+import { PermissionDialog } from './components/PermissionDialog'
 import { Sidebar } from './components/Sidebar'
 import { formatOccurredAt, STATUS_LABELS, timelineToMarkdown } from './view-model'
 
@@ -26,6 +30,7 @@ function App(): React.JSX.Element {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [indexOpen, setIndexOpen] = useState(false)
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
+  const [pendingPermission, setPendingPermission] = useState<PermissionRecord | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const feedbackTimer = useRef<number | null>(null)
 
@@ -85,6 +90,47 @@ function App(): React.JSX.Element {
       .catch((err) => console.error('[renderer] 读索引数量失败', err))
     void window.personalAgent.runtimeStatus().then(setRuntimeStatus)
   }, [])
+
+  // 批准通道的推送订阅。这是全应用唯一一个 main → renderer 的事件流。
+  useEffect(() => {
+    const unsubscribe = window.personalAgent.onPermissionNotice((notice) => {
+      if (notice.kind === 'requested') {
+        setPendingPermission(notice.permission)
+        return
+      }
+      // resolved 有两种成因：用户自己刚点了（respond 已本地关面板），或主进程判定过期。
+      // 用函数式更新比对 id：直接读 pendingPermission 会拿到订阅那一刻的闭包旧值。
+      setPendingPermission((current) =>
+        current !== null && current.id === notice.permissionId ? null : current
+      )
+    })
+    return unsubscribe
+  }, [])
+
+  const handleDecide = async (decision: PermissionDecision): Promise<void> => {
+    const target = pendingPermission
+    if (target === null) return
+    let result: PermissionRespondResult
+    try {
+      result = await window.personalAgent.respondPermission(target.id, decision)
+    } catch (err) {
+      // 正常不会进这里：respondPermission 的契约是永不抛。真抛了说明 preload / IPC 层坏了。
+      showFeedback(`批准提交失败：${err instanceof Error ? err.message : String(err)}`)
+      return
+    }
+    if (!result.ok) {
+      // 失败不关面板：让用户看见原因。过期场景由随后的 resolved 推送关掉。
+      showFeedback(`[${result.code}] ${result.message}`)
+      return
+    }
+    setPendingPermission(null)
+    const verb = decision === 'approved' ? '已批准' : '已拒绝'
+    showFeedback(
+      result.repeated
+        ? `${verb}（这条早就有同样的结论，本次点击没产生新副作用）`
+        : `${verb} ${target.capability}`
+    )
+  }
 
   const handleSelectTask = (taskId: string): void => {
     setSelectedTaskId(taskId)
@@ -217,7 +263,12 @@ function App(): React.JSX.Element {
       </section>
 
       <IndexDialog open={indexOpen} onOpenChange={setIndexOpen} />
-      <DiagnosticsDialog open={diagnosticsOpen} onOpenChange={setDiagnosticsOpen} />
+      <DiagnosticsDialog
+        open={diagnosticsOpen}
+        onOpenChange={setDiagnosticsOpen}
+        taskId={selectedTaskId}
+      />
+      <PermissionDialog permission={pendingPermission} onDecide={handleDecide} />
     </div>
   )
 }
