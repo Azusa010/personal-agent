@@ -2,6 +2,7 @@
 
 - 状态：已接受
 - 日期：2026-09-13
+- 最后修订：2026-09-14（TASK-019 完成：FILE-007 已实现，补记 permission / product-state / runtime 三处的新增文件）
 - 对照对象：`architecture-personal-agent-v0.1.md` 的 §5 Files（FILE-001~022）与 Phase 1 File Boundaries
 
 ## 上下文
@@ -29,7 +30,7 @@
 | FILE-011 `renderer/App.tsx` | `renderer/src/App.tsx` | 模板在 renderer 下多一层 `src` |
 | FILE-013 `personal_agent/main.py` | `personal_agent/__main__.py` + `runtime.py` | `python -m personal_agent` 要求入口叫 `__main__.py`；进程入口与协议主循环分开 |
 | FILE-017 `personal_agent/verification.py` | `personal_agent/summary.py` | SummaryVerifier 与摘要 Schema 同源，拆成两个文件会互相 import 成环 |
-| Phase 1 `renderer/features/{tasks,timeline,summary}/` | `renderer/src/components/{Sidebar,MessageStream,Composer,IndexDialog,DiagnosticsDialog}.tsx` + `renderer/src/components/ui/` + `renderer/src/view-model.ts` | 组件共用同一份 view-model（把 IPC 结果映射成渲染形状）。按 feature 拆会让三个 feature 目录都去 import 第四个，比扁平放更耦合。`ui/` 是 shadcn CLI 生成的组件源码，属生成物，eslint 对这一目录关了两条规则 |
+| Phase 1 `renderer/features/{tasks,timeline,summary}/` | `renderer/src/components/{Sidebar,MessageStream,Composer,IndexDialog,DiagnosticsDialog,PermissionDialog}.tsx` + `renderer/src/components/ui/` + `renderer/src/view-model.ts` | 组件共用同一份 view-model（把 IPC 结果映射成渲染形状）。按 feature 拆会让三个 feature 目录都去 import 第四个，比扁平放更耦合。`ui/` 是 shadcn CLI 生成的组件源码，属生成物，eslint 对这一目录关了两条规则 |
 | Phase 0 规划的 Python 侧 Trusted Tool | `main/capabilities/filesystem-list.ts`、`document-extract-pdf.ts` | SEC-003 定 Main 是唯一 Permission Authority。工具在 Python 侧执行，路径校验就只能在 Python 侧做，Main 事后才看到结果。执行搬回 Main 之后，Python 只产出「想调什么」，判定与执行都留在可信侧 |
 
 ### 指导书未规划，实际新增
@@ -39,9 +40,11 @@ TS 侧：
 - `main/tasks/`（run-task.ts、reconcile.ts、get-timeline.ts）——RunTask 编排同时依赖 product-state 与 runtime，放进任何一层都会产生反向依赖，所以单独成层。
 - `main/policy/`（execution-policy.ts、task-context.ts、risk.ts、argument-binders.ts、alignment.ts）——FILE-006 只规划了 execution-policy.ts，另外四个是同一条校验管道的组成部分，与它同生共死。
 - `main/db/`（database.ts、pdf-repository.ts）——PDF 索引库与 Product Store 是两个独立 SQLite 库。索引失败不该连累任务状态，所以不共用连接与迁移。
+- `main/product-state/` 里 FILE-008 之外的文件（task-repository.ts、plan-repository.ts、event-repository.ts、permission-repository.ts、timeline-projection.ts、migrations/0001~0005）——FILE-008 只规划了 database.ts。迁移按序号拆成独立文件而不是写进一份 schema，因为 0005 要改 tasks 的 status CHECK 约束：SQLite 只能走「事务外关外键 → 事务内重建表 → finally 开回 → foreign_key_check 兜底」，这段必须独占一个迁移。
+- `main/permission/` 里的 args-hash.ts、canonical-json.ts、expiry.ts、permission-ipc.ts——FILE-007 只规划了 permission-broker.ts。前三个是 TASK-018 的产物（参数规范化、哈希、过期投影），broker 依赖它们；permission-ipc.ts 是 IPC 边界的入参收窄与错误码映射，纯函数不 import electron，以便单测直接覆盖。
 - `main/e2e/`（golden-path.test.ts）——确定性 E2E 要启真 Python 与真 SQLite，与被测单元同级放会污染单元测试的收集范围。
 - `main/capabilities/` 里的 executor.ts、host-executor.ts、path-guard.ts、roots.ts、filesystem-list.ts、pdf-fixtures.ts——Phase 1 File Boundaries 只列了 registry / scope / retriever / document-extract-pdf。
-- `main/runtime/` 里的 runtime-host.ts、error-code.ts——FILE-005 只规划了 python-supervisor.ts。runtime-host 是私有单例的窄网关，error-code 是 IPC 侧错误码登记表。
+- `main/runtime/` 里的 runtime-host.ts、error-code.ts、timeouts.ts——FILE-005 只规划了 python-supervisor.ts。runtime-host 是私有单例的窄网关，error-code 是 IPC 侧错误码登记表，timeouts 集中推导三层超时（批准窗口 300s < host 传输层 305s < run_task 1585s），避免三个值各自硬编码后失去大小关系。
 - `shared/`（domain.ts、ipc-contract.ts）——Main 与 Renderer 的共同类型归属地。Renderer 直接 import main 下的模块会把 SQLite 依赖带进渲染层。
 - `preload/index.d.ts`——FILE-010 只规划了 preload/index.ts。
 
@@ -57,7 +60,6 @@ protocol 包：
 
 ### 指导书规划，实际不存在
 
-- FILE-007 `main/permission/permission-broker.ts`——TASK-018 与 TASK-019 的范围，尚未开始。
 - FILE-020 `tests/fixtures/pdfs/`——目录只有 `.gitkeep`，没有二进制 PDF。测试用的 PDF 由 `main/capabilities/pdf-fixtures.ts` 提供。
 - FILE-021 `tests/evals/cases.json`——Live Eval 属 Phase 3 范围，尚未开始。
 - `personal_agent/tools/`——只剩一个 `__init__.py`，实现已迁到 TS 侧（见上表最后一行）。全仓无任何 import 引用它，pytest 与 ruff 都不再触及。属于可删的残留。
@@ -69,7 +71,7 @@ protocol 包：
 
 ### 一致项
 
-FILE-001、FILE-002、FILE-005、FILE-006、FILE-008、FILE-010、FILE-012、FILE-014、FILE-015、FILE-016、FILE-018、FILE-019、FILE-022 与实际一致。本文件所在目录即 FILE-022。
+FILE-001、FILE-002、FILE-005、FILE-006、FILE-007、FILE-008、FILE-010、FILE-012、FILE-014、FILE-015、FILE-016、FILE-018、FILE-019、FILE-022 与实际一致。本文件所在目录即 FILE-022。
 
 ## 后果
 
@@ -82,3 +84,4 @@ FILE-001、FILE-002、FILE-005、FILE-006、FILE-008、FILE-010、FILE-012、FIL
 
 - 指导书 §5 与实际结构的对照要靠本文件维护，新增目录时必须同步补一条，否则这份记录会过期成新的误导源。
 - `personal_agent/tools/` 是空壳，留着会让人以为 Python 侧还有工具实现。
+- 批准链到 TASK-019 为止只通到 UI，没通到执行：`main/capabilities/executor.ts` 仍只有 `filesystem.list` 与 `document.extract_pdf` 两个执行体，`BOOTSTRAP_SCOPE` 仍是只读，`planning.py` 的计划固定三步全 READ。因此 PermissionDialog 与诊断区的权限表在真实运行中不会被触发，只能靠单测验证。TASK-019 标完成指的是它的 Deliverables 与 Validation 已达成，不代表 Phase 2 Exit Checklist 的任何一条；那八条要等 TASK-020~022。

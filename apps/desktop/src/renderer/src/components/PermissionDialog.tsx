@@ -65,8 +65,12 @@ function PermissionBody({
           <span className="font-mono text-[12px] text-foreground">{permission.capability}</span>
         </Row>
 
+        <Row label="影响文件">
+          <span className="text-foreground">{permission.sourcePaths.length} 个</span>
+        </Row>
+
         {permission.sourcePaths.length > 0 && (
-          <Row label="影响的文件">
+          <Row label="来源路径">
             <ul className="m-0 list-none space-y-1 p-0">
               {permission.sourcePaths.map((path) => (
                 <li key={path} className="font-mono text-[12px] text-foreground">
@@ -83,13 +87,9 @@ function PermissionBody({
           </Row>
         )}
 
-        {permission.sourcePaths.length === 0 && permission.targetPath === null && (
-          <Row label="参数">
-            <span className="font-mono text-[12px] text-foreground">
-              {permission.argsCanonical}
-            </span>
-          </Row>
-        )}
+        <Row label="参数摘要">
+          <span className="font-mono text-[12px] text-foreground">{permission.argsCanonical}</span>
+        </Row>
 
         <Row label="参数指纹">
           <span className="font-mono text-[12px] text-muted-foreground">
@@ -98,6 +98,14 @@ function PermissionBody({
         </Row>
 
         <Row label="请求时间">{formatOccurredAt(permission.requestedAt)}</Row>
+
+        <Row label="过期时间">
+          <span className="text-foreground">
+            {Number.isNaN(expiresMs)
+              ? permission.expiresAt
+              : formatOccurredAt(permission.expiresAt)}
+          </span>
+        </Row>
 
         <Row label="剩余时间">
           {remaining === '' ? (
