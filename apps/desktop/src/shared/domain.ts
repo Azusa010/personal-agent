@@ -1,4 +1,11 @@
-export const TASK_STATUSES = ['pending', 'running', 'completed', 'failed', 'cancelled'] as const
+export const TASK_STATUSES = [
+  'pending',
+  'running',
+  'waiting_permission',
+  'completed',
+  'failed',
+  'cancelled'
+] as const
 
 export type TaskStatus = (typeof TASK_STATUSES)[number]
 

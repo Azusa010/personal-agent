@@ -15,17 +15,11 @@ import type { PlanRepository } from '../product-state/plan-repository'
 import type { TaskRepository } from '../product-state/task-repository'
 import { RuntimeError } from '../runtime/python-supervisor'
 import { RUNTIME_ERROR_CODE } from '../runtime/error-code'
-
-// 界：Budget 默认 maxToolCalls=5，每次 host 调用最坏 hostTimeoutMs=5000，
-// 工具时间上界 25 秒。ScriptedModel 决策耗时约 0，接真实模型后每步 2-10 秒
-// × maxSteps=8 = 16-80 秒。supervisor 的 defaultTimeoutMs 是 30000，不够。
-// Budget 在 Python 侧、契约里不传（3b 钉死 RunTaskParams 只有 taskId/goal），
-// 所以这个值只能硬编码，由 run-task.test.ts 的钉值测试守住不等式。
-export const RUN_TASK_TIMEOUT_MS = 120_000
+import { RUN_TASK_TIMEOUT_MS } from '../runtime/timeouts'
 
 // agent.make_plan 是纯计算（查一次能力清单 + 返回固定三步），10 秒已经宽得离谱。
-// 真超过就是子进程卡死或 stdout 堵了，早点报错比跟着等 120 秒强：
-// 那 120 秒里库里连一条 Task 都没有，UI 上什么都看不见。
+// 真超过就是子进程卡死或 stdout 堵了，早点报错比跟着等 RUN_TASK_TIMEOUT_MS 强：
+// 那段时间里库里连一条 Task 都没有，UI 上什么都看不见。
 export const MAKE_PLAN_TIMEOUT_MS = 10_000
 
 // supervisor 把 error envelope 里的 code 原样塞进 RuntimeError.code（类型是 string），

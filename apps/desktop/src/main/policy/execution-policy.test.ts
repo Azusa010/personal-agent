@@ -9,15 +9,20 @@ import { findCapability } from '../capabilities/registry'
 import { RuleBasedToolRetriever, type ToolRetriever } from '../capabilities/retriever'
 import { readOnlyScope, type TaskScope } from '../capabilities/scope'
 import { toPosix } from '../capabilities/roots'
-import type { PlanStep } from '../../shared/domain'
+import type { PlanStep, TaskStatus } from '../../shared/domain'
 import {
   AGENT_ORIGIN,
   createExecutionPolicy,
   UI_ORIGIN,
   type CallOrigin,
-  type ExecutionPolicy
+  type ExecutionPolicy,
+  type PermissionGate,
+  type PermissionGateOutcome,
+  type PermissionVerifyOutcome,
+  type TaskStatePort
 } from './execution-policy'
 import { beginTask, currentTask, endTask } from './task-context'
+import type { BoundArgs } from './argument-binders'
 
 const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
 const TASK_ID = 'task-policy'
@@ -57,6 +62,88 @@ function policy(
 
 function agentPolicy(retriever?: ToolRetriever): ExecutionPolicy {
   return policy(AGENT_ORIGIN, retriever)
+}
+
+const STAMP = '2026-09-14T09:00:00.000Z'
+
+const MOVE_PLAN: readonly PlanStep[] = [{ description: '移动文件', capability: 'filesystem.move' }]
+
+/** source 与 target 都在根内。target 还不存在，绑定器靠
+ *  resolveWithinRootReal 对「不存在」的处理放行（只对最近的存在祖先做 realpath）。 */
+function moveArgs(): Record<string, unknown> {
+  return { source: `${realRoot}/a.pdf`, target: `${realRoot}/Reading/a.pdf` }
+}
+
+type GateInput = Parameters<PermissionGate['request']>[0]
+
+interface FakeGate {
+  readonly gate: PermissionGate
+  /** request 收到的入参。批准面板展示的就是这里面的 bound.paths。 */
+  readonly inputs: GateInput[]
+  readonly verifyCalls: [string, BoundArgs][]
+  /** hold 模式下手动结算 */
+  release(outcome: PermissionGateOutcome): void
+}
+
+function makeGate(
+  outcome: PermissionGateOutcome,
+  opts: { verify?: PermissionVerifyOutcome; hold?: boolean } = {}
+): FakeGate {
+  const inputs: GateInput[] = []
+  const verifyCalls: [string, BoundArgs][] = []
+  let resolve: ((o: PermissionGateOutcome) => void) | null = null
+  return {
+    inputs,
+    verifyCalls,
+    release: (o) => resolve?.(o),
+    gate: {
+      request: (input) => {
+        inputs.push(input)
+        if (opts.hold !== true) return Promise.resolve(outcome)
+        return new Promise<PermissionGateOutcome>((r) => {
+          resolve = r
+        })
+      },
+      verify: (toolCallId, bound) => {
+        verifyCalls.push([toolCallId, bound])
+        return Promise.resolve(opts.verify ?? { ok: true })
+      }
+    }
+  }
+}
+
+/** 只记录调用，不碰库：策略要的就是 updateStatus 这一个方法。 */
+function taskPort(): { calls: [string, TaskStatus, string][]; port: TaskStatePort } {
+  const calls: [string, TaskStatus, string][] = []
+  return {
+    calls,
+    port: {
+      updateStatus: (id, status, at) => {
+        calls.push([id, status, at])
+      }
+    }
+  }
+}
+
+function policyWithGate(
+  gate: PermissionGate,
+  opts: {
+    retriever?: ToolRetriever
+    tasks?: TaskStatePort
+    origin?: CallOrigin
+    scope?: TaskScope
+  } = {}
+): ExecutionPolicy {
+  return createExecutionPolicy({
+    scope: opts.scope ?? readOnlyScope(TASK_ID),
+    // WRITE 能力在 readOnlyScope 的第②关就会被拦，用放行一切的 retriever 把
+    // 那一关单独摘掉，才能看清后面挂起与复查的顺序。
+    retriever: opts.retriever ?? allowRetriever('filesystem.move'),
+    origin: opts.origin ?? AGENT_ORIGIN,
+    permissions: gate,
+    tasks: opts.tasks,
+    now: () => STAMP
+  })
 }
 
 beforeEach(async () => {
@@ -172,9 +259,11 @@ describe('execution-policy：agent 必须有当前任务', () => {
   })
 
   it('ui origin 一样要过风险关', async () => {
-    // 分岭只在「有没有任务、对不对齐」两关，其余五关两条路都走。
-    const out = await policy(UI_ORIGIN, allowRetriever('scheduler.create')).evaluate(
-      params('tc-9', 'scheduler.create', {})
+    // 分岭只在「有没有任务、对不对齐」两关，其余几关两条路都走。
+    // 用 filesystem.move 而不是 scheduler.create：后者没有绑定器，
+    // 在新的顺序下会先撞 NOT_IMPLEMENTED，测不到它声称要测的风险关。
+    const out = await policy(UI_ORIGIN, allowRetriever('filesystem.move')).evaluate(
+      params('tc-9', 'filesystem.move', moveArgs())
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.PERMISSION_REQUIRED)
@@ -253,35 +342,235 @@ describe('execution-policy：ActionAlignment', () => {
 })
 
 describe('execution-policy：风险', () => {
-  it('WRITE 能力 -> PERMISSION_REQUIRED', async () => {
-    // TASK-019 会把它换成「挂起等 permission.respond」。在那之前先以拒绝落地：
-    // 宁可少做，不可多做。
-    const plan: readonly PlanStep[] = [
-      { description: '建一个目录', capability: 'scheduler.create' }
-    ]
-    beginTask(TASK_ID, '整理 PDF', plan)
+  it('没有批准通道时 WRITE 能力 -> PERMISSION_REQUIRED', async () => {
+    // 没通道就退回 Phase 1 的行为：宁可少做，不可多做。
+    // 有通道时走挂起，见下一组。
+    beginTask(TASK_ID, '整理 PDF', MOVE_PLAN)
 
-    const out = await agentPolicy(allowRetriever('scheduler.create')).evaluate(
-      params('tc-18', 'scheduler.create', {})
+    const out = await agentPolicy(allowRetriever('filesystem.move')).evaluate(
+      params('tc-18', 'filesystem.move', moveArgs())
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.PERMISSION_REQUIRED)
-    expect(!out.allowed && out.reason).toContain('scheduler.create')
+    expect(!out.allowed && out.reason).toContain('filesystem.move')
     expect(currentTask()?.executedCalls).toBe(0)
   })
 
-  it('风险检查排在参数绑定之前', async () => {
-    // 参数烂掉的 WRITE 调用不该先去碰文件系统：
-    // 「要不要授权」是比「参数对不对」更靠前的问题。
-    vi.stubEnv(ENV_NAME, join(dir, 'nope'))
-    const plan: readonly PlanStep[] = [{ description: '移动文件', capability: 'filesystem.move' }]
-    beginTask(TASK_ID, '整理 PDF', plan)
+  it('参数绑定排在批准之前：烂参数不该先去要授权', async () => {
+    // 批准面板要展示规范化后的绕对路径，args_hash 也必须是绑定后的值。
+    // 在绑定之前挂起，等于让用户批准一个还不知道会落在哪里的操作。
+    beginTask(TASK_ID, '整理 PDF', MOVE_PLAN)
+    const gate = makeGate({ approved: true })
 
-    const out = await agentPolicy(allowRetriever('filesystem.move')).evaluate(
+    const out = await policyWithGate(gate.gate).evaluate(
       params('tc-19', 'filesystem.move', { from: '../../etc', to: '\\\\server\\share' })
     )
 
-    expect(!out.allowed && out.code).toBe(ERROR_CODE.PERMISSION_REQUIRED)
+    expect(!out.allowed && out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
+    expect(gate.inputs).toEqual([])
+  })
+
+  it('路径逃出根时也不挂起：guard 比批准靠前', async () => {
+    beginTask(TASK_ID, '整理 PDF', MOVE_PLAN)
+    const gate = makeGate({ approved: true })
+
+    const out = await policyWithGate(gate.gate).evaluate(
+      params('tc-19b', 'filesystem.move', {
+        source: `${realRoot}/a.pdf`,
+        target: 'C:/Windows/Temp/evil.pdf'
+      })
+    )
+
+    expect(!out.allowed && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+    expect(gate.inputs).toEqual([])
+  })
+
+  it('没有绑定器的 WRITE 能力先撞 NOT_IMPLEMENTED，到不了批准这一关', async () => {
+    // 顺序换了之后的必然结果。scheduler.create 与 notification.send 还没有绑定器，
+    // 所以它们现在报未实现而不是要授权。
+    beginTask(TASK_ID, '整理 PDF', [{ description: '建日程', capability: 'scheduler.create' }])
+    const gate = makeGate({ approved: true })
+
+    const out = await policyWithGate(gate.gate, {
+      retriever: allowRetriever('scheduler.create')
+    }).evaluate(params('tc-19c', 'scheduler.create', {}))
+
+    expect(!out.allowed && out.code).toBe(ERROR_CODE.NOT_IMPLEMENTED)
+    expect(gate.inputs).toEqual([])
+  })
+})
+
+describe('execution-policy：挂起等批准', () => {
+  it('批准 -> 放行，gate 收到的是规范化后的绝对路径', async () => {
+    beginTask(TASK_ID, '整理 PDF', MOVE_PLAN)
+    const gate = makeGate({ approved: true })
+
+    const out = await policyWithGate(gate.gate).evaluate(
+      params('tc-40', 'filesystem.move', moveArgs())
+    )
+
+    expect(out.allowed).toBe(true)
+    expect(gate.inputs).toHaveLength(1)
+    expect(gate.inputs[0]).toEqual({
+      taskId: TASK_ID,
+      toolCallId: 'tc-40',
+      capability: 'filesystem.move',
+      bound: {
+        args: moveArgs(),
+        paths: { source: `${realRoot}/a.pdf`, target: `${realRoot}/Reading/a.pdf` }
+      }
+    })
+    expect(currentTask()?.executedCalls).toBe(1)
+  })
+
+  it('批准之后还要复查：verify 拿到同一个 callId 与同一份 bound', async () => {
+    beginTask(TASK_ID, '整理 PDF', MOVE_PLAN)
+    const gate = makeGate({ approved: true })
+
+    const out = await policyWithGate(gate.gate).evaluate(
+      params('tc-41', 'filesystem.move', moveArgs())
+    )
+
+    expect(out.allowed).toBe(true)
+    expect(gate.verifyCalls).toHaveLength(1)
+    expect(gate.verifyCalls[0][0]).toBe('tc-41')
+    expect(gate.verifyCalls[0][1]).toEqual(gate.inputs[0].bound)
+  })
+
+  it('复查不通过 -> 用复查的码，不放行也不计数', async () => {
+    // 对应 Checklist「参数变化后旧 Permission 无效」：批准不等于放行。
+    beginTask(TASK_ID, '整理 PDF', MOVE_PLAN)
+    const gate = makeGate(
+      { approved: true },
+      { verify: { ok: false, code: ERROR_CODE.PERMISSION_TAMPERED, reason: '参数变了' } }
+    )
+
+    const out = await policyWithGate(gate.gate).evaluate(
+      params('tc-42', 'filesystem.move', moveArgs())
+    )
+
+    expect(!out.allowed && out.code).toBe(ERROR_CODE.PERMISSION_TAMPERED)
+    expect(!out.allowed && out.reason).toBe('参数变了')
+    expect(currentTask()?.executedCalls).toBe(0)
+  })
+
+  it('挂起期间停在 waiting_permission，结算后推回 running', async () => {
+    beginTask(TASK_ID, '整理 PDF', MOVE_PLAN)
+    const gate = makeGate({ approved: true }, { hold: true })
+    const tasks = taskPort()
+
+    const evaluating = policyWithGate(gate.gate, { tasks: tasks.port }).evaluate(
+      params('tc-43', 'filesystem.move', moveArgs())
+    )
+
+    // 先改状态再挂起。反过来的话会有一段时间任务已经在等批准、
+    // 库里却还写着 running，UI 那几秒显示的是错的。
+    await vi.waitFor(() => expect(tasks.calls).toHaveLength(1))
+    expect(tasks.calls[0]).toEqual([TASK_ID, 'waiting_permission', STAMP])
+
+    gate.release({ approved: true })
+    const out = await evaluating
+
+    expect(out.allowed).toBe(true)
+    expect(tasks.calls.map((c) => c[1])).toEqual(['waiting_permission', 'running'])
+  })
+
+  it('拒绝 -> PERMISSION_DENIED，任务仍推回 running，不计数', async () => {
+    // 拒绝不是任务失败：Python 侧拿到 ok:false 的工具结果照常往下走。
+    beginTask(TASK_ID, '整理 PDF', MOVE_PLAN)
+    const gate = makeGate({
+      approved: false,
+      code: ERROR_CODE.PERMISSION_DENIED,
+      reason: '用户拒绝了 filesystem.move'
+    })
+    const tasks = taskPort()
+
+    const out = await policyWithGate(gate.gate, { tasks: tasks.port }).evaluate(
+      params('tc-44', 'filesystem.move', moveArgs())
+    )
+
+    expect(!out.allowed && out.code).toBe(ERROR_CODE.PERMISSION_DENIED)
+    expect(tasks.calls.map((c) => c[1])).toEqual(['waiting_permission', 'running'])
+    expect(currentTask()?.executedCalls).toBe(0)
+    // 拒绝不需要复查：没有放行就没有「执行前重算」这回事
+    expect(gate.verifyCalls).toEqual([])
+  })
+
+  it('过期 -> PERMISSION_EXPIRED 原样透传，任务仍推回 running', async () => {
+    beginTask(TASK_ID, '整理 PDF', MOVE_PLAN)
+    const gate = makeGate({
+      approved: false,
+      code: ERROR_CODE.PERMISSION_EXPIRED,
+      reason: '批准请求已过期'
+    })
+    const tasks = taskPort()
+
+    const out = await policyWithGate(gate.gate, { tasks: tasks.port }).evaluate(
+      params('tc-45', 'filesystem.move', moveArgs())
+    )
+
+    expect(!out.allowed && out.code).toBe(ERROR_CODE.PERMISSION_EXPIRED)
+    expect(tasks.calls.map((c) => c[1])).toEqual(['waiting_permission', 'running'])
+  })
+
+  it('gate 抛异常时异常原样冒泡，但任务仍被推回 running', async () => {
+    // 推回失败不能盖掉 gate 的原始异常：那会把「库写不进去」
+    // 显示成「用户拒绝」，两个故障的排查方向完全不同。
+    beginTask(TASK_ID, '整理 PDF', MOVE_PLAN)
+    const tasks = taskPort()
+    const throwing: PermissionGate = {
+      request: () => Promise.reject(new Error('模拟库写失败')),
+      verify: () => Promise.resolve({ ok: true })
+    }
+
+    await expect(
+      policyWithGate(throwing, { tasks: tasks.port }).evaluate(
+        params('tc-46', 'filesystem.move', moveArgs())
+      )
+    ).rejects.toThrow('模拟库写失败')
+    expect(tasks.calls.map((c) => c[1])).toEqual(['waiting_permission', 'running'])
+  })
+
+  it('UI origin 不改任务状态：bootstrap 不是库里的任务', async () => {
+    // scope.taskId 是 'bootstrap'，库里根本没这条，updateStatus 会抛「tasks 中不存在」。
+    // UI 路径也没有计划可比，不需要 beginTask。
+    const gate = makeGate({ approved: true })
+    const tasks = taskPort()
+
+    const out = await policyWithGate(gate.gate, {
+      origin: UI_ORIGIN,
+      scope: readOnlyScope('bootstrap'),
+      tasks: tasks.port
+    }).evaluate(params('tc-47', 'filesystem.move', moveArgs()))
+
+    expect(out.allowed).toBe(true)
+    expect(tasks.calls).toEqual([])
+  })
+
+  it('没注入 tasks 时也能挂起与放行', async () => {
+    beginTask(TASK_ID, '整理 PDF', MOVE_PLAN)
+    const gate = makeGate({ approved: true })
+
+    const out = await policyWithGate(gate.gate).evaluate(
+      params('tc-48', 'filesystem.move', moveArgs())
+    )
+
+    expect(out.allowed).toBe(true)
+    expect(gate.inputs).toHaveLength(1)
+  })
+
+  it('READ 能力不挂起：gate 两个方法都不被调', async () => {
+    // Checklist 第一条：READ 不弹 Permission。
+    beginTask(TASK_ID, '整理 PDF', PLAN)
+    const gate = makeGate({ approved: true })
+
+    const out = await policyWithGate(gate.gate, {
+      retriever: new RuleBasedToolRetriever()
+    }).evaluate(params('tc-49', 'filesystem.list', { rootId: 'downloads' }))
+
+    expect(out.allowed).toBe(true)
+    expect(gate.inputs).toEqual([])
+    expect(gate.verifyCalls).toEqual([])
   })
 })
 

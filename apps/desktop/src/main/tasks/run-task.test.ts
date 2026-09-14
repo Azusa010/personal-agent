@@ -20,20 +20,12 @@ import { AGENT_MAKE_PLAN, AGENT_RUN_TASK, ERROR_CODE } from '@personal-agent/pro
 import { RuntimeError } from '../runtime/python-supervisor'
 import { RUNTIME_ERROR_CODE } from '../runtime/error-code'
 import { currentTask, endTask, type ActiveTask } from '../policy/task-context'
-import {
-  runTask,
-  RUN_TASK_TIMEOUT_MS,
-  MAKE_PLAN_TIMEOUT_MS,
-  type RunTaskDeps,
-  type RuntimeSend
-} from './run-task'
+import { RUN_TASK_TIMEOUT_MS } from '../runtime/timeouts'
+import { runTask, MAKE_PLAN_TIMEOUT_MS, type RunTaskDeps, type RuntimeSend } from './run-task'
 
 const GOAL = '整理 Downloads 里的 PDF'
 const T0 = '2026-09-11T00:00:00.000Z'
 const AT = '2026-09-11T00:00:01.000Z'
-
-/** host 侧最坏耗时：Budget.maxToolCalls × hostTimeoutMs */
-const HOST_WORST_CASE_MS = 5 * 5000
 
 let db: SqliteDatabase | null = null
 let idCounter = 0
@@ -562,29 +554,14 @@ describe('MAKE_PLAN_TIMEOUT_MS', () => {
   it('钉住字面值，且必须比 run_task 短', () => {
     expect(MAKE_PLAN_TIMEOUT_MS).toBe(10_000)
     // 计划是纯计算，真卡住要早报错。跟 run_task 用同一个值的话，
-    // 库里连 Task 都没有的那段时间会被拖到 120 秒。
+    // 库里连 Task 都没有的那段时间会被拖到整个批准窗口那么长。
     expect(MAKE_PLAN_TIMEOUT_MS).toBeLessThan(RUN_TASK_TIMEOUT_MS)
   })
 })
 
-describe('RUN_TASK_TIMEOUT_MS', () => {
-  it('钉住字面值，改动必须是有意的', () => {
-    expect(RUN_TASK_TIMEOUT_MS).toBe(120_000)
-  })
-
-  it('必须大于 Python 侧最坏执行时间，否则 TS 先超时而 Python 还在跑', () => {
-    // Budget 默认 maxToolCalls=5，每次 host 调用最坏 hostTimeoutMs=5000。
-    // 这条不等式一旦破了，engine 会在 TS 已经 reject 之后继续写 stdout，
-    // 那些响应找不到 pending 记录，被 supervisor 当垃圾丢掉。
-    expect(RUN_TASK_TIMEOUT_MS).toBeGreaterThan(HOST_WORST_CASE_MS)
-    // 还要留出真实模型的决策时间余量（Phase 3）
-    expect(RUN_TASK_TIMEOUT_MS - HOST_WORST_CASE_MS).toBeGreaterThanOrEqual(60_000)
-  })
-
-  it('必须大于 supervisor 的 defaultTimeoutMs，否则透传没有意义', () => {
-    expect(RUN_TASK_TIMEOUT_MS).toBeGreaterThan(30_000)
-  })
-})
+// RUN_TASK_TIMEOUT_MS 的字面值与三条不等式搬到了 timeouts.test.ts：
+// 它现在从 HOST_TOOL_TIMEOUT_MS 推导，而后者又跟着 Permission 有效期走。
+// 两边分开钉的话，改了批准有效期就会静默破不等式。
 
 describe('runTask：依赖注入', () => {
   it('吃端口不吃实现：换掉三个 repository 仍能跑通', async () => {

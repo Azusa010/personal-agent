@@ -11,6 +11,7 @@ import {
 } from '@personal-agent/protocol'
 import { z } from 'zod'
 import { RUNTIME_ERROR_CODE } from './error-code'
+import { HOST_TOOL_TIMEOUT_MS } from './timeouts'
 
 export type SpawnFn = (cmd: string, args: string[], opts?: SpawnOptions) => ChildProcess
 
@@ -25,6 +26,8 @@ export interface PythonSupervisorOptions {
   spawnFn?: SpawnFn
   defaultTimeoutMs?: number
   hostHandler?: HostHandler
+  /** 反向 RPC host.execute_tool 的单次上限。默认值必须大于 Permission 有效期，
+   *  否则用户还没点批准 handler 就先超时了。推导见 timeouts.ts。 */
   hostTimeoutMs?: number
 }
 
@@ -86,7 +89,7 @@ export class PythonSupervisor extends EventEmitter {
     this.spawnFn = opts.spawnFn ?? (spawn as unknown as SpawnFn)
     this.defaultTimeoutMs = opts.defaultTimeoutMs ?? 30000
     this.hostHandler = opts.hostHandler ?? null
-    this.hostTimeoutMs = opts.hostTimeoutMs ?? 5000
+    this.hostTimeoutMs = opts.hostTimeoutMs ?? HOST_TOOL_TIMEOUT_MS
     this.capabilities = opts.capabilities
   }
 

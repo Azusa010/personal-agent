@@ -9,6 +9,8 @@ export const MEMORY_DB = ':memory:'
 
 const PRAGMA_JOURNAL_MODE = 'journal_mode'
 const PRAGMA_USER_VERSION = 'user_version'
+const PRAGMA_FOREIGN_KEYS = 'foreign_keys'
+const PRAGMA_FOREIGN_KEY_CHECK = 'foreign_key_check'
 const JOURNAL_MODE_FILE = 'wal'
 const JOURNAL_MODE_MEMORY = 'memory'
 
@@ -49,14 +51,34 @@ export function migrate(db: SqliteDatabase, migrations: Migration[] = MIGRATIONS
   }
 
   const applied: number[] = []
-  const runAll = db.transaction(() => {
-    for (const m of pending) {
-      m.up(db)
-      db.pragma(`${PRAGMA_USER_VERSION} = ${m.version}`)
-      applied.push(m.version)
+
+  const fkWasOn = db.pragma(PRAGMA_FOREIGN_KEYS, { simple: true }) === 1
+  if (fkWasOn) {
+    db.pragma(`${PRAGMA_FOREIGN_KEYS} = OFF`)
+  }
+
+  try {
+    const runAll = db.transaction(() => {
+      for (const m of pending) {
+        m.up(db)
+        db.pragma(`${PRAGMA_USER_VERSION} = ${m.version}`)
+        applied.push(m.version)
+      }
+    })
+    runAll()
+  } finally {
+    if (fkWasOn) {
+      db.pragma(`${PRAGMA_FOREIGN_KEYS} = ON`)
     }
-  })
-  runAll()
+  }
+
+  if (fkWasOn) {
+    const orphans = db.pragma(PRAGMA_FOREIGN_KEY_CHECK) as unknown[]
+    if (orphans.length > 0) {
+      throw new Error(`migration 之后外键悬空: ${JSON.stringify(orphans)}`)
+    }
+  }
+
   return applied
 }
 

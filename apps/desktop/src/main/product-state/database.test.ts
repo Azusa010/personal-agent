@@ -151,21 +151,25 @@ describe('migrate', () => {
     const insert = memDb.prepare(
       'INSERT INTO tasks (id, goal, status, created_at, updated_at) VALUES (?,?,?,?,?)'
     )
+    // 'waiting' 差一个字符就是非法值。CHECK 是字符串相等，不做前缀匹配。
     expect(() =>
-      insert.run('t-2', 'g', 'waiting_permission', '2026-09-06T00:00:00Z', '2026-09-06T00:00:00Z')
+      insert.run('t-2', 'g', 'waiting', '2026-09-06T00:00:00Z', '2026-09-06T00:00:00Z')
     ).toThrow()
 
-    // Phase 1 才允许 waiting_permission，Phase 1 Execution Rules 第 1 条现在就该拒
+    // 0005 之后 waiting_permission 是合法值：Phase 2 的批准挂起靠它
     expect(() =>
-      insert.run('t-3', 'g', 'running', '2026-09-06T00:00:00Z', '2026-09-06T00:00:00Z')
+      insert.run('t-3', 'g', 'waiting_permission', '2026-09-06T00:00:00Z', '2026-09-06T00:00:00Z')
+    ).not.toThrow()
+    expect(() =>
+      insert.run('t-4', 'g', 'running', '2026-09-06T00:00:00Z', '2026-09-06T00:00:00Z')
     ).not.toThrow()
   })
-  it('全量 migration 应用后：user_version = 4，四张表都在', () => {
+  it('全量 migration 应用后：user_version = 5，四张表都在', () => {
     const db = openProductState(MEMORY_DB)
     memDb = db
 
-    expect(migrate(db, MIGRATIONS)).toEqual([1, 2, 3, 4])
-    expect(version(db)).toBe(4)
+    expect(migrate(db, MIGRATIONS)).toEqual([1, 2, 3, 4, 5])
+    expect(version(db)).toBe(5)
     expect(tables(db)).toEqual(
       expect.arrayContaining(['tasks', 'plans', 'execution_events', 'permissions'])
     )
@@ -249,5 +253,155 @@ describe('migrate', () => {
     expect(() => migrate(db, dup)).toThrow(/version 重复: 1/)
     expect(version(db)).toBe(0) // 校验在事务之前，库完全没被动过
     expect(tables(db)).not.toContain('a_t')
+  })
+})
+
+describe('migration 0005：重建 tasks 表放宽 CHECK', () => {
+  const PRIOR = MIGRATIONS.filter((m) => m.version < 5)
+
+  /** 先升到 4 再往三张子表各写一行。子表都 REFERENCES tasks(id)，
+   *  而 0005 要 DROP 并重建 tasks：这些数据能不能活着过去，
+   *  以及子表的引用会不会被改写到旧表名，就是这里要钉的两件事。 */
+  function seedAtV4(db: SqliteDatabase): void {
+    migrate(db, PRIOR)
+    db.prepare(
+      'INSERT INTO tasks (id, goal, status, created_at, updated_at) VALUES (?,?,?,?,?)'
+    ).run('t-1', '整理 Downloads', 'running', '2026-09-07T00:00:00Z', '2026-09-07T00:00:01Z')
+    db.prepare(
+      'INSERT INTO plans (id, task_id, version, steps, created_at) VALUES (?,?,?,?,?)'
+    ).run('p-1', 't-1', 1, '[]', '2026-09-07T00:00:01Z')
+    db.prepare(
+      'INSERT INTO execution_events (task_id, type, payload, occurred_at) VALUES (?,?,?,?)'
+    ).run('t-1', 'task_started', '{}', '2026-09-07T00:00:01Z')
+    db.prepare(
+      `INSERT INTO permissions (id, task_id, tool_call_id, capability, args_canonical,
+         args_hash, status, requested_at, expires_at, source_paths)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`
+    ).run(
+      'perm-1',
+      't-1',
+      'tc-1',
+      'filesystem.move',
+      '{}',
+      'h',
+      'pending',
+      '2026-09-07T00:00:01Z',
+      '2026-09-07T00:05:01Z',
+      '[]'
+    )
+  }
+
+  const childDdl = (db: SqliteDatabase, table: string): string =>
+    (
+      db
+        .prepare('SELECT sql FROM sqlite_master WHERE type = ? AND name = ?')
+        .get('table', table) as {
+        sql: string
+      }
+    ).sql
+
+  it('增量升级：旧数据全保留，升级后能写 waiting_permission', () => {
+    const db = openProductState(MEMORY_DB)
+    memDb = db
+    seedAtV4(db)
+
+    expect(migrate(db, MIGRATIONS)).toEqual([5])
+
+    expect(version(db)).toBe(5)
+    expect(db.prepare('SELECT id, goal, status, updated_at FROM tasks').all()).toEqual([
+      {
+        id: 't-1',
+        goal: '整理 Downloads',
+        status: 'running',
+        updated_at: '2026-09-07T00:00:01Z'
+      }
+    ])
+    expect(db.prepare('SELECT COUNT(*) AS n FROM plans').get()).toEqual({ n: 1 })
+    expect(db.prepare('SELECT COUNT(*) AS n FROM execution_events').get()).toEqual({ n: 1 })
+    expect(db.prepare('SELECT COUNT(*) AS n FROM permissions').get()).toEqual({ n: 1 })
+
+    db.prepare('UPDATE tasks SET status = ? WHERE id = ?').run('waiting_permission', 't-1')
+    expect(db.prepare('SELECT status FROM tasks WHERE id = ?').get('t-1')).toEqual({
+      status: 'waiting_permission'
+    })
+  })
+
+  it('子表的外键定义没被 RENAME 改写到旧表名', () => {
+    const db = openProductState(MEMORY_DB)
+    memDb = db
+    seedAtV4(db)
+    migrate(db, MIGRATIONS)
+
+    // 先 DROP 旧表再 RENAME 新表，子表的 REFERENCES tasks(id) 才会指向重建后的表。
+    // 反过来（先 RENAME 走旧表）会让 SQLite 把它们改写成 REFERENCES tasks_old，
+    // DROP 之后引用就悬空了，而且不报错。
+    for (const table of ['plans', 'execution_events', 'permissions']) {
+      const ddl = childDdl(db, table)
+      expect(ddl, `${table} 应仍引用 tasks`).toContain('REFERENCES tasks')
+      expect(ddl, `${table} 不应被改写到临时表名`).not.toContain('tasks_new')
+    }
+    expect(tables(db)).not.toContain('tasks_new')
+    expect(db.pragma('foreign_key_check')).toEqual([])
+  })
+
+  it('migrate 之后 foreign_keys 回到 ON：开关没泄漏出去', () => {
+    const db = openProductState(MEMORY_DB)
+    memDb = db
+    seedAtV4(db)
+    migrate(db, MIGRATIONS)
+
+    expect(db.pragma('foreign_keys', { simple: true })).toBe(1)
+    // 外键关着的话这条会静默成功，而这种退化不会报错
+    expect(() =>
+      db
+        .prepare(
+          'INSERT INTO execution_events (task_id, type, payload, occurred_at) VALUES (?,?,?,?)'
+        )
+        .run('幽灵task', 'task_started', '{}', '2026-09-07T00:00:02Z')
+    ).toThrow(/FOREIGN KEY/)
+  })
+
+  it('migration 中途抛错时 foreign_keys 也回到 ON', () => {
+    const db = openProductState(MEMORY_DB)
+    memDb = db
+    seedAtV4(db)
+    const bad: Migration = {
+      version: 5,
+      name: 'bad',
+      up: () => {
+        throw new Error('模拟迁移失败')
+      }
+    }
+
+    expect(() => migrate(db, [...PRIOR, bad])).toThrow('模拟迁移失败')
+
+    expect(version(db)).toBe(4)
+    expect(db.pragma('foreign_keys', { simple: true })).toBe(1)
+    expect(() =>
+      db
+        .prepare(
+          'INSERT INTO execution_events (task_id, type, payload, occurred_at) VALUES (?,?,?,?)'
+        )
+        .run('幽灵task', 'task_started', '{}', '2026-09-07T00:00:02Z')
+    ).toThrow(/FOREIGN KEY/)
+  })
+
+  it('关外键期间造成悬空引用时，migrate 宁可启动失败', () => {
+    const db = openProductState(MEMORY_DB)
+    memDb = db
+    seedAtV4(db)
+    const orphan: Migration = {
+      version: 5,
+      name: 'orphan',
+      up: (d) => {
+        d.prepare(
+          'INSERT INTO execution_events (task_id, type, payload, occurred_at) VALUES (?,?,?,?)'
+        ).run('幽灵task', 'task_started', '{}', '2026-09-07T00:00:02Z')
+      }
+    }
+
+    // 事务内 foreign_keys 是 OFF，这条插入不会当场报错；
+    // migrate 尾部的 foreign_key_check 是唯一的兜底。
+    expect(() => migrate(db, [...PRIOR, orphan])).toThrow(/外键悬空/)
   })
 })

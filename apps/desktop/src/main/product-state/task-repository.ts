@@ -12,7 +12,8 @@ export function isTaskStatus(value: string): value is TaskStatus {
 
 export const ALLOWED_TRANSITIONS: Record<TaskStatus, readonly TaskStatus[]> = {
   pending: ['running'],
-  running: ['completed', 'failed', 'cancelled'],
+  running: ['completed', 'failed', 'cancelled', 'waiting_permission'],
+  waiting_permission: ['running', 'failed'],
   completed: [],
   failed: [],
   cancelled: []

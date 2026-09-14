@@ -75,7 +75,6 @@ export async function stopRuntime(): Promise<void> {
 }
 
 // opts 透传给 supervisor.request：agent.run_task 要跑完整个 Agent Loop，
-// 最长 120 秒，吃不下 defaultTimeoutMs 的 30 秒。
 export async function requestRuntime(
   method: string,
   params?: unknown,

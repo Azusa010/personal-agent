@@ -5,7 +5,9 @@ import { ERROR_CODE, type HostExecuteToolParams } from '@personal-agent/protocol
 import {
   createExecutionPolicy,
   type AuthorizedCall,
-  type CallOrigin
+  type CallOrigin,
+  type PermissionGate,
+  type TaskStatePort
 } from '../policy/execution-policy'
 import { extractPdf } from './document-extract-pdf'
 import { listPdfs } from './filesystem-list'
@@ -15,15 +17,27 @@ import type { TaskScope } from './scope'
 
 export type CapabilityOutcome = Record<string, unknown>
 
-/** origin 不给默认值：它是安全参数，漏传等于静默降级成弱策略，
- *  而这正是 Phase 2 要防的「绕过」。TS 逼每个调用点当场决定。
- */
+/** 批准通道的集成。 */
+export interface ExecutorPermissionWiring {
+  readonly gate: PermissionGate
+  readonly tasks?: TaskStatePort
+  readonly now?: () => string
+}
+
 export function createExecutor(
   scope: TaskScope,
   origin: CallOrigin,
-  retriever: ToolRetriever = new RuleBasedToolRetriever()
+  retriever: ToolRetriever = new RuleBasedToolRetriever(),
+  permission?: ExecutorPermissionWiring
 ): (params: HostExecuteToolParams) => Promise<CapabilityOutcome> {
-  const policy = createExecutionPolicy({ scope, retriever, origin })
+  const policy = createExecutionPolicy({
+    scope,
+    retriever,
+    origin,
+    permissions: permission?.gate,
+    tasks: permission?.tasks,
+    now: permission?.now
+  })
   return async (params) => {
     const decision = await policy.evaluate(params)
     if (!decision.allowed) {

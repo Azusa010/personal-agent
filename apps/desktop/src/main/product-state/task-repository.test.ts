@@ -3,6 +3,7 @@ import { openProductState, migrate, MEMORY_DB, type SqliteDatabase } from './dat
 import {
   SqliteTaskRepository,
   IllegalTaskTransition,
+  ALLOWED_TRANSITIONS,
   TASK_STATUSES,
   isTaskStatus,
   type TaskRecord
@@ -80,17 +81,18 @@ describe('SqliteTaskRepository', () => {
       expect(() => repo.insert(task(`t-${status}`, status)), `CHECK 应接受 ${status}`).not.toThrow()
     }
 
-    // 典型非法值必须被库拒绝
-    for (const bad of ['waiting_permission', 'done', 'PENDING', '']) {
+    // 典型非法值必须被库拒。'waiting' 不是 'waiting_permission' 的简写：
+    // CHECK 是字符串相等，差一个字符就是非法值。
+    for (const bad of ['waiting', 'done', 'PENDING', '']) {
       expect(
         () => repo.insert(task(`x-${bad || 'empty'}`, bad as never)),
         `CHECK 应拒绝 ${bad}`
       ).toThrow()
     }
 
-    // Phase 2 把 waiting_permission 加进 TASK_STATUSES 时，
-    // 上面第一个循环会红，逼你补一个 migration 去改 CHECK。
-    expect(TASK_STATUSES).toHaveLength(5)
+    // 0005 把 waiting_permission 加进了 CHECK。这个数量钉住的是双源一致性：
+    // 以后再加状态，上面第一个循环会红，逼你补一个 migration 去改 CHECK。
+    expect(TASK_STATUSES).toHaveLength(6)
   })
 
   it('camelCase ↔ snake_case 映射正确，findById 未命中返回 null', () => {
@@ -123,12 +125,73 @@ describe('SqliteTaskRepository', () => {
     d.prepare('INSERT INTO tasks VALUES (?,?,?,?,?)').run(
       't-1',
       'g',
-      'waiting_permission',
+      'done',
       '2026-09-07T00:00:00Z',
       '2026-09-07T00:00:00Z'
     )
 
-    expect(isTaskStatus('waiting_permission')).toBe(false)
+    expect(isTaskStatus('done')).toBe(false)
     expect(() => repo.findById('t-1')).toThrow(/非法值/)
+  })
+})
+
+describe('waiting_permission 的转换', () => {
+  it('running → waiting_permission：策略第⑤关挂起前推的状态', () => {
+    const repo = makeRepo()
+    repo.insert(task('t-1'))
+    repo.updateStatus('t-1', 'running', '2026-09-07T00:00:01Z')
+
+    repo.updateStatus('t-1', 'waiting_permission', '2026-09-07T00:00:02Z')
+
+    expect(repo.findById('t-1')).toMatchObject({
+      status: 'waiting_permission',
+      updatedAt: '2026-09-07T00:00:02Z'
+    })
+  })
+
+  it('waiting_permission → running：批准、拒绝、过期三种结算都推回 running', () => {
+    const repo = makeRepo()
+    repo.insert(task('t-1'))
+    repo.updateStatus('t-1', 'running', '2026-09-07T00:00:01Z')
+    repo.updateStatus('t-1', 'waiting_permission', '2026-09-07T00:00:02Z')
+
+    repo.updateStatus('t-1', 'running', '2026-09-07T00:00:03Z')
+
+    expect(repo.findById('t-1')?.status).toBe('running')
+  })
+
+  it('waiting_permission → failed：reconcile 收成进程遗留的任务', () => {
+    const repo = makeRepo()
+    repo.insert(task('t-1', 'waiting_permission'))
+
+    repo.updateStatus('t-1', 'failed', '2026-09-07T00:00:01Z')
+
+    expect(repo.findById('t-1')?.status).toBe('failed')
+  })
+
+  it('waiting_permission 不能直接到 completed：结算必须先回 running', () => {
+    const repo = makeRepo()
+    repo.insert(task('t-1', 'waiting_permission'))
+
+    // broker 结算后策略先推回 running，run-task 的事务 B 再从 running 推到 completed。
+    // 放行这一跳的话，任务可以在没有任何工具结果的情况下直接变成已完成。
+    expect(() => repo.updateStatus('t-1', 'completed', '2026-09-07T00:00:01Z')).toThrow(
+      IllegalTaskTransition
+    )
+  })
+
+  it('pending 不能直接进 waiting_permission：没跑起来就不会有工具调用', () => {
+    const repo = makeRepo()
+    repo.insert(task('t-1'))
+
+    expect(() => repo.updateStatus('t-1', 'waiting_permission', '2026-09-07T00:00:01Z')).toThrow(
+      IllegalTaskTransition
+    )
+  })
+
+  it('waiting_permission 不是终态：它必须至少有一条出边', () => {
+    // 空出边的状态一旦进去就再也出不来。这条不钉具体是哪几条，
+    // 只钉「不能是空的」，具体转换由上面几条分别守。
+    expect(ALLOWED_TRANSITIONS.waiting_permission.length).toBeGreaterThan(0)
   })
 })

@@ -111,17 +111,33 @@ describe('reconcileOrphanTasks', () => {
     expect(payload.message.length).toBeGreaterThan(0)
   })
 
-  it('只收 running：其余四种状态一律不碰', () => {
+  it('只收 running 与 waiting_permission：其余四种状态一律不碰', () => {
     const { deps, tasks, events } = makeHarness()
     const others: TaskStatus[] = ['pending', 'completed', 'failed', 'cancelled']
     others.forEach((status, i) => seed(tasks, `t-${i}`, status))
     seed(tasks, 't-orphan', 'running')
+    seed(tasks, 't-perm', 'waiting_permission')
 
-    expect(reconcileOrphanTasks(deps)).toBe(1)
+    expect(reconcileOrphanTasks(deps)).toBe(2)
     others.forEach((status, i) => {
       expect(tasks.findById(`t-${i}`)?.status, `${status} 被误动了`).toBe(status)
       expect(events.listByTask(`t-${i}`)).toEqual([])
     })
+  })
+
+  it('waiting_permission 收成 failed：挂起的 promise 与定时器随进程消失了', () => {
+    const { deps, tasks, events } = makeHarness()
+    seed(tasks, 't-1', 'waiting_permission')
+
+    expect(reconcileOrphanTasks(deps)).toBe(1)
+    expect(tasks.findById('t-1')?.status).toBe('failed')
+
+    const payload = events.listByTask('t-1')[0]?.payload as { code: string; message: string }
+    expect(payload.code).toBe(RUNTIME_ERROR_CODE.ORPHANED)
+    // 与 running 的成因不同，timeline 上要分得出来：一个是子进程没了，
+    // 一个是批准请求没人能结算。共用一句话就分不清该查哪边。
+    expect(payload.message).toContain('等待批准')
+    expect(payload.message).not.toContain('任务未完成')
   })
 
   it('多个孤儿全部收掉，返回数量', () => {

@@ -1,0 +1,12 @@
+import { PERMISSION_TTL_MS } from '../permission/expiry'
+
+/** 批准窗口的余量 */
+const PERMISSION_SLACK_MS = 5_000
+
+export const HOST_TOOL_TIMEOUT_MS = PERMISSION_TTL_MS + PERMISSION_SLACK_MS
+
+export const PYTHON_MAX_TOOL_CALLS = 5
+
+export const MODEL_SLACK_MS = 60_000
+
+export const RUN_TASK_TIMEOUT_MS = PYTHON_MAX_TOOL_CALLS * HOST_TOOL_TIMEOUT_MS + MODEL_SLACK_MS

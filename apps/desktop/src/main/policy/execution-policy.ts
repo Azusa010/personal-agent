@@ -6,6 +6,7 @@ import {
 
 import type { ToolRetriever } from '../capabilities/retriever'
 import type { TaskScope } from '../capabilities/scope'
+import type { TaskStatus } from '../../shared/domain'
 import { checkAlignment } from './alignment'
 import { bindArguments, type BoundArgs } from './argument-binders'
 import { assessRisk } from './risk'
@@ -33,11 +34,42 @@ function deny(code: string, reason: string): PolicyDecision {
   return { allowed: false, code, reason }
 }
 
+/** 挂起等批准的端口。形状与 permission-broker 的 request 一致
+ */
+export interface PermissionGate {
+  request(input: {
+    taskId: string
+    toolCallId: string
+    capability: string
+    bound: BoundArgs
+  }): Promise<PermissionGateOutcome>
+  verify(toolCallId: string, bound: BoundArgs): Promise<PermissionVerifyOutcome>
+}
+
+export type PermissionGateOutcome =
+  | { readonly approved: true }
+  | { readonly approved: false; readonly code: string; readonly reason: string }
+
+/** 形状与 permission-broker 的 PermissionVerifyResult 一致，同样不反向 import。 */
+export type PermissionVerifyOutcome =
+  { readonly ok: true } | { readonly ok: false; readonly code: string; readonly reason: string }
+
+/** 挂起前后改任务状态。。 */
+export interface TaskStatePort {
+  updateStatus(id: string, status: TaskStatus, updatedAt: string): void
+}
+
 // 依赖
 export interface ExecutionPolicyDeps {
   readonly scope: TaskScope
   readonly retriever: ToolRetriever
   readonly origin: CallOrigin
+  /** 不传就是没有批准通道：WRITE 能力直接拒 */
+  readonly permissions?: PermissionGate
+  /** 挂起前后改任务状态。不传就不改 */
+  readonly tasks?: TaskStatePort
+  /** 默认 new Date().toISOString() */
+  readonly now?: () => string
 }
 
 export interface ExecutionPolicy {
@@ -72,16 +104,28 @@ export function createExecutionPolicy(deps: ExecutionPolicyDeps): ExecutionPolic
         }
       }
 
-      // ⑤ 风险。纯查表
-      const risk = assessRisk(auth.capability)
-      if (risk.level === 'PERMISSION_REQUIRED') {
-        return deny(ERROR_CODE.PERMISSION_REQUIRED, risk.reason)
-      }
-
       // ⑥ 参数契约 ⑦ 路径规范化与 root guard。
       const bound = await bindArguments(params.capability, params.arguments)
       if (!bound.ok) {
         return deny(bound.code, bound.reason)
+      }
+
+      // ⑤ 风险与批准
+      const risk = assessRisk(auth.capability)
+      if (risk.level === 'PERMISSION_REQUIRED') {
+        const gate = deps.permissions
+        if (gate === undefined) {
+          return deny(ERROR_CODE.PERMISSION_REQUIRED, risk.reason)
+        }
+        const outcome = await waitForPermission(deps, params, bound.bound)
+        if (!outcome.approved) {
+          return deny(outcome.code, outcome.reason)
+        }
+
+        const recheck = await gate.verify(params.callId, bound.bound)
+        if (!recheck.ok) {
+          return deny(recheck.code, recheck.reason)
+        }
       }
 
       // ⑧ 放行。计数必须在所有拒绝之后：被拒的调用不占序号
@@ -97,6 +141,45 @@ export function createExecutionPolicy(deps: ExecutionPolicyDeps): ExecutionPolic
           bound: bound.bound,
           taskId: deps.scope.taskId
         }
+      }
+    }
+  }
+}
+
+/** 把任务标成等待批准、挂起、然后无论结论如何都推回 running。
+ */
+async function waitForPermission(
+  deps: ExecutionPolicyDeps,
+  params: HostExecuteToolParams,
+  bound: BoundArgs
+): Promise<PermissionGateOutcome> {
+  const gate = deps.permissions
+  if (gate === undefined) {
+    throw new Error('waitForPermission 在没有批准通道时被调用')
+  }
+
+  const taskId = deps.scope.taskId
+  const trackState = deps.origin.kind === 'agent' && deps.tasks !== undefined
+  const stamp = (): string => deps.now?.() ?? new Date().toISOString()
+
+  if (trackState) {
+    deps.tasks?.updateStatus(taskId, 'waiting_permission', stamp())
+  }
+
+  try {
+    return await gate.request({
+      taskId,
+      toolCallId: params.callId,
+      capability: params.capability,
+      bound
+    })
+  } finally {
+    // 批准、拒绝、过期三种结论都要推回 running，所以放 finally。
+    if (trackState) {
+      try {
+        deps.tasks?.updateStatus(taskId, 'running', stamp())
+      } catch (e) {
+        console.error(`[policy] 任务 ${taskId} 的状态推不回 running`, e)
       }
     }
   }

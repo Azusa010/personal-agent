@@ -296,8 +296,9 @@ describe('executor：永不 throw', () => {
 
   it('未实现的能力回 NOT_IMPLEMENTED', async () => {
     // 只有 scope 放行了却没有执行体时才走到这里。用假 retriever 放行一切。
-    // kind 必须是 READ：WRITE 会先在第⑤关被风险模型以 PERMISSION_REQUIRED 拒掉，
-    // 永远走不到绑定器，这条就测不到它声称要测的东西了。
+    // kind 写 READ 是为了把「没有执行体」与「需要批准」两件事隔开：
+    // WRITE 在接上批准通道之后会先挂起等 permission.respond，这条测试就再也
+    // 不会以 NOT_IMPLEMENTED 结束，而是卡在没人响应的 promise 上。
     const allowAll: ToolRetriever = {
       listVisible: () => [],
       authorize: () => ({

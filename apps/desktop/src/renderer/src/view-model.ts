@@ -70,6 +70,7 @@ export const EVENT_LABELS: Readonly<Record<string, string>> = {
 export const STATUS_LABELS: Readonly<Record<TaskStatus, string>> = {
   pending: '排队中',
   running: '执行中',
+  waiting_permission: '等你批准',
   completed: '已完成',
   failed: '已失败',
   cancelled: '已取消'

@@ -125,9 +125,9 @@ describe('EVENT_LABELS', () => {
 })
 
 describe('STATUS_LABELS', () => {
-  it('五个任务状态全都有标签', () => {
+  it('六个任务状态全都有标签', () => {
     expect(Object.keys(STATUS_LABELS).sort()).toEqual(
-      ['cancelled', 'completed', 'failed', 'pending', 'running'].sort()
+      ['cancelled', 'completed', 'failed', 'pending', 'running', 'waiting_permission'].sort()
     )
   })
 

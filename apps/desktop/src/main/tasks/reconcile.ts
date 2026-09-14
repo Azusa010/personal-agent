@@ -2,6 +2,9 @@ import type { SqliteDatabase } from '../product-state/database'
 import type { EventRepository } from '../product-state/event-repository'
 import type { TaskRepository } from '../product-state/task-repository'
 import { RUNTIME_ERROR_CODE } from '../runtime/error-code'
+import type { TaskStatus } from '../../shared/domain'
+
+const ORPHAN_STATUSES: readonly TaskStatus[] = ['running', 'waiting_permission']
 
 export interface ReconcileDeps {
   db: SqliteDatabase
@@ -12,13 +15,12 @@ export interface ReconcileDeps {
 }
 
 export function reconcileOrphanTasks(deps: ReconcileDeps): number {
-  // 启动时把上一次进程遗留的 running 任务收成 failed。
-  const running = deps.tasks.findAll().filter((c) => c.status === 'running')
-  if (running.length === 0) {
+  const orphans = deps.tasks.findAll().filter((c) => ORPHAN_STATUSES.includes(c.status))
+  if (orphans.length === 0) {
     return 0
   }
   let reconciled = 0
-  for (const task of running) {
+  for (const task of orphans) {
     try {
       const runAll = deps.db.transaction(() => {
         deps.events.append({
@@ -26,7 +28,7 @@ export function reconcileOrphanTasks(deps: ReconcileDeps): number {
           type: 'task_failed',
           payload: {
             code: RUNTIME_ERROR_CODE.ORPHANED,
-            message: '进程重启时任务未完成，启动时收成 failed'
+            message: orphanMessage(task.status)
           },
           occurredAt: deps.now?.() ?? new Date().toISOString()
         })
@@ -39,4 +41,11 @@ export function reconcileOrphanTasks(deps: ReconcileDeps): number {
     }
   }
   return reconciled
+}
+
+function orphanMessage(status: TaskStatus): string {
+  if (status === 'waiting_permission') {
+    return '进程重启时任务停在等待批准，挂起的批准请求与过期定时器已随进程消失'
+  }
+  return '进程重启时任务未完成，启动时收成 failed'
 }
