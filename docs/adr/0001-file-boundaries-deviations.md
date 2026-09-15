@@ -2,7 +2,7 @@
 
 - 状态：已接受
 - 日期：2026-09-13
-- 最后修订：2026-09-15（TASK-024 完成：补记 main/notifications 与 main/scheduler 两个新目录与 protocol 的 notification schema；「后果」一节的执行体现状同步到六能力）
+- 最后修订：2026-09-15（TASK-025 完成：main/scheduler 补记 recover-reminders.ts 与 ReminderRepository.findAll；「后果」一节的生产接线现状改为「恢复已就位但启动路径未调用」）
 - 对照对象：`architecture-personal-agent-v0.1.md` 的 §5 Files（FILE-001~022）与 Phase 1 File Boundaries
 
 ## 上下文
@@ -39,7 +39,7 @@ TS 侧：
 
 - `main/tasks/`（run-task.ts、reconcile.ts、get-timeline.ts）——RunTask 编排同时依赖 product-state 与 runtime，放进任何一层都会产生反向依赖，所以单独成层。
 - `main/notifications/`（notification-port.ts、windows-notification.ts）——PAT-001 的 Notification Port/Adapter 边界（TASK-024）。port 是纯契约（不 import electron），唯一实现是 Windows adapter（DEP-011：Electron Notification，不引第三方框架）；测试注入假 port 与假 electron，换实现不动调用方。
-- `main/scheduler/`（fire-reminder.ts、reminder-timer.ts）——TASK-024 的提醒触发链路。fireReminder 是 timer 到点与 notification.send 执行体两条入口共用的「发送一次并记录结果」编排（状态机翻转与 notification_sent / notification_failed 事件同事务）；reminder-timer 是进程内 setTimeout 挂表，超过 2^31-1 ms 的延迟分段重挂绕开溢出。TASK-025 的启动恢复与重挂也落在这一目录。
+- `main/scheduler/`（fire-reminder.ts、reminder-timer.ts、recover-reminders.ts）——TASK-024 的提醒触发链路。fireReminder 是 timer 到点与 notification.send 执行体两条入口共用的「发送一次并记录结果」编排（状态机翻转与 notification_sent / notification_failed 事件同事务）；reminder-timer 是进程内 setTimeout 挂表，超过 2^31-1 ms 的延迟分段重挂绕开溢出。recover-reminders 是 TASK-025 的启动恢复：扫 reminders 表按四状态分流（重挂 / 补发错过的 / 有 notification_sent 证据就只补记 fired / fired 与 failed 原样保留），判定表 `decideRecovery` 是纯函数，编排负责 firing→scheduled 回滚与时间戳。它扫的是全表而非 status='scheduled'，因为 fired/failed 也要进处置报告，`idx_reminders_due` 因此暂未被这一路径使用（demo 规模无所谓，真要按到期扫描再收窄查询）。
 - `main/policy/`（execution-policy.ts、task-context.ts、risk.ts、argument-binders.ts、alignment.ts）——FILE-006 只规划了 execution-policy.ts，另外四个是同一条校验管道的组成部分，与它同生共死。
 - `main/db/`（database.ts、pdf-repository.ts）——PDF 索引库与 Product Store 是两个独立 SQLite 库。索引失败不该连累任务状态，所以不共用连接与迁移。
 - `main/product-state/` 里 FILE-008 之外的文件（task-repository.ts、plan-repository.ts、event-repository.ts、permission-repository.ts、timeline-projection.ts、tool-execution-repository.ts、reminder-repository.ts、migrations/0001~0007）——FILE-008 只规划了 database.ts。迁移按序号拆成独立文件而不是写进一份 schema，因为 0005 要改 tasks 的 status CHECK 约束：SQLite 只能走「事务外关外键 → 事务内重建表 → finally 开回 → foreign_key_check 兜底」，这段必须独占一个迁移。0006 建 tool_executions 表承载 TASK-021 的幂等 store，tool-execution-repository.ts 是其仓储层（insert / findByKey / transition），状态转换规则放在 Repository 层校验、与 DB CHECK 约束分离。0007 建 reminders 表（TASK-023）：task_id UNIQUE 是「同一 Task 不创建重复 Reminder」的数据库级保证；idempotency_key 不设 UNIQUE，因为 key = capability:argsHash 不含 taskId，两个任务参数恰好相同不是重复；四状态 CHECK（scheduled/firing/fired/failed）拦非法值，转换表在 reminder-repository.ts 的 Repository 层。
@@ -87,3 +87,4 @@ FILE-001、FILE-002、FILE-005、FILE-006、FILE-007、FILE-008、FILE-010、FIL
 - 指导书 §5 与实际结构的对照要靠本文件维护，新增目录时必须同步补一条，否则这份记录会过期成新的误导源。
 - `personal_agent/tools/` 是空壳，留着会让人以为 Python 侧还有工具实现。
 - 批准链在真实运行中仍未接通，尽管组件已全部就位：`main/capabilities/executor.ts` 已有六个执行体（list / extract_pdf / create_dir / move / scheduler.create / notification.send，后两个分别属 TASK-023、TASK-024），broker、幂等关、安全矩阵也都在 TASK-022 验证过，但 `host-executor.ts` 的 `BOOTSTRAP_SCOPE` 仍是只读、不挂 permission/idempotency/scheduler wiring——notification.send 的通知端口与 ReminderTimerService 因此也没有生产接线，`planning.py` 的计划仍固定三步全 READ。因此 PermissionDialog、诊断区权限表与 Reminder 链路在真实运行中不会被触发，只能靠单测与 e2e 组件级验证。把生产接线（WRITE scope + broker + scheduler wiring + 计划扩展）留给 TASK-028 的完整 Golden Path E2E。
+- TASK-025 的恢复服务同属「组件就位、启动路径未调用」：`recoverReminders` 与十例重启测试都在，但 `index.ts` 的启动流程没调它（调了也没有可恢复的行——reminders 表在生产里还写不进去），接线依赖上面那条一起做。因此「应用启动恢复」目前在验证层成立（真库 + 真 timer + 假通知端口的十轮重启测试），不在真实启动路径上成立。
