@@ -151,6 +151,27 @@ describe('SqliteReminderRepository 读写往返', () => {
     expect(repo.findByTaskId('t-3')).toBeNull()
   })
 
+  it('findAll 返回全表，按 remind_at 升序（恢复扫描的稳定顺序）', () => {
+    const repo = makeRepo()
+    repo.insert(reminder('r-late', { taskId: 't-1', remindAt: '2026-09-15T22:00:00.000Z' }))
+    repo.insert(reminder('r-early', { taskId: 't-2', remindAt: '2026-09-15T10:00:00.000Z' }))
+    repo.insert(reminder('r-mid', { taskId: 't-3', remindAt: '2026-09-15T20:00:00.000Z' }))
+    expect(repo.findAll().map((r) => r.id)).toEqual(['r-early', 'r-mid', 'r-late'])
+  })
+
+  it('findAll 连四种状态一起带回（恢复要按状态分流，不是只挑 due 的）', () => {
+    const repo = makeRepo()
+    expect(repo.findAll()).toEqual([])
+    repo.insert(reminder('r-1', { taskId: 't-1', status: 'scheduled' }))
+    repo.insert(reminder('r-2', { taskId: 't-2', status: 'firing' }))
+    repo.insert(reminder('r-3', { taskId: 't-3', status: 'fired', firedAt: T1 }))
+    repo.insert(reminder('r-4', { taskId: 't-4', status: 'failed', failureReason: '通道忙' }))
+    const all = repo.findAll()
+    expect(all.map((r) => r.status).sort()).toEqual(['failed', 'fired', 'firing', 'scheduled'])
+    expect(all.find((r) => r.id === 'r-3')?.firedAt).toBe(T1)
+    expect(all.find((r) => r.id === 'r-4')?.failureReason).toBe('通道忙')
+  })
+
   it('同一 Task 第二条 insert 抛 ReminderAlreadyExists，库里仍只有一条', () => {
     const repo = makeRepo()
     repo.insert(reminder('r-1'))

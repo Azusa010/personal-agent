@@ -94,6 +94,9 @@ export interface ReminderRepository {
   findById(id: string): ReminderRecord | null
   /** task_id UNIQUE，至多一条。null = 该任务还没有 Reminder */
   findByTaskId(taskId: string): ReminderRecord | null
+  /** 全表扫描，按 remind_at 升序（同刻按 id）。启动恢复（TASK-025）用：
+   *  恢复要按四种状态分流，不是只挑 due 的那些，所以没有 WHERE 条件。 */
+  findAll(): ReminderRecord[]
   /** 状态翻转。先读当前状态经转换表校验，再 UPDATE。
    *  extra 里的字段给了才写（COALESCE 保留旧值）：翻 fired 传 firedAt，翻 failed 传 failureReason */
   transition(
@@ -114,6 +117,8 @@ const INSERT_SQL = `
 `
 const SELECT_BY_ID_SQL = `SELECT ${COLUMNS} FROM reminders WHERE id = ?`
 const SELECT_BY_TASK_ID_SQL = `SELECT ${COLUMNS} FROM reminders WHERE task_id = ?`
+// ORDER BY 让恢复扫描与启动日志的顺序稳定：先到期的在前，同刻用 id 兜底。
+const SELECT_ALL_SQL = `SELECT ${COLUMNS} FROM reminders ORDER BY remind_at ASC, id ASC`
 const TRANSITION_SQL = `UPDATE reminders
   SET status = @status, updated_at = @updatedAt,
       fired_at = COALESCE(@firedAt, fired_at),
@@ -139,6 +144,11 @@ export class SqliteReminderRepository implements ReminderRepository {
   findByTaskId(taskId: string): ReminderRecord | null {
     const row = this.db.prepare(SELECT_BY_TASK_ID_SQL).get(taskId) as ReminderRow | undefined
     return row ? toRecord(row) : null
+  }
+
+  findAll(): ReminderRecord[] {
+    const rows = this.db.prepare(SELECT_ALL_SQL).all() as ReminderRow[]
+    return rows.map(toRecord)
   }
 
   transition(
