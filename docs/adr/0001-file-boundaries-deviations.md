@@ -2,7 +2,7 @@
 
 - 状态：已接受
 - 日期：2026-09-13
-- 最后修订：2026-09-14（TASK-021 完成：补记 TASK-020 的 filesystem-create-dir / filesystem-move 执行体，与 TASK-021 的 idempotency 编排层、tool-execution-repository、migration 0006）
+- 最后修订：2026-09-15（TASK-023 完成：补记 reminder-repository、migration 0007 与 protocol 的 scheduler schema；「后果」一节的执行体现状同步到五能力）
 - 对照对象：`architecture-personal-agent-v0.1.md` 的 §5 Files（FILE-001~022）与 Phase 1 File Boundaries
 
 ## 上下文
@@ -40,7 +40,7 @@ TS 侧：
 - `main/tasks/`（run-task.ts、reconcile.ts、get-timeline.ts）——RunTask 编排同时依赖 product-state 与 runtime，放进任何一层都会产生反向依赖，所以单独成层。
 - `main/policy/`（execution-policy.ts、task-context.ts、risk.ts、argument-binders.ts、alignment.ts）——FILE-006 只规划了 execution-policy.ts，另外四个是同一条校验管道的组成部分，与它同生共死。
 - `main/db/`（database.ts、pdf-repository.ts）——PDF 索引库与 Product Store 是两个独立 SQLite 库。索引失败不该连累任务状态，所以不共用连接与迁移。
-- `main/product-state/` 里 FILE-008 之外的文件（task-repository.ts、plan-repository.ts、event-repository.ts、permission-repository.ts、timeline-projection.ts、tool-execution-repository.ts、migrations/0001~0006）——FILE-008 只规划了 database.ts。迁移按序号拆成独立文件而不是写进一份 schema，因为 0005 要改 tasks 的 status CHECK 约束：SQLite 只能走「事务外关外键 → 事务内重建表 → finally 开回 → foreign_key_check 兜底」，这段必须独占一个迁移。0006 建 tool_executions 表承载 TASK-021 的幂等 store，tool-execution-repository.ts 是其仓储层（insert / findByKey / transition），状态转换规则放在 Repository 层校验、与 DB CHECK 约束分离。
+- `main/product-state/` 里 FILE-008 之外的文件（task-repository.ts、plan-repository.ts、event-repository.ts、permission-repository.ts、timeline-projection.ts、tool-execution-repository.ts、reminder-repository.ts、migrations/0001~0007）——FILE-008 只规划了 database.ts。迁移按序号拆成独立文件而不是写进一份 schema，因为 0005 要改 tasks 的 status CHECK 约束：SQLite 只能走「事务外关外键 → 事务内重建表 → finally 开回 → foreign_key_check 兜底」，这段必须独占一个迁移。0006 建 tool_executions 表承载 TASK-021 的幂等 store，tool-execution-repository.ts 是其仓储层（insert / findByKey / transition），状态转换规则放在 Repository 层校验、与 DB CHECK 约束分离。0007 建 reminders 表（TASK-023）：task_id UNIQUE 是「同一 Task 不创建重复 Reminder」的数据库级保证；idempotency_key 不设 UNIQUE，因为 key = capability:argsHash 不含 taskId，两个任务参数恰好相同不是重复；四状态 CHECK（scheduled/firing/fired/failed）拦非法值，转换表在 reminder-repository.ts 的 Repository 层。
 - `main/permission/` 里的 args-hash.ts、canonical-json.ts、expiry.ts、permission-ipc.ts——FILE-007 只规划了 permission-broker.ts。前三个是 TASK-018 的产物（参数规范化、哈希、过期投影），broker 依赖它们；permission-ipc.ts 是 IPC 边界的入参收窄与错误码映射，纯函数不 import electron，以便单测直接覆盖。
 - `main/e2e/`（golden-path.test.ts）——确定性 E2E 要启真 Python 与真 SQLite，与被测单元同级放会污染单元测试的收集范围。
 - `main/capabilities/` 里的 executor.ts、host-executor.ts、path-guard.ts、roots.ts、filesystem-list.ts、filesystem-create-dir.ts、filesystem-move.ts、pdf-fixtures.ts、idempotency.ts——Phase 1 File Boundaries 只列了 registry / scope / retriever / document-extract-pdf。filesystem-create-dir / filesystem-move 是 TASK-020 的两个 WRITE 执行体；idempotency.ts 是 TASK-021 的幂等编排层（key 计算 + 恢复 resolver + 执行前后状态翻转），由 executor.ts 在 WRITE 能力上挂载。
@@ -56,7 +56,7 @@ Python 侧：
 
 protocol 包：
 
-- `packages/protocol/schemas/` 下的八个文件（envelope、errors、systems、filesystem、document、host、agent、index）——FILE-018 只规划了 `schemas/` 这个目录，没规划内部按能力域拆成八个文件。
+- `packages/protocol/schemas/` 下的九个文件（envelope、errors、systems、filesystem、document、host、agent、scheduler、index）——FILE-018 只规划了 `schemas/` 这个目录，没规划内部按能力域拆分。scheduler.ts 是 TASK-023 加的（SchedulerCreateParams/Result/Outcome 与 ReminderStatus 枚举）。
 
 ### 指导书规划，实际不存在
 
@@ -84,4 +84,4 @@ FILE-001、FILE-002、FILE-005、FILE-006、FILE-007、FILE-008、FILE-010、FIL
 
 - 指导书 §5 与实际结构的对照要靠本文件维护，新增目录时必须同步补一条，否则这份记录会过期成新的误导源。
 - `personal_agent/tools/` 是空壳，留着会让人以为 Python 侧还有工具实现。
-- 批准链到 TASK-019 为止只通到 UI，没通到执行：`main/capabilities/executor.ts` 仍只有 `filesystem.list` 与 `document.extract_pdf` 两个执行体，`BOOTSTRAP_SCOPE` 仍是只读，`planning.py` 的计划固定三步全 READ。因此 PermissionDialog 与诊断区的权限表在真实运行中不会被触发，只能靠单测验证。TASK-019 标完成指的是它的 Deliverables 与 Validation 已达成，不代表 Phase 2 Exit Checklist 的任何一条；那八条要等 TASK-020~022。
+- 批准链在真实运行中仍未接通，尽管组件已全部就位：`main/capabilities/executor.ts` 已有五个执行体（list / extract_pdf / create_dir / move / scheduler.create，最后一个属 TASK-023），broker、幂等关、安全矩阵也都在 TASK-022 验证过，但 `host-executor.ts` 的 `BOOTSTRAP_SCOPE` 仍是只读、不挂 permission/idempotency/scheduler wiring，`planning.py` 的计划仍固定三步全 READ。因此 PermissionDialog、诊断区权限表与 Reminder 链路在真实运行中不会被触发，只能靠单测与 e2e 组件级验证。把生产接线（WRITE scope + broker + scheduler wiring + 计划扩展）留给 TASK-028 的完整 Golden Path E2E。
