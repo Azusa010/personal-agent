@@ -23,6 +23,9 @@ from personal_agent.protocol.models import (
     MakePlanRequest,
     MakePlanResponse,
     MakePlanResult,
+    NotificationSendOutcome,
+    NotificationSendParams,
+    NotificationSendResult,
     PlanStepDto,
     Request,
     Response,
@@ -161,6 +164,26 @@ def _pick(raw: dict, path: str):
             "host-scheduler-create.response.json",
             HostExecuteToolResponse,
             SchedulerCreateResult,
+            "result",
+        ),
+        # notification.send（TASK-024）：request 钉 reminderId 字段名双端一致，
+        # response 钉结果 DTO 形状。与 TS 侧 envelope.test.ts 逐条对应。
+        (
+            "host-notification-send.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-notification-send.request.json",
+            HostExecuteToolRequest,
+            NotificationSendParams,
+            "params.arguments",
+        ),
+        (
+            "host-notification-send.response.json",
+            HostExecuteToolResponse,
+            NotificationSendResult,
             "result",
         ),
         (
@@ -621,5 +644,99 @@ def test_scheduler_create_outcome_discriminated_union():
                 "remindAt": "2026-09-15T20:00:00.000Z",
                 "status": "scheduled",
                 "created": True,
+            }
+        )
+
+
+# ---- notification.send（TASK-024）----
+# 以下三个函数与 packages/protocol/tests/notification.test.ts 的 describe 逐条对应。
+# NotificationSendOutcome 是 Annotated 别名而不是 model，要用 TypeAdapter 才能校。
+NOTIFICATION_SEND_OUTCOME = TypeAdapter(NotificationSendOutcome)
+
+
+def test_notification_send_params_constraints():
+    NotificationSendParams.model_validate(
+        {"reminderId": "3f6a9c1e-8b4d-4f2a-9c7e-1d5b8a2e4f60"}
+    )
+
+    # min_length=1 挡空串：放过去的话执行体会拿 '' 去 findById，
+    # 报错现场离源头更远。
+    with pytest.raises(ValidationError):
+        NotificationSendParams.model_validate({"reminderId": ""})
+
+    with pytest.raises(ValidationError):
+        NotificationSendParams.model_validate({})
+
+    with pytest.raises(ValidationError):
+        NotificationSendParams.model_validate({"reminderId": 42})
+
+    # 契约层只钉形状：reminderId 是否存在、是否属于当前任务、是否可触发、
+    # 是否到点，是 host 侧执行体的职责（REMINDER_NOT_FOUND / REMINDER_NOT_DUE）。
+    NotificationSendParams.model_validate({"reminderId": "不存在的-id"})
+
+    assert list(NotificationSendParams.model_fields) == ["reminderId"]
+
+
+def test_notification_send_result_constraints():
+    legal = {
+        "ok": True,
+        "reminderId": "3f6a9c1e-8b4d-4f2a-9c7e-1d5b8a2e4f60",
+        "status": "fired",
+        "sentAt": "2026-09-15T20:00:00.123Z",
+        "sent": True,
+    }
+    NotificationSendResult.model_validate(legal)
+
+    with pytest.raises(ValidationError):
+        NotificationSendResult.model_validate({**legal, "reminderId": ""})
+
+    # status 复用 ReminderStatus 闭合枚举：串进别的词表就是契约漂移。
+    for bad_status in ("done", "expired", "pending", ""):
+        with pytest.raises(ValidationError):
+            NotificationSendResult.model_validate({**legal, "status": bad_status})
+
+    # sent=False 合法：幂等命中已 fired 的 Reminder 时返回它，
+    # 对应「同一 Reminder 最多通知一次」的 wire 表达。
+    NotificationSendResult.model_validate({**legal, "sent": False})
+
+    assert list(NotificationSendResult.model_fields) == [
+        "ok",
+        "reminderId",
+        "status",
+        "sentAt",
+        "sent",
+    ]
+
+
+def test_notification_send_outcome_discriminated_union():
+    ok = NOTIFICATION_SEND_OUTCOME.validate_python(
+        {
+            "ok": True,
+            "reminderId": "r-1",
+            "status": "fired",
+            "sentAt": "2026-09-15T20:00:00.123Z",
+            "sent": True,
+        }
+    )
+    assert isinstance(ok, NotificationSendResult)
+
+    # 发送失败走 CapabilityFailure，不伪造成功（US-06）。
+    failure = NOTIFICATION_SEND_OUTCOME.validate_python(
+        {
+            "ok": False,
+            "code": "NOTIFICATION_SEND_FAILED",
+            "reason": "Windows 通知发送失败",
+        }
+    )
+    assert isinstance(failure, CapabilityFailure)
+
+    # 缺判别键 ok 时拒绝，而不是猜一个分支。
+    with pytest.raises(ValidationError):
+        NOTIFICATION_SEND_OUTCOME.validate_python(
+            {
+                "reminderId": "r-1",
+                "status": "fired",
+                "sentAt": "2026-09-15T20:00:00.123Z",
+                "sent": True,
             }
         )

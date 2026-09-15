@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { ERROR_CODE } from '@personal-agent/protocol'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { listCapabilities } from '../capabilities/registry'
 import { toPosix } from '../capabilities/roots'
 import { bindArguments } from './argument-binders'
 
@@ -451,16 +452,50 @@ describe('bindArguments：scheduler.create', () => {
   })
 })
 
+describe('bindArguments：notification.send', () => {
+  it('合法 reminderId -> bound.args 只有引用，paths 为空', async () => {
+    const out = await bindArguments('notification.send', { reminderId: 'r-1' })
+
+    expect(out).toEqual({ ok: true, bound: { args: { reminderId: 'r-1' }, paths: {} } })
+  })
+
+  it('自由文本被剥掉：正文只能来自落库的 reminders.message', async () => {
+    // 「仅由持久化 Reminder 触发」（PRD 3.2）的关口表达：模型塞的 message/title
+    // 在 zod strip 时就被剥掉，进不了 bound.args，也就进不了批准 hash。
+    const out = await bindArguments('notification.send', {
+      reminderId: 'r-1',
+      message: '模型想自己编的正文',
+      title: '模型想自己编的标题'
+    })
+
+    expect(out.ok && out.bound.args).toEqual({ reminderId: 'r-1' })
+  })
+
+  it('缺字段 / 空串 / 类型错 -> INVALID_ARGUMENT', async () => {
+    for (const args of [{}, { reminderId: '' }, { reminderId: 42 }, { id: 'r-1' }]) {
+      const out = await bindArguments('notification.send', args)
+      expect(out.ok, JSON.stringify(args)).toBe(false)
+      expect(!out.ok && out.code, JSON.stringify(args)).toBe(ERROR_CODE.INVALID_ARGUMENT)
+    }
+  })
+
+  it('不校验存在性/归属/到点：那是执行体的判定', async () => {
+    // binder 只管形状（对照 bindSchedulerCreate 不查重复 Reminder 的分工）。
+    // REMINDER_NOT_FOUND / REMINDER_NOT_DUE 在 executor 里判。
+    const out = await bindArguments('notification.send', { reminderId: '不存在的-id' })
+
+    expect(out.ok).toBe(true)
+  })
+})
+
 describe('bindArguments：没有绑定器的能力', () => {
-  it('registry 里有、执行体没有 -> NOT_IMPLEMENTED', async () => {
-    // 与 INVALID_ARGUMENT 分开：前者是「我们还没写」，后者是「你说错了」。
-    // 混成一个码之后，TASK-020 落地前 UI 上会把缺功能显示成参数错误。
-    // scheduler.create 在 TASK-023 有了绑定器，这里只剩 notification.send（TASK-024）。
-    for (const name of ['notification.send']) {
-      const out = await bindArguments(name, {})
-      expect(out.ok, name).toBe(false)
-      expect(!out.ok && out.code, name).toBe(ERROR_CODE.NOT_IMPLEMENTED)
-      expect(!out.ok && out.reason, name).toContain(name)
+  it('registry 里的能力全都有绑定器（防漂移）', async () => {
+    // TASK-024 之后六个能力都有 binder：空参数至少撞 INVALID_ARGUMENT，
+    // 不再落到 NOT_IMPLEMENTED 兜底。谁加了能力忘了配 binder，这条会红。
+    for (const descriptor of listCapabilities()) {
+      const out = await bindArguments(descriptor.name, {})
+      expect(out.ok, descriptor.name).toBe(false)
+      expect(!out.ok && out.code, descriptor.name).toBe(ERROR_CODE.INVALID_ARGUMENT)
     }
   })
 
@@ -487,6 +522,8 @@ describe('bindArguments：没有绑定器的能力', () => {
       ['filesystem.move', { from: 'a', to: 'b' }],
       ['scheduler.create', { remindAt: '今晚八点', message: 'x' }],
       ['scheduler.create', { remindAt: '1999-01-01T00:00:00.000Z', message: 'x' }],
+      ['notification.send', { reminderId: 'r-1' }],
+      ['notification.send', { reminderId: '' }],
       ['nope.nope', {}]
     ]
 

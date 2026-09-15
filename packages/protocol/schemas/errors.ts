@@ -27,4 +27,13 @@ export const ERROR_CODE = {
   REMINDER_TIME_IN_PAST: "REMINDER_TIME_IN_PAST",
   REMINDER_ALREADY_EXISTS: "REMINDER_ALREADY_EXISTS",
   SCHEDULER_CREATE_FAILED: "SCHEDULER_CREATE_FAILED",
+  // notification.send（TASK-024）：
+  // NOT_FOUND 同时用于「不存在」与「存在但属于别的任务」——跨任务引用
+  // 装作不存在，不泄露其他 Task 的 Reminder 存在性。
+  REMINDER_NOT_FOUND: "REMINDER_NOT_FOUND",
+  // 未到点、或状态不可触发（firing 进行中）。到点发送是 timer 的职责，
+  // 提前调用必须拿到稳定错误码而不是静默发送。
+  REMINDER_NOT_DUE: "REMINDER_NOT_DUE",
+  // 适配器报告发送失败（US-06：记录失败，不伪造成功）。
+  NOTIFICATION_SEND_FAILED: "NOTIFICATION_SEND_FAILED",
 } as const;

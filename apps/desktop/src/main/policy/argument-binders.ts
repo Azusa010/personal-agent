@@ -4,6 +4,7 @@ import {
   FilesystemCreateDirParams,
   FilesystemListParams,
   FilesystemMoveParams,
+  NotificationSendParams,
   SchedulerCreateParams,
   type CapabilityId
 } from '@personal-agent/protocol'
@@ -11,12 +12,7 @@ import {
 import { resolveWithinRootReal } from '../capabilities/path-guard'
 import { resolveRoot } from '../capabilities/roots'
 
-/** 契约校验 + 路径规范化之后的一次调用参数。
- *
- *  策略产出它，执行体只消费它。分开的理由在 SEC-005：TASK-018 要对**规范化后的
- *  参数**算 Canonical Arguments Hash，Permission 绑的是这个 hash。如果执行体自己
- *  再 parse 一次原始 arguments，「批准的东西」与「执行的东西」就有了第二次分叉的机会。
- */
+/** 契约校验 + 路径规范化之后的一次调用参数。 */
 export interface BoundArgs {
   /** 过了契约校验的参数，原样字段名。 */
   args: Record<string, unknown>
@@ -115,11 +111,7 @@ const bindMove: Binder = async (args) => {
   }
 }
 
-// 时间解析确认（US-06）：「今晚」已由模型解析成具体时间，这里做 host 侧的
-// 最后一公里——能否解析、是否仍在未来。规范化成 UTC ISO（毫秒三位 + Z）后
-// 放进 bound.args：批准面板的 Hash、reminders.remind_at、UI 时间预览用的
-// 都是同一个串，用户在批准面板确认的就是最终落库的那个时刻。
-// 没有路径参数，paths 为空——splitPaths 的 default 分支因此不展示路径区。
+// 创建定时提醒前参数检验
 const bindSchedulerCreate: Binder = async (args) => {
   const parsed = SchedulerCreateParams.safeParse(args)
   if (!parsed.success) return invalid('scheduler.create', parsed.error.message)
@@ -148,16 +140,22 @@ const bindSchedulerCreate: Binder = async (args) => {
   }
 }
 
+// 发送通知前参数检验
+const bindNotificationSend: Binder = async (args) => {
+  const parsed = NotificationSendParams.safeParse(args)
+  if (!parsed.success) return invalid('notification.send', parsed.error.message)
+  return { ok: true, bound: { args: { reminderId: parsed.data.reminderId }, paths: {} } }
+}
+
 /** 每个能力的参数绑定器。没有登记的能力回 NOT_IMPLEMENTED：
- *  Scope 放行了却没有执行体，与「模型幻觉出一个不存在的工具」是两件事，
- *  后者在 CAPABILITY_NOT_REGISTERED 就被拦掉了。
  */
 const BINDERS: Partial<Record<CapabilityId, Binder>> = {
   'filesystem.list': bindFilesystemList,
   'document.extract_pdf': bindExtractPdf,
   'filesystem.create_dir': bindCreateDir,
   'filesystem.move': bindMove,
-  'scheduler.create': bindSchedulerCreate
+  'scheduler.create': bindSchedulerCreate,
+  'notification.send': bindNotificationSend
 }
 
 export async function bindArguments(

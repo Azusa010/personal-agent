@@ -28,6 +28,10 @@ import {
   SchedulerCreateResult,
 } from "../schemas/scheduler.js";
 import {
+  NotificationSendParams,
+  NotificationSendResult,
+} from "../schemas/notification.js";
+import {
   MakePlanParams,
   MakePlanRequest,
   MakePlanResponse,
@@ -177,6 +181,27 @@ const legalCases = [
     file: "host-scheduler-create.response.json",
     envelope: HostExecuteToolResponse,
     payload: SchedulerCreateResult,
+    field: "result",
+  },
+  // notification.send（TASK-024）：request 钉 reminderId 字段名双端一致
+  //（写成 reminder_id / id 会立刻红），response 钉结果 DTO 形状
+  //（reminderId/status/sentAt/sent）。
+  {
+    file: "host-notification-send.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-notification-send.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: NotificationSendParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-notification-send.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: NotificationSendResult,
     field: "result",
   },
   {
@@ -558,7 +583,10 @@ describe("MakePlan 的约束", () => {
   });
 
   it("PlanStepDto 字段清单钉死", () => {
-    expect(Object.keys(PlanStepDto.shape)).toEqual(["description", "capability"]);
+    expect(Object.keys(PlanStepDto.shape)).toEqual([
+      "description",
+      "capability",
+    ]);
   });
 
   it("capability 缺失合法：摘要那一步不经工具", () => {

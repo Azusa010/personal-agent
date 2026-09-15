@@ -11,6 +11,7 @@ import {
   type PermissionGate,
   type TaskStatePort
 } from '../policy/execution-policy'
+import type { NotificationPort } from '../notifications/notification-port'
 import type { SqliteDatabase } from '../product-state/database'
 import type { EventRepository } from '../product-state/event-repository'
 import {
@@ -32,6 +33,7 @@ import {
 import { RuleBasedToolRetriever, type ToolRetriever } from './retriever'
 import { resolveRoot } from './roots'
 import type { TaskScope } from './scope'
+import { fireReminder } from '../scheduler/fire-reminder'
 
 export type CapabilityOutcome = Record<string, unknown>
 
@@ -55,7 +57,8 @@ export interface ExecutorIdempotencyWiring {
 
 /** Reminder 存储的集成。不传时 scheduler.create 回 NOT_IMPLEMENTED——
  *  宁可明说没接线，也不半创建状态。db 只用来把 insert 与事件包进同一事务
- * （Phase 1 规则：ExecutionEvent 与关键 Product State 同事务提交）。
+ *  - notifications：notification.send 的通知端口，不传时该能力回 NOT_IMPLEMENTED；
+ *  - armTimer：scheduler.create 新建成功后挂触发定时器的钩子
  */
 export interface ExecutorSchedulerWiring {
   readonly db: SqliteDatabase
@@ -63,6 +66,8 @@ export interface ExecutorSchedulerWiring {
   readonly events: EventRepository
   readonly now?: () => string
   readonly newId?: () => string
+  readonly notifications?: NotificationPort
+  readonly armTimer?: (reminder: ReminderRecord) => void
 }
 
 export function createExecutor(
@@ -128,6 +133,8 @@ async function runCapability(
       return runMove(call)
     case 'scheduler.create':
       return runSchedulerCreate(call, scheduler)
+    case 'notification.send':
+      return runNotificationSend(call, scheduler)
     default:
       // BINDERS 与这个 switch 是两张必须同步的表。加了 binder 忘了执行体，
       // 会走到这里而不是崩掉——这是故意留的兜底。
@@ -186,7 +193,7 @@ async function runMove(call: AuthorizedCall): Promise<CapabilityOutcome> {
 }
 
 /** scheduler.create：在 reminders 表落一条 scheduled 记录，与 reminder_created
- *  事件同事务提交（PRD 4.9；Phase 1 规则：事件与关键 Product State 同事务）。
+ *  事件同事务提交。
  *
  *  「同一 Task 不创建重复 Reminder」的判定顺序：
  *  1. 该任务已有 Reminder 且 idempotencyKey 相同 → 同参重试，幂等返回已有记录
@@ -260,7 +267,53 @@ function runSchedulerCreate(
     }
     return fail(ERROR_CODE.SCHEDULER_CREATE_FAILED, `Reminder 落库失败 (${describe(e)})`)
   }
+  try {
+    scheduler.armTimer?.(record)
+  } catch (e) {
+    console.error(`[executor] Reminder ${record.id} 挂表失败，等启动恢复兜底`, e)
+  }
   return { ok: true, reminderId: record.id, remindAt, status: 'scheduled', created: true }
+}
+
+/**
+ * 执行通知发送
+ * @param call : AuthorizedCall
+ * @param scheduler : ExecutorSchedulerWiring | undefined
+ * @returns
+ */
+async function runNotificationSend(
+  call: AuthorizedCall,
+  scheduler: ExecutorSchedulerWiring | undefined
+): Promise<CapabilityOutcome> {
+  if (scheduler?.notifications === undefined) {
+    return fail(ERROR_CODE.NOT_IMPLEMENTED, 'notification.send 没有接线通知端口')
+  }
+  // binder 已校验 reminderId 非空，这里直接用。
+  const reminderId = String(call.bound.args['reminderId'])
+  const reminder = scheduler.reminders.findById(reminderId)
+  if (reminder === null) {
+    return fail(ERROR_CODE.REMINDER_NOT_FOUND, `Reminder 不存在: ${reminderId}`)
+  }
+  if (reminder.taskId !== call.taskId) {
+    return fail(ERROR_CODE.REMINDER_NOT_FOUND, `Reminder 不存在: ${reminderId}`)
+  }
+  const outcome = await fireReminder(reminder, {
+    db: scheduler.db,
+    reminders: scheduler.reminders,
+    events: scheduler.events,
+    notifications: scheduler.notifications,
+    now: scheduler.now
+  })
+  switch (outcome.kind) {
+    case 'sent':
+      return { ok: true, reminderId, status: 'fired', sentAt: outcome.sentAt, sent: true }
+    case 'already_sent':
+      return { ok: true, reminderId, status: 'fired', sentAt: outcome.sentAt, sent: false }
+    case 'send_failed':
+      return fail(ERROR_CODE.NOTIFICATION_SEND_FAILED, outcome.reason)
+    case 'rejected':
+      return fail(outcome.code, outcome.reason)
+  }
 }
 
 function describe(e: unknown): string {

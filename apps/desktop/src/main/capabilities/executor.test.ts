@@ -8,12 +8,35 @@ import {
   ERROR_CODE,
   FilesystemListResult,
   HostExecuteToolResult,
+  NotificationSendResult,
   type HostExecuteToolParams
 } from '@personal-agent/protocol'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createExecutor } from './executor'
+import { createExecutor, REMINDER_CREATED_EVENT, type ExecutorSchedulerWiring } from './executor'
+import type { ReminderRecord } from '../../shared/domain'
+import type {
+  NotificationOutcome,
+  NotificationPort,
+  NotificationRequest
+} from '../notifications/notification-port'
 import { UI_ORIGIN, type PermissionGate } from '../policy/execution-policy'
+import {
+  MEMORY_DB,
+  migrate,
+  openProductState,
+  type SqliteDatabase
+} from '../product-state/database'
+import { SqliteEventRepository } from '../product-state/event-repository'
+import { SqliteReminderRepository } from '../product-state/reminder-repository'
+import { SqliteTaskRepository } from '../product-state/task-repository'
+import {
+  fireReminder,
+  NOTIFICATION_FAILED_EVENT,
+  NOTIFICATION_SENT_EVENT,
+  NOTIFICATION_TITLE
+} from '../scheduler/fire-reminder'
+import { ReminderTimerService, type TimerHandle } from '../scheduler/reminder-timer'
 import { buildCorruptPdf, buildEncryptedPdf, buildPdf } from './pdf-fixtures'
 import { RuleBasedToolRetriever, type AuthorizeDenialCode, type ToolRetriever } from './retriever'
 import { toPosix } from './roots'
@@ -295,13 +318,15 @@ describe('executor：永不 throw', () => {
     }
   })
 
-  it('未实现的能力回 NOT_IMPLEMENTED', async () => {
-    // 只有 scope 放行了却没有执行体时才走到这里。用假 retriever 放行一切。
-    // kind 写 READ 是为了把「没有执行体」与「需要批准」两件事隔开：
-    // WRITE 在接上批准通道之后会先挂起等 permission.respond，这条测试就再也
-    // 不会以 NOT_IMPLEMENTED 结束，而是卡在没人响应的 promise 上。
-    // 用 notification.send（TASK-024 前没有绑定器）：scheduler.create 在
-    // TASK-023 有了绑定器，空参数会先撞 INVALID_ARGUMENT。
+  it('执行体没接线的能力回 NOT_IMPLEMENTED', async () => {
+    // TASK-024 之后六个能力都有了 binder + 执行体分支，switch 的 default
+    // 兜底不再能从真实能力名到达（保留它是防「加了 binder 忘了执行体」的
+    // 静默漂移）。NOT_IMPLEMENTED 现在从分支内部来：执行体在、依赖没接。
+    // 用假 retriever 放行一切，kind 写 READ 是为了把「没接线」与「需要批准」
+    // 隔开：WRITE 在接上批准通道之后会先挂起等 permission.respond，这条测试
+    // 就再也不会以 NOT_IMPLEMENTED 结束，而是卡在没人响应的 promise 上。
+    // 参数必须合法（notification.send 在 TASK-024 有了绑定器，空参数会先撞
+    // INVALID_ARGUMENT），才能走到执行体看到「没有接线通知端口」。
     const allowAll: ToolRetriever = {
       listVisible: () => [],
       authorize: () => ({
@@ -310,7 +335,7 @@ describe('executor：永不 throw', () => {
       })
     }
     const permissive = createExecutor(readOnlyScope('task-1'), UI_ORIGIN, allowAll)
-    const out = await permissive(params('notification.send', {}))
+    const out = await permissive(params('notification.send', { reminderId: 'r-1' }))
     expect(out['code']).toBe(ERROR_CODE.NOT_IMPLEMENTED)
   })
 })
@@ -397,5 +422,388 @@ describe('executor：WRITE 能力经批准后执行（TASK-020 接线）', () =>
     expect(out['code']).toBe(ERROR_CODE.PERMISSION_DENIED)
     // 这条现在就该绿：拒绝发生在执行体之前，与 createDir 是否实现无关。
     expect(await isDir(reading)).toBe(false)
+  })
+})
+
+describe('executor：notification.send（TASK-024 接线）', () => {
+  const T0 = '2026-09-15T09:00:00.000Z'
+  /** 注入给 wiring 的「现在」。fireReminder 的到点判定、stamp 全用它。 */
+  const NOW = '2026-09-15T20:00:00.500Z'
+  /** 已到点的 remindAt（早于 NOW）。 */
+  const DUE = '2026-09-15T20:00:00.000Z'
+  /** 还没到点的 remindAt（晚于 NOW）。 */
+  const FUTURE = '2026-09-15T21:00:00.000Z'
+
+  let db: SqliteDatabase
+  let reminders: SqliteReminderRepository
+  let events: SqliteEventRepository
+  let sentRequests: NotificationRequest[]
+  let portCalls: number
+  let portOutcome: NotificationOutcome
+
+  const fakePort: NotificationPort = {
+    send: async (req) => {
+      portCalls += 1
+      sentRequests.push(req)
+      return portOutcome
+    }
+  }
+  const approveGate: PermissionGate = {
+    request: async () => ({ approved: true }),
+    verify: async () => ({ ok: true })
+  }
+  const notifyScope: TaskScope = {
+    taskId: 'task-1',
+    capabilities: ['scheduler.create', 'notification.send']
+  }
+
+  beforeEach(() => {
+    db = openProductState(MEMORY_DB)
+    migrate(db)
+    const tasks = new SqliteTaskRepository(db)
+    tasks.insert({
+      id: 'task-1',
+      goal: '目标 task-1',
+      status: 'running',
+      createdAt: T0,
+      updatedAt: T0
+    })
+    tasks.insert({
+      id: 'task-2',
+      goal: '目标 task-2',
+      status: 'running',
+      createdAt: T0,
+      updatedAt: T0
+    })
+    reminders = new SqliteReminderRepository(db)
+    events = new SqliteEventRepository(db)
+    sentRequests = []
+    portCalls = 0
+    portOutcome = { ok: true }
+  })
+
+  afterEach(() => {
+    db.close()
+  })
+
+  function makeRun(
+    overrides: Partial<ExecutorSchedulerWiring> = {}
+  ): (params: HostExecuteToolParams) => Promise<Record<string, unknown>> {
+    return createExecutor(
+      notifyScope,
+      UI_ORIGIN,
+      new RuleBasedToolRetriever(),
+      { gate: approveGate },
+      undefined,
+      { db, reminders, events, notifications: fakePort, now: () => NOW, ...overrides }
+    )
+  }
+
+  function seedReminder(overrides: Partial<ReminderRecord> = {}): ReminderRecord {
+    const record: ReminderRecord = {
+      id: 'r-1',
+      taskId: 'task-1',
+      toolCallId: 'tc-1',
+      remindAt: DUE,
+      message: '该阅读 report-2026.pdf 的摘要了',
+      idempotencyKey: 'scheduler.create:hash-r1',
+      status: 'scheduled',
+      createdAt: T0,
+      updatedAt: T0,
+      firedAt: null,
+      failureReason: null,
+      ...overrides
+    }
+    reminders.insert(record)
+    return record
+  }
+
+  it('没有接线通知端口时回 NOT_IMPLEMENTED', async () => {
+    // 两种没接线：整个 scheduler wiring 缺席 vs 有仓储但没 notifications。
+    // 都要「明说没接线」，不能半执行。
+    const noScheduler = createExecutor(notifyScope, UI_ORIGIN, new RuleBasedToolRetriever(), {
+      gate: approveGate
+    })
+    const out1 = await noScheduler(params('notification.send', { reminderId: 'r-1' }))
+    expect(out1['code']).toBe(ERROR_CODE.NOT_IMPLEMENTED)
+
+    const noPort = makeRun({ notifications: undefined })
+    const out2 = await noPort(params('notification.send', { reminderId: 'r-1' }))
+    expect(out2['code']).toBe(ERROR_CODE.NOT_IMPLEMENTED)
+    expect(portCalls).toBe(0)
+  })
+
+  it('查无 Reminder 回 REMINDER_NOT_FOUND', async () => {
+    const out = await makeRun()(params('notification.send', { reminderId: 'ghost' }))
+    expect(out['ok']).toBe(false)
+    expect(out['code']).toBe(ERROR_CODE.REMINDER_NOT_FOUND)
+    expect(portCalls).toBe(0)
+  })
+
+  it('跨任务的 Reminder 装作不存在，不泄露存在性', async () => {
+    // task-1 的调用引用 task-2 的 Reminder：必须按 REMINDER_NOT_FOUND 拒绝。
+    // TODO(你填) 完成前此用例红（占位实现回 NOT_IMPLEMENTED）。
+    seedReminder({ id: 'r-2', taskId: 'task-2' })
+    const out = await makeRun()(params('notification.send', { reminderId: 'r-2' }))
+    expect(out['ok']).toBe(false)
+    expect(out['code']).toBe(ERROR_CODE.REMINDER_NOT_FOUND)
+    expect(portCalls).toBe(0)
+  })
+
+  it('到点 → 发送一次并记录结果：fired + firedAt + notification_sent 事件', async () => {
+    // TASK-024 验收本体（executor 入口）。TODO(你填) 完成前红。
+    seedReminder()
+    const out = await makeRun()(params('notification.send', { reminderId: 'r-1' }))
+
+    // wire 形状与 NotificationSendResult 逐字段一致
+    expect(() => NotificationSendResult.parse(out)).not.toThrow()
+    expect(out['ok']).toBe(true)
+    expect(out['status']).toBe('fired')
+    expect(out['sent']).toBe(true)
+    expect(out['sentAt']).toBe(NOW)
+
+    // 端口收到的是落库的 message 与常量标题，恰好一次
+    expect(portCalls).toBe(1)
+    expect(sentRequests[0]).toEqual({
+      title: NOTIFICATION_TITLE,
+      body: '该阅读 report-2026.pdf 的摘要了'
+    })
+
+    // 落库：fired + firedAt
+    const row = reminders.findById('r-1')
+    expect(row?.status).toBe('fired')
+    expect(row?.firedAt).toBe(NOW)
+
+    // 事件：notification_sent 落了，没有失败事件
+    const types = events.listByTask('task-1').map((e) => e.type)
+    expect(types).toContain(NOTIFICATION_SENT_EVENT)
+    expect(types).not.toContain(NOTIFICATION_FAILED_EVENT)
+  })
+
+  it('已 fired 的重复触发 → 幂等返回 sent:false，绝不重发', async () => {
+    // 「同一 Reminder 最多通知一次」：fired 是终态，重复调用不算失败，
+    // 但端口一次都不能再碰。
+    seedReminder({ status: 'fired', firedAt: DUE })
+    const out = await makeRun()(params('notification.send', { reminderId: 'r-1' }))
+    expect(out['ok']).toBe(true)
+    expect(out['sent']).toBe(false)
+    expect(out['sentAt']).toBe(DUE)
+    expect(portCalls).toBe(0)
+  })
+
+  it('未到点 → REMINDER_NOT_DUE，不碰通知端口', async () => {
+    // 到点发送是 timer 的职责；提前调用必须拿稳定错误码而不是静默发送。
+    seedReminder({ remindAt: FUTURE })
+    const out = await makeRun()(params('notification.send', { reminderId: 'r-1' }))
+    expect(out['ok']).toBe(false)
+    expect(out['code']).toBe(ERROR_CODE.REMINDER_NOT_DUE)
+    expect(portCalls).toBe(0)
+    expect(reminders.findById('r-1')?.status).toBe('scheduled')
+  })
+
+  it('发送失败 → NOTIFICATION_SEND_FAILED，落 failed + failure_reason，不伪造成功', async () => {
+    portOutcome = { ok: false, reason: 'Windows 通知通道不可用' }
+    seedReminder()
+    const out = await makeRun()(params('notification.send', { reminderId: 'r-1' }))
+    expect(out['ok']).toBe(false)
+    expect(out['code']).toBe(ERROR_CODE.NOTIFICATION_SEND_FAILED)
+    expect(String(out['reason'])).toContain('Windows 通知通道不可用')
+
+    const row = reminders.findById('r-1')
+    expect(row?.status).toBe('failed')
+    expect(row?.failureReason).toContain('Windows 通知通道不可用')
+
+    const types = events.listByTask('task-1').map((e) => e.type)
+    expect(types).toContain(NOTIFICATION_FAILED_EVENT)
+    expect(types).not.toContain(NOTIFICATION_SENT_EVENT)
+  })
+})
+
+describe('scheduler.create → timer → 到时发送一次（TASK-024 验收链路）', () => {
+  // 真 fireReminder + 真 ReminderTimerService + 假通知端口 + 注入时钟。
+  // 这组在 TODO(你填)（fireReminder、schedule）完成前红——它就是验收
+  // 「到时发送一次并记录结果」的端到端表达。
+  const T0 = '2026-09-15T09:00:00.000Z'
+
+  interface FakeTimerEntry {
+    id: number
+    fn: () => void
+    dueAt: number
+  }
+
+  let db: SqliteDatabase
+  let reminders: SqliteReminderRepository
+  let events: SqliteEventRepository
+  let timerService: ReminderTimerService
+  let run2: (params: HostExecuteToolParams) => Promise<Record<string, unknown>>
+  let sentBodies: string[]
+  let clockMs: number
+  let fakeTimers: FakeTimerEntry[]
+  let nextTimerId: number
+
+  const fakePort: NotificationPort = {
+    send: async (req) => {
+      sentBodies.push(req.body)
+      return { ok: true }
+    }
+  }
+  const approveGate: PermissionGate = {
+    request: async () => ({ approved: true }),
+    verify: async () => ({ ok: true })
+  }
+
+  const setTimer = (fn: () => void, ms: number): TimerHandle => {
+    const entry: FakeTimerEntry = { id: nextTimerId++, fn, dueAt: clockMs + ms }
+    fakeTimers.push(entry)
+    return entry.id as unknown as TimerHandle
+  }
+  const clearTimer = (handle: TimerHandle): void => {
+    const id = handle as unknown as number
+    fakeTimers = fakeTimers.filter((t) => t.id !== id)
+  }
+  /** 把时钟拨到 target，途中到点的 timer 按顺序逐个触发（支持分段重挂链）。 */
+  function advanceTo(target: number): void {
+    for (;;) {
+      const due = fakeTimers.filter((t) => t.dueAt <= target).sort((a, b) => a.dueAt - b.dueAt)[0]
+      if (due === undefined) break
+      clockMs = due.dueAt
+      fakeTimers = fakeTimers.filter((t) => t.id !== due.id)
+      due.fn()
+    }
+    clockMs = target
+  }
+  /** 让 onDue 里的 void fire(...).then 链跑完（真 setTimeout 0 即可，
+   *  注入的假时钟只影响 ReminderTimerService 自己）。 */
+  async function flushAsync(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+
+  beforeEach(() => {
+    clockMs = Date.now()
+    fakeTimers = []
+    nextTimerId = 1
+    sentBodies = []
+    db = openProductState(MEMORY_DB)
+    migrate(db)
+    new SqliteTaskRepository(db).insert({
+      id: 'task-1',
+      goal: '目标 task-1',
+      status: 'running',
+      createdAt: T0,
+      updatedAt: T0
+    })
+    reminders = new SqliteReminderRepository(db)
+    events = new SqliteEventRepository(db)
+    const stamp = (): string => new Date(clockMs).toISOString()
+    timerService = new ReminderTimerService({
+      fire: (reminder) =>
+        fireReminder(reminder, { db, reminders, events, notifications: fakePort, now: stamp }),
+      now: () => clockMs,
+      setTimer,
+      clearTimer
+    })
+    run2 = createExecutor(
+      { taskId: 'task-1', capabilities: ['scheduler.create', 'notification.send'] },
+      UI_ORIGIN,
+      new RuleBasedToolRetriever(),
+      { gate: approveGate },
+      undefined,
+      {
+        db,
+        reminders,
+        events,
+        notifications: fakePort,
+        now: stamp,
+        armTimer: (r) => timerService.arm(r)
+      }
+    )
+  })
+
+  afterEach(() => {
+    timerService.dispose()
+    db.close()
+  })
+
+  it('创建即挂表；到点发送一次并落库；再拨时钟不重发', async () => {
+    const start = clockMs
+    // binder 用真实 Date.now() 拒过去时刻：remindAt 取「注入时钟 + 60s」，
+    // 注入时钟起点就是真实 now，所以 binder 也能过。
+    const remindAt = new Date(start + 60_000).toISOString()
+    const created = await run2(
+      params('scheduler.create', { remindAt, message: '该阅读 report-2026.pdf 的摘要了' })
+    )
+    expect(created['ok']).toBe(true)
+    expect(created['created']).toBe(true)
+    const reminderId = String(created['reminderId'])
+    // armTimer 钩子：落库提交成功后表就挂上了
+    expect(timerService.isArmed(reminderId)).toBe(true)
+
+    // 差 1ms 不到点：什么都不发生
+    advanceTo(start + 59_999)
+    await flushAsync()
+    expect(sentBodies).toHaveLength(0)
+    expect(reminders.findById(reminderId)?.status).toBe('scheduled')
+
+    // 到点：恰好发送一次，结果落库
+    advanceTo(start + 60_000)
+    await vi.waitFor(() => expect(sentBodies).toHaveLength(1))
+    expect(sentBodies[0]).toBe('该阅读 report-2026.pdf 的摘要了')
+    const row = reminders.findById(reminderId)
+    expect(row?.status).toBe('fired')
+    expect(row?.firedAt).toBe(remindAt)
+    const types = events.listByTask('task-1').map((e) => e.type)
+    expect(types).toContain(REMINDER_CREATED_EVENT)
+    expect(types).toContain(NOTIFICATION_SENT_EVENT)
+
+    // 再拨一小时：终态就是终态，不重发（「发送一次」）
+    advanceTo(start + 3_600_000)
+    await flushAsync()
+    expect(sentBodies).toHaveLength(1)
+  })
+
+  it('到点发送失败 → failed + notification_failed，表不重挂', async () => {
+    // 失败路径的链路表达：US-06「通知失败时记录失败事件，不伪造成功」。
+    const failingPort: NotificationPort = {
+      send: async () => ({ ok: false, reason: '通道忙' })
+    }
+    const stamp = (): string => new Date(clockMs).toISOString()
+    const failingService = new ReminderTimerService({
+      fire: (reminder) =>
+        fireReminder(reminder, {
+          db,
+          reminders,
+          events,
+          notifications: failingPort,
+          now: stamp
+        }),
+      now: () => clockMs,
+      setTimer,
+      clearTimer
+    })
+    reminders.insert({
+      id: 'r-fail',
+      taskId: 'task-1',
+      toolCallId: 'tc-fail',
+      remindAt: new Date(clockMs + 1_000).toISOString(),
+      message: '会失败的通知',
+      idempotencyKey: 'scheduler.create:hash-fail',
+      status: 'scheduled',
+      createdAt: T0,
+      updatedAt: T0,
+      firedAt: null,
+      failureReason: null
+    })
+    failingService.arm(reminders.findById('r-fail')!)
+
+    advanceTo(clockMs + 1_000)
+    await vi.waitFor(() => expect(reminders.findById('r-fail')?.status).toBe('failed'))
+    const row = reminders.findById('r-fail')
+    expect(row?.failureReason).toContain('通道忙')
+    const types = events.listByTask('task-1').map((e) => e.type)
+    expect(types).toContain(NOTIFICATION_FAILED_EVENT)
+    expect(types).not.toContain(NOTIFICATION_SENT_EVENT)
+    // failed 只允许显式重试：timer 不自动重挂
+    expect(failingService.isArmed('r-fail')).toBe(false)
+    failingService.dispose()
   })
 })

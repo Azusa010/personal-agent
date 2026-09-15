@@ -204,6 +204,43 @@ SchedulerCreateOutcome = Annotated[
 ]
 
 
+# ---- notification.send（TASK-024）----
+# 与 packages/protocol/schemas/notification.ts 逐字段镜像。
+class NotificationSendParams(BaseModel):
+    """仅由持久化 Reminder 触发（PRD 3.2）：参数只有 reminderId 引用。
+
+    通知正文来自落库的 reminders.message，模型传不进自由文本。存在性、归属、
+    可触发状态、是否到点由 host 侧执行体判定（REMINDER_NOT_FOUND /
+    REMINDER_NOT_DUE），与 SchedulerCreateParams 不校验时间语义同理。
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    reminderId: str = Field(min_length=1)
+
+
+class NotificationSendResult(BaseModel):
+    """sent 区分「本次真的发送了」与「幂等命中已 fired 的 Reminder」。
+
+    sentAt 是翻到 fired 的时刻（reminders.fired_at）。status 在 ok:true 时
+    只会是 fired——发送失败走 CapabilityFailure（NOTIFICATION_SEND_FAILED），
+    不伪造成功（US-06）。
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True]
+    reminderId: str = Field(min_length=1)
+    status: ReminderStatus
+    sentAt: str = Field(min_length=1)
+    sent: bool
+
+
+NotificationSendOutcome = Annotated[
+    NotificationSendResult | CapabilityFailure, Field(discriminator="ok")
+]
+
+
 CapabilityKind = Literal["READ", "WRITE"]
 
 

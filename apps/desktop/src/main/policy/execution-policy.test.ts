@@ -260,8 +260,8 @@ describe('execution-policy：agent 必须有当前任务', () => {
 
   it('ui origin 一样要过风险关', async () => {
     // 分岭只在「有没有任务、对不对齐」两关，其余几关两条路都走。
-    // 用 filesystem.move 而不是 notification.send：后者没有绑定器，
-    // 在新的顺序下会先撞 NOT_IMPLEMENTED，测不到它声称要测的风险关。
+    // 用 filesystem.move：参数合法能一路走到风险关。TASK-024 之后六个能力
+    // 都有绑定器了，但要测「风险关」仍得喂得过 binder 的参数，move 最合适。
     const out = await policy(UI_ORIGIN, allowRetriever('filesystem.move')).evaluate(
       params('tc-9', 'filesystem.move', moveArgs())
     )
@@ -385,10 +385,11 @@ describe('execution-policy：风险', () => {
     expect(gate.inputs).toEqual([])
   })
 
-  it('没有绑定器的 WRITE 能力先撞 NOT_IMPLEMENTED，到不了批准这一关', async () => {
-    // 顺序换了之后的必然结果。notification.send 还没有绑定器（TASK-024），
-    // 所以它现在报未实现而不是要授权。scheduler.create 在 TASK-023 有了绑定器，
-    // 空参数会先撞 INVALID_ARGUMENT，不再适合当这条用例的主角。
+  it('契约不过关的 WRITE 能力先撞 INVALID_ARGUMENT，到不了批准这一关', async () => {
+    // TASK-024 之后六个能力全有绑定器，NOT_IMPLEMENTED 兜底不再能从真实
+    // 能力名到达（执行体里留着它是防「加了 binder 忘了执行体」的漂移）。
+    // 本用例钉的不变量不变：参数契约关在批准关之前——参数不合法的调用
+    // 不消耗一次批准请求，用户不会看到一条没法执行的批准面板。
     beginTask(TASK_ID, '整理 PDF', [{ description: '发通知', capability: 'notification.send' }])
     const gate = makeGate({ approved: true })
 
@@ -396,7 +397,7 @@ describe('execution-policy：风险', () => {
       retriever: allowRetriever('notification.send')
     }).evaluate(params('tc-19c', 'notification.send', {}))
 
-    expect(!out.allowed && out.code).toBe(ERROR_CODE.NOT_IMPLEMENTED)
+    expect(!out.allowed && out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
     expect(gate.inputs).toEqual([])
   })
 })
