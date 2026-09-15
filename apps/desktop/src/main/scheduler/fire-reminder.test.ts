@@ -30,7 +30,7 @@ import {
  *
  * 真内存库（better-sqlite3 :memory: + 全量 migration）+ 假通知端口：
  * 状态翻转、事件落库、同事务语义都在真 SQL 上钉，只有 OS 交互是替身。
- * TODO(你填) 完成前本文件红——它就是 fireReminder 的验收标准。
+ * 实现落地前本文件红——它就是 fireReminder 的验收标准。
  */
 
 const T0 = '2026-09-15T09:00:00.000Z'

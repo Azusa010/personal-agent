@@ -90,7 +90,7 @@ async function expectPending(promise: Promise<unknown>): Promise<void> {
 }
 
 /** 调 send 并把 rejection 预先标记为已处理。
- *  TODO(你填) 红灯期占位实现会 reject，而用例往往在 waitFor 超时处先失败、
+ *  红灯期占位实现会 reject，而用例往往在 waitFor 超时处先失败、
  *  来不及给 pending 挂处理器——unhandled rejection 会把整个测试文件刷成
  *  file-level error，淹没真正的断言信号。挂一个空 catch 不影响后续对同一
  *  promise 的断言：它 reject 时 expect(...).resolves 照样红。 */

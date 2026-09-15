@@ -13,7 +13,7 @@ import { MAX_TIMEOUT_MS, ReminderTimerService, type TimerHandle } from './remind
  * setTimeout(超大延迟)」的错误实现也会在假时钟上表现正确，长延迟分段
  * 重挂的要求就钉不住了。
  *
- * schedule 的 TODO(你填) 完成前，本文件延迟相关用例红。
+ * schedule 落地前，本文件延迟相关用例红。
  */
 
 interface FakeTimerEntry {

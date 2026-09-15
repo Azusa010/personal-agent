@@ -542,7 +542,7 @@ describe('executor：notification.send（TASK-024 接线）', () => {
 
   it('跨任务的 Reminder 装作不存在，不泄露存在性', async () => {
     // task-1 的调用引用 task-2 的 Reminder：必须按 REMINDER_NOT_FOUND 拒绝。
-    // TODO(你填) 完成前此用例红（占位实现回 NOT_IMPLEMENTED）。
+    // 实现落地前此用例红（占位实现回 NOT_IMPLEMENTED）。
     seedReminder({ id: 'r-2', taskId: 'task-2' })
     const out = await makeRun()(params('notification.send', { reminderId: 'r-2' }))
     expect(out['ok']).toBe(false)
@@ -551,7 +551,7 @@ describe('executor：notification.send（TASK-024 接线）', () => {
   })
 
   it('到点 → 发送一次并记录结果：fired + firedAt + notification_sent 事件', async () => {
-    // TASK-024 验收本体（executor 入口）。TODO(你填) 完成前红。
+    // TASK-024 验收本体（executor 入口）；实现落地前红。
     seedReminder()
     const out = await makeRun()(params('notification.send', { reminderId: 'r-1' }))
 
@@ -621,7 +621,7 @@ describe('executor：notification.send（TASK-024 接线）', () => {
 
 describe('scheduler.create → timer → 到时发送一次（TASK-024 验收链路）', () => {
   // 真 fireReminder + 真 ReminderTimerService + 假通知端口 + 注入时钟。
-  // 这组在 TODO(你填)（fireReminder、schedule）完成前红——它就是验收
+  // 这组在 fireReminder / schedule 落地前红——它就是验收
   // 「到时发送一次并记录结果」的端到端表达。
   const T0 = '2026-09-15T09:00:00.000Z'
 
