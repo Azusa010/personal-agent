@@ -1,0 +1,15 @@
+schema_version: 1
+module_path: ""
+title: PersonalAgent Monorepo 根配置与协作约定
+scope:
+    - AGENTS.md
+    - .gitattributes
+    - .gitignore
+    - package.json
+    - pnpm-lock.yaml
+    - pnpm-workspace.yaml
+    - .editorconfig
+    - README.md
+source_files: []
+depends_on: []
+related_to: []

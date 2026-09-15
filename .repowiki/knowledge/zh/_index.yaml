@@ -1,0 +1,23 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: zh-CN
+branch: master
+nodes_managed: true
+exported_at: "2026-09-14T09:47:20Z"
+modules:
+    "":
+        dir_name: PersonalAgent Monorepo 根配置与协作约定
+        title: PersonalAgent Monorepo 根配置与协作约定
+        scope:
+            - AGENTS.md
+            - .gitattributes
+            - .gitignore
+            - package.json
+            - pnpm-lock.yaml
+            - pnpm-workspace.yaml
+            - .editorconfig
+            - README.md
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
