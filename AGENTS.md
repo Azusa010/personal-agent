@@ -24,7 +24,7 @@
 
 ### 关键文件
 
-- Zod schemas: `packages/protocol/schemas/{envelope,filesystem,host,document,agent,systems,errors}.ts`
+- Zod schemas: `packages/protocol/schemas/{envelope,filesystem,host,document,agent,systems,scheduler,errors}.ts`
 - Pydantic models: `services/agent-runtime/src/personal_agent/protocol/models.py`
 - Fixtures: `packages/protocol/fixtures/*.json`
 
@@ -125,6 +125,31 @@ pnpm verify = typecheck + lint:ts + lint:py + test
 - 新建测试文件后必须 `prettier --write` 转 LF，否则 eslint 报 CRLF warning（Windows 环境）。
 - `pnpm verify:all` = `verify` + `build`（electron-vite build，不含 electron-builder 打包）。
 - 全量跑约 20–30 秒，每次改动后都应跑全量。
+
+---
+
+## 6. 协作模式：核心代码留 TODO（项目陪练）
+
+本项目按陪练模式推进：AI 负责脚手架与验收，**核心业务逻辑留给项目主人手写**。
+
+### 分工
+
+| 归属 | 内容 |
+|------|------|
+| AI 完整写出 | 协议 schema/fixtures、类型与接口、migration DDL、仓储 SQL 样板、import 与接线、UI 布局、**全部测试**（作为 TODO 的验收标准） |
+| 留给主人填 | 核心业务逻辑本体：状态机转换表、执行体的副作用编排、判定/校验函数、算法段（如时间解析） |
+
+### 规则
+
+- 标记统一 `// TODO(你填): ...`（Python 侧 `# TODO(你填): ...`），全仓搜索该标记即为待办清单；**填完必须删掉标记**，保证搜索不出现陈旧项。
+- 每个 TODO 必须自带足够上下文：输入输出契约、不变量与边界条件、失败时的稳定错误码、对应验收测试的文件名。
+- AI 不得顺手代填 TODO 范围内的核心逻辑；主人填完前相关测试允许红，填完后 `pnpm verify` 必须全绿。
+- 验收流程：主人填 TODO → AI 跑 `pnpm verify` → 对照指导书该 TASK 的 Validation 列核对 → 通过后标 ✅ 并提交。
+- 边界拿不准时按「这段代码错了会不会造成副作用/安全问题/契约漂移」判断：会 → 留给主人；不会 → AI 直接写完。
+
+### 先例
+
+`product-state/tool-execution-repository.ts` 的 `ALLOWED_TRANSITIONS` 是第一个陪练点：转换表由主人填写（原 TODO 标记已随填写移除），逐格一致性断言的测试由 AI 预先写好。
 
 ---
 

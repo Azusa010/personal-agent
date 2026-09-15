@@ -11,7 +11,7 @@ export function isToolExecutionStatus(value: string): value is ToolExecutionStat
 }
 
 export const ALLOWED_TRANSITIONS: Record<ToolExecutionStatus, readonly ToolExecutionStatus[]> = {
-  // TODO(你填): 给每个状态列出它能翻到的目标状态数组。空数组 = 该状态是终态，翻到哪都非法。
+  // 每个状态列出它能翻到的目标状态数组。空数组 = 该状态是终态，翻到哪都非法。
   attempting: ['succeeded', 'failed'],
   succeeded: [],
   failed: ['attempting']
