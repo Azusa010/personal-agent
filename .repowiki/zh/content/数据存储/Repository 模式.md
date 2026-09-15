@@ -329,6 +329,7 @@ succeeded --> [*] : 终态(命中即跳过)
 - 接口职责
   - insert：写入一条 scheduled 记录；同一 Task 已有 Reminder 时抛领域错误 ReminderAlreadyExists（上层 executor 负责先查、决定幂等返回还是拒绝，并映射为稳定错误码）
   - findById/findByTaskId：task_id UNIQUE，按任务查询至多一条
+  - findAll：全表读取（按 remind_at 升序）；启动恢复要按四状态分流，不是只挑到期的那些
   - transition：状态翻转，extra 里的 firedAt/failureReason 给了才写——UPDATE 用 COALESCE 保留旧值，实现部分字段更新
 - 数据映射
   - 数据库列 snake_case → 领域对象 camelCase；status 合法性双重校验：数据库 CHECK + isReminderStatus
@@ -338,7 +339,8 @@ succeeded --> [*] : 终态(命中即跳过)
 - 唯一性保证
   - 「同一 Task 至多一条 Reminder」由 reminders.task_id 的 UNIQUE 约束在数据库级保证；idempotency_key 故意不设 UNIQUE（key = capability:argsHash 不含 taskId，不同任务参数相同时 key 相等但不算重复）
 - 触发与恢复的现状
-  - 到期 timer 触发（TASK-024）与启动恢复（TASK-025）尚未实现，当前仅完成持久化层；idx_reminders_due(status, remind_at) 为恢复扫描预留的索引
+  - 到期触发（fire-reminder.ts + reminder-timer.ts，TASK-024）与启动恢复（recover-reminders.ts，TASK-025）均已实现：恢复按四状态分流——scheduled 未到点重挂、已过期补发一次后 fired、firing 有 notification_sent 证据只补记 fired 绝不重发、firing 无证据先回滚 scheduled 再按过期分流、fired 与 failed 原样保留（后者只允许显式重试）
+  - 恢复扫描用 findAll 全表而不是 status 窄查询（fired/failed 也要进处置报告），idx_reminders_due(status, remind_at) 因此仍未被任何查询使用
 - 防漂移测试
   - 测试遍历 REMINDER_STATUSES 数组做真库插入，并逐格断言转换表一致性；还覆盖绕过仓储直接 INSERT 第二条同 task 记录被 UNIQUE 拦截的场景
 
@@ -348,7 +350,7 @@ stateDiagram-v2
 scheduled --> firing : 到期开始触发
 firing --> fired : 通知发送成功(终态)
 firing --> failed : 通知失败(记录原因)
-firing --> scheduled : 启动恢复重挂(规划中)
+firing --> scheduled : 启动恢复重挂(无发送证据时)
 failed --> firing : 显式重试
 fired --> [*] : 永不再发
 ```
@@ -357,8 +359,10 @@ fired --> [*] : 永不再发
 - [reminder-repository.ts:13-24](file://apps/desktop/src/main/product-state/reminder-repository.ts#L13-L24)
 
 章节来源
-- [reminder-repository.ts:13-170](file://apps/desktop/src/main/product-state/reminder-repository.ts#L13-L170)
-- [reminder-repository.test.ts:100-273](file://apps/desktop/src/main/product-state/reminder-repository.test.ts#L100-L273)
+- [reminder-repository.ts:13-180](file://apps/desktop/src/main/product-state/reminder-repository.ts#L13-L180)
+- [reminder-repository.test.ts:100-295](file://apps/desktop/src/main/product-state/reminder-repository.test.ts#L100-L295)
+- [recover-reminders.ts:26-77](file://apps/desktop/src/main/scheduler/recover-reminders.ts#L26-L77)
+- [recover-reminders.ts:139-209](file://apps/desktop/src/main/scheduler/recover-reminders.ts#L139-L209)
 - [0007-create-reminders.ts:3-34](file://apps/desktop/src/main/product-state/migrations/0007-create-reminders.ts#L3-L34)
 - [domain.ts:104-136](file://apps/desktop/src/shared/domain.ts#L104-L136)
 
@@ -404,7 +408,7 @@ MIG["migrations/index.ts"] --> DB
   - 事件表 (task_id, seq) 加速按任务拉取
   - 权限表 (task_id, requested_at)、(args_hash) 支持常见查询与去重
   - 执行记录表 idx_tool_executions_task(task_id, attempted_at) 加速启动恢复按任务扫描
-  - 提醒表 idx_reminders_due(status, remind_at) 为到期扫描预留（启动恢复 TASK-025 规划中）
+  - 提醒表 idx_reminders_due(status, remind_at) 为到期扫描预留；当前恢复走 findAll 全表扫描，该索引尚未被使用
 - 最小列选择：SELECT 明确指定列，减少网络与内存开销
 - JSON 字段：避免过度反序列化，仅在需要时解析
 - 事务边界：跨表写操作应使用 db.transaction 包裹，保证原子性

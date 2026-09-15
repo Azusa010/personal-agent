@@ -240,7 +240,7 @@ ExecutionEventRecord <.. TaskTimeline : "包含"
 - [apps/desktop/src/shared/domain.ts:13-94](file://apps/desktop/src/shared/domain.ts#L13-L94)
 
 章节来源
-- [apps/desktop/src/shared/domain.ts:1-95](file://apps/desktop/src/shared/domain.ts#L1-95)
+- [apps/desktop/src/shared/domain.ts:1-158](file://apps/desktop/src/shared/domain.ts#L1-L158)
 - [apps/desktop/src/shared/ipc-contract.ts:1-74](file://apps/desktop/src/shared/ipc-contract.ts#L1-L74)
 - [packages/protocol/schemas/envelope.ts:1-40](file://packages/protocol/schemas/envelope.ts#L1-L40)
 
