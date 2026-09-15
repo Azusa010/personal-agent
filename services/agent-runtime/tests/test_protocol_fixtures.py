@@ -31,6 +31,9 @@ from personal_agent.protocol.models import (
     RunTaskRequest,
     RunTaskResponse,
     RunTaskResult,
+    SchedulerCreateOutcome,
+    SchedulerCreateParams,
+    SchedulerCreateResult,
     SummaryFact,
 )
 
@@ -138,6 +141,26 @@ def _pick(raw: dict, path: str):
             "host-filesystem-move.response.json",
             HostExecuteToolResponse,
             FilesystemMoveResult,
+            "result",
+        ),
+        # scheduler.create（TASK-023）：request 钉 remindAt/message 字段名双端
+        # 一致，response 钉结果 DTO 形状。与 TS 侧 envelope.test.ts 逐条对应。
+        (
+            "host-scheduler-create.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-scheduler-create.request.json",
+            HostExecuteToolRequest,
+            SchedulerCreateParams,
+            "params.arguments",
+        ),
+        (
+            "host-scheduler-create.response.json",
+            HostExecuteToolResponse,
+            SchedulerCreateResult,
             "result",
         ),
         (
@@ -497,3 +520,106 @@ def test_make_plan_response_dumps_without_a_null_capability():
         }
     ).model_dump(exclude_none=True)
     assert rebuilt == fixture
+
+
+# ---- scheduler.create（TASK-023）----
+# 以下三个函数与 packages/protocol/tests/scheduler.test.ts 的 describe 逐条对应。
+# SchedulerCreateOutcome 是 Annotated 别名而不是 model，要用 TypeAdapter 才能校。
+SCHEDULER_CREATE_OUTCOME = TypeAdapter(SchedulerCreateOutcome)
+
+
+def test_scheduler_create_params_constraints():
+    SchedulerCreateParams.model_validate(
+        {
+            "remindAt": "2026-09-15T20:00:00.000Z",
+            "message": "该阅读 report-2026.pdf 的摘要了",
+        }
+    )
+
+    # min_length=1 挡空串：放过去的话 host 侧 binder 会拿 '' 去解析时间，
+    # 得到 Invalid Date，报错现场离源头更远。
+    with pytest.raises(ValidationError):
+        SchedulerCreateParams.model_validate({"remindAt": "", "message": "x"})
+
+    # message 是到期通知的正文（PRD 4.8 Reminder 的「通知内容」），缺了它
+    # TASK-024 的通知就没有内容可发。
+    with pytest.raises(ValidationError):
+        SchedulerCreateParams.model_validate(
+            {"remindAt": "2026-09-15T20:00:00.000Z"}
+        )
+
+    with pytest.raises(ValidationError):
+        SchedulerCreateParams.model_validate({"remindAt": 1789495200000, "message": "x"})
+
+    # 契约层只钉形状：「今晚」能不能解析、是不是已经过了，是 host 侧 binder
+    # 的职责（REMINDER_TIME_IN_PAST）。TS 侧对称用例钉住同一分层。
+    SchedulerCreateParams.model_validate({"remindAt": "今晚八点", "message": "x"})
+    SchedulerCreateParams.model_validate(
+        {"remindAt": "1999-01-01T00:00:00.000Z", "message": "x"}
+    )
+
+    assert list(SchedulerCreateParams.model_fields) == ["remindAt", "message"]
+
+
+def test_scheduler_create_result_constraints():
+    legal = {
+        "ok": True,
+        "reminderId": "3f6a9c1e-8b4d-4f2a-9c7e-1d5b8a2e4f60",
+        "remindAt": "2026-09-15T20:00:00.000Z",
+        "status": "scheduled",
+        "created": True,
+    }
+    SchedulerCreateResult.model_validate(legal)
+
+    with pytest.raises(ValidationError):
+        SchedulerCreateResult.model_validate({**legal, "reminderId": ""})
+
+    # status 是闭合枚举：expired/pending 是 Permission 的词表，串进来就是契约漂移。
+    for bad_status in ("done", "expired", "pending", ""):
+        with pytest.raises(ValidationError):
+            SchedulerCreateResult.model_validate({**legal, "status": bad_status})
+
+    # created=False 合法：重试命中同任务已有 Reminder 时幂等返回它，
+    # 对应 TASK-023 验收「同一 Task 不创建重复 Reminder」的 wire 表达。
+    SchedulerCreateResult.model_validate({**legal, "created": False})
+
+    assert list(SchedulerCreateResult.model_fields) == [
+        "ok",
+        "reminderId",
+        "remindAt",
+        "status",
+        "created",
+    ]
+
+
+def test_scheduler_create_outcome_discriminated_union():
+    ok = SCHEDULER_CREATE_OUTCOME.validate_python(
+        {
+            "ok": True,
+            "reminderId": "r-1",
+            "remindAt": "2026-09-15T20:00:00.000Z",
+            "status": "scheduled",
+            "created": True,
+        }
+    )
+    assert isinstance(ok, SchedulerCreateResult)
+
+    failure = SCHEDULER_CREATE_OUTCOME.validate_python(
+        {
+            "ok": False,
+            "code": "REMINDER_ALREADY_EXISTS",
+            "reason": "任务 t-1 已有 Reminder r-0",
+        }
+    )
+    assert isinstance(failure, CapabilityFailure)
+
+    # 缺判别键 ok 时拒绝，而不是猜一个分支。
+    with pytest.raises(ValidationError):
+        SCHEDULER_CREATE_OUTCOME.validate_python(
+            {
+                "reminderId": "r-1",
+                "remindAt": "2026-09-15T20:00:00.000Z",
+                "status": "scheduled",
+                "created": True,
+            }
+        )

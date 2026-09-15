@@ -377,11 +377,86 @@ describe('bindArguments：filesystem.move', () => {
   })
 })
 
+describe('bindArguments：scheduler.create', () => {
+  const FUTURE = '2099-01-01T00:00:00.000Z'
+
+  it('合法 ISO 时间 -> remindAt 规范化成 UTC 毫秒串，paths 为空', async () => {
+    const out = await bindArguments('scheduler.create', { remindAt: FUTURE, message: '该读书了' })
+
+    expect(out).toEqual({
+      ok: true,
+      bound: { args: { remindAt: FUTURE, message: '该读书了' }, paths: {} }
+    })
+  })
+
+  it('带时区偏移的时间被归一到 UTC：批准面板与落库是同一个串', async () => {
+    // 「今晚八点」在东八区解析出来是 +08:00 结尾。规范化前两种写法 hash 不同，
+    // 规范化后是同一个时刻同一个串——用户确认的就是落库的。
+    const out = await bindArguments('scheduler.create', {
+      remindAt: '2099-01-01T20:00:00+08:00',
+      message: '该读书了'
+    })
+
+    expect(out.ok && out.bound.args['remindAt']).toBe('2099-01-01T12:00:00.000Z')
+  })
+
+  it('无法解析的时间 -> INVALID_ARGUMENT，reason 带上原值', async () => {
+    // 契约层（SchedulerCreateParams）只钉非空字符串，「今晚八点」这种没解析成
+    // 具体时间的字面值在这里被拦：模型跳过了它该做的那步解析。
+    const out = await bindArguments('scheduler.create', { remindAt: '今晚八点', message: 'x' })
+
+    expect(!out.ok && out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
+    expect(!out.ok && out.reason).toContain('今晚八点')
+  })
+
+  it('过去的时刻 -> REMINDER_TIME_IN_PAST', async () => {
+    const out = await bindArguments('scheduler.create', {
+      remindAt: '1999-01-01T00:00:00.000Z',
+      message: 'x'
+    })
+
+    expect(!out.ok && out.code).toBe(ERROR_CODE.REMINDER_TIME_IN_PAST)
+  })
+
+  it('恰好等于当前时刻也拒：一次性提醒必须在未来', async () => {
+    const nowIso = new Date().toISOString()
+    const out = await bindArguments('scheduler.create', { remindAt: nowIso, message: 'x' })
+
+    expect(!out.ok && out.code).toBe(ERROR_CODE.REMINDER_TIME_IN_PAST)
+  })
+
+  it('缺字段 / 空串 / 类型错 -> INVALID_ARGUMENT', async () => {
+    for (const args of [
+      {},
+      { remindAt: FUTURE },
+      { message: 'x' },
+      { remindAt: '', message: 'x' },
+      { remindAt: FUTURE, message: '' },
+      { remindAt: 123, message: 'x' }
+    ]) {
+      const out = await bindArguments('scheduler.create', args)
+      expect(out.ok, JSON.stringify(args)).toBe(false)
+      expect(!out.ok && out.code, JSON.stringify(args)).toBe(ERROR_CODE.INVALID_ARGUMENT)
+    }
+  })
+
+  it('多余字段被剥掉：hash 不跟着模型塞进来的垃圾变', async () => {
+    const out = await bindArguments('scheduler.create', {
+      remindAt: FUTURE,
+      message: 'x',
+      repeat: 'daily'
+    })
+
+    expect(out.ok && out.bound.args).toEqual({ remindAt: FUTURE, message: 'x' })
+  })
+})
+
 describe('bindArguments：没有绑定器的能力', () => {
   it('registry 里有、执行体没有 -> NOT_IMPLEMENTED', async () => {
     // 与 INVALID_ARGUMENT 分开：前者是「我们还没写」，后者是「你说错了」。
     // 混成一个码之后，TASK-020 落地前 UI 上会把缺功能显示成参数错误。
-    for (const name of ['scheduler.create', 'notification.send']) {
+    // scheduler.create 在 TASK-023 有了绑定器，这里只剩 notification.send（TASK-024）。
+    for (const name of ['notification.send']) {
       const out = await bindArguments(name, {})
       expect(out.ok, name).toBe(false)
       expect(!out.ok && out.code, name).toBe(ERROR_CODE.NOT_IMPLEMENTED)
@@ -410,6 +485,8 @@ describe('bindArguments：没有绑定器的能力', () => {
       ['filesystem.create_dir', { path: join(dir, 'sub', 'deep') }],
       ['filesystem.move', { source: 'a', target: 'b' }],
       ['filesystem.move', { from: 'a', to: 'b' }],
+      ['scheduler.create', { remindAt: '今晚八点', message: 'x' }],
+      ['scheduler.create', { remindAt: '1999-01-01T00:00:00.000Z', message: 'x' }],
       ['nope.nope', {}]
     ]
 

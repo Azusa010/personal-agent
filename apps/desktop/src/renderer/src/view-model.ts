@@ -66,7 +66,8 @@ export const EVENT_LABELS: Readonly<Record<string, string>> = {
   task_failed: '任务失败',
   permission_requested: '请求批准',
   permission_decision: '批准结论',
-  permission_expired: '批准超时'
+  permission_expired: '批准超时',
+  reminder_created: '创建提醒'
 }
 
 // ---- 三、任务状态标签 ----
@@ -237,8 +238,41 @@ export function summarizePayload(type: string, payload: unknown): string {
     case 'permission_expired': {
       return '批准窗口内没有响应'
     }
+    case 'reminder_created': {
+      // TASK-023 的 reminder_created 事件：时间用本地格式渲染，
+      // 「今晚八点」解析成了哪个具体时刻要一眼能看出来。
+      const remindAt = str(record['remindAt'])
+      const message = str(record['message'])
+      const parts: Array<string | null> = [
+        remindAt === null ? null : `提醒时间：${formatOccurredAt(remindAt)}`,
+        message
+      ]
+      return parts.every((p) => p === null) ? fallback(payload) : join(parts)
+    }
     default:
       return fallback(payload)
+  }
+}
+
+// ---- 五点五、scheduler.create 的时间预览 ----
+
+/** 批准面板的时间预览数据源：从 argsCanonical 解析出规范化参数。
+ *
+ *  只对 scheduler.create 生效；argsCanonical 不是合法 JSON 或缺 remindAt 时
+ *  返回 null，Dialog 退回通用展示（参数摘要行仍会原样展示 argsCanonical）。
+ *  message 单独判：缺了它时间预览仍然有意义。 */
+export function describeReminderPreview(permission: {
+  capability: string
+  argsCanonical: string
+}): { remindAt: string; message: string | null } | null {
+  if (permission.capability !== 'scheduler.create') return null
+  try {
+    const args = JSON.parse(permission.argsCanonical) as Record<string, unknown>
+    const remindAt = str(args['remindAt'])
+    if (remindAt === null) return null
+    return { remindAt, message: str(args['message']) }
+  } catch {
+    return null
   }
 }
 

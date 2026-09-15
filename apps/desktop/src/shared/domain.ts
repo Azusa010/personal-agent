@@ -101,6 +101,40 @@ export const TOOL_EXECUTION_STATUSES = ['attempting', 'succeeded', 'failed'] as 
 
 export type ToolExecutionStatus = (typeof TOOL_EXECUTION_STATUSES)[number]
 
+/** Reminder 的四种状态。与 reminders 表 CHECK、protocol 包 ReminderStatus 枚举同源。
+ *
+ *  scheduled = 待触发（重启恢复时重挂 timer，TASK-025）；
+ *  firing = 触发中、通知结果未知；
+ *  fired = 已发送，终态，永不再发；
+ *  failed = 保留失败原因，只允许显式重试。
+ */
+export const REMINDER_STATUSES = ['scheduled', 'firing', 'fired', 'failed'] as const
+
+export type ReminderStatus = (typeof REMINDER_STATUSES)[number]
+
+/** 一次性阅读提醒。一个 Task 至多一条（reminders.task_id UNIQUE），
+ *  重复的 scheduler.create 要么幂等命中（同 idempotencyKey），要么被拒。
+ */
+export interface ReminderRecord {
+  id: string
+  taskId: string
+  /** 创建它的 scheduler.create callId。重试后会是新值，只作诊断，不参与幂等判定 */
+  toolCallId: string
+  /** binder 规范化后的 UTC ISO 触发时间（毫秒三位 + Z）。批准面板展示的就是这个串 */
+  remindAt: string
+  /** 到期通知的正文（PRD 4.8 Reminder 的「通知内容」） */
+  message: string
+  /** scheduler.create:{argsHash}，与 tool_executions 的 key 同构。重试时比对它决定幂等返回还是拒绝 */
+  idempotencyKey: string
+  status: ReminderStatus
+  createdAt: string
+  updatedAt: string
+  /** 翻到 fired 的时刻。null = 还没触发过 */
+  firedAt: string | null
+  /** 翻到 failed 时的原因。null = 没失败过 */
+  failureReason: string | null
+}
+
 /** 一次 WRITE 副作用的幂等执行记录。idempotencyKey = capability + ':' + argsHash
  *  只要移动的是同一批绝对路径，key 不变就命中同一条。
  */

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ShieldAlert } from 'lucide-react'
 import type { PermissionDecision, PermissionRecord } from '../../../shared/ipc-contract'
-import { formatOccurredAt, formatRemaining } from '../view-model'
+import { describeReminderPreview, formatOccurredAt, formatRemaining } from '../view-model'
 import { Button } from './ui/button'
 import {
   Dialog,
@@ -58,6 +58,11 @@ function PermissionBody({
     }
   }
 
+  // scheduler.create 的时间预览（TASK-023 / US-06）：「今晚」被解析成了哪个
+  // 具体时刻，用户在批准前必须看得见——批准的就是这个时刻。null = 其它能力
+  // 或解析失败，退回文件路径展示。
+  const preview = describeReminderPreview(permission)
+
   return (
     <>
       <div className="space-y-2.5">
@@ -65,26 +70,44 @@ function PermissionBody({
           <span className="font-mono text-[12px] text-foreground">{permission.capability}</span>
         </Row>
 
-        <Row label="影响文件">
-          <span className="text-foreground">{permission.sourcePaths.length} 个</span>
-        </Row>
+        {preview === null ? (
+          <>
+            <Row label="影响文件">
+              <span className="text-foreground">{permission.sourcePaths.length} 个</span>
+            </Row>
 
-        {permission.sourcePaths.length > 0 && (
-          <Row label="来源路径">
-            <ul className="m-0 list-none space-y-1 p-0">
-              {permission.sourcePaths.map((path) => (
-                <li key={path} className="font-mono text-[12px] text-foreground">
-                  {path}
-                </li>
-              ))}
-            </ul>
-          </Row>
-        )}
+            {permission.sourcePaths.length > 0 && (
+              <Row label="来源路径">
+                <ul className="m-0 list-none space-y-1 p-0">
+                  {permission.sourcePaths.map((path) => (
+                    <li key={path} className="font-mono text-[12px] text-foreground">
+                      {path}
+                    </li>
+                  ))}
+                </ul>
+              </Row>
+            )}
 
-        {permission.targetPath !== null && (
-          <Row label="目标位置">
-            <span className="font-mono text-[12px] text-foreground">{permission.targetPath}</span>
-          </Row>
+            {permission.targetPath !== null && (
+              <Row label="目标位置">
+                <span className="font-mono text-[12px] text-foreground">
+                  {permission.targetPath}
+                </span>
+              </Row>
+            )}
+          </>
+        ) : (
+          <>
+            <Row label="提醒时间">
+              <span className="text-foreground">{formatOccurredAt(preview.remindAt)}</span>
+            </Row>
+
+            {preview.message !== null && (
+              <Row label="提醒内容">
+                <span className="text-foreground">{preview.message}</span>
+              </Row>
+            )}
+          </>
         )}
 
         <Row label="参数摘要">
@@ -160,7 +183,9 @@ export function PermissionDialog({
             需要你批准
           </DialogTitle>
           <DialogDescription>
-            这个操作会改动授权目录里的文件。路径是规范化之后的绝对路径，批准的就是它。
+            {permission !== null && permission.capability === 'scheduler.create'
+              ? '这个操作会创建一次性提醒。时间是解析之后的具体时刻，批准的就是它。'
+              : '这个操作会改动授权目录里的文件。路径是规范化之后的绝对路径，批准的就是它。'}
           </DialogDescription>
         </DialogHeader>
         {permission !== null && (

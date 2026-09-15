@@ -1,7 +1,9 @@
+import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 
 import { ERROR_CODE, type HostExecuteToolParams } from '@personal-agent/protocol'
 
+import type { ReminderRecord } from '../../shared/domain'
 import {
   createExecutionPolicy,
   type AuthorizedCall,
@@ -9,17 +11,33 @@ import {
   type PermissionGate,
   type TaskStatePort
 } from '../policy/execution-policy'
+import type { SqliteDatabase } from '../product-state/database'
+import type { EventRepository } from '../product-state/event-repository'
+import {
+  ReminderAlreadyExists,
+  type ReminderRepository
+} from '../product-state/reminder-repository'
 import type { ToolExecutionRepository } from '../product-state/tool-execution-repository'
 import { extractPdf } from './document-extract-pdf'
 import { createDir } from './filesystem-create-dir'
 import { listPdfs } from './filesystem-list'
 import { moveFile } from './filesystem-move'
-import { afterExecute, beginAttempt, isWriteCapability, type IdempotencyDeps } from './idempotency'
+import {
+  afterExecute,
+  beginAttempt,
+  idempotencyKey,
+  isWriteCapability,
+  type IdempotencyDeps
+} from './idempotency'
 import { RuleBasedToolRetriever, type ToolRetriever } from './retriever'
 import { resolveRoot } from './roots'
 import type { TaskScope } from './scope'
 
 export type CapabilityOutcome = Record<string, unknown>
+
+/** Reminder 创建成功时与 insert 同事务落库的事件类型（PRD 4.9 reminder.created，
+ *  仓库内命名跟随 permission_requested 的 snake_case 惯例）。 */
+export const REMINDER_CREATED_EVENT = 'reminder_created'
 
 /** 批准通道的集成。 */
 export interface ExecutorPermissionWiring {
@@ -35,12 +53,25 @@ export interface ExecutorIdempotencyWiring {
   readonly now?: () => string
 }
 
+/** Reminder 存储的集成。不传时 scheduler.create 回 NOT_IMPLEMENTED——
+ *  宁可明说没接线，也不半创建状态。db 只用来把 insert 与事件包进同一事务
+ * （Phase 1 规则：ExecutionEvent 与关键 Product State 同事务提交）。
+ */
+export interface ExecutorSchedulerWiring {
+  readonly db: SqliteDatabase
+  readonly reminders: ReminderRepository
+  readonly events: EventRepository
+  readonly now?: () => string
+  readonly newId?: () => string
+}
+
 export function createExecutor(
   scope: TaskScope,
   origin: CallOrigin,
   retriever: ToolRetriever = new RuleBasedToolRetriever(),
   permission?: ExecutorPermissionWiring,
-  idempotency?: ExecutorIdempotencyWiring
+  idempotency?: ExecutorIdempotencyWiring,
+  scheduler?: ExecutorSchedulerWiring
 ): (params: HostExecuteToolParams) => Promise<CapabilityOutcome> {
   const policy = createExecutionPolicy({
     scope,
@@ -57,8 +88,11 @@ export function createExecutor(
     }
     const call = decision.call
     // 没接幂等 store，或不是 WRITE 能力（只读无副作用）→ 直接执行，维持原行为。
+    // scheduler.create 虽是 WRITE 但不进这道关：它的副作用是库内一行而不是
+    // 文件系统，reminders.task_id UNIQUE + 执行体内按 idempotencyKey 比对已经
+    // 覆盖了「同参重试幂等返回、异参拒绝」，没有需要 recovery resolver 复查的中间态。
     if (idempotency === undefined || !isWriteCapability(call.capability.name)) {
-      return runCapability(call)
+      return runCapability(call, scheduler)
     }
     // WRITE 能力过幂等关：执行前查重复决定跑不跑，执行后把 attempting 翻成终态。
     const deps: IdempotencyDeps = { executions: idempotency.executions, now: idempotency.now }
@@ -67,7 +101,7 @@ export function createExecutor(
       // skip（已成功）或 reject（矛盾态）都直接返回结果，不跑副作用。
       return before.result
     }
-    const outcome = await runCapability(call)
+    const outcome = await runCapability(call, scheduler)
     afterExecute(deps, before.key, outcome)
     return outcome
   }
@@ -79,7 +113,10 @@ function fail(code: string, reason: string): CapabilityOutcome {
 
 // 策略已经把注册、Scope、对齐、风险、契约、路径全判完了，这里只做副作用。
 // 所以分支的依据是 descriptor.name（registry 里的真名），不是模型给的字符串。
-async function runCapability(call: AuthorizedCall): Promise<CapabilityOutcome> {
+async function runCapability(
+  call: AuthorizedCall,
+  scheduler?: ExecutorSchedulerWiring
+): Promise<CapabilityOutcome> {
   switch (call.capability.name) {
     case 'filesystem.list':
       return runFilesystemList(call)
@@ -89,6 +126,8 @@ async function runCapability(call: AuthorizedCall): Promise<CapabilityOutcome> {
       return runCreateDir(call)
     case 'filesystem.move':
       return runMove(call)
+    case 'scheduler.create':
+      return runSchedulerCreate(call, scheduler)
     default:
       // BINDERS 与这个 switch 是两张必须同步的表。加了 binder 忘了执行体，
       // 会走到这里而不是崩掉——这是故意留的兜底。
@@ -144,6 +183,84 @@ async function runMove(call: AuthorizedCall): Promise<CapabilityOutcome> {
   } catch (e) {
     return fail(ERROR_CODE.MOVE_FAILED, `移动失败 (${describe(e)}): ${source} -> ${target}`)
   }
+}
+
+/** scheduler.create：在 reminders 表落一条 scheduled 记录，与 reminder_created
+ *  事件同事务提交（PRD 4.9；Phase 1 规则：事件与关键 Product State 同事务）。
+ *
+ *  「同一 Task 不创建重复 Reminder」的判定顺序：
+ *  1. 该任务已有 Reminder 且 idempotencyKey 相同 → 同参重试，幂等返回已有记录
+ *    （created:false），绝不落第二条——崩溃后 Python 重发同一次调用走的就是这条路；
+ *  2. 已有但 key 不同 → 参数变了（新时间/新文案），拒绝并回稳定错误码。
+ *    静默用旧记录冒充成功，等于对用户刚批准的新时间撒谎。
+ */
+function runSchedulerCreate(
+  call: AuthorizedCall,
+  scheduler: ExecutorSchedulerWiring | undefined
+): CapabilityOutcome {
+  if (scheduler === undefined) {
+    return fail(ERROR_CODE.NOT_IMPLEMENTED, 'scheduler.create 没有接线 Reminder 存储')
+  }
+  // binder 已把 remindAt 规范化成 UTC ISO、message 校验过非空，这里直接用。
+  const remindAt = String(call.bound.args['remindAt'])
+  const message = String(call.bound.args['message'])
+  const key = idempotencyKey(call.capability.name, call.bound)
+
+  const existing = scheduler.reminders.findByTaskId(call.taskId)
+  if (existing !== null) {
+    if (existing.idempotencyKey === key) {
+      return {
+        ok: true,
+        reminderId: existing.id,
+        remindAt: existing.remindAt,
+        status: existing.status,
+        created: false
+      }
+    }
+    return fail(
+      ERROR_CODE.REMINDER_ALREADY_EXISTS,
+      `任务 ${call.taskId} 已有 Reminder ${existing.id}（${existing.remindAt}），拒绝再建第二个`
+    )
+  }
+
+  const stamp = scheduler.now?.() ?? new Date().toISOString()
+  const record: ReminderRecord = {
+    id: scheduler.newId?.() ?? randomUUID(),
+    taskId: call.taskId,
+    toolCallId: call.callId,
+    remindAt,
+    message,
+    idempotencyKey: key,
+    status: 'scheduled',
+    createdAt: stamp,
+    updatedAt: stamp,
+    firedAt: null,
+    failureReason: null
+  }
+  try {
+    const commit = scheduler.db.transaction(() => {
+      scheduler.reminders.insert(record)
+      scheduler.events.append({
+        taskId: call.taskId,
+        type: REMINDER_CREATED_EVENT,
+        payload: {
+          reminderId: record.id,
+          toolCallId: record.toolCallId,
+          remindAt: record.remindAt,
+          message: record.message,
+          idempotencyKey: record.idempotencyKey
+        },
+        occurredAt: stamp
+      })
+    })
+    commit()
+  } catch (e) {
+    if (e instanceof ReminderAlreadyExists) {
+      return fail(ERROR_CODE.REMINDER_ALREADY_EXISTS, e.message)
+    }
+    return fail(ERROR_CODE.SCHEDULER_CREATE_FAILED, `Reminder 落库失败 (${describe(e)})`)
+  }
+  return { ok: true, reminderId: record.id, remindAt, status: 'scheduled', created: true }
 }
 
 function describe(e: unknown): string {

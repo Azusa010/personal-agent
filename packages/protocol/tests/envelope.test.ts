@@ -24,6 +24,10 @@ import {
   DocumentExtractPdfResult,
 } from "../schemas/document.js";
 import {
+  SchedulerCreateParams,
+  SchedulerCreateResult,
+} from "../schemas/scheduler.js";
+import {
   MakePlanParams,
   MakePlanRequest,
   MakePlanResponse,
@@ -153,6 +157,26 @@ const legalCases = [
     file: "host-filesystem-move.response.json",
     envelope: HostExecuteToolResponse,
     payload: FilesystemMoveResult,
+    field: "result",
+  },
+  // scheduler.create（TASK-023）：request 钉 remindAt/message 字段名双端一致，
+  // response 钉结果 DTO 形状（reminderId/remindAt/status/created）。
+  {
+    file: "host-scheduler-create.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-scheduler-create.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: SchedulerCreateParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-scheduler-create.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: SchedulerCreateResult,
     field: "result",
   },
   {

@@ -14,6 +14,7 @@ import {
   STATUS_LABELS,
   describeEvent,
   describePlanSteps,
+  describeReminderPreview,
   describeRunOutcome,
   extractFactCount,
   extractFacts,
@@ -103,9 +104,10 @@ describe('describeRunOutcome', () => {
 })
 
 describe('EVENT_LABELS', () => {
-  it('登记的键就是写库方用的九个事件类型，一个不多一个不少', () => {
+  it('登记的键就是写库方用的十个事件类型，一个不多一个不少', () => {
     // 前六个是跨语言契约：Python 写库、TS 读库，字符串来自 engine.py 的 EVENT_*。
-    // 后三个来自 permission-broker 的 PERMISSION_EVENT，写库方是 TS 自己。
+    // 中间三个来自 permission-broker 的 PERMISSION_EVENT，写库方是 TS 自己。
+    // reminder_created 来自 executor.ts 的 REMINDER_CREATED_EVENT（TASK-023）。
     // 任一边改名，timeline 上就会出现没翻译的英文 type。这条测试钉住展示层这一半。
     expect(Object.keys(EVENT_LABELS).sort()).toEqual(
       [
@@ -113,6 +115,7 @@ describe('EVENT_LABELS', () => {
         'permission_decision',
         'permission_expired',
         'permission_requested',
+        'reminder_created',
         'task_completed',
         'task_failed',
         'task_started',
@@ -722,5 +725,82 @@ describe('protocol fixture 交叉验证：Python 发出的 task_completed，TS �
     expect(summarizePayload('task_completed', completed?.payload)).toBe(
       `产出 ${result.facts.length} 条摘要`
     )
+  })
+})
+
+// ---- TASK-023：Reminder 在时间线与批准面板的展示 ----
+
+describe('summarizePayload：reminder_created', () => {
+  it('时间渲染成本地格式 + 通知内容，「今晚」解析成几点要一眼看见', () => {
+    const line = summarizePayload('reminder_created', {
+      reminderId: 'r-1',
+      toolCallId: 'tc-1',
+      remindAt: '2099-01-01T00:00:00.000Z',
+      message: '该读书了'
+    })
+
+    expect(line).toContain('提醒时间：')
+    expect(line).toContain(formatOccurredAt('2099-01-01T00:00:00.000Z'))
+    expect(line).toContain('该读书了')
+  })
+
+  it('缺 remindAt 只显示内容；两者都缺退回原始 payload，不给空行', () => {
+    expect(summarizePayload('reminder_created', { message: '该读书了' })).toBe('该读书了')
+
+    const fallback = summarizePayload('reminder_created', { reminderId: 'r-1' })
+    expect(fallback).toContain('r-1')
+    expect(fallback.trim().length).toBeGreaterThan(0)
+  })
+
+  it('describeEvent 给中文标签「创建提醒」', () => {
+    const view = describeEvent(ev('reminder_created', { remindAt: '2099-01-01T00:00:00.000Z' }))
+    expect(view.label).toBe('创建提醒')
+  })
+})
+
+describe('describeReminderPreview', () => {
+  const canonical = JSON.stringify({
+    remindAt: '2099-01-01T00:00:00.000Z',
+    message: '该读书了'
+  })
+
+  it('scheduler.create + 合法 argsCanonical → 时间与内容', () => {
+    expect(
+      describeReminderPreview({ capability: 'scheduler.create', argsCanonical: canonical })
+    ).toEqual({ remindAt: '2099-01-01T00:00:00.000Z', message: '该读书了' })
+  })
+
+  it('缺 message → remindAt 照常给，message 为 null：时间预览不陪葬', () => {
+    const noMessage = JSON.stringify({ remindAt: '2099-01-01T00:00:00.000Z' })
+    expect(
+      describeReminderPreview({ capability: 'scheduler.create', argsCanonical: noMessage })
+    ).toEqual({ remindAt: '2099-01-01T00:00:00.000Z', message: null })
+  })
+
+  it('非 scheduler.create 一律 null：文件类能力的展示不受影响', () => {
+    expect(
+      describeReminderPreview({
+        capability: 'filesystem.move',
+        argsCanonical: JSON.stringify({ source: 'D:/a.pdf', target: 'D:/Reading/a.pdf' })
+      })
+    ).toBeNull()
+  })
+
+  it('argsCanonical 是脏数据时返回 null 不抛：Dialog 退回通用展示', () => {
+    expect(
+      describeReminderPreview({ capability: 'scheduler.create', argsCanonical: 'not json' })
+    ).toBeNull()
+    expect(
+      describeReminderPreview({
+        capability: 'scheduler.create',
+        argsCanonical: JSON.stringify({ message: 'x' })
+      })
+    ).toBeNull()
+    expect(
+      describeReminderPreview({
+        capability: 'scheduler.create',
+        argsCanonical: JSON.stringify({ remindAt: 42 })
+      })
+    ).toBeNull()
   })
 })

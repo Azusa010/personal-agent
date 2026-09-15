@@ -4,6 +4,7 @@ import {
   FilesystemCreateDirParams,
   FilesystemListParams,
   FilesystemMoveParams,
+  SchedulerCreateParams,
   type CapabilityId
 } from '@personal-agent/protocol'
 
@@ -114,6 +115,39 @@ const bindMove: Binder = async (args) => {
   }
 }
 
+// 时间解析确认（US-06）：「今晚」已由模型解析成具体时间，这里做 host 侧的
+// 最后一公里——能否解析、是否仍在未来。规范化成 UTC ISO（毫秒三位 + Z）后
+// 放进 bound.args：批准面板的 Hash、reminders.remind_at、UI 时间预览用的
+// 都是同一个串，用户在批准面板确认的就是最终落库的那个时刻。
+// 没有路径参数，paths 为空——splitPaths 的 default 分支因此不展示路径区。
+const bindSchedulerCreate: Binder = async (args) => {
+  const parsed = SchedulerCreateParams.safeParse(args)
+  if (!parsed.success) return invalid('scheduler.create', parsed.error.message)
+
+  const remindAt = new Date(parsed.data.remindAt)
+  if (Number.isNaN(remindAt.getTime())) {
+    return {
+      ok: false,
+      code: ERROR_CODE.INVALID_ARGUMENT,
+      reason: `scheduler.create 的 remindAt 无法解析为时间: ${parsed.data.remindAt}`
+    }
+  }
+  const remindAtIso = remindAt.toISOString()
+  // 过去的时刻直接拒：创建即过期的 Reminder 只会立刻触发一次「错过的提醒」，
+  // 几乎必然是模型把相对时间解析错了，稳定错误码让它有机会改口。
+  if (remindAt.getTime() <= Date.now()) {
+    return {
+      ok: false,
+      code: ERROR_CODE.REMINDER_TIME_IN_PAST,
+      reason: `提醒时间 ${remindAtIso} 不晚于当前时间，拒绝创建已到期的 Reminder`
+    }
+  }
+  return {
+    ok: true,
+    bound: { args: { remindAt: remindAtIso, message: parsed.data.message }, paths: {} }
+  }
+}
+
 /** 每个能力的参数绑定器。没有登记的能力回 NOT_IMPLEMENTED：
  *  Scope 放行了却没有执行体，与「模型幻觉出一个不存在的工具」是两件事，
  *  后者在 CAPABILITY_NOT_REGISTERED 就被拦掉了。
@@ -122,7 +156,8 @@ const BINDERS: Partial<Record<CapabilityId, Binder>> = {
   'filesystem.list': bindFilesystemList,
   'document.extract_pdf': bindExtractPdf,
   'filesystem.create_dir': bindCreateDir,
-  'filesystem.move': bindMove
+  'filesystem.move': bindMove,
+  'scheduler.create': bindSchedulerCreate
 }
 
 export async function bindArguments(

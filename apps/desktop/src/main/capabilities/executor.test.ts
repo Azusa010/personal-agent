@@ -300,15 +300,17 @@ describe('executor：永不 throw', () => {
     // kind 写 READ 是为了把「没有执行体」与「需要批准」两件事隔开：
     // WRITE 在接上批准通道之后会先挂起等 permission.respond，这条测试就再也
     // 不会以 NOT_IMPLEMENTED 结束，而是卡在没人响应的 promise 上。
+    // 用 notification.send（TASK-024 前没有绑定器）：scheduler.create 在
+    // TASK-023 有了绑定器，空参数会先撞 INVALID_ARGUMENT。
     const allowAll: ToolRetriever = {
       listVisible: () => [],
       authorize: () => ({
         allowed: true,
-        capability: { name: 'scheduler.create', kind: 'READ', description: 'test' }
+        capability: { name: 'notification.send', kind: 'READ', description: 'test' }
       })
     }
     const permissive = createExecutor(readOnlyScope('task-1'), UI_ORIGIN, allowAll)
-    const out = await permissive(params('scheduler.create', {}))
+    const out = await permissive(params('notification.send', {}))
     expect(out['code']).toBe(ERROR_CODE.NOT_IMPLEMENTED)
   })
 })

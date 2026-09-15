@@ -163,6 +163,47 @@ FilesystemMoveOutcome = Annotated[
 ]
 
 
+# ---- scheduler.create（TASK-023）----
+# Reminder 的四种状态，与 packages/protocol/schemas/scheduler.ts 的 ReminderStatus
+# 及 reminders 表 CHECK 约束同源。scheduled=待触发；firing=触发中；fired=终态；
+# failed=只允许显式重试。
+ReminderStatus = Literal["scheduled", "firing", "fired", "failed"]
+
+
+class SchedulerCreateParams(BaseModel):
+    """remindAt 是模型把「今晚」解析后的具体时间（ISO-8601），message 是通知正文。
+
+    契约层只钉形状；能否解析、是否在未来由 host 侧 binder 判定
+    （REMINDER_TIME_IN_PAST），与 DocumentExtractPdfParams 不校验路径越界同理。
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    remindAt: str = Field(min_length=1)
+    message: str = Field(min_length=1)
+
+
+class SchedulerCreateResult(BaseModel):
+    """created 区分「本次新建」与「命中同任务已有 Reminder 的幂等返回」。
+
+    remindAt 是 binder 规范化后的 UTC ISO（毫秒三位 + Z），与 reminders.remind_at、
+    批准面板展示的时间是同一个串。
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True]
+    reminderId: str = Field(min_length=1)
+    remindAt: str = Field(min_length=1)
+    status: ReminderStatus
+    created: bool
+
+
+SchedulerCreateOutcome = Annotated[
+    SchedulerCreateResult | CapabilityFailure, Field(discriminator="ok")
+]
+
+
 CapabilityKind = Literal["READ", "WRITE"]
 
 
