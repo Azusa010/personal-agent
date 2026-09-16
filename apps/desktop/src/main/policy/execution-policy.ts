@@ -43,7 +43,13 @@ export interface PermissionGate {
     capability: string
     bound: BoundArgs
   }): Promise<PermissionGateOutcome>
-  verify(toolCallId: string, bound: BoundArgs): Promise<PermissionVerifyOutcome>
+  /** 六步验证。按 (taskId, toolCallId) 定位那条权限：callId 只在任务内有意义，
+   *  只按它查会命中别的任务那条。 */
+  verify(lookup: {
+    taskId: string
+    toolCallId: string
+    bound: BoundArgs
+  }): Promise<PermissionVerifyOutcome>
 }
 
 export type PermissionGateOutcome =
@@ -122,7 +128,11 @@ export function createExecutionPolicy(deps: ExecutionPolicyDeps): ExecutionPolic
           return deny(outcome.code, outcome.reason)
         }
 
-        const recheck = await gate.verify(params.callId, bound.bound)
+        const recheck = await gate.verify({
+          taskId: deps.scope.taskId,
+          toolCallId: params.callId,
+          bound: bound.bound
+        })
         if (!recheck.ok) {
           return deny(recheck.code, recheck.reason)
         }

@@ -30,9 +30,10 @@ describe('三层超时链', () => {
   it('字面值钉住：改动必须是有意的', () => {
     expect(PERMISSION_TTL_MS).toBe(300_000)
     expect(HOST_TOOL_TIMEOUT_MS).toBe(305_000)
-    expect(PYTHON_MAX_TOOL_CALLS).toBe(5)
-    expect(MODEL_SLACK_MS).toBe(60_000)
-    expect(RUN_TASK_TIMEOUT_MS).toBe(1_585_000)
+    expect(PYTHON_MAX_TOOL_CALLS).toBe(8)
+    expect(MODEL_SLACK_MS).toBe(120_000)
+    // 8 * 305_000 + 120_000
+    expect(RUN_TASK_TIMEOUT_MS).toBe(2_560_000)
   })
 
   it('RUN_TASK_TIMEOUT_MS 是推导出来的，不是各自硬编码', () => {
@@ -47,7 +48,7 @@ describe('三层超时链', () => {
     expect(RUN_TASK_TIMEOUT_MS).toBeGreaterThan(PYTHON_MAX_TOOL_CALLS * HOST_TOOL_TIMEOUT_MS)
     // 余量留给真实模型的决策时间（Phase 3）：ScriptedModel 决策耗时约 0，
     // 接进来之后每步 2-10 秒 × maxSteps。
-    expect(MODEL_SLACK_MS).toBeGreaterThanOrEqual(60_000)
+    expect(MODEL_SLACK_MS).toBeGreaterThanOrEqual(120_000)
   })
 
   it('必须大于 supervisor 的 defaultTimeoutMs，否则透传没有意义', () => {
@@ -72,6 +73,6 @@ describe('与 Python 侧 Budget 的一致性', () => {
   it('DEFAULT_MAX_STEPS 也钉住：MODEL_SLACK_MS 是按它算的', () => {
     // 步数涨了而余量没跟着涨，RUN_TASK_TIMEOUT_MS 就不够真实模型跑完一轮。
     // 这里不钉公式（每步耗时是估值），只钉「改了必须回头看 MODEL_SLACK_MS」。
-    expect(readDefault('DEFAULT_MAX_STEPS')).toBe(8)
+    expect(readDefault('DEFAULT_MAX_STEPS')).toBe(12)
   })
 })

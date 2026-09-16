@@ -94,6 +94,12 @@ export class PythonSupervisor extends EventEmitter {
   }
 
   // spawn 启动子进程，监听三个管道
+  /** 子进程 pid。null = 还没起或已经退出。
+   *  给「崩溃注入」用：故障回归集里有一条要真的把 Python 杀掉，看任务怎么收场。 */
+  get pid(): number | null {
+    return this.child?.pid ?? null
+  }
+
   start(): void {
     this.crashInfo = null
     this.child = this.spawnFn(this.command, this.args, { cwd: this.cwd, env: this.env })
@@ -196,14 +202,22 @@ export class PythonSupervisor extends EventEmitter {
   // 关闭
   stop(): Promise<void> {
     return new Promise<void>((resolve) => {
-      if (!this.child) return resolve()
+      const child = this.child
+      if (!child) return resolve()
+      // 已经退出过的子进程不会再发 exit 事件：这里必须直接收，否则 stop() 永远挂着。
+      // 崩溃过的进程就是这样——不修的话退出路径卡在 stopRuntime()，
+      // before-quit 里的 app.quit() 永远等不到（build-fix: 故障回归集的崩溃场景逼出来的）。
+      if (child.exitCode !== null || child.signalCode !== null) {
+        this.stopping = true
+        return resolve()
+      }
       this.stopping = true
-      const timer = setTimeout(() => this.child?.kill(), 3000)
-      this.child.once('exit', () => {
+      const timer = setTimeout(() => child.kill(), 3000)
+      child.once('exit', () => {
         clearTimeout(timer)
         resolve()
       })
-      this.child.stdin?.end()
+      child.stdin?.end()
     })
   }
 

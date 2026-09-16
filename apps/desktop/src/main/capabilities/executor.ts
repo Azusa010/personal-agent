@@ -211,7 +211,7 @@ function runSchedulerCreate(
   // binder 已把 remindAt 规范化成 UTC ISO、message 校验过非空，这里直接用。
   const remindAt = String(call.bound.args['remindAt'])
   const message = String(call.bound.args['message'])
-  const key = idempotencyKey(call.capability.name, call.bound)
+  const key = idempotencyKey(call.taskId, call.capability.name, call.bound)
 
   const existing = scheduler.reminders.findByTaskId(call.taskId)
   if (existing !== null) {

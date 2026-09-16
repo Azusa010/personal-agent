@@ -43,8 +43,14 @@ from personal_agent.summary import (
 
 log = logging.getLogger("personal_agent")
 
-DEFAULT_MAX_STEPS = 8
-DEFAULT_MAX_TOOL_CALLS = 5
+# 完整 Golden Path（TASK-028）要 5 次工具调用（list / extract / create_dir / move /
+# scheduler.create）加最后一次摘要决策，而预算是在每次决策**之前**判的：
+# `toolCalls >= maxToolCalls` 一到就停，所以 maxToolCalls 必须大于调用数本身，
+# 否则模型做完第五步就再也没有机会给摘要（TASK-016 那版的 5 只够两步的只读路径）。
+# 给到 8 / 12 是留出重试余量：WRITE 被拒或工具失败时模型要能改口重试，
+# 但仍然有界——预算是这个循环唯一的刹车。
+DEFAULT_MAX_STEPS = 12
+DEFAULT_MAX_TOOL_CALLS = 8
 
 
 EVENT_TASK_STARTED = "task_started"

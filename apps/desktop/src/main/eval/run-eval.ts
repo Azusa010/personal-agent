@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 
-import { executeHostTool, listVisibleCapabilities } from '../capabilities/host-executor'
+import { executeHostTool, listReadOnlyCapabilities } from '../capabilities/host-executor'
 import { ROOT_ENV } from '../capabilities/roots'
 import { migrate, openProductState, type SqliteDatabase } from '../product-state/database'
 import { SqliteEventRepository } from '../product-state/event-repository'
@@ -130,7 +130,10 @@ async function runOneCase(
     args: options.runtime.args,
     cwd: options.runtime.cwd,
     env: childEnv(options.mode, scriptPath),
-    capabilities: listVisibleCapabilities(),
+    // 只读清单（TASK-028 起计划按可见能力伸缩）：这一层量的是「读文档、给带页码的
+    // 摘要」，不该被交付物闸口要求「文件已移动、Reminder 已创建」。少给三个 WRITE，
+    // Python 的计划就是三步，闸口的要求跟着一起收窄。
+    capabilities: listReadOnlyCapabilities(),
     hostHandler: executeHostTool
   })
   try {

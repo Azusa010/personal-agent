@@ -61,10 +61,22 @@ INSTRUCTIONS = """你是 Personal Agent 的执行器，负责完成用户交给�
 2. 给出最终摘要：
    {"kind": "summary", "facts": [{"text": "<一条结论>", "pageRefs": [<页码>]}]}
 
+整理任务的完整路径（按这个顺序做完，再给摘要）：
+1. filesystem.list：列出 Downloads 下的 PDF，挑出目标文件；
+2. document.extract_pdf：提取它的每页文本；
+3. filesystem.create_dir：在 Downloads 下创建 Reading 目录（已存在也无害）；
+4. filesystem.move：把选中的 PDF 移到 Reading 目录下；
+5. scheduler.create：建一条一次性阅读提醒，remindAt 用未来时刻的 ISO-8601
+   （例如当前时间往后一小时），message 写清提醒什么；
+6. 最后给出摘要。
+
+写操作会让用户看到批准面板：调用会挂起，直到用户批准或拒绝。被拒绝时你会拿到
+ok=false 与原因，按它调整（例如换个目标路径）或继续下一步。
+
 摘要的硬要求：
 - 每条 fact 必须带 pageRefs，页码只能来自你真的提取过的页面，不许推测或编造；
 - 结论要来自页面文本，不要复述任务目标；
-- 已经提取过页面文本就不要再提取同一份文件，直接给摘要。"""
+- 已经提取过页面文本就不要再提取同一份文件，直接走后面的步骤。"""
 
 
 class LiveModel:

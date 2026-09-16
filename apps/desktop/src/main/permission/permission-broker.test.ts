@@ -671,7 +671,11 @@ describe('broker.verify：组装入参', () => {
   })
 
   it('库里没这个 callId 时走第 1 步', async () => {
-    const result = await broker!.verify('tc-never-asked', moveInput().bound)
+    const result = await broker!.verify({
+      taskId: TASK_ID,
+      toolCallId: 'tc-never-asked',
+      bound: moveInput().bound
+    })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe(ERROR_CODE.PERMISSION_REQUIRED)
   })
@@ -682,7 +686,11 @@ describe('broker.verify：组装入参', () => {
     broker!.respond('perm-1', 'approved')
     await waiting
 
-    expect(await broker!.verify('tc-move', moveInput().bound)).toEqual({ ok: true })
+    expect(
+      await broker!.verify({ taskId: TASK_ID, toolCallId: 'tc-move', bound: moveInput().bound })
+    ).toEqual({
+      ok: true
+    })
   })
 
   it('批准后换了参数再验，被拦', async () => {
@@ -691,10 +699,11 @@ describe('broker.verify：组装入参', () => {
     broker!.respond('perm-1', 'approved')
     await waiting
 
-    const result = await broker!.verify(
-      'tc-move',
-      moveBound(`${posixRoot}/a.pdf`, `${posixRoot}/Reading/changed.pdf`)
-    )
+    const result = await broker!.verify({
+      taskId: TASK_ID,
+      toolCallId: 'tc-move',
+      bound: moveBound(`${posixRoot}/a.pdf`, `${posixRoot}/Reading/changed.pdf`)
+    })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.code).toBe(ERROR_CODE.PERMISSION_TAMPERED)
   })
@@ -706,6 +715,10 @@ describe('broker.verify：组装入参', () => {
     broker!.respond('perm-1', 'approved')
     await waiting
 
-    expect(await broker!.verify('tc-move', moveInput().bound)).toEqual({ ok: true })
+    expect(
+      await broker!.verify({ taskId: TASK_ID, toolCallId: 'tc-move', bound: moveInput().bound })
+    ).toEqual({
+      ok: true
+    })
   })
 })

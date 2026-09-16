@@ -24,8 +24,10 @@ export class PermissionAlreadyDecided extends Error {
 export interface PermissionRepository {
   insert(permission: PermissionRecord): void
   findById(id: string): PermissionRecord | null
-  /** tool_call_id 上有 UNIQUE 约束，最多一条 */
-  findByToolCallId(toolCallId: string): PermissionRecord | null
+  /** (task_id, tool_call_id) 上有 UNIQUE 约束，最多一条。
+   *  tool_call_id 只在任务内有意义（模型每次都从 call-1 数起），所以查询也必须
+   *  带 taskId——只按 callId 查会命中别的任务那条权限。 */
+  findByTaskAndToolCall(taskId: string, toolCallId: string): PermissionRecord | null
   /** 该任务的全部 Permission，按 requested_at 升序 */
   findByTaskId(taskId: string): PermissionRecord[]
   /** 写结论。同一结论重复调用幂等返回，不同结论抛 PermissionAlreadyDecided */
@@ -84,7 +86,8 @@ const INSERT_SQL = `
           @status, @requestedAt, @expiresAt, @decidedAt, @sourcePaths, @targetPath)
 `
 const SELECT_BY_ID_SQL = `SELECT ${COLUMNS} FROM permissions WHERE id = ?`
-const SELECT_BY_TOOL_CALL_ID_SQL = `SELECT ${COLUMNS} FROM permissions WHERE tool_call_id = ?`
+const SELECT_BY_TASK_AND_TOOL_CALL_SQL = `SELECT ${COLUMNS} FROM permissions
+  WHERE task_id = ? AND tool_call_id = ?`
 const SELECT_BY_TASK_ID_SQL = `SELECT ${COLUMNS} FROM permissions
   WHERE task_id = ? ORDER BY requested_at ASC, id ASC`
 const DECIDE_SQL = `UPDATE permissions SET status = @status, decided_at = @decidedAt WHERE id = @id`
@@ -103,8 +106,8 @@ export class SqlitePermissionRepository implements PermissionRepository {
     return row ? toRecord(row) : null
   }
 
-  findByToolCallId(toolCallId: string): PermissionRecord | null {
-    const row = this.db.prepare(SELECT_BY_TOOL_CALL_ID_SQL).get(toolCallId) as
+  findByTaskAndToolCall(taskId: string, toolCallId: string): PermissionRecord | null {
+    const row = this.db.prepare(SELECT_BY_TASK_AND_TOOL_CALL_SQL).get(taskId, toolCallId) as
       PermissionRow | undefined
     return row ? toRecord(row) : null
   }

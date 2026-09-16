@@ -19,9 +19,18 @@ async function safeStat(path: string): Promise<Stats | undefined> {
 }
 
 // ---------- 1. 幂等键 ----------
-/** 从能力名与绑定参数算出稳定的幂等键，格式固定为 `capability:argsHash`。 */
-export function idempotencyKey(capability: string, bound: BoundArgs): string {
-  return `${capability}:${fingerprintArguments(bound).hash}`
+/**
+ * 从任务、能力名与绑定参数算出稳定的幂等键，格式固定为 `taskId:capability:argsHash`。
+ *
+ * 带 taskId 是必须的：「同一副作用只执行一次」是**任务内**的承诺，两个任务参数恰好
+ * 相同不是重复（reminders 那边不设 UNIQUE 也是这个口径）。而 tool_executions 的主键
+ * 就是这把键——不带 taskId 时，第二个任务只要是同一份文件、同一个目标，就会在 INSERT
+ * 上撞主键；就算不撞，命中的也是别的任务的记录，本次操作会被静默跳过。
+ *
+ * 键里带 taskId 还让排查时一眼看得出这条登记属于哪个任务。
+ */
+export function idempotencyKey(taskId: string, capability: string, bound: BoundArgs): string {
+  return `${taskId}:${capability}:${fingerprintArguments(bound).hash}`
 }
 
 // ---------- 2. 崩溃恢复判定 ----------
@@ -133,7 +142,7 @@ export async function beginAttempt(
   call: AuthorizedCall
 ): Promise<BeforeDecision> {
   const capability = call.capability.name
-  const key = idempotencyKey(capability, call.bound)
+  const key = idempotencyKey(call.taskId, capability, call.bound)
   const existing = deps.executions.findByKey(key)
   const stamp = (): string => deps.now?.() ?? new Date().toISOString()
   const sideEffects = extractSideEffects(capability, call.bound)

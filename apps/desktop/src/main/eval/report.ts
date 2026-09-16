@@ -14,9 +14,11 @@ import { ModelUsagePayload } from './observation'
  * 将来改形状时靠版本号区分新旧报告，而不是靠"看起来差不多"。
  */
 
-/** 固定文案：写清这一轮测的是哪条链路，读报告的人不必回头翻代码 */
+/** 固定文案：写清这一轮测的是哪条链路，读报告的人不必回头翻代码。
+ *  TASK-028 起计划按可见能力伸缩，所以这里点明是「只读配置」——报告里的成功率
+ *  只覆盖读链路，完整 Golden Path（移动 + Reminder）在 e2e/golden-path.test.ts 里验。 */
 export const REPORT_SCOPE =
-  '只读链路 filesystem.list → document.extract_pdf → summary；不改动授权根内容，不涉及 WRITE 能力与权限批准'
+  '只读配置：握手只下发 filesystem.list 与 document.extract_pdf（计划因此是三步），量的是文档摘要；不改动授权根内容，不涉及 WRITE 能力与权限批准'
 
 const EvalGateSchema = z.object({
   id: z.string().min(1),

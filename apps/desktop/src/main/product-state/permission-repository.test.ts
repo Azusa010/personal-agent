@@ -105,18 +105,39 @@ describe('SqlitePermissionRepository', () => {
     expect(repo.findById('不存在')).toBeNull()
   })
 
-  it('findByToolCallId 命中与不命中', () => {
+  it('findByTaskAndToolCall 命中与不命中', () => {
     const repo = makeRepo()
     repo.insert(permission('p-1', { toolCallId: 'call-abc' }))
-    expect(repo.findByToolCallId('call-abc')?.id).toBe('p-1')
-    expect(repo.findByToolCallId('call-没这个')).toBeNull()
+    expect(repo.findByTaskAndToolCall('t-1', 'call-abc')?.id).toBe('p-1')
+    expect(repo.findByTaskAndToolCall('t-1', 'call-没这个')).toBeNull()
   })
 
-  it('同一个 toolCallId 插第二条被 UNIQUE 拒', () => {
+  it('同一任务里同名 callId 插第二条被 UNIQUE 拒', () => {
     const repo = makeRepo()
     repo.insert(permission('p-1', { toolCallId: 'call-abc' }))
     expect(() => repo.insert(permission('p-2', { toolCallId: 'call-abc' }))).toThrow(/UNIQUE/)
-    expect(repo.findByToolCallId('call-abc')?.id).toBe('p-1')
+    expect(repo.findByTaskAndToolCall('t-1', 'call-abc')?.id).toBe('p-1')
+  })
+
+  it('换个任务，同名 callId 是另一条权限（UNIQUE 按任务域，TASK-028）', () => {
+    // callId 来自模型这一次决策（call-1、call-2……），换个任务又从头数：
+    // 全局 UNIQUE 会让第二个任务在批准这一步直接崩。
+    const repo = makeRepo()
+    // 权限的 task_id 有外键，先把这个任务建出来
+    new SqliteTaskRepository(db as SqliteDatabase).insert({
+      id: 't-2',
+      goal: '再整理一次',
+      status: 'running',
+      createdAt: '2026-09-13T00:00:00.000Z',
+      updatedAt: '2026-09-13T00:00:00.000Z'
+    })
+    repo.insert(permission('p-1', { toolCallId: 'call-abc' }))
+
+    expect(() =>
+      repo.insert(permission('p-2', { taskId: 't-2', toolCallId: 'call-abc' }))
+    ).not.toThrow()
+    expect(repo.findByTaskAndToolCall('t-1', 'call-abc')?.id).toBe('p-1')
+    expect(repo.findByTaskAndToolCall('t-2', 'call-abc')?.id).toBe('p-2')
   })
 
   it('findByTaskId 按 requestedAt 升序，且只返回该任务的', () => {

@@ -154,9 +154,11 @@ def test_not_registered_code_matches_ts_registry():
 
 
 def test_budget_defaults():
+    # TASK-028：完整 Golden Path 是 5 次工具调用 + 1 次摘要决策，而预算在每次决策
+    # 之前判（>= 就停），所以上限必须大于调用数本身。这两个数是余量，不是精确值。
     budget = Budget()
-    assert budget.maxSteps == DEFAULT_MAX_STEPS == 8
-    assert budget.maxToolCalls == DEFAULT_MAX_TOOL_CALLS == 5
+    assert budget.maxSteps == DEFAULT_MAX_STEPS == 12
+    assert budget.maxToolCalls == DEFAULT_MAX_TOOL_CALLS == 8
 
 
 def test_budget_rejects_zero_and_negative():
@@ -175,9 +177,9 @@ def test_now_occurred_at_matches_contract_pattern():
 
 def test_budget_exceeded_is_or_not_and():
     engine, *_ = make_engine([], [])
-    assert engine._budget_exceeded(8, 0) is True
-    assert engine._budget_exceeded(0, 5) is True
-    assert engine._budget_exceeded(7, 4) is False
+    assert engine._budget_exceeded(DEFAULT_MAX_STEPS, 0) is True
+    assert engine._budget_exceeded(0, DEFAULT_MAX_TOOL_CALLS) is True
+    assert engine._budget_exceeded(DEFAULT_MAX_STEPS - 1, DEFAULT_MAX_TOOL_CALLS - 1) is False
     assert engine._budget_exceeded(0, 0) is False
 
 

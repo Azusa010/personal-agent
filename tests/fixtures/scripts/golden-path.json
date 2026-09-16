@@ -12,6 +12,30 @@
     "arguments": { "path": "{{DOWNLOADS_ROOT}}/three-page-text.pdf" }
   },
   {
+    "kind": "tool_call",
+    "callId": "c-3",
+    "capability": "filesystem.create_dir",
+    "arguments": { "path": "{{DOWNLOADS_ROOT}}/Reading" }
+  },
+  {
+    "kind": "tool_call",
+    "callId": "c-4",
+    "capability": "filesystem.move",
+    "arguments": {
+      "source": "{{DOWNLOADS_ROOT}}/three-page-text.pdf",
+      "target": "{{DOWNLOADS_ROOT}}/Reading/three-page-text.pdf"
+    }
+  },
+  {
+    "kind": "tool_call",
+    "callId": "c-5",
+    "capability": "scheduler.create",
+    "arguments": {
+      "remindAt": "{{REMIND_AT}}",
+      "message": "读一份刚整理好的 PDF：three-page-text.pdf"
+    }
+  },
+  {
     "kind": "summary",
     "facts": [
       { "text": "第一页的正文是 PersonalAgent fixture page one", "pageRefs": [1] },

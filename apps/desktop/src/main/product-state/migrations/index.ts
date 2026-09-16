@@ -6,6 +6,7 @@ import { M0004_CREATE_PERMISSIONS } from './0004-create-permissions'
 import { M0005_WIDEN_TASK_STATUS } from './0005-widen-task-status-check'
 import { M0006_CREATE_TOOL_EXECUTIONS } from './0006-create-tool-executions'
 import { M0007_CREATE_REMINDERS } from './0007-create-reminders'
+import { M0008_SCOPE_PERMISSION_UNIQUE_BY_TASK } from './0008-scope-permission-unique-by-task'
 
 export type { Migration }
 
@@ -16,5 +17,6 @@ export const MIGRATIONS: Migration[] = [
   M0004_CREATE_PERMISSIONS,
   M0005_WIDEN_TASK_STATUS,
   M0006_CREATE_TOOL_EXECUTIONS,
-  M0007_CREATE_REMINDERS
+  M0007_CREATE_REMINDERS,
+  M0008_SCOPE_PERMISSION_UNIQUE_BY_TASK
 ]

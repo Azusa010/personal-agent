@@ -32,7 +32,12 @@ import { reconcileOrphanTasks } from './tasks/reconcile'
 import { realVerificationPorts } from './verification/ports'
 import { verifyTaskCompletion } from './verification/verify-task'
 import icon from '../../resources/icon.png?asset'
-import { executeCapability } from './capabilities/host-executor'
+import { configureHostExecutor, executeCapability } from './capabilities/host-executor'
+import { ElectronNotificationAdapter } from './notifications/windows-notification'
+import { fireReminder, type FireOutcome } from './scheduler/fire-reminder'
+import { recoverReminders } from './scheduler/recover-reminders'
+import { ReminderTimerService } from './scheduler/reminder-timer'
+import type { ReminderRecord } from '../shared/domain'
 
 const PRELOAD_PATH = join(__dirname, '../preload/index.js')
 
@@ -125,6 +130,53 @@ app.whenReady().then(() => {
     })
   } catch (err) {
     console.error('[permission] broker 构造失败，批准通道不可用', err)
+  }
+
+  // 提醒链路与 WRITE 能力的生产接线（TASK-024/025 的组件在 TASK-028 接到启动路径上）。
+  //
+  // 一次做完三件事：通知端口 → 定时器与启动恢复 → 把权限/幂等/调度三组依赖交给
+  // host-executor。少了最后一环，agent 那条的 WRITE 能力会永远停在
+  // PERMISSION_REQUIRED——组件都在，只是没人把它们接上。
+  try {
+    const store = getStore()
+    const reminders = new SqliteReminderRepository(store)
+    const events = new SqliteEventRepository(store)
+    const notifications = new ElectronNotificationAdapter()
+    // timer 到点与启动补发共用同一个「发送一次并记录结果」编排（fire-reminder.ts）。
+    const fire = (reminder: ReminderRecord): Promise<FireOutcome> =>
+      fireReminder(reminder, { db: store, reminders, events, notifications })
+    const timer = new ReminderTimerService({ fire })
+
+    configureHostExecutor({
+      // broker 为 null（库没打开）时整组不接：那时 WRITE 会被拒，
+      // 与「批准面板不可用」是同一种看得见的失败，不静默放行。
+      permission:
+        permissionBroker === null
+          ? undefined
+          : { gate: permissionBroker, tasks: new SqliteTaskRepository(store) },
+      idempotency: { executions: new SqliteToolExecutionRepository(store) },
+      scheduler: {
+        db: store,
+        reminders,
+        events,
+        notifications,
+        armTimer: (reminder) => timer.arm(reminder)
+      }
+    })
+
+    // 启动恢复：扫 reminders 按四状态分流（重挂未来的 / 补发错过的 / 有发送证据只补记 /
+    // 终态原样保留）。失败不中断启动——它只影响提醒，不该挡住窗口。
+    void recoverReminders({ reminders, events, arm: (r) => timer.arm(r), fire }).then(
+      (outcomes) => {
+        const acted = outcomes.filter((o) => o.kind !== 'skipped')
+        if (acted.length > 0) {
+          console.warn(`[scheduler] 启动恢复处置了 ${acted.length} 条 Reminder`)
+        }
+      },
+      (err) => console.error('[scheduler] 启动恢复失败', err)
+    )
+  } catch (err) {
+    console.error('[scheduler] 提醒链路接线失败，Reminder 不会触发', err)
   }
 
   // IPC test

@@ -298,6 +298,32 @@ itReal(
   15000
 )
 
+itReal(
+  '真实 spawn Python:崩溃过的进程 stop() 也立刻返回，不挂在 exit 上',
+  async () => {
+    // 子进程已经退出时不会再有 exit 事件，stop() 若只等 exit 就永远挂着——
+    // 退出路径会卡在 stopRuntime()，before-quit 里的 app.quit() 等不到。
+    // 故障回归集的崩溃场景（TASK-028）先是在 afterEach 里超时才发现这一点。
+    const sup = new PythonSupervisor({
+      command: venvPy,
+      args: ['-m', 'personal_agent'],
+      capabilities: [],
+      cwd: runtimeCwd
+    })
+    sup.start()
+    await sup.request('system.ping')
+
+    const pid = sup.pid
+    expect(pid, '拿不到子进程 pid').not.toBeNull()
+    const crashed = new Promise<void>((resolve) => sup.once('runtime.crashed', () => resolve()))
+    process.kill(pid as number)
+    await crashed
+
+    await sup.stop()
+  },
+  15000
+)
+
 // ----- 片 2b：反向 RPC（Python → TS）-----
 describe('PythonSupervisor ~ 片 2b (host.execute_tool)', () => {
   interface Reply {

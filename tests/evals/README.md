@@ -45,8 +45,11 @@ live 模式的报告写在 `tests/evals/reports/live-<时间戳>.json`，形状�
 
 ## 边界
 
-- **只读链路**：`filesystem.list → document.extract_pdf → summary`。不改动授权根内容，
-  不涉及 WRITE 能力与权限批准（那条链路在 TASK-026 的 Golden Path E2E 与安全矩阵里）。
+- **只读配置**：握手只下发 `filesystem.list` 与 `document.extract_pdf`，于是 Python
+  的计划就是三步（`planning.make_plan` 随可见能力伸缩），交付物闸口也只要求摘要——
+  这一层量的是「读文档、给带页码的摘要」，不改动授权根内容。完整 Golden Path
+  （批准 + 建目录 + 移动 + Reminder + 通知到点）在 `e2e/golden-path.test.ts` 里验，
+  故障收场在 `e2e/failure-regression.test.ts` 里验。
 - **延迟**量的是任务本身的墙钟，不含进程启动与工作区物化：那两项是常量开销，
   计进去会淹没 scripted 模式的读数。
 - live 模式每条 case 一个子进程，一条崩了不会污染下一条；scripted 模式同样一条一进程，

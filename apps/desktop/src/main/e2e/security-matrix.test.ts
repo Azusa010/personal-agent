@@ -224,7 +224,7 @@ function seedExecution(
   const source = bound.paths['source']
   const target = bound.paths['target'] ?? bound.paths['path'] ?? null
   const record: ToolExecutionRecord = {
-    idempotencyKey: idempotencyKey(capability, bound),
+    idempotencyKey: idempotencyKey(TASK_ID, capability, bound),
     taskId: TASK_ID,
     toolCallId: 'call-crash',
     capability,
@@ -391,7 +391,11 @@ describe('Allow：批准精确执行一次，READ 不弹 Permission', () => {
     expect(out['ok']).toBe(true)
     expect(await exists(join(dir, 'a.pdf'))).toBe(false)
     expect(await readFile(join(dir, 'Reading', 'a.pdf'), 'utf-8')).toBe('BYTES')
-    const key = idempotencyKey('filesystem.move', moveBound(rp('a.pdf'), rp('Reading', 'a.pdf')))
+    const key = idempotencyKey(
+      TASK_ID,
+      'filesystem.move',
+      moveBound(rp('a.pdf'), rp('Reading', 'a.pdf'))
+    )
     expect(execRepo.findByKey(key)?.status).toBe('succeeded')
   })
 })
@@ -576,7 +580,11 @@ describe('Retry：重复响应与重复执行都只产生一次副作用', () =>
   it('同参数、不同 callId 重复执行 → 第二次幂等 skip，只移动一次', async () => {
     await mkdir(join(dir, 'Reading'))
     await writeFile(join(dir, 'a.pdf'), 'BYTES')
-    const key = idempotencyKey('filesystem.move', moveBound(rp('a.pdf'), rp('Reading', 'a.pdf')))
+    const key = idempotencyKey(
+      TASK_ID,
+      'filesystem.move',
+      moveBound(rp('a.pdf'), rp('Reading', 'a.pdf'))
+    )
 
     const first = await drive(
       params('tc-retry-1', 'filesystem.move', {
@@ -626,7 +634,11 @@ describe('Crash：崩溃恢复不重复副作用', () => {
     expect(out['idempotent']).toBe(true)
     expect(await readFile(join(dir, 'Reading', 'a.pdf'), 'utf-8')).toBe('ALREADY-MOVED')
     expect(await exists(join(dir, 'a.pdf'))).toBe(false)
-    const key = idempotencyKey('filesystem.move', moveBound(rp('a.pdf'), rp('Reading', 'a.pdf')))
+    const key = idempotencyKey(
+      TASK_ID,
+      'filesystem.move',
+      moveBound(rp('a.pdf'), rp('Reading', 'a.pdf'))
+    )
     expect(execRepo.findByKey(key)?.status).toBe('succeeded')
   })
 
@@ -644,7 +656,7 @@ describe('Crash：崩溃恢复不重复副作用', () => {
     expect(out['ok']).toBe(true)
     expect(out['idempotent']).toBe(true)
     expect((await stat(join(dir, 'Reading'))).isDirectory()).toBe(true)
-    const key = idempotencyKey('filesystem.create_dir', dirBound(rp('Reading')))
+    const key = idempotencyKey(TASK_ID, 'filesystem.create_dir', dirBound(rp('Reading')))
     expect(execRepo.findByKey(key)?.status).toBe('succeeded')
   })
 })

@@ -164,12 +164,12 @@ describe('migrate', () => {
       insert.run('t-4', 'g', 'running', '2026-09-06T00:00:00Z', '2026-09-06T00:00:00Z')
     ).not.toThrow()
   })
-  it('全量 migration 应用后：user_version = 7，六张表都在', () => {
+  it('全量 migration 应用后：user_version = 8，六张表都在', () => {
     const db = openProductState(MEMORY_DB)
     memDb = db
 
-    expect(migrate(db, MIGRATIONS)).toEqual([1, 2, 3, 4, 5, 6, 7])
-    expect(version(db)).toBe(7)
+    expect(migrate(db, MIGRATIONS)).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
+    expect(version(db)).toBe(8)
     expect(tables(db)).toEqual(
       expect.arrayContaining([
         'tasks',
@@ -312,9 +312,9 @@ describe('migration 0005：重建 tasks 表放宽 CHECK', () => {
     memDb = db
     seedAtV4(db)
 
-    expect(migrate(db, MIGRATIONS)).toEqual([5, 6, 7])
+    expect(migrate(db, MIGRATIONS)).toEqual([5, 6, 7, 8])
 
-    expect(version(db)).toBe(7)
+    expect(version(db)).toBe(8)
     expect(db.prepare('SELECT id, goal, status, updated_at FROM tasks').all()).toEqual([
       {
         id: 't-1',

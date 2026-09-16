@@ -104,8 +104,8 @@ function makeGate(
           resolve = r
         })
       },
-      verify: (toolCallId, bound) => {
-        verifyCalls.push([toolCallId, bound])
+      verify: (lookup) => {
+        verifyCalls.push([lookup.toolCallId, lookup.bound])
         return Promise.resolve(opts.verify ?? { ok: true })
       }
     }

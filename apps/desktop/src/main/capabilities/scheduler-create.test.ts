@@ -153,7 +153,7 @@ describe('scheduler.create：批准后创建', () => {
 
     const bound: BoundArgs = { args: { remindAt: REMIND_AT, message: MESSAGE }, paths: {} }
     expect(reminderRepo.findByTaskId(TASK_ID)?.idempotencyKey).toBe(
-      idempotencyKey('scheduler.create', bound)
+      idempotencyKey(TASK_ID, 'scheduler.create', bound)
     )
   })
 

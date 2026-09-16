@@ -49,6 +49,8 @@ class ExplodingModel:
         raise RuntimeError("模型适配器炸了")
 
 
+# 握手时下发的清单要与 Main 侧 listVisibleCapabilities() 同形：完整性由 e2e 侧
+# 的断言钉（那里能拿到真的 registry），这里够 planning.make_plan 用即可。
 CAPABILITIES = [
     {
         "name": "filesystem.list",
@@ -59,6 +61,21 @@ CAPABILITIES = [
         "name": EXTRACT_PDF_CAPABILITY,
         "kind": "READ",
         "description": "提取 PDF 的逐页文本",
+    },
+    {
+        "name": "filesystem.create_dir",
+        "kind": "WRITE",
+        "description": "在授权根目录下创建子目录",
+    },
+    {
+        "name": "filesystem.move",
+        "kind": "WRITE",
+        "description": "在授权根目录内移动文件",
+    },
+    {
+        "name": "scheduler.create",
+        "kind": "WRITE",
+        "description": "创建 Reminder",
     },
 ]
 
@@ -129,18 +146,20 @@ def deps_with_factory(factory):
 def write_script(tmp_path, payload=None):
     """把剧本落盘。payload 传字符串就是写坏文件用的。"""
     if payload is None:
-        payload = [d.model_dump() for d in golden_path()]
+        payload = [d.model_dump() for d in read_only_script()]
     text = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)
     path = tmp_path / "script.json"
     path.write_text(text, encoding="utf-8")
     return path
 
 
-def golden_path():
-    """TASK-013 Validation 要求的 list→extract→summary 三步。
+def read_only_script():
+    """runtime 层测试用的三步剧本：list→extract→summary。
 
-    以前只有两步（list 之后直接 summary），摘要不核页码所以看不出缺。
-    参照集合到位之后，没调 extract_pdf 就没有任何合法页码可引。
+    完整 Golden Path（TASK-028 的 fixture 那份还带 create_dir / move /
+    scheduler.create）在 test_runtime 里跑不出差别：runtime 只负责把决策喂给
+    engine、把 host 结果收回来，WRITE 那三步的判定全在 Main 侧。要验完整链路
+    得看 e2e/golden-path.test.ts。
     """
     return [
         ToolCallDecision(
@@ -216,10 +235,7 @@ def test_initialize_stores_capabilities_into_deps():
     deps = deps_with()
     assert deps.capabilities == []
     handle_line(initialize_line(), deps)
-    assert [c.name for c in deps.capabilities] == [
-        "filesystem.list",
-        EXTRACT_PDF_CAPABILITY,
-    ]
+    assert [c.name for c in deps.capabilities] == EXPECTED_PLAN_CAPABILITIES
     assert isinstance(deps.capabilities[0], CapabilityDescriptor)
 
 
@@ -254,7 +270,7 @@ def test_run_task_without_model_returns_model_not_configured():
 
 def test_run_task_invalid_params_returns_protocol_error():
     resp = handle_line(
-        run_task_line(goal=""), deps_with(golden_path())
+        run_task_line(goal=""), deps_with(read_only_script())
     )
     assert resp["error"]["code"] == "PROTOCOL_INVALID_REQUEST"
 
@@ -268,7 +284,7 @@ def test_run_task_missing_goal_returns_protocol_error():
             "params": {"taskId": "task-001"},
         }
     )
-    resp = handle_line(line, deps_with(golden_path()))
+    resp = handle_line(line, deps_with(read_only_script()))
     assert resp["error"]["code"] == "PROTOCOL_INVALID_REQUEST"
 
 
@@ -282,7 +298,7 @@ def test_run_task_unexpected_error_returns_runtime_internal():
 
 
 def test_run_task_returns_envelope_that_matches_contract():
-    deps = deps_with(golden_path())
+    deps = deps_with(read_only_script())
     handle_line(initialize_line(), deps)
     resp = handle_line(run_task_line(), deps)
 
@@ -297,21 +313,21 @@ def test_run_task_returns_envelope_that_matches_contract():
 def test_run_task_capabilities_from_initialize_reach_model():
     # Exit Checklist 第 3 条的活体验证：initialize 下发的清单要一路走到
     # ModelContext.visibleCapabilities，中间不能断也不能多。
-    factory = RecordingFactory(golden_path())
+    factory = RecordingFactory(read_only_script())
     deps = deps_with_factory(factory)
     handle_line(initialize_line(), deps)
     handle_line(run_task_line(), deps)
 
     assert factory.instances[0].receivedContexts
     for ctx in factory.instances[0].receivedContexts:
-        assert ctx.visibleCapabilities == ["filesystem.list", EXTRACT_PDF_CAPABILITY]
+        assert ctx.visibleCapabilities == EXPECTED_PLAN_CAPABILITIES
         assert ctx.taskGoal == "整理 Downloads 里的 PDF"
 
 
 def test_run_task_without_initialize_gives_model_no_capabilities():
     # 没握手就跑任务不是错误，但模型什么工具都看不到，
     # 自然会在预算里耗尽 —— 不需要额外拦一道。
-    factory = RecordingFactory(golden_path())
+    factory = RecordingFactory(read_only_script())
     deps = deps_with_factory(factory)
     resp = handle_line(run_task_line(), deps)
     RunTaskResponse.model_validate(resp)
@@ -320,7 +336,7 @@ def test_run_task_without_initialize_gives_model_no_capabilities():
 
 
 def test_run_task_events_do_not_carry_task_id():
-    deps = deps_with(golden_path())
+    deps = deps_with(read_only_script())
     handle_line(initialize_line(), deps)
     resp = handle_line(run_task_line(task_id="task-777"), deps)
 
@@ -333,7 +349,7 @@ def test_run_task_events_do_not_carry_task_id():
 
 
 def test_run_task_uses_a_fresh_context_per_task():
-    factory = RecordingFactory(golden_path())
+    factory = RecordingFactory(read_only_script())
     deps = deps_with_factory(factory)
     handle_line(initialize_line(), deps)
     handle_line(run_task_line(req_id="40"), deps)
@@ -406,7 +422,7 @@ def test_filesystem_list_is_not_a_python_method():
 def test_run_task_twenty_times_in_a_row_all_complete():
     # 三步剧本配一个实例只够跑一次。这条钉的是每任务换一个工厂产物，
     # 存实例的话第 2 次就开始 ScriptExhausted，20 次里 19 次失败。
-    deps = deps_with(golden_path())
+    deps = deps_with(read_only_script())
     handle_line(initialize_line(), deps)
 
     statuses = [
@@ -420,7 +436,7 @@ def test_run_task_twenty_times_in_a_row_all_complete():
 def test_run_task_twenty_times_facts_are_identical_every_round():
     # 确定性链路的意思不只是「都跑完」，还有「每次结果一样」。
     # 游标或 observations 泄漏会让后面的轮次拿到不同的上下文，fact 就飘了。
-    deps = deps_with(golden_path())
+    deps = deps_with(read_only_script())
     handle_line(initialize_line(), deps)
 
     facts = [
@@ -432,7 +448,7 @@ def test_run_task_twenty_times_facts_are_identical_every_round():
 
 
 def test_model_factory_is_called_exactly_once_per_task():
-    factory = RecordingFactory(golden_path())
+    factory = RecordingFactory(read_only_script())
     deps = deps_with_factory(factory)
     handle_line(initialize_line(), deps)
     handle_line(run_task_line(req_id="40"), deps)
@@ -509,26 +525,60 @@ def test_resolve_model_factory_reads_the_repo_fixture(monkeypatch):
     factory = resolve_model_factory()
 
     assert factory is not None
-    assert factory().remaining == 3
+    assert factory().remaining == 6
 
 
-def test_fixture_script_is_the_read_only_golden_path():
+def test_fixture_script_is_the_full_golden_path():
     decisions = load_script(FIXTURE_SCRIPT)
 
-    assert [d.kind for d in decisions] == ["tool_call", "tool_call", "summary"]
-    assert decisions[0].capability == "filesystem.list"
-    assert decisions[1].capability == EXTRACT_PDF_CAPABILITY
+    assert [d.kind for d in decisions] == ["tool_call"] * 5 + ["summary"]
+    # 能力顺序必须与 planning.PLAN_REQUIREMENTS 逐字一致：Main 侧 ActionAlignment
+    # 按序号比对，顺序错了第一个 WRITE 调用就会被拒。
+    assert [d.capability for d in decisions[:5]] == [
+        "filesystem.list",
+        EXTRACT_PDF_CAPABILITY,
+        "filesystem.create_dir",
+        "filesystem.move",
+        "scheduler.create",
+    ]
     # 页码只能用 1/2/3：固定 PDF 就三页，引用到第 4 页会被 SummaryVerifier 拒掉。
-    assert decisions[2].facts[0]["pageRefs"] == [1]
-    assert decisions[2].facts[1]["pageRefs"] == [2, 3]
+    assert decisions[5].facts[0]["pageRefs"] == [1]
+    assert decisions[5].facts[1]["pageRefs"] == [2, 3]
+
+
+def test_fixture_script_keeps_the_path_and_time_placeholders():
+    """剧本里的路径与提醒时间都是占位符，由跑的人现场替换。
+
+    提醒时间是**必须是**占位符：写死一个绝对时刻的话，binder 的
+    REMINDER_TIME_IN_PAST 会在过期那天把整条链路变红（而且只在未来某天红）。
+    """
+    raw = FIXTURE_SCRIPT.read_text(encoding="utf-8")
+    assert "{{DOWNLOADS_ROOT}}" in raw
+    assert "{{REMIND_AT}}" in raw
+
+    decisions = load_script(FIXTURE_SCRIPT)
+    create_dir = decisions[2]
+    move = decisions[3]
+    reminder = decisions[4]
+    assert create_dir.arguments["path"].endswith("/Reading")
+    assert move.arguments["source"].endswith("/three-page-text.pdf")
+    assert move.arguments["target"].endswith("/Reading/three-page-text.pdf")
+    assert reminder.arguments["remindAt"] == "{{REMIND_AT}}"
 
 
 # ---- agent.make_plan ----
-EXPECTED_PLAN_CAPABILITIES = ["filesystem.list", EXTRACT_PDF_CAPABILITY]
+# 与 planning.PLAN_REQUIREMENTS 同源；握手下发的能力清单（CAPABILITIES）必须覆盖它。
+EXPECTED_PLAN_CAPABILITIES = [
+    "filesystem.list",
+    EXTRACT_PDF_CAPABILITY,
+    "filesystem.create_dir",
+    "filesystem.move",
+    "scheduler.create",
+]
 
 
-def test_make_plan_returns_the_three_step_plan_after_initialize():
-    deps = deps_with(golden_path())
+def test_make_plan_returns_the_full_golden_path_after_initialize():
+    deps = deps_with(read_only_script())
     handle_line(initialize_line(), deps)
 
     out = handle_line(make_plan_line(), deps)
@@ -538,12 +588,15 @@ def test_make_plan_returns_the_three_step_plan_after_initialize():
     assert [s["description"] for s in steps] == [
         "列出 Downloads 下的 PDF",
         "提取目标 PDF 的每页文本",
+        "在 Downloads 下创建 Reading 目录",
+        "把选中的 PDF 移到 Reading",
+        "创建一次性阅读提醒",
         "基于页面内容生成带页码引用的摘要",
     ]
 
 
 def test_make_plan_response_matches_the_contract():
-    deps = deps_with(golden_path())
+    deps = deps_with(read_only_script())
     handle_line(initialize_line(), deps)
 
     MakePlanResponse.model_validate(handle_line(make_plan_line(), deps))
@@ -551,13 +604,13 @@ def test_make_plan_response_matches_the_contract():
 
 def test_make_plan_summary_step_has_no_capability_key_at_all():
     """zod 的 optional 不收 null，所以这里不能只是值为 None，键必须不存在。"""
-    deps = deps_with(golden_path())
+    deps = deps_with(read_only_script())
     handle_line(initialize_line(), deps)
 
     steps = handle_line(make_plan_line(), deps)["result"]["steps"]
 
-    assert "capability" not in steps[2]
-    assert json.dumps(steps[2], ensure_ascii=False).find("capability") == -1
+    assert "capability" not in steps[-1]
+    assert json.dumps(steps[-1], ensure_ascii=False).find("capability") == -1
 
 
 def test_make_plan_does_not_need_a_model():
@@ -568,11 +621,11 @@ def test_make_plan_does_not_need_a_model():
     out = handle_line(make_plan_line(), deps)
 
     assert "error" not in out
-    assert len(out["result"]["steps"]) == 3
+    assert len(out["result"]["steps"]) == len(EXPECTED_PLAN_CAPABILITIES) + 1
 
 
 def test_make_plan_is_deterministic_across_calls():
-    deps = deps_with(golden_path())
+    deps = deps_with(read_only_script())
     handle_line(initialize_line(), deps)
 
     first = handle_line(make_plan_line(), deps)["result"]
@@ -583,7 +636,7 @@ def test_make_plan_is_deterministic_across_calls():
 
 def test_make_plan_without_initialize_returns_plan_not_buildable():
     """没握手就没有可见能力清单，计划不该凭空承诺两个 READ。"""
-    out = handle_line(make_plan_line(), deps_with(golden_path()))
+    out = handle_line(make_plan_line(), deps_with(read_only_script()))
 
     assert out["error"]["code"] == PLAN_NOT_BUILDABLE
 
@@ -597,7 +650,7 @@ def test_make_plan_without_deps_returns_plan_not_buildable():
 def test_make_plan_error_names_the_missing_capability():
     """只说「建不出来」没用：得知道是 Scope 少了哪个能力。"""
     only_list = [CAPABILITIES[0]]
-    deps = deps_with(golden_path())
+    deps = deps_with(read_only_script())
     handle_line(initialize_line(capabilities=only_list), deps)
 
     out = handle_line(make_plan_line(), deps)
@@ -607,7 +660,7 @@ def test_make_plan_error_names_the_missing_capability():
 
 
 def test_make_plan_invalid_params_returns_protocol_error():
-    deps = deps_with(golden_path())
+    deps = deps_with(read_only_script())
     handle_line(initialize_line(), deps)
     line = json.dumps(
         {
@@ -625,7 +678,7 @@ def test_make_plan_invalid_params_returns_protocol_error():
 
 def test_make_plan_wrong_version_initialize_does_not_leak_capabilities():
     """握手版本不对时 deps.capabilities 不会被写，计划也就建不出来。"""
-    deps = deps_with(golden_path())
+    deps = deps_with(read_only_script())
     handle_line(initialize_line(version="9.9"), deps)
 
     out = handle_line(make_plan_line(), deps)

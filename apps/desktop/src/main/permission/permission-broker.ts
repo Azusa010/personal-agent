@@ -63,8 +63,9 @@ export interface PermissionBroker {
   request(input: PermissionRequestInput): Promise<PermissionOutcome>
   /** UI 的批准/拒绝。同结论重复调用无副作用 */
   respond(permissionId: string, decision: PermissionDecision): RespondResult
-  /** 执行前的六步验证。委托给 verifyPermission */
-  verify(toolCallId: string, bound: BoundArgs): Promise<PermissionVerifyResult>
+  /** 执行前的六步验证。委托给 verifyPermission。
+   *  按 (taskId, toolCallId) 取记录：callId 只在任务内有意义，只按它查会命中别的任务那条。 */
+  verify(input: PermissionVerifyLookup): Promise<PermissionVerifyResult>
   /** 库里属于这个任务的全部 Permission，带上过期投影 */
   listForTask(
     taskId: string,
@@ -232,9 +233,9 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
       return { ok: true, permission: decided, repeated: false }
     },
 
-    async verify(toolCallId, bound) {
+    async verify({ taskId, toolCallId, bound }) {
       return verifyPermission({
-        permission: deps.permissions.findByToolCallId(toolCallId),
+        permission: deps.permissions.findByTaskAndToolCall(taskId, toolCallId),
         fingerprint: fingerprintArguments(bound),
         toolCallId,
         now: now(),
@@ -256,8 +257,15 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
   }
 }
 
+/** 六步验证的定位三元组：任务、调用、绑定参数。三者缺一都可能命中别人的权限。 */
+export interface PermissionVerifyLookup {
+  readonly taskId: string
+  readonly toolCallId: string
+  readonly bound: BoundArgs
+}
+
 export interface PermissionVerifyInput {
-  /** 按 toolCallId 查出来的记录。null = 库里根本没有这条 */
+  /** 按 (taskId, toolCallId) 查出来的记录。null = 库里根本没有这条 */
   readonly permission: PermissionRecord | null
   /** 执行前重算的指纹，来自 fingerprintArguments(bound) */
   readonly fingerprint: ArgumentFingerprint

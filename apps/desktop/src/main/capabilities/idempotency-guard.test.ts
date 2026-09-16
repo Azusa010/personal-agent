@@ -91,7 +91,7 @@ function moveCall(source: string, target: string, callId = 'call-1'): Authorized
 }
 
 function moveKey(source: string, target: string): string {
-  return idempotencyKey('filesystem.move', moveCall(source, target).bound)
+  return idempotencyKey('t-1', 'filesystem.move', moveCall(source, target).bound)
 }
 
 /** 往 store 里塞一条已登记的执行记录，key 与 moveCall 算出的一致（beginAttempt 才命中得了）。
