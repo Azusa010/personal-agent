@@ -66,16 +66,16 @@ F --> K["摘要验证<br/>summary.verify_summary()"]
 
 图表来源
 - [__main__.py:1-5](file://services/agent-runtime/src/personal_agent/__main__.py#L1-L5)
-- [runtime.py:226-245](file://services/agent-runtime/src/personal_agent/runtime.py#L226-L245)
-- [runtime.py:67-91](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L91)
-- [engine.py:76-195](file://services/agent-runtime/src/personal_agent/engine.py#L76-L195)
+- [runtime.py:238-257](file://services/agent-runtime/src/personal_agent/runtime.py#L238-L257)
+- [runtime.py:69-93](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L93)
+- [engine.py:85-238](file://services/agent-runtime/src/personal_agent/engine.py#L85-L238)
 - [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
 - [context.py:45-79](file://services/agent-runtime/src/personal_agent/context.py#L45-L79)
 - [summary.py:55-85](file://services/agent-runtime/src/personal_agent/summary.py#L55-L85)
 
 章节来源
 - [__main__.py:1-5](file://services/agent-runtime/src/personal_agent/__main__.py#L1-L5)
-- [runtime.py:226-245](file://services/agent-runtime/src/personal_agent/runtime.py#L226-L245)
+- [runtime.py:238-257](file://services/agent-runtime/src/personal_agent/runtime.py#L238-L257)
 
 ## 核心组件
 - 运行时（Runtime）
@@ -97,9 +97,9 @@ F --> K["摘要验证<br/>summary.verify_summary()"]
   - 校验模型给出的事实是否包含有效页码引用，且可追溯到实际提取页面
 
 章节来源
-- [runtime.py:47-91](file://services/agent-runtime/src/personal_agent/runtime.py#L47-L91)
-- [engine.py:67-195](file://services/agent-runtime/src/personal_agent/engine.py#L67-L195)
-- [model_gateway.py:6-59](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L59)
+- [runtime.py:49-93](file://services/agent-runtime/src/personal_agent/runtime.py#L49-L93)
+- [engine.py:76-238](file://services/agent-runtime/src/personal_agent/engine.py#L76-L238)
+- [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L100)
 - [host_channel.py:18-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L18-L91)
 - [context.py:45-79](file://services/agent-runtime/src/personal_agent/context.py#L45-L79)
 - [planning.py:25-45](file://services/agent-runtime/src/personal_agent/planning.py#L25-L45)
@@ -139,8 +139,8 @@ RT-->>Main : "Response envelope"
 ```
 
 图表来源
-- [runtime.py:67-182](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L182)
-- [engine.py:89-151](file://services/agent-runtime/src/personal_agent/engine.py#L89-L151)
+- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
+- [engine.py:98-171](file://services/agent-runtime/src/personal_agent/engine.py#L98-L171)
 - [host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
 - [host.ts:28-67](file://packages/protocol/schemas/host.ts#L28-L67)
 
@@ -171,13 +171,13 @@ Dispatch --> Unknown["返回 METHOD_NOT_FOUND"]
 ```
 
 图表来源
-- [runtime.py:94-104](file://services/agent-runtime/src/personal_agent/runtime.py#L94-L104)
-- [runtime.py:67-91](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L91)
-- [runtime.py:107-182](file://services/agent-runtime/src/personal_agent/runtime.py#L107-L182)
+- [runtime.py:96-106](file://services/agent-runtime/src/personal_agent/runtime.py#L96-L106)
+- [runtime.py:69-93](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L93)
+- [runtime.py:109-184](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L184)
 
 章节来源
-- [runtime.py:67-182](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L182)
-- [runtime.py:185-245](file://services/agent-runtime/src/personal_agent/runtime.py#L185-L245)
+- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
+- [runtime.py:187-257](file://services/agent-runtime/src/personal_agent/runtime.py#L187-L257)
 
 ### Agent 引擎（AgentEngine）—— 主循环与预算控制
 - 预算维度：步骤数与工具调用次数两维上限，任一达到即触发预算耗尽事件并失败
@@ -215,11 +215,11 @@ AgentEngine --> Observation : "产出/消费"
 ```
 
 图表来源
-- [engine.py:67-195](file://services/agent-runtime/src/personal_agent/engine.py#L67-L195)
+- [engine.py:76-238](file://services/agent-runtime/src/personal_agent/engine.py#L76-L238)
 
 章节来源
-- [engine.py:67-195](file://services/agent-runtime/src/personal_agent/engine.py#L67-L195)
-- [test_engine.py:134-176](file://services/agent-runtime/tests/test_engine.py#L134-L176)
+- [engine.py:76-238](file://services/agent-runtime/src/personal_agent/engine.py#L76-L238)
+- [test_engine.py:138-182](file://services/agent-runtime/tests/test_engine.py#L138-L182)
 
 ### 模型网关与脚本化模型（ModelGateway & ScriptedModel）
 - 模型抽象：ModelGateway.decide(context) 返回 ToolCallDecision 或 SummaryDecision
@@ -243,12 +243,12 @@ Note over SM : "游标++，用尽抛 ScriptExhausted"
 
 图表来源
 - [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/scripted_model.py#L18-L57)
-- [runtime.py:206-223](file://services/agent-runtime/src/personal_agent/runtime.py#L206-L223)
+- [runtime.py:208-235](file://services/agent-runtime/src/personal_agent/runtime.py#L208-L235)
 
 章节来源
-- [model_gateway.py:6-59](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L59)
+- [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L100)
 - [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/scripted_model.py#L18-L57)
-- [runtime.py:206-223](file://services/agent-runtime/src/personal_agent/runtime.py#L206-L223)
+- [runtime.py:208-235](file://services/agent-runtime/src/personal_agent/runtime.py#L208-L235)
 
 ### Host 通道（HostChannel）—— 工具执行与响应路由
 - 请求格式：构造 HostExecuteToolRequest（jsonrpc 2.0），写入 stdout
@@ -342,14 +342,14 @@ HC --> HS["host.ts (zod schemas)"]
 ```
 
 图表来源
-- [runtime.py:67-182](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L182)
-- [engine.py:76-195](file://services/agent-runtime/src/personal_agent/engine.py#L76-L195)
+- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
+- [engine.py:85-238](file://services/agent-runtime/src/personal_agent/engine.py#L85-L238)
 - [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
 - [host.ts:28-67](file://packages/protocol/schemas/host.ts#L28-L67)
 
 章节来源
-- [runtime.py:67-182](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L182)
-- [engine.py:76-195](file://services/agent-runtime/src/personal_agent/engine.py#L76-L195)
+- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
+- [engine.py:85-238](file://services/agent-runtime/src/personal_agent/engine.py#L85-L238)
 - [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
 - [host.ts:28-67](file://packages/protocol/schemas/host.ts#L28-L67)
 
@@ -381,12 +381,12 @@ HC --> HS["host.ts (zod schemas)"]
   - 在测试中替换 Channel 与 Model，定位问题层次
 
 章节来源
-- [runtime.py:63-91](file://services/agent-runtime/src/personal_agent/runtime.py#L63-L91)
-- [runtime.py:107-182](file://services/agent-runtime/src/personal_agent/runtime.py#L107-L182)
-- [engine.py:148-195](file://services/agent-runtime/src/personal_agent/engine.py#L148-L195)
+- [runtime.py:65-93](file://services/agent-runtime/src/personal_agent/runtime.py#L65-L93)
+- [runtime.py:109-184](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L184)
+- [engine.py:168-238](file://services/agent-runtime/src/personal_agent/engine.py#L168-L238)
 - [host_channel.py:18-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L18-L91)
-- [test_runtime.py:161-605](file://services/agent-runtime/tests/test_runtime.py#L161-L605)
-- [test_engine.py:134-616](file://services/agent-runtime/tests/test_engine.py#L134-L616)
+- [test_runtime.py:162-634](file://services/agent-runtime/tests/test_runtime.py#L162-L634)
+- [test_engine.py:138-732](file://services/agent-runtime/tests/test_engine.py#L138-L732)
 
 ## 结论
 该 Python 运行时以简洁的 JSON-RPC 行式 I/O 为核心，结合明确的组件边界与严格的契约校验，实现了稳定的 Agent 执行环境。通过预算控制、上下文截断与摘要验证，保障了任务的可控性与结果的可追溯性。模型适配器以工厂模式解耦，便于未来接入真实模型。HostChannel 将工具执行委托给宿主，保持 Python 侧专注编排与治理。整体架构清晰、可测试性强，适合持续演进。
@@ -404,6 +404,6 @@ HC --> HS["host.ts (zod schemas)"]
   - 请求/响应：严格遵循 jsonrpc 2.0 信封，result 与 error 互斥
 
 章节来源
-- [engine.py:44-65](file://services/agent-runtime/src/personal_agent/engine.py#L44-L65)
+- [engine.py:46-74](file://services/agent-runtime/src/personal_agent/engine.py#L46-L74)
 - [host.ts:7-14](file://packages/protocol/schemas/host.ts#L7-L14)
 - [host.ts:40-67](file://packages/protocol/schemas/host.ts#L40-L67)

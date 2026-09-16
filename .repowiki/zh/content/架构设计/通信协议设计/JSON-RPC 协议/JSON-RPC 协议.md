@@ -48,13 +48,13 @@ A --> D["能力处理器<br/>hostHandler(由主进程注入)"]
 
 图表来源
 - [python-supervisor.ts:96-120](file://apps/desktop/src/main/runtime/python-supervisor.ts#L96-L120)
-- [runtime.py:185-244](file://services/agent-runtime/src/personal_agent/runtime.py#L185-L244)
+- [runtime.py:187-256](file://services/agent-runtime/src/personal_agent/runtime.py#L187-L256)
 - [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
 
 章节来源
 - [envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
 - [models.py:1-368](file://services/agent-runtime/src/personal_agent/protocol/models.py#L1-L368)
-- [runtime.py:67-182](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L182)
+- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
 - [python-supervisor.ts:122-194](file://apps/desktop/src/main/runtime/python-supervisor.ts#L122-L194)
 
 ## 核心组件
@@ -92,7 +92,7 @@ P-->>M : "agent.run_task 最终结果(facts, events)"
 
 图表来源
 - [python-supervisor.ts:122-194](file://apps/desktop/src/main/runtime/python-supervisor.ts#L122-L194)
-- [runtime.py:107-182](file://services/agent-runtime/src/personal_agent/runtime.py#L107-L182)
+- [runtime.py:109-184](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L184)
 - [host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
 
 ## 详细组件分析
@@ -107,7 +107,7 @@ P-->>M : "agent.run_task 最终结果(facts, events)"
 章节来源
 - [envelope.ts:5-40](file://packages/protocol/schemas/envelope.ts#L5-L40)
 - [models.py:14-38](file://services/agent-runtime/src/personal_agent/protocol/models.py#L14-L38)
-- [runtime.py:107-123](file://services/agent-runtime/src/personal_agent/runtime.py#L107-L123)
+- [runtime.py:109-125](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L125)
 
 ### 系统方法
 - system.initialize：主进程向 Python 发送初始化参数（协议版本、能力清单、客户端信息），Python 返回 InitializeResult（协议版本、服务器信息）。
@@ -115,7 +115,7 @@ P-->>M : "agent.run_task 最终结果(facts, events)"
 
 章节来源
 - [initialize.request.json:1-22](file://packages/protocol/fixtures/initialize.request.json#L1-L22)
-- [runtime.py:75-123](file://services/agent-runtime/src/personal_agent/runtime.py#L75-L123)
+- [runtime.py:77-125](file://services/agent-runtime/src/personal_agent/runtime.py#L77-L125)
 - [models.py:64-162](file://services/agent-runtime/src/personal_agent/protocol/models.py#L64-L162)
 
 ### Agent 方法
@@ -124,7 +124,7 @@ P-->>M : "agent.run_task 最终结果(facts, events)"
 
 章节来源
 - [agent.ts:4-138](file://packages/protocol/schemas/agent.ts#L4-L138)
-- [runtime.py:126-182](file://services/agent-runtime/src/personal_agent/runtime.py#L126-L182)
+- [runtime.py:128-184](file://services/agent-runtime/src/personal_agent/runtime.py#L128-L184)
 - [models.py:264-320](file://services/agent-runtime/src/personal_agent/protocol/models.py#L264-L320)
 
 ### 宿主能力调用（host.execute_tool）
@@ -160,8 +160,8 @@ P-->>M : "agent.run_task 最终结果(facts, events)"
 - 子进程崩溃：主进程拒绝后续请求并上报 runtime.crashed 事件。
 
 章节来源
-- [runtime.py:63-91](file://services/agent-runtime/src/personal_agent/runtime.py#L63-L91)
-- [runtime.py:156-182](file://services/agent-runtime/src/personal_agent/runtime.py#L156-L182)
+- [runtime.py:65-93](file://services/agent-runtime/src/personal_agent/runtime.py#L65-L93)
+- [runtime.py:158-184](file://services/agent-runtime/src/personal_agent/runtime.py#L158-L184)
 - [python-supervisor.ts:150-194](file://apps/desktop/src/main/runtime/python-supervisor.ts#L150-L194)
 - [python-supervisor.ts:244-300](file://apps/desktop/src/main/runtime/python-supervisor.ts#L244-L300)
 - [python-supervisor.ts:318-331](file://apps/desktop/src/main/runtime/python-supervisor.ts#L318-L331)
@@ -241,7 +241,7 @@ HostExecuteToolResponse --> HostExecuteToolResult : "包含"
 - 子进程崩溃：监听 runtime.crashed 事件，重启子进程并重试。
 
 章节来源
-- [runtime.py:107-182](file://services/agent-runtime/src/personal_agent/runtime.py#L107-L182)
+- [runtime.py:109-184](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L184)
 - [python-supervisor.ts:122-194](file://apps/desktop/src/main/runtime/python-supervisor.ts#L122-L194)
 - [python-supervisor.ts:318-331](file://apps/desktop/src/main/runtime/python-supervisor.ts#L318-L331)
 

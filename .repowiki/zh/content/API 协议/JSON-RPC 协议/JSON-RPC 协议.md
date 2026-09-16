@@ -69,7 +69,7 @@ SCHEMA_TS --- FIXTURES
 
 **图表来源**
 - [apps/desktop/src/main/runtime/python-supervisor.ts:97-342](file://apps/desktop/src/main/runtime/python-supervisor.ts#L97-L342)
-- [services/agent-runtime/src/personal_agent/runtime.py:67-182](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L182)
+- [services/agent-runtime/src/personal_agent/runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
 - [services/agent-runtime/src/personal_agent/host_channel.py:36-90](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L90)
 - [packages/protocol/schemas/envelope.ts:5-40](file://packages/protocol/schemas/envelope.ts#L5-L40)
 - [packages/protocol/schemas/host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
@@ -80,7 +80,7 @@ SCHEMA_TS --- FIXTURES
 - [packages/protocol/schemas/envelope.ts:5-40](file://packages/protocol/schemas/envelope.ts#L5-L40)
 - [packages/protocol/schemas/host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
 - [packages/protocol/schemas/agent.ts:4-138](file://packages/protocol/schemas/agent.ts#L4-L138)
-- [services/agent-runtime/src/personal_agent/runtime.py:67-182](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L182)
+- [services/agent-runtime/src/personal_agent/runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
 - [apps/desktop/src/main/runtime/python-supervisor.ts:97-342](file://apps/desktop/src/main/runtime/python-supervisor.ts#L97-L342)
 
 ## 核心组件
@@ -94,7 +94,7 @@ SCHEMA_TS --- FIXTURES
 - [packages/protocol/schemas/envelope.ts:5-40](file://packages/protocol/schemas/envelope.ts#L5-L40)
 - [packages/protocol/schemas/host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
 - [packages/protocol/schemas/agent.ts:4-138](file://packages/protocol/schemas/agent.ts#L4-L138)
-- [services/agent-runtime/src/personal_agent/runtime.py:67-182](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L182)
+- [services/agent-runtime/src/personal_agent/runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
 - [apps/desktop/src/main/runtime/python-supervisor.ts:97-342](file://apps/desktop/src/main/runtime/python-supervisor.ts#L97-L342)
 - [packages/protocol/schemas/errors.ts:1-30](file://packages/protocol/schemas/errors.ts#L1-L30)
 - [apps/desktop/src/main/runtime/error-code.ts:1-18](file://apps/desktop/src/main/runtime/error-code.ts#L1-L18)
@@ -132,7 +132,7 @@ PY-->>PS : 返回 RunTaskResult(completed/failed)
 **图表来源**
 - [apps/desktop/src/main/runtime/python-supervisor.ts:123-147](file://apps/desktop/src/main/runtime/python-supervisor.ts#L123-L147)
 - [apps/desktop/src/main/runtime/python-supervisor.ts:244-300](file://apps/desktop/src/main/runtime/python-supervisor.ts#L244-L300)
-- [services/agent-runtime/src/personal_agent/runtime.py:107-182](file://services/agent-runtime/src/personal_agent/runtime.py#L107-L182)
+- [services/agent-runtime/src/personal_agent/runtime.py:109-184](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L184)
 - [services/agent-runtime/src/personal_agent/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
 
 ## 详细组件分析
@@ -225,12 +225,12 @@ PY-->>TS : RunTaskResult{status, facts/events 或 reason/events}
 **图表来源**
 - [packages/protocol/schemas/agent.ts:7-138](file://packages/protocol/schemas/agent.ts#L7-L138)
 - [services/agent-runtime/src/personal_agent/protocol/models.py:264-368](file://services/agent-runtime/src/personal_agent/protocol/models.py#L264-L368)
-- [services/agent-runtime/src/personal_agent/runtime.py:126-182](file://services/agent-runtime/src/personal_agent/runtime.py#L126-L182)
+- [services/agent-runtime/src/personal_agent/runtime.py:128-184](file://services/agent-runtime/src/personal_agent/runtime.py#L128-L184)
 
 **章节来源**
 - [packages/protocol/schemas/agent.ts:7-138](file://packages/protocol/schemas/agent.ts#L7-L138)
 - [services/agent-runtime/src/personal_agent/protocol/models.py:264-368](file://services/agent-runtime/src/personal_agent/protocol/models.py#L264-L368)
-- [services/agent-runtime/src/personal_agent/runtime.py:126-182](file://services/agent-runtime/src/personal_agent/runtime.py#L126-L182)
+- [services/agent-runtime/src/personal_agent/runtime.py:128-184](file://services/agent-runtime/src/personal_agent/runtime.py#L128-L184)
 
 ### 主机能力：文件系统与 PDF 处理
 - 文件系统：list（只读）、create_dir（写）、move（写），参数通过 arguments 传递，结果按能力定义返回。
@@ -283,13 +283,13 @@ HC --> PS
 **图表来源**
 - [apps/desktop/src/main/capabilities/registry.ts:9-55](file://apps/desktop/src/main/capabilities/registry.ts#L9-L55)
 - [apps/desktop/src/main/runtime/python-supervisor.ts:97-342](file://apps/desktop/src/main/runtime/python-supervisor.ts#L97-L342)
-- [services/agent-runtime/src/personal_agent/runtime.py:67-182](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L182)
+- [services/agent-runtime/src/personal_agent/runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
 - [services/agent-runtime/src/personal_agent/host_channel.py:36-90](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L90)
 
 **章节来源**
 - [apps/desktop/src/main/capabilities/registry.ts:9-55](file://apps/desktop/src/main/capabilities/registry.ts#L9-L55)
 - [apps/desktop/src/main/runtime/python-supervisor.ts:97-342](file://apps/desktop/src/main/runtime/python-supervisor.ts#L97-L342)
-- [services/agent-runtime/src/personal_agent/runtime.py:67-182](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L182)
+- [services/agent-runtime/src/personal_agent/runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
 - [services/agent-runtime/src/personal_agent/host_channel.py:36-90](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L90)
 
 ## 性能考虑
@@ -312,7 +312,7 @@ HC --> PS
 - [apps/desktop/src/main/runtime/python-supervisor.ts:123-147](file://apps/desktop/src/main/runtime/python-supervisor.ts#L123-L147)
 - [apps/desktop/src/main/runtime/python-supervisor.ts:150-194](file://apps/desktop/src/main/runtime/python-supervisor.ts#L150-L194)
 - [apps/desktop/src/main/runtime/python-supervisor.ts:244-300](file://apps/desktop/src/main/runtime/python-supervisor.ts#L244-L300)
-- [services/agent-runtime/src/personal_agent/runtime.py:67-91](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L91)
+- [services/agent-runtime/src/personal_agent/runtime.py:69-93](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L93)
 - [services/agent-runtime/src/personal_agent/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
 
 ## 结论

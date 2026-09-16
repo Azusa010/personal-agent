@@ -20,3 +20,24 @@ node .repowiki/tools/check-anchors.mjs
 行号必须对**当前工作区**文件成立：并行会话的未提交改动会让行数变动，所以先落代码、再改 wiki，跑校验才准。
 
 替换锚点时别用 `sed`/`perl` 直接改半边（中文路径在 Git Bash 下还会打不开）：用 Node 脚本按「整条链接」一起替换，改完立刻跑一遍本脚本。
+
+## reanchor.mjs
+
+源文件行数一变，wiki 里指向它的锚点就整片失效——手工改不现实（TASK-027 一轮就有 545 条要动）。这个脚本按**行号位移**批量重锚：
+
+```bash
+# 先看（不改盘）：<基准> 用上一次 docs(repowiki) 提交
+node .repowiki/tools/reanchor.mjs <base-rev>
+
+# 确认后落盘，再跑一次结构校验
+node .repowiki/tools/reanchor.mjs <base-rev> --write
+node .repowiki/tools/check-anchors.mjs
+```
+
+做三件事：
+
+1. 扫所有锚点，对每个被引用的源文件用 `git diff -U0 <base> HEAD -- <path>` 的 hunk 算行号位移（纯插入挂在该行之后；改写型 hunk 用「该 hunk 之前」的累计位移）；
+2. **只比区间首尾两行**：区间内部新增代码是正常的（锚点覆盖的函数长大了），首尾对不上才说明这段锚点不再指着原来那个构造——那几处打出来人工看；
+3. 显示文本与 `file://` 目标**整条一起**替换，一次改到位。
+
+注意两点：`--write` 一轮只跑一次（脚本是相对 `<base>` 算位移的，跑第二遍会把已经改好的锚点再推一遍）；报告里的「人工」项要逐条看，别当噪声跳过——TASK-027 那轮就有两处是代码本身被改写（不是位移），只能人来定新的起止。

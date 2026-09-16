@@ -81,15 +81,15 @@ PR --- EX
 ```
 
 **图表来源**
-- [runtime.py:67-182](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L182)
-- [engine.py:76-195](file://services/agent-runtime/src/personal_agent/engine.py#L76-L195)
+- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
+- [engine.py:85-238](file://services/agent-runtime/src/personal_agent/engine.py#L85-L238)
 - [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
 - [executor.ts:73-143](file://apps/desktop/src/main/capabilities/executor.ts#L73-L143)
 - [host.ts:1-76](file://packages/protocol/schemas/host.ts#L1-L76)
 
 **章节来源**
-- [runtime.py:1-245](file://services/agent-runtime/src/personal_agent/runtime.py#L1-L245)
-- [engine.py:1-195](file://services/agent-runtime/src/personal_agent/engine.py#L1-L195)
+- [runtime.py:1-257](file://services/agent-runtime/src/personal_agent/runtime.py#L1-L257)
+- [engine.py:1-238](file://services/agent-runtime/src/personal_agent/engine.py#L1-L238)
 - [host.ts:1-76](file://packages/protocol/schemas/host.ts#L1-L76)
 
 ## 核心组件
@@ -114,9 +114,9 @@ PR --- EX
   - 文件系统列出 PDF、PDF 文本提取等能力的具体副作用。
 
 **章节来源**
-- [runtime.py:47-182](file://services/agent-runtime/src/personal_agent/runtime.py#L47-L182)
-- [engine.py:67-195](file://services/agent-runtime/src/personal_agent/engine.py#L67-L195)
-- [model_gateway.py:6-59](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L59)
+- [runtime.py:49-184](file://services/agent-runtime/src/personal_agent/runtime.py#L49-L184)
+- [engine.py:76-238](file://services/agent-runtime/src/personal_agent/engine.py#L76-L238)
+- [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L100)
 - [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/scripted_model.py#L18-L57)
 - [context.py:45-79](file://services/agent-runtime/src/personal_agent/context.py#L45-L79)
 - [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
@@ -161,8 +161,8 @@ end
 ```
 
 **图表来源**
-- [runtime.py:67-182](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L182)
-- [engine.py:89-195](file://services/agent-runtime/src/personal_agent/engine.py#L89-L195)
+- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
+- [engine.py:98-238](file://services/agent-runtime/src/personal_agent/engine.py#L98-L238)
 - [host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
 - [executor.ts:73-143](file://apps/desktop/src/main/capabilities/executor.ts#L73-L143)
 
@@ -193,10 +193,10 @@ Resp --> End(["写出响应"])
 ```
 
 **图表来源**
-- [runtime.py:67-182](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L182)
+- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
 
 **章节来源**
-- [runtime.py:67-182](file://services/agent-runtime/src/personal_agent/runtime.py#L67-L182)
+- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
 
 ### Agent 引擎（engine.py）
 - 预算控制：两维上限（步数、工具调用），任一达到上限即触发预算耗尽事件并失败。
@@ -221,11 +221,11 @@ Loop --> B
 ```
 
 **图表来源**
-- [engine.py:89-195](file://services/agent-runtime/src/personal_agent/engine.py#L89-L195)
+- [engine.py:98-238](file://services/agent-runtime/src/personal_agent/engine.py#L98-L238)
 
 **章节来源**
-- [engine.py:67-195](file://services/agent-runtime/src/personal_agent/engine.py#L67-L195)
-- [test_engine.py:178-616](file://services/agent-runtime/tests/test_engine.py#L178-L616)
+- [engine.py:76-238](file://services/agent-runtime/src/personal_agent/engine.py#L76-L238)
+- [test_engine.py:184-732](file://services/agent-runtime/tests/test_engine.py#L184-L732)
 
 ### 模型网关与脚本化模型（model_gateway.py + scripted_model.py）
 - 协议抽象：ModelGateway 仅暴露 decide(context) 接口；Decision 联合类型区分 tool_call 与 summary。
@@ -273,11 +273,11 @@ ModelDecision <|-- SummaryDecision
 ```
 
 **图表来源**
-- [model_gateway.py:6-59](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L59)
+- [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L100)
 - [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/scripted_model.py#L18-L57)
 
 **章节来源**
-- [model_gateway.py:6-59](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L59)
+- [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L100)
 - [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/scripted_model.py#L18-L57)
 
 ### 上下文管理（context.py）
@@ -331,14 +331,14 @@ EN --> CTX["context.py"]
 ```
 
 **图表来源**
-- [runtime.py:10-28](file://services/agent-runtime/src/personal_agent/runtime.py#L10-L28)
-- [engine.py:16-40](file://services/agent-runtime/src/personal_agent/engine.py#L16-L40)
+- [runtime.py:10-29](file://services/agent-runtime/src/personal_agent/runtime.py#L10-L29)
+- [engine.py:16-42](file://services/agent-runtime/src/personal_agent/engine.py#L16-L42)
 - [host_channel.py:8-13](file://services/agent-runtime/src/personal_agent/host_channel.py#L8-L13)
 - [host.ts:1-76](file://packages/protocol/schemas/host.ts#L1-L76)
 
 **章节来源**
-- [runtime.py:10-28](file://services/agent-runtime/src/personal_agent/runtime.py#L10-L28)
-- [engine.py:16-40](file://services/agent-runtime/src/personal_agent/engine.py#L16-L40)
+- [runtime.py:10-29](file://services/agent-runtime/src/personal_agent/runtime.py#L10-L29)
+- [engine.py:16-42](file://services/agent-runtime/src/personal_agent/engine.py#L16-L42)
 - [host_channel.py:8-13](file://services/agent-runtime/src/personal_agent/host_channel.py#L8-L13)
 - [host.ts:1-76](file://packages/protocol/schemas/host.ts#L1-L76)
 
@@ -369,9 +369,9 @@ EN --> CTX["context.py"]
   - 排查：查看 TS 侧错误码与日志，确认权限与路径。
 
 **章节来源**
-- [runtime.py:156-182](file://services/agent-runtime/src/personal_agent/runtime.py#L156-L182)
+- [runtime.py:158-184](file://services/agent-runtime/src/personal_agent/runtime.py#L158-L184)
 - [planning.py:25-45](file://services/agent-runtime/src/personal_agent/planning.py#L25-L45)
-- [engine.py:167-195](file://services/agent-runtime/src/personal_agent/engine.py#L167-L195)
+- [engine.py:210-238](file://services/agent-runtime/src/personal_agent/engine.py#L210-L238)
 - [host_channel.py:18-34](file://services/agent-runtime/src/personal_agent/host_channel.py#L18-L34)
 - [executor.ts:121-172](file://apps/desktop/src/main/capabilities/executor.ts#L121-L172)
 
@@ -389,9 +389,9 @@ EN --> CTX["context.py"]
   2. 在 resolve_model_factory 中返回新模型的工厂函数。
   3. 保持 decide(context) 返回 ToolCallDecision 或 SummaryDecision。
 - 参考路径：
-  - 模型接口定义：[model_gateway.py:53-59](file://services/agent-runtime/src/personal_agent/model_gateway.py#L53-L59)
+  - 模型接口定义：[model_gateway.py:80-100](file://services/agent-runtime/src/personal_agent/model_gateway.py#L80-L100)
   - 脚本化模型实现：[scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/scripted_model.py#L18-L57)
-  - 运行时工厂解析：[runtime.py:206-223](file://services/agent-runtime/src/personal_agent/runtime.py#L206-L223)
+  - 运行时工厂解析：[runtime.py:208-235](file://services/agent-runtime/src/personal_agent/runtime.py#L208-L235)
 
 **章节来源**
 - [model_gateway.py:53-59](file://services/agent-runtime/src/personal_agent/model_gateway.py#L53-L59)
@@ -409,7 +409,7 @@ EN --> CTX["context.py"]
   - 能力枚举：[host.ts:7-16](file://packages/protocol/schemas/host.ts#L7-L16)
   - 能力执行器路由：[executor.ts:121-143](file://apps/desktop/src/main/capabilities/executor.ts#L121-L143)
   - 计划生成：[planning.py:25-45](file://services/agent-runtime/src/personal_agent/planning.py#L25-L45)
-  - 能力下发：[runtime.py:107-123](file://services/agent-runtime/src/personal_agent/runtime.py#L107-L123)
+  - 能力下发：[runtime.py:109-125](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L125)
 
 **章节来源**
 - [host.ts:7-16](file://packages/protocol/schemas/host.ts#L7-L16)
@@ -427,9 +427,9 @@ EN --> CTX["context.py"]
   - 网络超时或临时错误可在 TS 侧重试，Python 侧不自动重试。
   - 业务失败（ok:false）应交由模型决策切换策略，而非盲目重试。
 - 参考路径：
-  - 错误构建与分发：[runtime.py:63-91](file://services/agent-runtime/src/personal_agent/runtime.py#L63-L91)
+  - 错误构建与分发：[runtime.py:65-93](file://services/agent-runtime/src/personal_agent/runtime.py#L65-L93)
   - 通道异常：[host_channel.py:18-34](file://services/agent-runtime/src/personal_agent/host_channel.py#L18-L34)
-  - 引擎失败路径：[engine.py:148-152](file://services/agent-runtime/src/personal_agent/engine.py#L148-L152)
+  - 引擎失败路径：[engine.py:168-172](file://services/agent-runtime/src/personal_agent/engine.py#L168-L172)
 
 **章节来源**
 - [runtime.py:63-91](file://services/agent-runtime/src/personal_agent/runtime.py#L63-L91)
@@ -443,9 +443,9 @@ EN --> CTX["context.py"]
   3. 执行：引擎循环决策→工具调用→记录观察→摘要验证。
   4. 完成：返回 completed/failed 及事件序列。
 - 参考路径：
-  - 初始化与计划：[runtime.py:107-153](file://services/agent-runtime/src/personal_agent/runtime.py#L107-L153)
-  - 任务执行循环：[engine.py:89-195](file://services/agent-runtime/src/personal_agent/engine.py#L89-L195)
-  - 事件类型与顺序：[test_engine.py:333-343](file://services/agent-runtime/tests/test_engine.py#L333-L343)
+  - 初始化与计划：[runtime.py:109-155](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L155)
+  - 任务执行循环：[engine.py:98-238](file://services/agent-runtime/src/personal_agent/engine.py#L98-L238)
+  - 事件类型与顺序：[test_engine.py:339-349](file://services/agent-runtime/tests/test_engine.py#L339-L349)
 
 **章节来源**
 - [runtime.py:107-153](file://services/agent-runtime/src/personal_agent/runtime.py#L107-L153)
