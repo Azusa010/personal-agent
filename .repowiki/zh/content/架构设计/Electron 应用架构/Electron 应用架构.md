@@ -62,13 +62,13 @@ Main --> |读写| DB
 ```
 
 图表来源
-- [apps/desktop/src/main/index.ts:51-84](file://apps/desktop/src/main/index.ts#L51-L84)
+- [apps/desktop/src/main/index.ts:56-89](file://apps/desktop/src/main/index.ts#L56-L89)
 - [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
 - [apps/desktop/src/renderer/src/App.tsx:43-108](file://apps/desktop/src/renderer/src/App.tsx#L43-L108)
 - [apps/desktop/src/main/runtime/runtime-host.ts:26-63](file://apps/desktop/src/main/runtime/runtime-host.ts#L26-L63)
 
 章节来源
-- [apps/desktop/src/main/index.ts:51-84](file://apps/desktop/src/main/index.ts#L51-L84)
+- [apps/desktop/src/main/index.ts:56-89](file://apps/desktop/src/main/index.ts#L56-L89)
 - [apps/desktop/electron.vite.config.ts:6-22](file://apps/desktop/electron.vite.config.ts#L6-L22)
 
 ## 核心组件
@@ -80,12 +80,12 @@ Main --> |读写| DB
 - 能力执行：统一入口 executeCapability，对 UI 与 Agent 两条通道分别施加 Scope、Policy、Binder、Path-Guard 等约束。
 
 章节来源
-- [apps/desktop/src/main/index.ts:126-270](file://apps/desktop/src/main/index.ts#L126-L270)
+- [apps/desktop/src/main/index.ts:131-322](file://apps/desktop/src/main/index.ts#L131-L322)
 - [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
 - [apps/desktop/src/renderer/src/App.tsx:43-108](file://apps/desktop/src/renderer/src/App.tsx#L43-L108)
 - [apps/desktop/src/main/runtime/runtime-host.ts:26-88](file://apps/desktop/src/main/runtime/runtime-host.ts#L26-L88)
-- [apps/desktop/src/main/permission/permission-broker.ts:99-257](file://apps/desktop/src/main/permission/permission-broker.ts#L99-L257)
-- [apps/desktop/src/main/capabilities/host-executor.ts:15-55](file://apps/desktop/src/main/capabilities/host-executor.ts#L15-L55)
+- [apps/desktop/src/main/permission/permission-broker.ts:100-258](file://apps/desktop/src/main/permission/permission-broker.ts#L100-L258)
+- [apps/desktop/src/main/capabilities/host-executor.ts:52-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L52-L117)
 
 ## 架构总览
 下图展示了主进程、预加载脚本、渲染进程与 Python 运行时的通信路径，以及数据流向。
@@ -119,10 +119,10 @@ P-->>R : "回调触发"
 图表来源
 - [apps/desktop/src/renderer/src/App.tsx:147-179](file://apps/desktop/src/renderer/src/App.tsx#L147-L179)
 - [apps/desktop/src/preload/index.ts:23-45](file://apps/desktop/src/preload/index.ts#L23-L45)
-- [apps/desktop/src/main/index.ts:200-242](file://apps/desktop/src/main/index.ts#L200-L242)
-- [apps/desktop/src/main/capabilities/host-executor.ts:31-55](file://apps/desktop/src/main/capabilities/host-executor.ts#L31-L55)
+- [apps/desktop/src/main/index.ts:252-294](file://apps/desktop/src/main/index.ts#L252-L294)
+- [apps/desktop/src/main/capabilities/host-executor.ts:79-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L79-L117)
 - [apps/desktop/src/main/runtime/runtime-host.ts:77-88](file://apps/desktop/src/main/runtime/runtime-host.ts#L77-L88)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:150-194](file://apps/desktop/src/main/runtime/python-supervisor.ts#L150-L194)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:156-200](file://apps/desktop/src/main/runtime/python-supervisor.ts#L156-L200)
 
 ## 详细组件分析
 
@@ -150,12 +150,12 @@ Quit --> |否| Ready
 ```
 
 图表来源
-- [apps/desktop/src/main/index.ts:51-84](file://apps/desktop/src/main/index.ts#L51-L84)
-- [apps/desktop/src/main/index.ts:284-294](file://apps/desktop/src/main/index.ts#L284-L294)
+- [apps/desktop/src/main/index.ts:56-89](file://apps/desktop/src/main/index.ts#L56-L89)
+- [apps/desktop/src/main/index.ts:336-346](file://apps/desktop/src/main/index.ts#L336-L346)
 
 章节来源
-- [apps/desktop/src/main/index.ts:51-84](file://apps/desktop/src/main/index.ts#L51-L84)
-- [apps/desktop/src/main/index.ts:284-294](file://apps/desktop/src/main/index.ts#L284-L294)
+- [apps/desktop/src/main/index.ts:56-89](file://apps/desktop/src/main/index.ts#L56-L89)
+- [apps/desktop/src/main/index.ts:336-346](file://apps/desktop/src/main/index.ts#L336-L346)
 
 ### 预加载脚本与安全 API 暴露
 - 仅在 contextIsolated 环境下通过 contextBridge.exposeInMainWorld 暴露 personalAgent。
@@ -207,12 +207,12 @@ P-->>R : "返回结果"
 图表来源
 - [apps/desktop/src/renderer/src/App.tsx:94-133](file://apps/desktop/src/renderer/src/App.tsx#L94-L133)
 - [apps/desktop/src/preload/index.ts:29-45](file://apps/desktop/src/preload/index.ts#L29-L45)
-- [apps/desktop/src/main/index.ts:244-269](file://apps/desktop/src/main/index.ts#L244-L269)
+- [apps/desktop/src/main/index.ts:296-321](file://apps/desktop/src/main/index.ts#L296-L321)
 
 章节来源
 - [apps/desktop/src/renderer/src/App.tsx:94-133](file://apps/desktop/src/renderer/src/App.tsx#L94-L133)
 - [apps/desktop/src/preload/index.ts:29-45](file://apps/desktop/src/preload/index.ts#L29-L45)
-- [apps/desktop/src/main/index.ts:244-269](file://apps/desktop/src/main/index.ts#L244-L269)
+- [apps/desktop/src/main/index.ts:296-321](file://apps/desktop/src/main/index.ts#L296-L321)
 
 ### 运行时宿主与 Python 子进程
 - 启动流程：检查 venv python 是否存在，构造 PythonSupervisor，设置 hostHandler 与可见能力清单，initialize 握手成功后标记 ready。
@@ -239,14 +239,14 @@ L --> |否| N["等待/超时/取消"]
 
 图表来源
 - [apps/desktop/src/main/runtime/runtime-host.ts:26-63](file://apps/desktop/src/main/runtime/runtime-host.ts#L26-L63)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:97-147](file://apps/desktop/src/main/runtime/python-supervisor.ts#L97-L147)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:150-194](file://apps/desktop/src/main/runtime/python-supervisor.ts#L150-L194)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:197-208](file://apps/desktop/src/main/runtime/python-supervisor.ts#L197-L208)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:103-153](file://apps/desktop/src/main/runtime/python-supervisor.ts#L103-L153)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:156-200](file://apps/desktop/src/main/runtime/python-supervisor.ts#L156-L200)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:203-222](file://apps/desktop/src/main/runtime/python-supervisor.ts#L203-L222)
 
 章节来源
 - [apps/desktop/src/main/runtime/runtime-host.ts:26-88](file://apps/desktop/src/main/runtime/runtime-host.ts#L26-L88)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:97-208](file://apps/desktop/src/main/runtime/python-supervisor.ts#L97-L208)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:211-342](file://apps/desktop/src/main/runtime/python-supervisor.ts#L211-L342)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:103-222](file://apps/desktop/src/main/runtime/python-supervisor.ts#L103-L222)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:225-356](file://apps/desktop/src/main/runtime/python-supervisor.ts#L225-L356)
 
 ### 权限审批与执行前验证
 - 审批生命周期：request 创建 PermissionRecord，落库并推送 requested 通知；等待用户 respond 或过期；respond 更新状态并推送 resolved 通知。
@@ -272,13 +272,13 @@ Check6 --> |是| Allow["允许执行"]
 ```
 
 图表来源
-- [apps/desktop/src/main/permission/permission-broker.ts:235-319](file://apps/desktop/src/main/permission/permission-broker.ts#L235-L319)
-- [apps/desktop/src/main/capabilities/host-executor.ts:31-55](file://apps/desktop/src/main/capabilities/host-executor.ts#L31-L55)
+- [apps/desktop/src/main/permission/permission-broker.ts:236-327](file://apps/desktop/src/main/permission/permission-broker.ts#L236-L327)
+- [apps/desktop/src/main/capabilities/host-executor.ts:79-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L79-L117)
 
 章节来源
-- [apps/desktop/src/main/permission/permission-broker.ts:99-257](file://apps/desktop/src/main/permission/permission-broker.ts#L99-L257)
-- [apps/desktop/src/main/permission/permission-broker.ts:274-319](file://apps/desktop/src/main/permission/permission-broker.ts#L274-L319)
-- [apps/desktop/src/main/capabilities/host-executor.ts:15-55](file://apps/desktop/src/main/capabilities/host-executor.ts#L15-L55)
+- [apps/desktop/src/main/permission/permission-broker.ts:100-258](file://apps/desktop/src/main/permission/permission-broker.ts#L100-L258)
+- [apps/desktop/src/main/permission/permission-broker.ts:282-327](file://apps/desktop/src/main/permission/permission-broker.ts#L282-L327)
+- [apps/desktop/src/main/capabilities/host-executor.ts:52-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L52-L117)
 
 ### IPC 通信设计模式
 - 请求-响应模式：渲染进程通过 ipcRenderer.invoke 调用主进程处理器，主进程返回统一的结果结构 {ok, code?, message?}。
@@ -300,8 +300,8 @@ P-->>R : "回调触发"
 
 图表来源
 - [apps/desktop/src/preload/index.ts:10-45](file://apps/desktop/src/preload/index.ts#L10-L45)
-- [apps/desktop/src/main/index.ts:126-177](file://apps/desktop/src/main/index.ts#L126-L177)
-- [apps/desktop/src/main/index.ts:244-269](file://apps/desktop/src/main/index.ts#L244-L269)
+- [apps/desktop/src/main/index.ts:131-229](file://apps/desktop/src/main/index.ts#L131-L229)
+- [apps/desktop/src/main/index.ts:296-321](file://apps/desktop/src/main/index.ts#L296-L321)
 
 章节来源
 - [apps/desktop/src/shared/ipc-contract.ts:24-74](file://apps/desktop/src/shared/ipc-contract.ts#L24-L74)
@@ -313,7 +313,7 @@ P-->>R : "回调触发"
 - 构建与打包：electron-builder 排除源码与配置文件，asarUnpack 保留 native 模块与资源。
 
 章节来源
-- [apps/desktop/src/main/index.ts:61-66](file://apps/desktop/src/main/index.ts#L61-L66)
+- [apps/desktop/src/main/index.ts:66-71](file://apps/desktop/src/main/index.ts#L66-L71)
 - [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
 - [apps/desktop/electron-builder.yml:1-45](file://apps/desktop/electron-builder.yml#L1-L45)
 
@@ -339,7 +339,7 @@ Renderer["renderer App.tsx"] --> Preload
 
 图表来源
 - [apps/desktop/src/main/index.ts:1-31](file://apps/desktop/src/main/index.ts#L1-L31)
-- [apps/desktop/src/main/capabilities/host-executor.ts:1-55](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L55)
+- [apps/desktop/src/main/capabilities/host-executor.ts:1-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L117)
 - [apps/desktop/src/main/runtime/runtime-host.ts:1-88](file://apps/desktop/src/main/runtime/runtime-host.ts#L1-L88)
 - [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
 - [apps/desktop/src/renderer/src/App.tsx:1-20](file://apps/desktop/src/renderer/src/App.tsx#L1-L20)
@@ -347,8 +347,8 @@ Renderer["renderer App.tsx"] --> Preload
 章节来源
 - [apps/desktop/src/main/index.ts:1-31](file://apps/desktop/src/main/index.ts#L1-L31)
 - [apps/desktop/src/main/runtime/runtime-host.ts:1-88](file://apps/desktop/src/main/runtime/runtime-host.ts#L1-L88)
-- [apps/desktop/src/main/permission/permission-broker.ts:1-75](file://apps/desktop/src/main/permission/permission-broker.ts#L1-L75)
-- [apps/desktop/src/main/capabilities/host-executor.ts:1-55](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L55)
+- [apps/desktop/src/main/permission/permission-broker.ts:1-76](file://apps/desktop/src/main/permission/permission-broker.ts#L1-L76)
+- [apps/desktop/src/main/capabilities/host-executor.ts:1-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L117)
 
 ## 性能与内存优化
 - 子进程资源管理：
@@ -385,10 +385,10 @@ Renderer["renderer App.tsx"] --> Preload
 
 章节来源
 - [apps/desktop/src/main/runtime/runtime-host.ts:26-63](file://apps/desktop/src/main/runtime/runtime-host.ts#L26-L63)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:150-194](file://apps/desktop/src/main/runtime/python-supervisor.ts#L150-L194)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:327-342](file://apps/desktop/src/main/runtime/python-supervisor.ts#L327-L342)
-- [apps/desktop/src/main/permission/permission-broker.ts:182-233](file://apps/desktop/src/main/permission/permission-broker.ts#L182-L233)
-- [apps/desktop/src/main/permission/permission-broker.ts:274-319](file://apps/desktop/src/main/permission/permission-broker.ts#L274-L319)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:156-200](file://apps/desktop/src/main/runtime/python-supervisor.ts#L156-L200)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:341-356](file://apps/desktop/src/main/runtime/python-supervisor.ts#L341-L356)
+- [apps/desktop/src/main/permission/permission-broker.ts:183-234](file://apps/desktop/src/main/permission/permission-broker.ts#L183-L234)
+- [apps/desktop/src/main/permission/permission-broker.ts:282-327](file://apps/desktop/src/main/permission/permission-broker.ts#L282-L327)
 - [apps/desktop/src/preload/index.ts:47-49](file://apps/desktop/src/preload/index.ts#L47-L49)
 
 ## 结论

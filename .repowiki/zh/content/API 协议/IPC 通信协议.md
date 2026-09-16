@@ -72,7 +72,7 @@ MRUNTIME --> PY
 
 图表来源
 - [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
-- [apps/desktop/src/main/index.ts:101-273](file://apps/desktop/src/main/index.ts#L101-L273)
+- [apps/desktop/src/main/index.ts:106-325](file://apps/desktop/src/main/index.ts#L106-L325)
 - [apps/desktop/src/main/runtime/runtime-host.ts:15-87](file://apps/desktop/src/main/runtime/runtime-host.ts#L15-L87)
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 - [packages/protocol/schemas/envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
@@ -80,7 +80,7 @@ MRUNTIME --> PY
 章节来源
 - [apps/desktop/src/shared/ipc-contract.ts:24-75](file://apps/desktop/src/shared/ipc-contract.ts#L24-L75)
 - [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
-- [apps/desktop/src/main/index.ts:101-273](file://apps/desktop/src/main/index.ts#L101-L273)
+- [apps/desktop/src/main/index.ts:106-325](file://apps/desktop/src/main/index.ts#L106-L325)
 
 ## 核心组件
 - 共享契约与类型：统一 IPC 返回结构、错误码联合、领域对象（任务、计划、权限等）。
@@ -93,7 +93,7 @@ MRUNTIME --> PY
 章节来源
 - [apps/desktop/src/shared/ipc-contract.ts:24-75](file://apps/desktop/src/shared/ipc-contract.ts#L24-L75)
 - [apps/desktop/src/preload/index.d.ts:33-57](file://apps/desktop/src/preload/index.d.ts#L33-L57)
-- [apps/desktop/src/main/index.ts:127-269](file://apps/desktop/src/main/index.ts#L127-L269)
+- [apps/desktop/src/main/index.ts:132-321](file://apps/desktop/src/main/index.ts#L132-L321)
 - [apps/desktop/src/main/runtime/runtime-host.ts:22-87](file://apps/desktop/src/main/runtime/runtime-host.ts#L22-L87)
 - [apps/desktop/src/main/permission/permission-ipc.ts:44-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L83)
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
@@ -157,11 +157,11 @@ stopped --> stopped : "重复调用 startRuntime()"
 
 图表来源
 - [apps/desktop/src/main/runtime/runtime-host.ts:26-75](file://apps/desktop/src/main/runtime/runtime-host.ts#L26-L75)
-- [apps/desktop/src/main/index.ts:127-127](file://apps/desktop/src/main/index.ts#L127-L127)
+- [apps/desktop/src/main/index.ts:132-132](file://apps/desktop/src/main/index.ts#L132-L132)
 
 章节来源
 - [apps/desktop/src/main/runtime/runtime-host.ts:22-87](file://apps/desktop/src/main/runtime/runtime-host.ts#L22-L87)
-- [apps/desktop/src/main/index.ts:127-127](file://apps/desktop/src/main/index.ts#L127-L127)
+- [apps/desktop/src/main/index.ts:132-132](file://apps/desktop/src/main/index.ts#L132-L132)
 
 ### 权限通知与决策流程
 - 通知通道：主进程向所有窗口广播 personal-agent:permission-notice，包含 requested/resolved 两类通知。
@@ -193,12 +193,12 @@ MAIN-->>UI : send("personal-agent : permission-notice", notice)
 ```
 
 图表来源
-- [apps/desktop/src/main/index.ts:35-49](file://apps/desktop/src/main/index.ts#L35-L49)
+- [apps/desktop/src/main/index.ts:35-54](file://apps/desktop/src/main/index.ts#L35-L54)
 - [apps/desktop/src/main/permission/permission-ipc.ts:44-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L83)
 - [apps/desktop/src/preload/index.ts:29-45](file://apps/desktop/src/preload/index.ts#L29-L45)
 
 章节来源
-- [apps/desktop/src/main/index.ts:35-49](file://apps/desktop/src/main/index.ts#L35-L49)
+- [apps/desktop/src/main/index.ts:35-54](file://apps/desktop/src/main/index.ts#L35-L54)
 - [apps/desktop/src/main/permission/permission-ipc.ts:1-84](file://apps/desktop/src/main/permission/permission-ipc.ts#L1-L84)
 - [apps/desktop/src/preload/index.ts:29-45](file://apps/desktop/src/preload/index.ts#L29-L45)
 
@@ -282,12 +282,12 @@ M --> P["权限代理"]
 
 图表来源
 - [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
-- [apps/desktop/src/main/index.ts:127-269](file://apps/desktop/src/main/index.ts#L127-L269)
+- [apps/desktop/src/main/index.ts:132-321](file://apps/desktop/src/main/index.ts#L132-L321)
 - [packages/protocol/schemas/index.ts:1-8](file://packages/protocol/schemas/index.ts#L1-L8)
 
 章节来源
 - [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
-- [apps/desktop/src/main/index.ts:127-269](file://apps/desktop/src/main/index.ts#L127-L269)
+- [apps/desktop/src/main/index.ts:132-321](file://apps/desktop/src/main/index.ts#L132-L321)
 - [packages/protocol/schemas/index.ts:1-8](file://packages/protocol/schemas/index.ts#L1-L8)
 
 ## 性能考量
@@ -307,7 +307,7 @@ M --> P["权限代理"]
 
 章节来源
 - [apps/desktop/src/main/runtime/runtime-host.ts:31-62](file://apps/desktop/src/main/runtime/runtime-host.ts#L31-L62)
-- [apps/desktop/src/main/index.ts:117-124](file://apps/desktop/src/main/index.ts#L117-L124)
+- [apps/desktop/src/main/index.ts:122-129](file://apps/desktop/src/main/index.ts#L122-L129)
 - [apps/desktop/src/main/tasks/run-task.ts:104-122](file://apps/desktop/src/main/tasks/run-task.ts#L104-L122)
 - [apps/desktop/src/main/tasks/run-task.ts:190-217](file://apps/desktop/src/main/tasks/run-task.ts#L190-L217)
 
@@ -340,7 +340,7 @@ M --> P["权限代理"]
 - personal-agent:permission-notice：主进程推送权限通知。
 
 章节来源
-- [apps/desktop/src/main/index.ts:127-269](file://apps/desktop/src/main/index.ts#L127-L269)
+- [apps/desktop/src/main/index.ts:132-321](file://apps/desktop/src/main/index.ts#L132-L321)
 
 ### 调试技巧
 - 启用开发日志：运行时 stderr 输出在开发模式下打印到控制台，便于定位 Python 侧问题。
@@ -351,4 +351,4 @@ M --> P["权限代理"]
 
 章节来源
 - [apps/desktop/src/main/runtime/runtime-host.ts:47-50](file://apps/desktop/src/main/runtime/runtime-host.ts#L47-L50)
-- [apps/desktop/src/main/index.ts:51-85](file://apps/desktop/src/main/index.ts#L51-L85)
+- [apps/desktop/src/main/index.ts:56-90](file://apps/desktop/src/main/index.ts#L56-L90)

@@ -68,7 +68,7 @@ F --> K["摘要验证<br/>summary.verify_summary()"]
 - [__main__.py:1-5](file://services/agent-runtime/src/personal_agent/__main__.py#L1-L5)
 - [runtime.py:238-257](file://services/agent-runtime/src/personal_agent/runtime.py#L238-L257)
 - [runtime.py:69-93](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L93)
-- [engine.py:85-238](file://services/agent-runtime/src/personal_agent/engine.py#L85-L238)
+- [engine.py:91-244](file://services/agent-runtime/src/personal_agent/engine.py#L91-L244)
 - [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
 - [context.py:45-79](file://services/agent-runtime/src/personal_agent/context.py#L45-L79)
 - [summary.py:55-85](file://services/agent-runtime/src/personal_agent/summary.py#L55-L85)
@@ -92,17 +92,17 @@ F --> K["摘要验证<br/>summary.verify_summary()"]
 - 上下文（ContextManager）
   - 保存原始观察，按需构建带截断的 ModelContext 供模型消费
 - 计划（Planning）
-  - 基于可见能力生成固定三步计划，缺失能力时返回明确错误码
+  - 基于可见能力生成确定性计划（随可见能力伸缩：READ 必给、WRITE 可见才进），缺失必备能力时返回明确错误码
 - 摘要验证（Summary）
   - 校验模型给出的事实是否包含有效页码引用，且可追溯到实际提取页面
 
 章节来源
 - [runtime.py:49-93](file://services/agent-runtime/src/personal_agent/runtime.py#L49-L93)
-- [engine.py:76-238](file://services/agent-runtime/src/personal_agent/engine.py#L76-L238)
+- [engine.py:82-244](file://services/agent-runtime/src/personal_agent/engine.py#L82-L244)
 - [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L100)
 - [host_channel.py:18-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L18-L91)
 - [context.py:45-79](file://services/agent-runtime/src/personal_agent/context.py#L45-L79)
-- [planning.py:25-45](file://services/agent-runtime/src/personal_agent/planning.py#L25-L45)
+- [planning.py:54-77](file://services/agent-runtime/src/personal_agent/planning.py#L54-L77)
 - [summary.py:30-85](file://services/agent-runtime/src/personal_agent/summary.py#L30-L85)
 
 ## 架构总览
@@ -140,7 +140,7 @@ RT-->>Main : "Response envelope"
 
 图表来源
 - [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [engine.py:98-171](file://services/agent-runtime/src/personal_agent/engine.py#L98-L171)
+- [engine.py:104-177](file://services/agent-runtime/src/personal_agent/engine.py#L104-L177)
 - [host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
 - [host.ts:28-67](file://packages/protocol/schemas/host.ts#L28-L67)
 
@@ -215,11 +215,11 @@ AgentEngine --> Observation : "产出/消费"
 ```
 
 图表来源
-- [engine.py:76-238](file://services/agent-runtime/src/personal_agent/engine.py#L76-L238)
+- [engine.py:82-244](file://services/agent-runtime/src/personal_agent/engine.py#L82-L244)
 
 章节来源
-- [engine.py:76-238](file://services/agent-runtime/src/personal_agent/engine.py#L76-L238)
-- [test_engine.py:138-182](file://services/agent-runtime/tests/test_engine.py#L138-L182)
+- [engine.py:82-244](file://services/agent-runtime/src/personal_agent/engine.py#L82-L244)
+- [test_engine.py:138-184](file://services/agent-runtime/tests/test_engine.py#L138-L184)
 
 ### 模型网关与脚本化模型（ModelGateway & ScriptedModel）
 - 模型抽象：ModelGateway.decide(context) 返回 ToolCallDecision 或 SummaryDecision
@@ -313,7 +313,7 @@ E --> |否| OK["通过验证，返回 Facts"]
 - 输出：三步计划（列出 PDF、提取页面、生成摘要）
 
 章节来源
-- [planning.py:25-45](file://services/agent-runtime/src/personal_agent/planning.py#L25-L45)
+- [planning.py:54-77](file://services/agent-runtime/src/personal_agent/planning.py#L54-L77)
 
 ## 依赖关系分析
 - 运行时依赖
@@ -343,13 +343,13 @@ HC --> HS["host.ts (zod schemas)"]
 
 图表来源
 - [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [engine.py:85-238](file://services/agent-runtime/src/personal_agent/engine.py#L85-L238)
+- [engine.py:91-244](file://services/agent-runtime/src/personal_agent/engine.py#L91-L244)
 - [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
 - [host.ts:28-67](file://packages/protocol/schemas/host.ts#L28-L67)
 
 章节来源
 - [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [engine.py:85-238](file://services/agent-runtime/src/personal_agent/engine.py#L85-L238)
+- [engine.py:91-244](file://services/agent-runtime/src/personal_agent/engine.py#L91-L244)
 - [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
 - [host.ts:28-67](file://packages/protocol/schemas/host.ts#L28-L67)
 
@@ -383,10 +383,10 @@ HC --> HS["host.ts (zod schemas)"]
 章节来源
 - [runtime.py:65-93](file://services/agent-runtime/src/personal_agent/runtime.py#L65-L93)
 - [runtime.py:109-184](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L184)
-- [engine.py:168-238](file://services/agent-runtime/src/personal_agent/engine.py#L168-L238)
+- [engine.py:174-244](file://services/agent-runtime/src/personal_agent/engine.py#L174-L244)
 - [host_channel.py:18-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L18-L91)
-- [test_runtime.py:162-634](file://services/agent-runtime/tests/test_runtime.py#L162-L634)
-- [test_engine.py:138-732](file://services/agent-runtime/tests/test_engine.py#L138-L732)
+- [test_runtime.py:181-687](file://services/agent-runtime/tests/test_runtime.py#L181-L687)
+- [test_engine.py:138-734](file://services/agent-runtime/tests/test_engine.py#L138-L734)
 
 ## 结论
 该 Python 运行时以简洁的 JSON-RPC 行式 I/O 为核心，结合明确的组件边界与严格的契约校验，实现了稳定的 Agent 执行环境。通过预算控制、上下文截断与摘要验证，保障了任务的可控性与结果的可追溯性。模型适配器以工厂模式解耦，便于未来接入真实模型。HostChannel 将工具执行委托给宿主，保持 Python 侧专注编排与治理。整体架构清晰、可测试性强，适合持续演进。

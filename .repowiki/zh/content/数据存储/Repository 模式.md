@@ -82,18 +82,18 @@ RMR -.-> DOMAIN
 
 图表来源
 - [database.ts:17-93](file://apps/desktop/src/main/product-state/database.ts#L17-L93)
-- [migrations/index.ts:12-20](file://apps/desktop/src/main/product-state/migrations/index.ts#L12-L20)
+- [migrations/index.ts:13-22](file://apps/desktop/src/main/product-state/migrations/index.ts#L13-L22)
 - [task-repository.ts:60-102](file://apps/desktop/src/main/product-state/task-repository.ts#L60-L102)
 - [plan-repository.ts:9-85](file://apps/desktop/src/main/product-state/plan-repository.ts#L9-L85)
 - [event-repository.ts:9-67](file://apps/desktop/src/main/product-state/event-repository.ts#L9-L67)
-- [permission-repository.ts:24-131](file://apps/desktop/src/main/product-state/permission-repository.ts#L24-L131)
+- [permission-repository.ts:24-134](file://apps/desktop/src/main/product-state/permission-repository.ts#L24-L134)
 - [tool-execution-repository.ts:124-166](file://apps/desktop/src/main/product-state/tool-execution-repository.ts#L124-L166)
 - [reminder-repository.ts:123-170](file://apps/desktop/src/main/product-state/reminder-repository.ts#L123-L170)
 - [domain.ts:13-158](file://apps/desktop/src/shared/domain.ts#L13-L158)
 
 章节来源
 - [database.ts:17-93](file://apps/desktop/src/main/product-state/database.ts#L17-L93)
-- [migrations/index.ts:12-20](file://apps/desktop/src/main/product-state/migrations/index.ts#L12-L20)
+- [migrations/index.ts:13-22](file://apps/desktop/src/main/product-state/migrations/index.ts#L13-L22)
 - [domain.ts:13-158](file://apps/desktop/src/shared/domain.ts#L13-L158)
 
 ## 核心组件
@@ -117,7 +117,7 @@ RMR -.-> DOMAIN
 - [task-repository.ts:60-102](file://apps/desktop/src/main/product-state/task-repository.ts#L60-L102)
 - [plan-repository.ts:9-85](file://apps/desktop/src/main/product-state/plan-repository.ts#L9-L85)
 - [event-repository.ts:9-67](file://apps/desktop/src/main/product-state/event-repository.ts#L9-L67)
-- [permission-repository.ts:24-131](file://apps/desktop/src/main/product-state/permission-repository.ts#L24-L131)
+- [permission-repository.ts:24-134](file://apps/desktop/src/main/product-state/permission-repository.ts#L24-L134)
 - [tool-execution-repository.ts:1-166](file://apps/desktop/src/main/product-state/tool-execution-repository.ts#L1-L166)
 - [reminder-repository.ts:1-170](file://apps/desktop/src/main/product-state/reminder-repository.ts#L1-L170)
 - [domain.ts:13-158](file://apps/desktop/src/shared/domain.ts#L13-L158)
@@ -141,7 +141,7 @@ Repo-->>Caller : 领域对象或集合
 - [task-repository.ts:81-102](file://apps/desktop/src/main/product-state/task-repository.ts#L81-L102)
 - [plan-repository.ts:59-85](file://apps/desktop/src/main/product-state/plan-repository.ts#L59-L85)
 - [event-repository.ts:52-67](file://apps/desktop/src/main/product-state/event-repository.ts#L52-L67)
-- [permission-repository.ts:92-131](file://apps/desktop/src/main/product-state/permission-repository.ts#L92-L131)
+- [permission-repository.ts:95-134](file://apps/desktop/src/main/product-state/permission-repository.ts#L95-L134)
 
 ## 详细组件分析
 
@@ -284,12 +284,12 @@ PermissionRepository <|.. SqlitePermissionRepository
 ```
 
 图表来源
-- [permission-repository.ts:24-131](file://apps/desktop/src/main/product-state/permission-repository.ts#L24-L131)
+- [permission-repository.ts:24-134](file://apps/desktop/src/main/product-state/permission-repository.ts#L24-L134)
 - [0004-create-permissions.ts:5-38](file://apps/desktop/src/main/product-state/migrations/0004-create-permissions.ts#L5-L38)
 
 章节来源
-- [permission-repository.ts:24-131](file://apps/desktop/src/main/product-state/permission-repository.ts#L24-L131)
-- [permission-repository.test.ts:50-220](file://apps/desktop/src/main/product-state/permission-repository.test.ts#L50-L220)
+- [permission-repository.ts:24-134](file://apps/desktop/src/main/product-state/permission-repository.ts#L24-L134)
+- [permission-repository.test.ts:50-241](file://apps/desktop/src/main/product-state/permission-repository.test.ts#L50-L241)
 - [0004-create-permissions.ts:5-38](file://apps/desktop/src/main/product-state/migrations/0004-create-permissions.ts#L5-L38)
 
 ### 工具执行仓储（ToolExecutionRepository）
@@ -395,11 +395,11 @@ MIG["migrations/index.ts"] --> DB
 图表来源
 - [domain.ts:13-158](file://apps/desktop/src/shared/domain.ts#L13-L158)
 - [database.ts:17-93](file://apps/desktop/src/main/product-state/database.ts#L17-L93)
-- [migrations/index.ts:12-20](file://apps/desktop/src/main/product-state/migrations/index.ts#L12-L20)
+- [migrations/index.ts:13-22](file://apps/desktop/src/main/product-state/migrations/index.ts#L13-L22)
 
 章节来源
 - [database.ts:17-93](file://apps/desktop/src/main/product-state/database.ts#L17-L93)
-- [migrations/index.ts:12-20](file://apps/desktop/src/main/product-state/migrations/index.ts#L12-L20)
+- [migrations/index.ts:13-22](file://apps/desktop/src/main/product-state/migrations/index.ts#L13-L22)
 - [domain.ts:13-158](file://apps/desktop/src/shared/domain.ts#L13-L158)
 
 ## 性能考虑
@@ -431,7 +431,7 @@ MIG["migrations/index.ts"] --> DB
 - 权限重复决定
   - 现象：decide 抛出 PermissionAlreadyDecided
   - 排查：确认当前 status 与目标 decision 是否一致
-  - 参考用例：[permission-repository.test.ts:170-194](file://apps/desktop/src/main/product-state/permission-repository.test.ts#L170-L194)
+  - 参考用例：[permission-repository.test.ts:191-215](file://apps/desktop/src/main/product-state/permission-repository.test.ts#L191-L215)
 - 执行记录非法状态转换
   - 现象：transition 抛出 IllegalToolExecutionTransition（如 succeeded→attempting）
   - 排查：对照 ALLOWED_TRANSITIONS 转换表；succeeded 是终态，命中即跳过不会再执行
@@ -480,7 +480,7 @@ MIG["migrations/index.ts"] --> DB
 
 章节来源
 - [database.ts:17-93](file://apps/desktop/src/main/product-state/database.ts#L17-L93)
-- [migrations/index.ts:12-20](file://apps/desktop/src/main/product-state/migrations/index.ts#L12-L20)
+- [migrations/index.ts:13-22](file://apps/desktop/src/main/product-state/migrations/index.ts#L13-L22)
 - [task-repository.test.ts:19-24](file://apps/desktop/src/main/product-state/task-repository.test.ts#L19-L24)
 - [plan-repository.test.ts:15-27](file://apps/desktop/src/main/product-state/plan-repository.test.ts#L15-L27)
 - [event-repository.test.ts:13-22](file://apps/desktop/src/main/product-state/event-repository.test.ts#L13-L22)

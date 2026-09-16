@@ -76,7 +76,7 @@ Extract --> DB
 - [packages/protocol/schemas/document.ts:5-31](file://packages/protocol/schemas/document.ts#L5-L31)
 - [apps/desktop/src/shared/ipc-contract.ts:36-50](file://apps/desktop/src/shared/ipc-contract.ts#L36-L50)
 - [apps/desktop/src/preload/index.ts:17-18](file://apps/desktop/src/preload/index.ts#L17-L18)
-- [apps/desktop/src/main/index.ts:167-167](file://apps/desktop/src/main/index.ts#L167-L167)
+- [apps/desktop/src/main/index.ts:219-219](file://apps/desktop/src/main/index.ts#L219-L219)
 
 ## 核心组件
 - PDF 扫描器：按授权根目录列出 .pdf 文件，收集名称、绝对路径、修改时间、大小等元数据，并按修改时间倒序返回。
@@ -122,7 +122,7 @@ Repo-->>Exec : 完成
 ```
 
 **图表来源**
-- [apps/desktop/src/main/index.ts:167-167](file://apps/desktop/src/main/index.ts#L167-L167)
+- [apps/desktop/src/main/index.ts:219-219](file://apps/desktop/src/main/index.ts#L219-L219)
 - [apps/desktop/src/preload/index.ts:17-18](file://apps/desktop/src/preload/index.ts#L17-L18)
 - [apps/desktop/src/main/capabilities/executor.ts:73-113](file://apps/desktop/src/main/capabilities/executor.ts#L73-L113)
 - [apps/desktop/src/main/capabilities/filesystem-list.ts:6-31](file://apps/desktop/src/main/capabilities/filesystem-list.ts#L6-L31)
@@ -263,7 +263,7 @@ PdfRepository --> Database : "使用"
 - [packages/protocol/schemas/document.ts:5-31](file://packages/protocol/schemas/document.ts#L5-L31)
 - [apps/desktop/src/shared/ipc-contract.ts:36-50](file://apps/desktop/src/shared/ipc-contract.ts#L36-L50)
 - [apps/desktop/src/preload/index.ts:17-18](file://apps/desktop/src/preload/index.ts#L17-L18)
-- [apps/desktop/src/main/index.ts:167-167](file://apps/desktop/src/main/index.ts#L167-L167)
+- [apps/desktop/src/main/index.ts:219-219](file://apps/desktop/src/main/index.ts#L219-L219)
 
 ## 依赖关系分析
 - 能力注册：registry.ts 声明 document.extract_pdf 能力。
@@ -292,7 +292,7 @@ IPC["preload/index.ts & main/index.ts"] --> Executor
 - [apps/desktop/src/main/db/database.ts:15-40](file://apps/desktop/src/main/db/database.ts#L15-L40)
 - [packages/protocol/schemas/document.ts:5-31](file://packages/protocol/schemas/document.ts#L5-L31)
 - [apps/desktop/src/preload/index.ts:17-18](file://apps/desktop/src/preload/index.ts#L17-L18)
-- [apps/desktop/src/main/index.ts:167-167](file://apps/desktop/src/main/index.ts#L167-L167)
+- [apps/desktop/src/main/index.ts:219-219](file://apps/desktop/src/main/index.ts#L219-L219)
 
 **章节来源**
 - [apps/desktop/src/main/capabilities/registry.ts:9-40](file://apps/desktop/src/main/capabilities/registry.ts#L9-L40)
