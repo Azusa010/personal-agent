@@ -2,7 +2,7 @@
 
 - 状态：已接受
 - 日期：2026-09-13
-- 最后修订：2026-09-16（TASK-026 收口：陪练点经主人明确授权由 AI 一次填完，标记清零，pnpm verify 815 条测试全绿）
+- 最后修订：2026-09-16（TASK-029 收口：Windows Demo 打包、README 与演示脚本；陪练点一处待填，已知红 1 条）
 - 对照对象：`architecture-personal-agent-v0.1.md` 的 §5 Files（FILE-001~022）与 Phase 1 File Boundaries
 
 ## 上下文
@@ -51,9 +51,17 @@ TS 侧：
 - `main/runtime/` 里的 runtime-host.ts、error-code.ts、timeouts.ts——FILE-005 只规划了 python-supervisor.ts。runtime-host 是私有单例的窄网关，error-code 是 IPC 侧错误码登记表，timeouts 集中推导三层超时（批准窗口 300s < host 传输层 305s < run_task 1585s），避免三个值各自硬编码后失去大小关系。
 - `shared/`（domain.ts、ipc-contract.ts）——Main 与 Renderer 的共同类型归属地。Renderer 直接 import main 下的模块会把 SQLite 依赖带进渲染层。
 - `preload/index.d.ts`——FILE-010 只规划了 preload/index.ts。
+- `main/runtime/packaged-runtime.test.ts`、`main/runtime/runtime-host.test.ts`——TASK-029 的打包冒烟与布局解析单测。冒烟在冻结产物不存在时整块 skip（与「venv 不在就跳过」同一条规矩）；布局测试把 `resolveRuntimeLaunch` 参数化成纯函数，三分支直接喂值，不必 mock 成打包态。
+
+仓库根与文档：
+
+- `scripts/demo/start-demo.ps1`——TASK-029 的演示脚本（准备素材 + 启动 app）。不属于任何包，放仓库根的 `scripts/`；幂等：每次重置自己的演示根（`%TEMP%\personal-agent-demo`），不碰真实 Downloads。
+- `docs/DEMO.md`——演示清单（TASK-029 交付物之一）。`docs/` 下此前只有本地维护的 DEVELOPMENT.md 与 ADR，DEMO.md 随仓库入库。
+- `README.md`——TASK-029 的 setup guide（此前是空文件，模板遗留）。
 
 Python 侧：
 
+- `packaging/`（entrypoint.py、personal_agent.spec）——TASK-029 的冻结打包。指导书只写了「完成 Windows Demo 打包」，没规划打包脚本放哪。放 Python 侧的理由：spec 与入口都是 Python 生态的文件，离被冻结的源码最近；产物落 `services/agent-runtime/dist/`（已忽略），再由 electron-builder 的 extraResources 复制进安装包。entrypoint.py 单独一层而不是直接拿 `__main__.py`：把包内文件当脚本喂给 PyInstaller 时，Analysis 以脚本目录为基准解析 import，成败取决于构建机的 sys.path 运气。
 - `host_channel.py`——反向 RPC（Python 调 Main 的工具）通道。指导书规划的是单向请求。
 - `protocol/models.py`——Pydantic 镜像。指导书 §5 没有 protocol 层。
 - `planning.py`——Phase 1 File Boundaries 列了，但 §5 没有对应的 FILE 编号。
@@ -101,3 +109,8 @@ FILE-021 `tests/evals/cases.json` 在 TASK-027 落地，路径与指导书一致
 - TASK-027 的陪练点只有一个，且是上次卡点的直接产物：`main/eval/judge.ts` 的 `judgeCase`（单条 case 判定表，思维与算法）。上一轮（TASK-026）一次铺了九个 TODO 加一份断言清单，主人先是"不会写了"、再是"写不下去了就这样吧"；这次按"一次只推一个函数 + 它自己的聚焦用例"来，其余部分（清单、物化、取证、统计、报告、编排、live 适配器）全部写完并绿。**结果**：主人自己填完并修掉了三处 `selectedTarget` 的问题（单份 PDF 时 `target` 为 null 要回落到 `targetPdf()`、能力名不是 `extract_pdf` 而是 `document.extract_pdf`、比的是 `basename` 而不是绝对路径）与一处 reasons 计数（判"这条 fact 自己没通过"而不是"已经有 fact 没通过"），AI 补齐了 judge.test.ts 的八条断言。同时补了两条本来会漏掉的东西：清单 schema 多了一条不变量（要点 `text` 必须能被自己的某个 keyword 命中——scripted 模式的 fact 正文就是这段 text，关键词不在里面等于自己造永久假阴性），以及一条"标准答案 20/20"的自检断言（清单、剧本合成、判定表三者必须一致；没有它，判定表把 20 条全判失败也只体现为报告里一个 0/20，没有任何红点）。另外把 25 条要点的关键词改成中英变体：live 模式下面向中文目标的真模型会给出中文摘要，纯英文短语（`buddy`、`stainless steel`、`30 seconds`）一个都命中不了，召回率会大面积假阴性。验收：`pnpm verify` 877 + 284 全绿，scripted 20/20 完整成功、页码引用 100%、关键结论召回 100%、四条闸口全过。
 - TASK-028 的失败回归集（`e2e/failure-regression.test.ts`）把系统真的弄坏六次：坏 PDF、用户拒绝批准、Python 在 WRITE 挂起时被杀、模型第一步就计划外调用、模型一直犯错到预算耗尽、通知发送失败。每个场景问同一组问题——终态对不对、**授权根动没动**（副作用只看文件系统，不看回包）、留下的码/事件够不够排查。这组期望从用例里抽成了 `e2e/fault-expectations.ts` 的 `judgeFault`（又是一处「一次只推一个函数」的陪练点）。跑这组用例的副产品比用例本身值钱：它逼出了上面记的三处真实缺陷（UNIQUE 全局、预算只够旧路径、`stop()` 挂在已退出的进程上——最后这条会让 `before-quit` 的 `app.quit()` 永远等不到，是真的会卡住退出的 bug）。**陪练点的经过**：主人第一版把期望表**当成了违规列表**——每个场景无条件 `violations.push('<期望的描述>')`，于是连"现场完全合规"也恒判不通过（用一组构造的合规现场喂进去，六个场景全返回 `ok:false`，violations 里正是那些期望文本）。方向反了是这个函数唯一的坑：`violations` 装的是"判不通过的理由"，只有期望不成立时才推。主人授权 AI 一次改完后（helper `require_(condition, message)` 固定方向 + 三条共用底线统一判 + 六条回归断言与三条 fail-closed 底线断言），六个场景对着真链路全绿。验收：`pnpm verify` 122 + 893 + 289 全绿。
 - TASK-026 的陪练点按 AGENTS.md §6 的五类切法铺开后，经主人明确授权（「你直接给 debug，然后写完吧」）由 AI 一次填完，标记清零：取证的选择规则（选哪份 PDF / 跟随移动 / 配对工具结果）、文件系统探测与 PDF 缺口的收场、能力名从 protocol 派生、端口失败留痕、串行探测并行化与收尾三态表驱动、两份测试文件里「断言待补」的用例。填完的判定表按**计划**决定要哪些交付物（计划里有 move 才要求文件与批准、有 scheduler.create 才要求 Reminder），不是照搬 Golden Path 的固定清单——否则只读计划的 20 轮 E2E 会永远红。验收：`pnpm verify` 815 条全绿，含 20 轮只读 Golden Path E2E（真判定器 + 真端口 + 真 Python）。
+- TASK-029 的打包选型：**PyInstaller onedir 冻结 Agent Runtime 随包分发**，不是分发 venv（venv 里的 python.exe 是 launcher，pyvenv.cfg 记着构建机的解释器路径，换机器必失效），也不是让用户自装 Python/uv（那就不叫打包交付）。onedir 而不是 onefile：onefile 的 bootloader 每次启动解压一遍、还多一层父进程，kill 时容易留孤儿，而 TEST-015 明确要盯「退出无孤儿进程」。产物 33 MB，`package:py`（spec 在 `services/agent-runtime/packaging/`）→ `extraResources` → `<安装目录>/resources/agent-runtime/`；`resolveRuntimeLaunch` 按「env 覆盖 > 打包布局 > 开发布局」解析，找不到就落 crashed 并带布局名与路径的可读提示。冻结时显式收集 `personal_agent` 全子模块树与 `openai`（live SDK 是延迟 import，漏收的后果是「scripted 一切正常、一配真模型就崩」，很难查）。
+- TASK-029 顺带统一了产品身份：`productName: PersonalAgent` 写在 apps/desktop/package.json（Electron 运行时的 `app.getName()`/userData 路径与 electron-builder 产物命名共用这一处，写两处必漂）；`appId` 与主进程的 `setAppUserModelId` 一起改成 `com.personalagent.app`（Windows 通知按 AUMID 匹配开始菜单快捷方式，不一致时开发态正常、安装版不弹）；模板继承的 mac/linux/dmg/appImage 段与 `publish`（指向 example.com 的假更新源）删除——配置写着支持而从未验证，比没有配置更误导（CON-003 本就只承诺 Windows）。**副作用：userData 从 `%APPDATA%\apps-desktop` 变为 `%APPDATA%\PersonalAgent`**，旧库不会自动迁移。
+- TASK-029 的真机验收（TEST-015）跑通全链路：`pnpm package:dir` → `scripts/demo/start-demo.ps1` 启动打包版 → 发送目标 → 三次批准（create_dir / move / scheduler.create，面板每次都展示能力名、来源与目标绝对路径、参数摘要、指纹与到期时间）→ 文件真的移动 → `verification_passed` 四项全过、任务 completed → 提醒到点 `notification_sent` 且库里 `fired` → 关窗后 `PersonalAgent.exe` 与 `personal_agent.exe` 全部退出。冒烟里假地址那两条 live 用例还证明 openai SDK 确实随包可用（收成 MODEL_CALL_FAILED 而不是进程崩）。
+- TASK-029 逼出并修掉两处缺陷：① Renderer 只在挂载时读一次 runtime-status，而 Main 侧从 starting 到 ready 是异步的（打包版还要先拉冻结产物），状态栏会永远停在「运行时启动中」——改成在 starting 期间每秒轮询、到终态停表；② `extraResources.from` 相对 **apps/desktop** 解析（不是仓库根），写成 `../services/...` 会指向 `apps/services/...`，而 electron-builder 只打一行 `file source doesn't exist` 日志、照样产出少一个目录的安装包——这类「静默漏拷贝」只能靠产物检查与真机启动发现。
+- TASK-029 的陪练点一处：`resolvePackagedLaunch`（边界与异常，打包布局的路径解析）。AI 先用临时实现把「打包版自动发现运行时」整条链路在真机上验通（填法与期望值都在 `runtime-host.test.ts` 里钉着），再恢复成占位交付；填完前 `pnpm verify` 有且仅有这 1 条红。另外演示脚本有个使用注意点写进了 DEMO.md：剧本的 `remindAt` 是脚本运行时算死的静态时刻，三个批准要在它之前点完，否则 scheduler.create 会以 `REMINDER_TIME_IN_PAST` 失败、闸口照样判不通过（这是产品的正确行为，不是 bug）。
