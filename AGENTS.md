@@ -155,6 +155,16 @@ pnpm verify = typecheck + lint:ts + lint:py + test
 清单 `tests/evals/cases.json` 是唯一事实来源（PDF 与剧本都由它生成），报告落在
 `tests/evals/reports/`（不入库）。跑法与口径见 `tests/evals/README.md`。
 
+### 端到端两套（TASK-028）
+
+| 文件 | 验什么 |
+|------|--------|
+| `main/e2e/golden-path.test.ts` | 完整 Golden Path 20 轮：真 Python + 真批准 + 真建目录/移动 + 真 Reminder + 通知到点 |
+| `main/e2e/failure-regression.test.ts` | 失败回归集：坏 PDF / 拒绝批准 / 进程被杀 / 计划外调用 / 预算耗尽 / 通知失败，各问「终态 + 授权根动没动 + 留下的码」 |
+
+两套都在 `test:ts` 里。握手时下发几个能力决定计划几步（`planning.make_plan` 随可见能力
+伸缩），交付物闸口再按计划推导要求——改能力清单时三处要一起看。
+
 ---
 
 ## 6. 协作模式：核心代码留 TODO（项目陪练）
