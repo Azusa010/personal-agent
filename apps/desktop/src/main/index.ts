@@ -1,10 +1,18 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { startRuntime, stopRuntime, getRuntimeStatus, requestRuntime } from './runtime/runtime-host'
+import {
+  startRuntime,
+  stopRuntime,
+  getRuntimeStatus,
+  requestRuntime,
+  restartRuntime,
+  createModelSettingsStore
+} from './runtime/runtime-host'
 import { FilesystemListParams, FilesystemListResult, ERROR_CODE } from '@personal-agent/protocol'
 import { RUNTIME_ERROR_CODE } from './runtime/error-code'
 import type {
+  GetModelSettingsResult,
   IpcErrorCode,
   ListPdfsResult,
   ListTasksResult,
@@ -13,6 +21,7 @@ import type {
   PermissionNotice,
   PermissionRespondResult,
   RunTaskIpcResult,
+  SetModelSettingsResult,
   TimelineIpcResult
 } from '../shared/ipc-contract'
 import { getDb, closeDb } from './db/database'
@@ -26,6 +35,7 @@ import { SqliteToolExecutionRepository } from './product-state/tool-execution-re
 import { SqliteReminderRepository } from './product-state/reminder-repository'
 import { createPermissionBroker, type PermissionBroker } from './permission/permission-broker'
 import { listTaskPermissions, respondToPermission } from './permission/permission-ipc'
+import { getModelSettingsView, setModelSettings } from './settings/settings-ipc'
 import { runTask } from './tasks/run-task'
 import { getTimeline } from './tasks/get-timeline'
 import { reconcileOrphanTasks } from './tasks/reconcile'
@@ -46,6 +56,10 @@ const PRELOAD_PATH = join(__dirname, '../preload/index.js')
 const PERMISSION_RESPOND_CHANNEL = 'personal-agent:permission-respond'
 const PERMISSION_LIST_CHANNEL = 'personal-agent:list-permissions'
 const PERMISSION_NOTICE_CHANNEL = 'personal-agent:permission-notice'
+
+// 设置面板的两个通道（TASK-030）。get 只回「配没配」，Key 明文不出主进程（SEC-008）。
+const MODEL_SETTINGS_GET_CHANNEL = 'personal-agent:get-model-settings'
+const MODEL_SETTINGS_SET_CHANNEL = 'personal-agent:set-model-settings'
 
 // null = 库没打开，批准通道不可用。
 let permissionBroker: PermissionBroker | null = null
@@ -340,6 +354,21 @@ app.whenReady().then(() => {
     }
     return listTaskPermissions(taskId, { broker: permissionBroker })
   })
+  // 设置面板：Key / Model / Base URL。逻辑都在 settings-ipc（纯函数 + 注入 deps），
+  // 这里只接线真实存储（userData + safeStorage）与真实重启端口。
+  const modelSettingsStore = createModelSettingsStore()
+  ipcMain.handle(MODEL_SETTINGS_GET_CHANNEL, (): GetModelSettingsResult =>
+    getModelSettingsView({ store: modelSettingsStore, runtime: { restart: restartRuntime } })
+  )
+  ipcMain.handle(
+    MODEL_SETTINGS_SET_CHANNEL,
+    (_e, input: unknown): Promise<SetModelSettingsResult> =>
+      setModelSettings(input, {
+        store: modelSettingsStore,
+        runtime: { restart: restartRuntime }
+      })
+  )
+
   createWindow()
 
   void startRuntime()

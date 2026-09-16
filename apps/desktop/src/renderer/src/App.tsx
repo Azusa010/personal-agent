@@ -15,6 +15,7 @@ import { DiagnosticsDialog } from './components/DiagnosticsDialog'
 import { IndexDialog } from './components/IndexDialog'
 import { MessageStream } from './components/MessageStream'
 import { PermissionDialog } from './components/PermissionDialog'
+import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
 import { formatOccurredAt, STATUS_LABELS, timelineToMarkdown } from './view-model'
 
@@ -30,6 +31,10 @@ function App(): React.JSX.Element {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [indexOpen, setIndexOpen] = useState(false)
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  // 自增即重开一轮 runtime 状态轮询：设置保存后 runtime 会重启，
+  // 首轮轮询早就在终态停表了，不重新拉的话状态栏会停在旧值。
+  const [statusPollKey, setStatusPollKey] = useState(0)
   const [pendingPermission, setPendingPermission] = useState<PermissionRecord | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const feedbackTimer = useRef<number | null>(null)
@@ -92,7 +97,8 @@ function App(): React.JSX.Element {
 
   // Runtime 状态不是一次性的：Main 侧从 starting 走到 ready/crashed 是异步的
   // （打包版要先把冻结产物拉起来），挂载时读一次的话状态栏会永远停在「启动中」。
-  // 在 starting 期间每秒再问一次，到终态就停表。
+  // 在 starting 期间每秒再问一次，到终态就停表；statusPollKey 自增（设置保存后
+  // runtime 被重启）会重新拉起一轮。
   useEffect(() => {
     let timer: number | null = null
     const poll = async (): Promise<void> => {
@@ -106,7 +112,7 @@ function App(): React.JSX.Element {
     return () => {
       if (timer !== null) window.clearTimeout(timer)
     }
-  }, [])
+  }, [statusPollKey])
 
   // 批准通道的推送订阅。这是全应用唯一一个 main → renderer 的事件流。
   useEffect(() => {
@@ -236,7 +242,7 @@ function App(): React.JSX.Element {
         onNewChat={handleNewChat}
         onOpenIndex={() => setIndexOpen(true)}
         onOpenDiagnostics={() => setDiagnosticsOpen(true)}
-        onSettings={() => showFeedback('设置面板暂未实现。')}
+        onSettings={() => setSettingsOpen(true)}
       />
 
       <section className="flex min-w-0 flex-1 flex-col">
@@ -284,6 +290,11 @@ function App(): React.JSX.Element {
         open={diagnosticsOpen}
         onOpenChange={setDiagnosticsOpen}
         taskId={selectedTaskId}
+      />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onSaved={() => setStatusPollKey((key) => key + 1)}
       />
       <PermissionDialog permission={pendingPermission} onDecide={handleDecide} />
     </div>

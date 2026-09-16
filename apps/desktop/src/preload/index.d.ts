@@ -1,5 +1,6 @@
 import type {
   RuntimeStatus,
+  GetModelSettingsResult,
   ListPdfsResult,
   ListTasksResult,
   IndexedPdfsResult,
@@ -8,6 +9,8 @@ import type {
   PermissionNotice,
   PermissionRespondResult,
   RunTaskIpcResult,
+  SetModelSettingsInput,
+  SetModelSettingsResult,
   TimelineIpcResult,
   SummaryFact,
   TaskRecord,
@@ -16,6 +19,7 @@ import type {
 
 export type {
   RuntimeStatus,
+  GetModelSettingsResult,
   ListPdfsResult,
   ListTasksResult,
   IndexedPdfsResult,
@@ -24,6 +28,8 @@ export type {
   PermissionNotice,
   PermissionRespondResult,
   RunTaskIpcResult,
+  SetModelSettingsInput,
+  SetModelSettingsResult,
   TimelineIpcResult,
   SummaryFact,
   TaskRecord,
@@ -52,6 +58,10 @@ export type PersonalAgentApi = {
   ): Promise<PermissionRespondResult>
   /** 诊断面板的权限记录。taskId 不接受 null：没有选中会话时调用方自己显示提示 */
   listPermissions(taskId: string): Promise<PermissionListResult>
+  /** 设置面板要显示的模型配置。**没有 Key 明文**（SEC-008），只有 apiKeySet 布尔 */
+  getModelSettings(): Promise<GetModelSettingsResult>
+  /** 保存模型配置。留空的字段 = 保持不变；保存后 main 会在空闲时重启 runtime 生效 */
+  setModelSettings(input: SetModelSettingsInput): Promise<SetModelSettingsResult>
   /** 订阅 main 推来的批准事件。返回的函数取消订阅，组件卸载时必须调 */
   onPermissionNotice(listener: (notice: PermissionNotice) => void): () => void
 }

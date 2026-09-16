@@ -100,6 +100,13 @@ export class PythonSupervisor extends EventEmitter {
     return this.child?.pid ?? null
   }
 
+  /** 有发出去还没收到响应的请求。agent.run_task 全程都挂在 pending 里，
+   *  所以它等价于「有任务在跑」——重启运行时用它判断现在能不能动子进程：
+   *  任务跑到一半把 Python 换掉，那个任务只会白死。 */
+  get busy(): boolean {
+    return this.pending.size > 0
+  }
+
   start(): void {
     this.crashInfo = null
     this.child = this.spawnFn(this.command, this.args, { cwd: this.cwd, env: this.env })

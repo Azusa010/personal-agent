@@ -1,11 +1,20 @@
 import { dirname, join } from 'node:path'
 import { PythonSupervisor, RuntimeError } from './python-supervisor'
-import { app } from 'electron/main'
+import { app, safeStorage } from 'electron/main'
 import { is } from '@electron-toolkit/utils'
 import { existsSync } from 'node:fs'
 import { RUNTIME_ERROR_CODE } from './error-code'
 import type { RuntimeState, RuntimeStatus } from '../../shared/ipc-contract'
 import { executeHostTool, listVisibleCapabilities } from '../capabilities/host-executor'
+import {
+  SETTINGS_FILE_NAME,
+  buildRuntimeEnv,
+  loadModelSettings,
+  saveModelSettings,
+  type ModelSettings,
+  type ModelSettingsStore,
+  type SecretCodec
+} from '../settings/model-settings'
 
 export type { RuntimeState, RuntimeStatus }
 let supervisor: PythonSupervisor | null = null
@@ -84,6 +93,46 @@ export function getRuntimeStatus(): RuntimeStatus {
   return detail ? { state, detail } : { state }
 }
 
+/** 模型设置文件的位置：userData 跟用户账号走（重装不丢），不跟安装目录走。 */
+export function resolveSettingsFilePath(): string {
+  return join(app.getPath('userData'), SETTINGS_FILE_NAME)
+}
+
+/** 真实密钥库端口。safeStorage 延迟取用而不是模块顶层解构：
+ *  单测 mock 的 'electron' 里只有 app，顶层解构会在 import 期就炸。 */
+function systemSecretCodec(): SecretCodec {
+  return {
+    isAvailable: () => safeStorage.isEncryptionAvailable(),
+    encrypt: (plain: string) => safeStorage.encryptString(plain).toString('base64'),
+    decrypt: (encrypted: string) => safeStorage.decryptString(Buffer.from(encrypted, 'base64'))
+  }
+}
+
+/** 设置面板与运行时启动共用的存储实现：同一个文件、同一套加密。
+ *  load 出意外（文件系统、密钥库）时收成 null——设置读不出来只是回到「未配置」，
+ *  不能让一个坏文件挡住整个 app。 */
+export function createModelSettingsStore(): ModelSettingsStore {
+  return {
+    load: (): ModelSettings | null => {
+      try {
+        return loadModelSettings({
+          filePath: resolveSettingsFilePath(),
+          codec: systemSecretCodec()
+        })
+      } catch (err) {
+        console.error('[settings] 读取模型设置失败，按未配置继续', err)
+        return null
+      }
+    },
+    save: (settings: ModelSettings): void => {
+      saveModelSettings(settings, {
+        filePath: resolveSettingsFilePath(),
+        codec: systemSecretCodec()
+      })
+    }
+  }
+}
+
 export async function startRuntime(): Promise<void> {
   if (supervisor) return // 避免重复spawn
   state = 'starting'
@@ -103,6 +152,9 @@ export async function startRuntime(): Promise<void> {
 
   supervisor = new PythonSupervisor({
     ...launch,
+    // 显式传 env：设置面板里存过的 OPENAI_* 在这里合进继承环境（TASK-030）。
+    // 不传的话子进程只继承 Electron 自己的环境，面板里存什么都不会生效。
+    env: buildRuntimeEnv(process.env, createModelSettingsStore().load()),
     hostHandler: executeHostTool,
     capabilities: listVisibleCapabilities()
   })
@@ -126,6 +178,15 @@ export async function startRuntime(): Promise<void> {
     await supervisor.stop().catch(() => {})
     supervisor = null
   }
+}
+
+/** 重启运行时让新设置生效。Python 启动时读一次 OPENAI_MODEL，改配置只能靠重启；
+ *  有任务在跑就不动它（返回 restarted=false），调用方把生效推到下次启动。 */
+export async function restartRuntime(): Promise<{ restarted: boolean }> {
+  if (supervisor !== null && supervisor.busy) return { restarted: false }
+  await stopRuntime()
+  await startRuntime()
+  return { restarted: true }
 }
 
 export async function stopRuntime(): Promise<void> {

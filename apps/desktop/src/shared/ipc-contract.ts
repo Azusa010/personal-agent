@@ -1,5 +1,6 @@
 import type { ERROR_CODE, PdfEntry, RunTaskResult, SummaryFact } from '@personal-agent/protocol'
 import type { RUNTIME_ERROR_CODE } from '../main/runtime/error-code'
+import type { SETTINGS_ERROR_CODE } from '../main/settings/error-code'
 import type {
   ExecutionEventRecord,
   PermissionDecision,
@@ -31,7 +32,8 @@ export interface RuntimeStatus {
 export type WireErrorCode = (typeof ERROR_CODE)[keyof typeof ERROR_CODE]
 
 export type RuntimeErrorCode = (typeof RUNTIME_ERROR_CODE)[keyof typeof RUNTIME_ERROR_CODE]
-export type IpcErrorCode = WireErrorCode | RuntimeErrorCode
+export type SettingsErrorCode = (typeof SETTINGS_ERROR_CODE)[keyof typeof SETTINGS_ERROR_CODE]
+export type IpcErrorCode = WireErrorCode | RuntimeErrorCode | SettingsErrorCode
 
 export type ListPdfsResult =
   { ok: true; entries: PdfEntry[] } | { ok: false; code: IpcErrorCode; message: string }
@@ -71,4 +73,30 @@ export type PermissionRespondResult =
 /** state 是投影值，含 expired。库里只有 pending / approved / denied 三种 status */
 export type PermissionListResult =
   | { ok: true; entries: { permission: PermissionRecord; state: PermissionViewState }[] }
+  | { ok: false; code: IpcErrorCode; message: string }
+
+/** 设置面板能看到的模型配置。**Key 明文不回传**：只给「配没配」的
+ *  布尔值，面板显示「已配置，留空保持不变」。 */
+export interface ModelSettingsView {
+  apiKeySet: boolean
+  model: string | null
+  baseUrl: string | null
+}
+
+export type GetModelSettingsResult =
+  { ok: true; settings: ModelSettingsView } | { ok: false; code: IpcErrorCode; message: string }
+
+/** 字段语义：不给 = 保持不变；model / baseUrl 传 null = 清空；
+ *  apiKey 空串 = 保持不变，清空走显式的 clearApiKey。 */
+export interface SetModelSettingsInput {
+  model?: string | null
+  baseUrl?: string | null
+  apiKey?: string
+  clearApiKey?: boolean
+}
+
+/** applied 区分「已经重启生效」与「有任务在跑、留到下次启动」——两种都算保存成功，
+ *  界面文案不能把它说成失败。 */
+export type SetModelSettingsResult =
+  | { ok: true; applied: 'restarted' | 'on-next-restart' }
   | { ok: false; code: IpcErrorCode; message: string }

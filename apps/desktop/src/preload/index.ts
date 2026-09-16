@@ -1,6 +1,10 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 
-import type { PermissionDecision, PermissionNotice } from '../shared/ipc-contract'
+import type {
+  PermissionDecision,
+  PermissionNotice,
+  SetModelSettingsInput
+} from '../shared/ipc-contract'
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -31,6 +35,12 @@ if (process.contextIsolated) {
       },
       listPermissions: (taskId: string) => {
         return ipcRenderer.invoke('personal-agent:list-permissions', taskId)
+      },
+      getModelSettings: () => {
+        return ipcRenderer.invoke('personal-agent:get-model-settings')
+      },
+      setModelSettings: (input: SetModelSettingsInput) => {
+        return ipcRenderer.invoke('personal-agent:set-model-settings', input)
       },
       // 唯一一个 main → renderer 的推送通道。返回的函数取消订阅，
       // removeListener 必须传同一个包装引用：传原始 listener 取消不掉。
