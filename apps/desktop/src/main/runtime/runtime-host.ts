@@ -46,24 +46,17 @@ function resolveOverrideLaunch(command: string): RuntimeLaunch {
  * （services/agent-runtime/dist/personal_agent/）随安装包分发。
  */
 function resolvePackagedLaunch(resourcesPath: string): RuntimeLaunch {
-  // TODO(你填)[边界与异常]: 打包布局下运行时落在哪。
-  //
-  // 契约：给定 process.resourcesPath（打包后 = <安装目录>/resources，开发态是
-  // electron 自己的 resources 目录），返回 { command, args, cwd, layout }，三个值
-  // 都必须落在 resourcesPath 所指的安装目录里——安装目录之外的东西在用户机器上不存在。
-  // 线索在两处：apps/desktop/electron-builder.yml 的 extraResources（随包目录名），
-  // 与根 package.json 的 package:py（PyInstaller onedir 产物长什么样、exe 叫什么）。
-  //  - command：exe 的绝对路径；
-  //  - args：冻结产物自带入口，与开发布局的 ['-m','personal_agent'] 不同，这里该是什么；
-  //  - cwd：Python 侧不读 cwd，选「跟实际文件放一起、排障时一眼看懂」的目录；
-  //  - layout：写进崩溃提示的布局名，用于区分是哪种布局找不到命令。
-  // 失败收场不在这里做：command 不存在时由 startRuntime 的 existsSync 收成
-  // crashed + 可读 detail，与开发布局同一条路。
-  //
-  // 验收：src/main/runtime/runtime-host.test.ts 的「打包布局」用例（现在是红的）。
-  // 填完后再跑一次真机：pnpm package:dir && powershell -File scripts/demo/start-demo.ps1，
-  // 状态栏应从「运行时崩溃」变成「运行时就绪」。
-  return { command: '', args: [], cwd: resourcesPath, layout: '打包布局' }
+  const runtimeDir = join(resourcesPath, 'agent-runtime')
+  const command = join(
+    runtimeDir,
+    process.platform === 'win32' ? 'personal_agent.exe' : 'personal_agent'
+  )
+  return {
+    command,
+    args: [],
+    cwd: runtimeDir,
+    layout: '打包布局'
+  }
 }
 
 /** 开发布局：仓库里 uv 建的 venv，`python -m personal_agent` 跑源码。
