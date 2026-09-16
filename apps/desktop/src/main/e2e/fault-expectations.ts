@@ -1,5 +1,5 @@
 /**
- * 失败回归集的期望表（TASK-028）。
+ * 失败回归集的期望表。
  *
  * 每个故障场景都要回答同一组问题：任务最后落到哪个终态、**不许**留下什么副作用、
  * 必须留下哪条证据（错误码 / 事件）。把这组判断从用例里抽出来，是因为「什么算收场
@@ -67,6 +67,17 @@ export interface FaultVerdict {
   violations: string[]
 }
 
+/** 完整计划的三个 WRITE：out-of-plan-call 场景要它们都有 approved。 */
+const WRITE_CAPABILITIES = ['filesystem.create_dir', 'filesystem.move', 'scheduler.create'] as const
+
+/** 「不许动授权根」的场景：故障发生在副作用之前，落地任何东西都算收场错了。 */
+const MUST_NOT_TOUCH: ReadonlySet<FaultScenario> = new Set<FaultScenario>([
+  'pdf-unreadable',
+  'permission-denied',
+  'python-crashed',
+  'budget-exhausted'
+])
+
 /**
  * 判定口径 —— 逐场景的期望：
  *
@@ -79,24 +90,126 @@ export interface FaultVerdict {
  * | budget-exhausted | failed | untouched | eventTypes 含 budget_exhausted；failureReason 提到预算 |
  * | notification-failed | completed | moved | reminderStatus 为 failed；eventTypes 含 notification_failed |
  *
- * 共用底线（每个场景都查）：
+ * 共用底线（每个场景都查，所以统一判、不逐条复制）：
  * 1. 「不许动」的场景里 rootState 必须是 untouched —— 副作用只看文件系统，不看回包；
- * 2. 终态为 failed 时必须有 failureCode（失败要留得下可查的码，不能只有自由文本）；
+ * 2. 终态为 failed 时必须留下可查的东西：结构化码（`failureCode`）或人话原因
+ *    （`failureReason`）至少一个非空。注意不是"必须有码"——Python 自己收场的失败
+ *    （摘要被拒、预算耗尽）只有 reason，没有码；
  * 3. 终态为 completed 时不许出现 budget_exhausted 事件（预算耗尽的完成是巧合，不是通过）。
  *
  * 边界：纯判定，不读库、不读盘、不抛异常。缺东西（状态 unknown、事件为空）一律算
- * 不符合期望 —— 判不出来的时候按失败算。
+ * 不符合期望 —— 判不出来的时候按失败算，所以 default 分支也是记违规而不是抛。
  *
  * 对应验收测试：apps/desktop/src/main/e2e/failure-regression.test.ts
  */
 export function judgeFault(scenario: FaultScenario, outcome: FaultOutcome): FaultVerdict {
-  // 占位实现：参数先显式引用一下，免得 lint 报未使用（填实现时删掉这行）。
-  void outcome
-  // TODO(你填)[思维与算法]: 按上面这张表实现本函数，删掉这段占位。
-  //   占位是 fail-closed 的：任何场景都判不符合期望，红点数量就是进度。
-  //   自检入口：pnpm --dir apps/desktop exec vitest run src/main/e2e/failure-regression.test.ts
-  return {
-    ok: false,
-    violations: [`judgeFault 尚未实现（TODO(你填)）：期望表见函数上方注释（场景 ${scenario}）`]
+  const violations: string[] = []
+
+  /** violations 是「判不通过的理由」：只有期望不成立时才推。 */
+  const require_ = (condition: boolean, message: string): void => {
+    if (!condition) violations.push(message)
   }
+  const expectStatus = (expected: FaultOutcome['taskStatus']): void => {
+    require_(outcome.taskStatus === expected, `终态应为 ${expected}，实际 ${outcome.taskStatus}`)
+  }
+  const expectRoot = (expected: RootState): void => {
+    require_(outcome.rootState === expected, `授权根应为 ${expected}，实际 ${outcome.rootState}`)
+  }
+  const describeApproved = (): string =>
+    outcome.permissions
+      .filter((p) => p.status === 'approved')
+      .map((p) => p.capability)
+      .join(', ')
+
+  // —— 三条共用底线 ——
+  // 1. 该「不许动授权根」的场景：故障发生在副作用之前，落地了任何东西都是收场错了。
+  if (MUST_NOT_TOUCH.has(scenario)) {
+    expectRoot('untouched')
+  }
+  // 2. 失败要留得下可查的东西（码或原因）。
+  if (outcome.taskStatus === 'failed') {
+    require_(
+      outcome.failureCode !== null || outcome.failureReason !== null,
+      '失败必须留下码或原因，实际两者都为空'
+    )
+  }
+  // 3. 预算耗尽的完成是巧合，不是通过。
+  if (outcome.taskStatus === 'completed') {
+    require_(
+      !outcome.eventTypes.includes('budget_exhausted'),
+      'completed 的任务不该出现 budget_exhausted 事件'
+    )
+  }
+
+  switch (scenario) {
+    case 'pdf-unreadable': {
+      expectStatus('failed')
+      require_(outcome.failedToolCalls.includes('document.extract_pdf'), '应当留下一次提取失败')
+      require_(outcome.permissions.length === 0, '走到 WRITE 之前就该停，不该有权限记录')
+      break
+    }
+    case 'permission-denied': {
+      expectStatus('failed')
+      require_(
+        outcome.permissions.some((p) => p.status === 'denied'),
+        '应当有一条 denied 的批准记录'
+      )
+      require_(describeApproved() === '', `不该有 approved 的 WRITE，实际：${describeApproved()}`)
+      break
+    }
+    case 'python-crashed': {
+      expectStatus('failed')
+      require_(
+        outcome.failureCode === 'RUNTIME_CRASHED',
+        `failureCode 应为 RUNTIME_CRASHED，实际 ${String(outcome.failureCode)}`
+      )
+      require_(
+        outcome.permissions.length > 0 && outcome.permissions.every((p) => p.status === 'pending'),
+        '权限应当停在 pending（批准窗口没关，重启后由过期投影收）'
+      )
+      break
+    }
+    case 'out-of-plan-call': {
+      expectStatus('completed')
+      expectRoot('moved')
+      require_(
+        outcome.failedToolCalls.includes('filesystem.move'),
+        '计划外那条调用应当留下失败痕迹'
+      )
+      const missing = WRITE_CAPABILITIES.filter(
+        (capability) =>
+          !outcome.permissions.some((p) => p.capability === capability && p.status === 'approved')
+      )
+      require_(missing.length === 0, `三条 WRITE 都应有 approved，缺：${missing.join(', ')}`)
+      break
+    }
+    case 'budget-exhausted': {
+      expectStatus('failed')
+      require_(outcome.eventTypes.includes('budget_exhausted'), '应当留下 budget_exhausted 事件')
+      require_(
+        (outcome.failureReason ?? '').includes('预算'),
+        `失败原因应提到预算，实际 ${String(outcome.failureReason)}`
+      )
+      break
+    }
+    case 'notification-failed': {
+      expectStatus('completed')
+      expectRoot('moved')
+      require_(
+        outcome.reminderStatus === 'failed',
+        `Reminder 终态应为 failed，实际 ${String(outcome.reminderStatus)}`
+      )
+      require_(
+        outcome.eventTypes.includes('notification_failed'),
+        '应当留下 notification_failed 事件'
+      )
+      break
+    }
+    default: {
+      // 加了新场景却忘了补期望时走这里。fail-closed：判不出来按不符合期望算。
+      require_(false, `没有为场景 ${String(scenario as string)} 定义期望`)
+    }
+  }
+
+  return { ok: violations.length === 0, violations }
 }

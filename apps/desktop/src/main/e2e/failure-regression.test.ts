@@ -327,8 +327,11 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
 
     // —— 判定（陪练点）——
     const verdict = judgeFault('pdf-unreadable', outcome)
-    // TODO(你填): 断言 —— 期望：verdict.ok 为 true，且 violations 为空
-    expect(verdict).toBeDefined()
+    expect(verdict.ok, verdict.violations.join(' / ')).toBe(true)
+    // 底线：授权根被动过的现场不许判通过（副作用只看文件系统）。
+    const dirty = judgeFault('pdf-unreadable', { ...outcome, rootState: 'reading_only' })
+    expect(dirty.ok).toBe(false)
+    expect(dirty.violations.join(' ')).toContain('授权根')
   })
 
   it('用户拒绝批准：没有任何副作用，任务收成 failed', async () => {
@@ -346,8 +349,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
     expect(outcome.permissions.some((p) => p.status === 'approved')).toBe(false)
 
     const verdict = judgeFault('permission-denied', outcome)
-    // TODO(你填): 断言 —— 期望：verdict.ok 为 true
-    expect(verdict).toBeDefined()
+    expect(verdict.ok, verdict.violations.join(' / ')).toBe(true)
   })
 
   it('Python 在 WRITE 挂起时被杀：任务落 failed，副作用没有发生', async () => {
@@ -379,8 +381,11 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
     expect(outcome.permissions.map((p) => p.status)).toEqual(['pending'])
 
     const verdict = judgeFault('python-crashed', outcome)
-    // TODO(你填): 断言 —— 期望：verdict.ok 为 true，且不许把「授权根被动过」算成通过
-    expect(verdict).toBeDefined()
+    expect(verdict.ok, verdict.violations.join(' / ')).toBe(true)
+    // 底线：不是崩溃码的现场不许当成崩溃收场对了。
+    const wrongCode = judgeFault('python-crashed', { ...outcome, failureCode: 'RUNTIME_TIMEOUT' })
+    expect(wrongCode.ok).toBe(false)
+    expect(wrongCode.violations.join(' ')).toContain('RUNTIME_CRASHED')
   })
 
   it('计划外调用被拦下之后模型改对顺序：任务照样完成，但那条失败留痕', async () => {
@@ -404,8 +409,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
     expect(outcome.permissions.map((p) => p.status)).toEqual(['approved', 'approved', 'approved'])
 
     const verdict = judgeFault('out-of-plan-call', outcome)
-    // TODO(你填): 断言 —— 期望：verdict.ok 为 true
-    expect(verdict).toBeDefined()
+    expect(verdict.ok, verdict.violations.join(' / ')).toBe(true)
   })
 
   it('模型一直犯错直到预算耗尽：停在 failed，且留下 budget_exhausted', async () => {
@@ -427,8 +431,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
     expect(String(outcome.failureReason)).toContain('预算')
 
     const verdict = judgeFault('budget-exhausted', outcome)
-    // TODO(你填): 断言 —— 期望：verdict.ok 为 true
-    expect(verdict).toBeDefined()
+    expect(verdict.ok, verdict.violations.join(' / ')).toBe(true)
   })
 
   it('通知发送失败：Reminder 收成 failed，任务本身仍是 completed', async () => {
@@ -453,8 +456,14 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
     expect(reminder?.failureReason).not.toBeNull()
 
     const verdict = judgeFault('notification-failed', outcome)
-    // TODO(你填): 断言 —— 期望：verdict.ok 为 true（副作用失败不该把任务拖成 failed）
-    expect(verdict).toBeDefined()
+    expect(verdict.ok, verdict.violations.join(' / ')).toBe(true)
+    // 底线：completed 却带着 budget_exhausted 的现场是巧合不是通过。
+    const dirty = judgeFault('notification-failed', {
+      ...outcome,
+      eventTypes: [...outcome.eventTypes, 'budget_exhausted']
+    })
+    expect(dirty.ok).toBe(false)
+    expect(dirty.violations.join(' ')).toContain('budget_exhausted')
   })
 })
 
