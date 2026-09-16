@@ -142,7 +142,18 @@ pnpm verify = typecheck + lint:ts + lint:py + test
 - `test:pack` 容易漏跑——protocol 包不在 `node_modules` 里，靠 tsconfig paths + vitest alias 解析。
 - 新建测试文件后必须 `prettier --write` 转 LF，否则 eslint 报 CRLF warning（Windows 环境）。
 - `pnpm verify:all` = `verify` + `build`（electron-vite build，不含 electron-builder 打包）。
-- 全量跑约 20–30 秒，每次改动后都应跑全量。
+- 全量跑约 30–50 秒（TASK-027 的 20 例 Eval E2E 占约 20 秒：每条 case 一个真 Python 子进程），
+  每次改动后都应跑全量。
+
+### Live Eval（TASK-027）
+
+| 命令 | 跑什么 | 归属 |
+|------|--------|------|
+| `pnpm eval` | 20 条 Case 的 scripted 模式（确定性，真 Python + 真库 + 真闸口） | 已含在 `test:ts` 里 |
+| `pnpm eval:live` | 同 20 条 Case，换成真模型 | 出手跑；要 `EVAL_LIVE=1` + `OPENAI_MODEL` + `OPENAI_API_KEY`，**不进 CI**（CON-006） |
+
+清单 `tests/evals/cases.json` 是唯一事实来源（PDF 与剧本都由它生成），报告落在
+`tests/evals/reports/`（不入库）。跑法与口径见 `tests/evals/README.md`。
 
 ---
 

@@ -46,6 +46,7 @@ TS 侧：
 - `main/product-state/` 里 FILE-008 之外的文件（task-repository.ts、plan-repository.ts、event-repository.ts、permission-repository.ts、timeline-projection.ts、tool-execution-repository.ts、reminder-repository.ts、migrations/0001~0007）——FILE-008 只规划了 database.ts。迁移按序号拆成独立文件而不是写进一份 schema，因为 0005 要改 tasks 的 status CHECK 约束：SQLite 只能走「事务外关外键 → 事务内重建表 → finally 开回 → foreign_key_check 兜底」，这段必须独占一个迁移。0006 建 tool_executions 表承载 TASK-021 的幂等 store，tool-execution-repository.ts 是其仓储层（insert / findByKey / transition），状态转换规则放在 Repository 层校验、与 DB CHECK 约束分离。0007 建 reminders 表（TASK-023）：task_id UNIQUE 是「同一 Task 不创建重复 Reminder」的数据库级保证；idempotency_key 不设 UNIQUE，因为 key = capability:argsHash 不含 taskId，两个任务参数恰好相同不是重复；四状态 CHECK（scheduled/firing/fired/failed）拦非法值，转换表在 reminder-repository.ts 的 Repository 层。
 - `main/permission/` 里的 args-hash.ts、canonical-json.ts、expiry.ts、permission-ipc.ts——FILE-007 只规划了 permission-broker.ts。前三个是 TASK-018 的产物（参数规范化、哈希、过期投影），broker 依赖它们；permission-ipc.ts 是 IPC 边界的入参收窄与错误码映射，纯函数不 import electron，以便单测直接覆盖。
 - `main/e2e/`（golden-path.test.ts）——确定性 E2E 要启真 Python 与真 SQLite，与被测单元同级放会污染单元测试的收集范围。
+- `main/eval/`（case-manifest.ts、workspace.ts、observation.ts、judge.ts、metrics.ts、report.ts、run-eval.ts、paths.ts）——TASK-027 的 Live Eval Harness。指导书只规划了 FILE-021（清单 JSON），harness 本身没编 FILE 号。落在 Main 侧的理由与 TASK-026 同一条：评测要读 Product State 的六张表、真实 PDF 与真实文件系统，evidence 全在 Main；而评测跑的就是生产那条 `runTask`（含 TASK-026 的交付物闸口），把 harness 放别处等于再造一条链路，测的就不是生产路径了。内部按职责切：case-manifest 清单契约（含"坏清单必须被拒"）、workspace 物化（清单 → 临时 Downloads 根，PDF 现场生成）、observation 取证（页集合重读真实 PDF）、judge 判定表（纯函数，**本 TASK 的陪练点**）、metrics 统计口径（纯函数）、report 报告形状与写盘、run-eval 编排（每条 case 一个子进程）。scripted 与 live 两种模式共用同一份编排与判定，差别只在子进程里挂哪个 ModelGateway。
 - `main/capabilities/` 里的 executor.ts、host-executor.ts、path-guard.ts、roots.ts、filesystem-list.ts、filesystem-create-dir.ts、filesystem-move.ts、pdf-fixtures.ts、idempotency.ts——Phase 1 File Boundaries 只列了 registry / scope / retriever / document-extract-pdf。filesystem-create-dir / filesystem-move 是 TASK-020 的两个 WRITE 执行体；idempotency.ts 是 TASK-021 的幂等编排层（key 计算 + 恢复 resolver + 执行前后状态翻转），由 executor.ts 在 WRITE 能力上挂载。
 - `main/runtime/` 里的 runtime-host.ts、error-code.ts、timeouts.ts——FILE-005 只规划了 python-supervisor.ts。runtime-host 是私有单例的窄网关，error-code 是 IPC 侧错误码登记表，timeouts 集中推导三层超时（批准窗口 300s < host 传输层 305s < run_task 1585s），避免三个值各自硬编码后失去大小关系。
 - `shared/`（domain.ts、ipc-contract.ts）——Main 与 Renderer 的共同类型归属地。Renderer 直接 import main 下的模块会把 SQLite 依赖带进渲染层。
@@ -56,6 +57,7 @@ Python 侧：
 - `host_channel.py`——反向 RPC（Python 调 Main 的工具）通道。指导书规划的是单向请求。
 - `protocol/models.py`——Pydantic 镜像。指导书 §5 没有 protocol 层。
 - `planning.py`——Phase 1 File Boundaries 列了，但 §5 没有对应的 FILE 编号。
+- `live_model.py`——TASK-027 的真实模型适配器（DEP-012：OpenAI Responses API，模型名只从 `OPENAI_MODEL` 读）。FILE-016 `model_gateway.py` 是抽象端口，适配器是它的第二个实现（第一个是 ScriptedModel）。结构化输出用 `responses.create` + 手写 json_schema 而不是 SDK 的 `responses.parse`：parse 的 `text_format` 只收 BaseModel / dataclass（`ModelDecision` 是判别联合，进不去），且它固定 `strict=True`，而 strict 模式不收 `arguments` / `facts` 这类自由对象。schema 由 `TypeAdapter(ModelDecision).json_schema()` 派生，合同的单一事实来源仍在 model_gateway。顺带产出 `model_usage` 事件（engine 收尾时向实现了 `UsageReporting` 的网关要一次用量，插在终态事件前）：payload 走 `RunTaskEvent.payload`（`z.unknown()`），**没有改 wire schema**，字段名由 observation.test.ts 拉真 Python 读一遍钉住。
 
 protocol 包：
 
@@ -63,8 +65,7 @@ protocol 包：
 
 ### 指导书规划，实际不存在
 
-- FILE-020 `tests/fixtures/pdfs/`——目录只有 `.gitkeep`，没有二进制 PDF。测试用的 PDF 由 `main/capabilities/pdf-fixtures.ts` 提供。
-- FILE-021 `tests/evals/cases.json`——Live Eval 属 Phase 3 范围，尚未开始。
+- FILE-020 `tests/fixtures/pdfs/`——目录只有 `.gitkeep`，没有二进制 PDF。测试用的 PDF 由 `main/capabilities/pdf-fixtures.ts` 提供。（TASK-027 的 20 条 Eval Case 同样不落库二进制：页面文本写在 FILE-021 的清单里，跑的时候现场生成。）
 - `personal_agent/tools/`——只剩一个 `__init__.py`，实现已迁到 TS 侧（见上表最后一行）。全仓无任何 import 引用它，pytest 与 ruff 都不再触及。属于可删的残留。
 - ASSUMPTION-004 规划的 Reading 授权根——`RootId` 枚举与 `ROOT_ENV` 都只有 `downloads` 一项。TASK-019 补 `filesystem.create_dir` 与 `filesystem.move` 的参数绑定器时，两者的路径都只用 downloads 根校验，fixture 里的目标路径写成 `Downloads/Reading/...`，即 downloads 根下的子目录。理由：批准链路要验的是「展示完整路径 → 挂起 → 批准 → 落库」，与路径落在哪个根无关；而引入独立 Reading 根要改双端枚举并新增环境变量，它真正被用到是 TASK-020 移动文件的时候。届时两个 fixture 的目标路径要跟着改。
 
@@ -75,6 +76,12 @@ protocol 包：
 ### 一致项
 
 FILE-001、FILE-002、FILE-005、FILE-006、FILE-007、FILE-008、FILE-010、FILE-012、FILE-014、FILE-015、FILE-016、FILE-018、FILE-019、FILE-022 与实际一致。本文件所在目录即 FILE-022。
+
+FILE-021 `tests/evals/cases.json` 在 TASK-027 落地，路径与指导书一致：20 条 Case 的清单，
+旁边的 `tests/evals/README.md`（跑法）与 `reports/`（产物，不入库）是同一个目录下的补充。
+清单里的页面文本用可打印 ASCII：PDF 由 `pdf-fixtures.ts` 的 `buildPdf` 现场生成，
+它按 PDF 字符串字面量写内容流，括号与反斜杠会破坏字面量、非 ASCII 在 latin1 下静默变问号；
+判定用的 keywords 仍可以是中文（那是对摘要正文匹配的）。
 
 ## 后果
 
@@ -89,4 +96,7 @@ FILE-001、FILE-002、FILE-005、FILE-006、FILE-007、FILE-008、FILE-010、FIL
 - `personal_agent/tools/` 是空壳，留着会让人以为 Python 侧还有工具实现。
 - 批准链在真实运行中仍未接通，尽管组件已全部就位：`main/capabilities/executor.ts` 已有六个执行体（list / extract_pdf / create_dir / move / scheduler.create / notification.send，后两个分别属 TASK-023、TASK-024），broker、幂等关、安全矩阵也都在 TASK-022 验证过，但 `host-executor.ts` 的 `BOOTSTRAP_SCOPE` 仍是只读、不挂 permission/idempotency/scheduler wiring——notification.send 的通知端口与 ReminderTimerService 因此也没有生产接线，`planning.py` 的计划仍固定三步全 READ。因此 PermissionDialog、诊断区权限表与 Reminder 链路在真实运行中不会被触发，只能靠单测与 e2e 组件级验证。把生产接线（WRITE scope + broker + scheduler wiring + 计划扩展）留给 TASK-028 的完整 Golden Path E2E。
 - TASK-025 的恢复服务同属「组件就位、启动路径未调用」：`recoverReminders` 与十例重启测试都在，但 `index.ts` 的启动流程没调它（调了也没有可恢复的行——reminders 表在生产里还写不进去），接线依赖上面那条一起做。因此「应用启动恢复」目前在验证层成立（真库 + 真 timer + 假通知端口的十轮重启测试），不在真实启动路径上成立。
+- TASK-027 的评测只跑**只读链路**（`filesystem.list → document.extract_pdf → summary`）：WRITE 能力与权限批准在生产里还没接线（见上一条），塞进 Eval 就会变成"测了一条不存在的链路"。完整 Golden Path（含 move 与 Reminder）留给 TASK-028。因此报告里的 `scope` 写死了这一句，20 条 Case 也全部是总结类任务。
+- TASK-027 的真模型路径（`live_model.py`）只被假 client 验过：本机没有 API Key、也不该让 CI 出网（CON-006），所以钉住的是适配器的翻译层——请求怎么组装、`output_text` 怎么变回 `ModelDecision`、用量怎么记账、失败怎么收成 `MODEL_CALL_FAILED`。真账号跑通与否要主人出手验（`EVAL_LIVE=1 OPENAI_MODEL=… OPENAI_API_KEY=… pnpm eval:live`），这一步没做之前，`RUNTIME_MODEL_NOT_CONFIGURED` 之外的模型侧行为都还只是"合同上应当如此"。
+- TASK-027 的陪练点只有一个，且是上次卡点的直接产物：`main/eval/judge.ts` 的 `judgeCase`（单条 case 判定表，思维与算法）。上一轮（TASK-026）一次铺了九个 TODO 加一份断言清单，主人先是"不会写了"、再是"写不下去了就这样吧"；这次按"一次只推一个函数 + 它自己的聚焦用例"来，其余部分（清单、物化、取证、统计、报告、编排、live 适配器）全部写完并绿。**结果**：主人自己填完并修掉了三处 `selectedTarget` 的问题（单份 PDF 时 `target` 为 null 要回落到 `targetPdf()`、能力名不是 `extract_pdf` 而是 `document.extract_pdf`、比的是 `basename` 而不是绝对路径）与一处 reasons 计数（判"这条 fact 自己没通过"而不是"已经有 fact 没通过"），AI 补齐了 judge.test.ts 的八条断言。同时补了两条本来会漏掉的东西：清单 schema 多了一条不变量（要点 `text` 必须能被自己的某个 keyword 命中——scripted 模式的 fact 正文就是这段 text，关键词不在里面等于自己造永久假阴性），以及一条"标准答案 20/20"的自检断言（清单、剧本合成、判定表三者必须一致；没有它，判定表把 20 条全判失败也只体现为报告里一个 0/20，没有任何红点）。另外把 25 条要点的关键词改成中英变体：live 模式下面向中文目标的真模型会给出中文摘要，纯英文短语（`buddy`、`stainless steel`、`30 seconds`）一个都命中不了，召回率会大面积假阴性。验收：`pnpm verify` 877 + 284 全绿，scripted 20/20 完整成功、页码引用 100%、关键结论召回 100%、四条闸口全过。
 - TASK-026 的陪练点按 AGENTS.md §6 的五类切法铺开后，经主人明确授权（「你直接给 debug，然后写完吧」）由 AI 一次填完，标记清零：取证的选择规则（选哪份 PDF / 跟随移动 / 配对工具结果）、文件系统探测与 PDF 缺口的收场、能力名从 protocol 派生、端口失败留痕、串行探测并行化与收尾三态表驱动、两份测试文件里「断言待补」的用例。填完的判定表按**计划**决定要哪些交付物（计划里有 move 才要求文件与批准、有 scheduler.create 才要求 Reminder），不是照搬 Golden Path 的固定清单——否则只读计划的 20 轮 E2E 会永远红。验收：`pnpm verify` 815 条全绿，含 20 轮只读 Golden Path E2E（真判定器 + 真端口 + 真 Python）。
