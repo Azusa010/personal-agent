@@ -20,12 +20,14 @@ from personal_agent.host_channel import (
     HostRequestFailed,
 )
 from personal_agent.model_gateway import (
+    ModelCallFailed,
     ModelDecision,
     ModelGateway,
     Observation,
     ScriptExhausted,
     SummaryDecision,
     ToolCallDecision,
+    UsageReporting,
 )
 from personal_agent.protocol.models import (
     HostExecuteToolParams,
@@ -51,9 +53,16 @@ EVENT_TOOL_RESULT = "tool_result"
 EVENT_BUDGET_EXHAUSTED = "budget_exhausted"
 EVENT_TASK_COMPLETED = "task_completed"
 EVENT_TASK_FAILED = "task_failed"
+# 模型用量结算（TASK-027）。只有会记账的网关（LiveModel）才会产生这条；
+# 它落在终态事件之前，时间线上是「先记花了多少，再宣布结局」。
+EVENT_MODEL_USAGE = "model_usage"
 
 
 CAPABILITY_NOT_REGISTERED = "CAPABILITY_NOT_REGISTERED"
+
+# 模型侧失败的 reason 前缀。与 RUNTIME_MODEL_NOT_CONFIGURED 分开：
+# 那个是「进程压根没配模型」，这个是「配了但这次调用没成」。
+MODEL_CALL_FAILED = "MODEL_CALL_FAILED"
 
 
 def now_occurred_at() -> str:
@@ -89,6 +98,13 @@ class AgentEngine:
     def run(
         self, goal: str, visibleCapabilities: Sequence[str]
     ) -> RunTaskCompleted | RunTaskFailed:
+        outcome = self._drive(goal, visibleCapabilities)
+        self._settle_usage(outcome)
+        return outcome
+
+    def _drive(
+        self, goal: str, visibleCapabilities: Sequence[str]
+    ) -> RunTaskCompleted | RunTaskFailed:
         events: list[RunTaskEvent] = []
         self._emit(events, EVENT_TASK_STARTED, {"goal": goal})
         steps: int = 0
@@ -107,6 +123,10 @@ class AgentEngine:
                 decision = self._decide(goal, visibleCapabilities)
             except ScriptExhausted as e:
                 return self._fail(events, str(e))
+            except ModelCallFailed as e:
+                # 模型这一侧的问题（网络、鉴权、结构化输出不合契约）是任务的失败原因，
+                # 不是运行时内部错误：带上前缀回传，任务记录里直接看得出是哪一侧。
+                return self._fail(events, f"{MODEL_CALL_FAILED}: {e.reason}")
             steps += 1
             if isinstance(decision, SummaryDecision):
                 try:
@@ -149,6 +169,29 @@ class AgentEngine:
         """失败路径统一走这里，保证 events 一定跟着回传。"""
         self._emit(events, EVENT_TASK_FAILED, {"reason": reason})
         return RunTaskFailed(status="failed", reason=reason, events=events)
+
+    def _settle_usage(self, outcome: RunTaskCompleted | RunTaskFailed) -> None:
+        """收尾结算：向会记账的网关要一次用量，插成终态事件前的一条 model_usage。
+
+        插在倒数第一条之前而不是直接追加：时间线上先有「这次花了多少」，
+        再由 task_completed / task_failed 宣布结局，倒过来读着像结算发生在结局之后。
+        失败的任务也结算——账要按次数记，跑崩的那次同样花了 token。
+        ScriptedModel 不实现 UsageReporting，这里一条都不加，
+        Golden Path E2E 钉的事件类型序列因此不受影响。
+        """
+        if not isinstance(self._model, UsageReporting):
+            return
+        usage = self._model.usage_snapshot()
+        if usage is None:
+            return
+        outcome.events.insert(
+            max(len(outcome.events) - 1, 0),
+            RunTaskEvent(
+                type=EVENT_MODEL_USAGE,
+                payload=usage.model_dump(),
+                occurredAt=now_occurred_at(),
+            ),
+        )
 
     def _emit(
         self, events: list[RunTaskEvent], event_type: str, payload: dict[str, Any]

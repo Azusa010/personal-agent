@@ -1,0 +1,601 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "one-page-note",
+      "goal": "把 Downloads 里那份 PDF 的要点总结出来，每条都带页码引用",
+      "pdfs": [
+        {
+          "name": "q3-update.pdf",
+          "pages": [
+            "Q3 revenue grew 12 percent year over year, led by the enterprise tier."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "revenue",
+          "text": "第三季度营收同比增长 12%，主要由企业版拉动",
+          "keywords": ["12%", "12 percent"],
+          "pages": [1]
+        }
+      ]
+    },
+    {
+      "id": "two-page-brief",
+      "goal": "把这份项目说明总结成两条要点，带页码引用",
+      "pdfs": [
+        {
+          "name": "aurora-brief.pdf",
+          "pages": [
+            "Project Aurora starts on 2026-03-31 with a team of four engineers.",
+            "The first milestone is a working prototype by 2026-06-30."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "kickoff",
+          "text": "项目 2026-03-31 启动，四名工程师参与",
+          "keywords": ["2026-03-31"],
+          "pages": [1]
+        },
+        {
+          "id": "milestone",
+          "text": "第一个里程碑是 2026-06-30 前出可用原型",
+          "keywords": ["2026-06-30"],
+          "pages": [2]
+        }
+      ]
+    },
+    {
+      "id": "three-page-report",
+      "goal": "总结这份审计报告的结论与整改建议，带页码引用",
+      "pdfs": [
+        {
+          "name": "audit-report.pdf",
+          "pages": [
+            "The audit found no critical issues in the billing pipeline.",
+            "Two medium risks remain: retry storms and unbounded log growth.",
+            "Recommended fix: add a retry budget and rotate logs every day."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "risks",
+          "text": "还剩两个中风险：重试风暴与日志无上限增长",
+          "keywords": [
+            "重试风暴",
+            "retry storm",
+            "日志无上限",
+            "unbounded log"
+          ],
+          "pages": [2]
+        },
+        {
+          "id": "fix",
+          "text": "整改建议是加一个 retry budget 并每天轮转日志",
+          "keywords": ["retry budget"],
+          "pages": [3]
+        }
+      ]
+    },
+    {
+      "id": "four-page-spec",
+      "goal": "把这份设备通信规格整理成要点，带页码引用",
+      "pdfs": [
+        {
+          "name": "device-spec.pdf",
+          "pages": [
+            "Interface: the device reports status every 30 seconds over MQTT.",
+            "Payload fields: temperature, humidity, battery, firmware.",
+            "Retention: readings are kept for 90 days, then deleted.",
+            "Failure mode: if the broker is unreachable, buffer up to 500 readings."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "interval",
+          "text": "设备每 30 seconds 上报一次状态",
+          "keywords": ["30 seconds", "30 秒"],
+          "pages": [1]
+        },
+        {
+          "id": "retention",
+          "text": "读数保留 90 days 后删除",
+          "keywords": ["90 days", "90 天"],
+          "pages": [3]
+        },
+        {
+          "id": "buffer",
+          "text": "broker 不可达时最多缓存 500 readings",
+          "keywords": ["500 readings", "500 条"],
+          "pages": [4]
+        }
+      ]
+    },
+    {
+      "id": "five-page-handbook",
+      "goal": "把这份入职手册总结成要点，带页码引用",
+      "pdfs": [
+        {
+          "name": "onboarding-handbook.pdf",
+          "pages": [
+            "Welcome to the team. This handbook covers your first month.",
+            "Every new hire gets a buddy for the first two weeks.",
+            "Laptops are issued on day one by the IT desk.",
+            "Expense reports are due at the end of each month.",
+            "Escalate blockers in the team channel within one hour."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "buddy",
+          "text": "新人前两周会有一位 buddy",
+          "keywords": ["buddy", "伙伴"],
+          "pages": [2]
+        },
+        {
+          "id": "escalate",
+          "text": "阻塞问题要在 one hour 内到团队频道里升级",
+          "keywords": ["one hour", "1 小时", "一小时"],
+          "pages": [5]
+        }
+      ]
+    },
+    {
+      "id": "eight-page-annual",
+      "goal": "把这份年报的要点总结出来，带页码引用",
+      "pdfs": [
+        {
+          "name": "annual-review.pdf",
+          "pages": [
+            "Annual review: total shipments reached 4.2 million units.",
+            "Manufacturing cost per unit fell by 6 percent.",
+            "The services business grew faster than hardware.",
+            "Three new markets were opened in Europe.",
+            "Customer churn fell to 3.5 percent, the lowest in five years.",
+            "Support response time improved to 4 hours on average.",
+            "Research and development spending rose to 380 million.",
+            "Next year we plan to open two new plants in Asia."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "shipments",
+          "text": "全年出货量达到 4.2 million units",
+          "keywords": ["4.2 million", "420 万"],
+          "pages": [1]
+        },
+        {
+          "id": "churn",
+          "text": "客户流失率降到 3.5 percent，为五年最低",
+          "keywords": ["3.5 percent", "3.5%"],
+          "pages": [5]
+        },
+        {
+          "id": "plants",
+          "text": "明年计划在亚洲开 two new plants",
+          "keywords": ["two new plants", "新工厂", "两座新厂"],
+          "pages": [8]
+        }
+      ]
+    },
+    {
+      "id": "ten-page-whitepaper",
+      "goal": "这份白皮书很长，请把关键的测量结果总结出来，带页码引用",
+      "pdfs": [
+        {
+          "name": "storage-whitepaper.pdf",
+          "pages": [
+            "Abstract: we evaluate a sharded storage layout for time series data.",
+            "Related work covers LSM trees and column stores.",
+            "The benchmark ran on 8 nodes and finished in 42 minutes.",
+            "Write throughput peaked at 1.2 million points per second.",
+            "Read latency stayed flat as the dataset grew.",
+            "Compression reduced the on-disk footprint by 71 percent.",
+            "A failover test killed two nodes without data loss.",
+            "Operational cost was estimated per terabyte per month.",
+            "Memory use stayed under 2 GB per node for the whole run.",
+            "Conclusion: sharding pays off once the dataset exceeds 1 TB."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "benchmark",
+          "text": "基准测试跑在 8 个节点上，42 分钟完成",
+          "keywords": ["42 minutes", "42 分钟"],
+          "pages": [3]
+        },
+        {
+          "id": "memory",
+          "text": "全程每个节点内存占用低于 2 GB",
+          "keywords": ["2 GB"],
+          "pages": [9]
+        }
+      ]
+    },
+    {
+      "id": "blank-page-in-middle",
+      "goal": "把这份迁移文档的前后两步总结出来，带页码引用",
+      "pdfs": [
+        {
+          "name": "migration-notes.pdf",
+          "pages": [
+            "Section one explains the migration steps in order.",
+            " ",
+            "Section three lists the rollback commands."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "migration",
+          "text": "第一节按顺序讲了 migration 步骤",
+          "keywords": ["migration"],
+          "pages": [1]
+        },
+        {
+          "id": "rollback",
+          "text": "第三节列出了 rollback 命令",
+          "keywords": ["rollback", "回滚"],
+          "pages": [3]
+        }
+      ]
+    },
+    {
+      "id": "two-files-pick-by-name",
+      "goal": "总结 invoice-2026-03.pdf 这份文件的要点，带页码引用",
+      "pdfs": [
+        {
+          "name": "invoice-2026-03.pdf",
+          "pages": ["Invoice 2026-03 total is 4,800 USD, due on 2026-04-15."]
+        },
+        {
+          "name": "team-notes.pdf",
+          "pages": ["Team notes: the coffee machine on floor 3 is broken."]
+        }
+      ],
+      "target": "invoice-2026-03.pdf",
+      "keyPoints": [
+        {
+          "id": "total",
+          "text": "2026-03 这张发票总额 4,800 USD，2026-04-15 到期",
+          "keywords": ["4,800", "4800"],
+          "pages": [1]
+        }
+      ]
+    },
+    {
+      "id": "three-files-pick-newest",
+      "goal": "Downloads 里有几份周报，把最近改过的那份总结出来，带页码引用",
+      "pdfs": [
+        {
+          "name": "weekly-01.pdf",
+          "pages": ["Week 1: shipped the login fix behind a flag."]
+        },
+        {
+          "name": "weekly-02.pdf",
+          "pages": ["Week 2: reduced the build time to 6 minutes."]
+        },
+        {
+          "name": "weekly-03.pdf",
+          "pages": ["Week 3: closed 14 support tickets and one incident."]
+        }
+      ],
+      "target": "weekly-03.pdf",
+      "keyPoints": [
+        {
+          "id": "week3",
+          "text": "第三周关闭了 14 support tickets 与一个事故",
+          "keywords": ["14 support tickets", "14 个工单"],
+          "pages": [1]
+        }
+      ]
+    },
+    {
+      "id": "five-files-pick-quoted",
+      "goal": "把文件名是 meeting-2026-05.pdf 的那份会议记录总结出来，带页码引用",
+      "pdfs": [
+        {
+          "name": "meeting-2026-01.pdf",
+          "pages": ["January meeting: agreed to move the release to March."]
+        },
+        {
+          "name": "meeting-2026-02.pdf",
+          "pages": ["February meeting: hiring plan approved for two roles."]
+        },
+        {
+          "name": "meeting-2026-05.pdf",
+          "pages": [
+            "May meeting: the team agreed to freeze the scope until launch.",
+            "Action items were assigned to the platform group."
+          ]
+        },
+        {
+          "name": "budget-2026.pdf",
+          "pages": [
+            "Budget draft: cloud spend is capped at 9000 USD per month."
+          ]
+        },
+        {
+          "name": "roadmap-draft.pdf",
+          "pages": ["Draft roadmap: three themes for the second half."]
+        }
+      ],
+      "target": "meeting-2026-05.pdf",
+      "keyPoints": [
+        {
+          "id": "freeze",
+          "text": "五月会议决定在发布前 freeze the scope",
+          "keywords": ["freeze the scope", "冻结范围"],
+          "pages": [1]
+        },
+        {
+          "id": "actions",
+          "text": "行动项分给了 platform group",
+          "keywords": ["platform group", "平台组"],
+          "pages": [2]
+        }
+      ]
+    },
+    {
+      "id": "non-pdf-noise",
+      "goal": "Summarize the PDF in Downloads with page references. Ignore anything that is not a PDF.",
+      "pdfs": [
+        {
+          "name": "warranty.pdf",
+          "pages": [
+            "The warranty covers parts for 24 months and labor for 12 months."
+          ]
+        }
+      ],
+      "extraFiles": [
+        {
+          "name": "scratch-notes.txt",
+          "content": "random notes, not a document"
+        },
+        {
+          "name": "README.md",
+          "content": "# downloads folder"
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "warranty",
+          "text": "保修覆盖零件 24 months、人工 12 months",
+          "keywords": ["24 months", "24 个月"],
+          "pages": [1]
+        }
+      ]
+    },
+    {
+      "id": "numbers-and-units",
+      "goal": "把这份性能预算总结出来，数字要准确，带页码引用",
+      "pdfs": [
+        {
+          "name": "latency-budget.pdf",
+          "pages": [
+            "Latency budget: p95 under 120 ms and p99 under 0.5 s.",
+            "Each request may use at most 1.5 MB of memory."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "p95",
+          "text": "p95 延迟预算在 120 ms 以内",
+          "keywords": ["120 ms", "120ms"],
+          "pages": [1]
+        },
+        {
+          "id": "memory",
+          "text": "单个请求最多用 1.5 MB 内存",
+          "keywords": ["1.5 MB"],
+          "pages": [2]
+        }
+      ]
+    },
+    {
+      "id": "dates-and-deadlines",
+      "goal": "把这份合同的期限与续约时间总结出来，带页码引用",
+      "pdfs": [
+        {
+          "name": "contract-summary.pdf",
+          "pages": [
+            "The contract was signed on 2026-01-09 and runs until 2027-01-08.",
+            "Renewal talks must start by 2026-11-01."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "term",
+          "text": "合同签到 2027-01-08 为止",
+          "keywords": ["2027-01-08"],
+          "pages": [1]
+        },
+        {
+          "id": "renewal",
+          "text": "续约谈判必须在 2026-11-01 前启动",
+          "keywords": ["2026-11-01"],
+          "pages": [2]
+        }
+      ]
+    },
+    {
+      "id": "long-paragraph",
+      "goal": "这一页文字很长，请把材料与工艺那一条总结出来，带页码引用",
+      "pdfs": [
+        {
+          "name": "manufacturing-note.pdf",
+          "pages": [
+            "This note collects observations from the pilot line. The line runs two shifts a day and produces roughly 300 units per shift. Scrap rate sits near 2 percent and most defects come from the coating step. Humidity in the assembly hall drifts above the tolerance band in summer. The enclosure is made of stainless steel because the previous aluminium version corroded near the coast. Tooling changes take about 40 minutes and are done between shifts. A full audit of the coating step is planned before the next production run. Operators asked for better lighting at the inspection bench. The note ends with a short list of open questions for the process team."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "material",
+          "text": "外壳改用 stainless steel，因为上一版铝壳在海边腐蚀了",
+          "keywords": ["stainless steel", "不锈钢"],
+          "pages": [1]
+        }
+      ]
+    },
+    {
+      "id": "labels-and-values",
+      "goal": "把这份立项卡片的关键字段总结出来，带页码引用",
+      "pdfs": [
+        {
+          "name": "project-card.pdf",
+          "pages": [
+            "Owner: Lin Wei / Budget: 40000 USD / Risk: medium / Review date: 2026-07-01."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "budget",
+          "text": "预算 40000 USD",
+          "keywords": ["40000", "40,000"],
+          "pages": [1]
+        },
+        {
+          "id": "risk",
+          "text": "风险等级为 medium",
+          "keywords": ["medium", "中等"],
+          "pages": [1]
+        }
+      ]
+    },
+    {
+      "id": "symbols-and-slashes",
+      "goal": "把这份运维约定总结出来，带页码引用",
+      "pdfs": [
+        {
+          "name": "ops-agreement.pdf",
+          "pages": [
+            "SLA target is 99.9% uptime for the api/v2 endpoints.",
+            "Disk usage above 85% pages the on-call engineer."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "sla",
+          "text": "api/v2 的可用性目标是 99.9% uptime",
+          "keywords": ["99.9%"],
+          "pages": [1]
+        },
+        {
+          "id": "disk",
+          "text": "磁盘占用超过 85% 会呼叫值班工程师",
+          "keywords": ["85%"],
+          "pages": [2]
+        }
+      ]
+    },
+    {
+      "id": "two-files-pick-older",
+      "goal": "Downloads 里有两份路线图，请把更早的那份总结出来，带页码引用",
+      "pdfs": [
+        {
+          "name": "roadmap-2025.pdf",
+          "pages": [
+            "2025 roadmap: finish the migration and cut costs by 8 percent."
+          ]
+        },
+        {
+          "name": "roadmap-2026.pdf",
+          "pages": [
+            "2026 roadmap: launch the mobile app and hire two designers."
+          ]
+        }
+      ],
+      "target": "roadmap-2025.pdf",
+      "keyPoints": [
+        {
+          "id": "cost",
+          "text": "2025 年路线图的重点之一是砍掉 8 percent 成本",
+          "keywords": ["8 percent", "8%"],
+          "pages": [1]
+        }
+      ]
+    },
+    {
+      "id": "six-pages-sparse",
+      "goal": "这份文档大部分是背景，请把唯一的待办事项总结出来，带页码引用",
+      "pdfs": [
+        {
+          "name": "ops-review.pdf",
+          "pages": [
+            "Background: the platform team was formed in 2024.",
+            "The team owns four services and one pipeline.",
+            "On-call rotation covers weekdays and weekends.",
+            "The last incident was a slow query on the reporting path.",
+            "The only open action item is to renew the TLS certificate before 2026-08-30.",
+            "The next review is scheduled in six months."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "action",
+          "text": "唯一待办是在 2026-08-30 前续签 TLS certificate",
+          "keywords": ["TLS certificate", "TLS 证书"],
+          "pages": [5]
+        }
+      ]
+    },
+    {
+      "id": "topic-across-pages",
+      "goal": "把这份退款政策的要点总结出来，带页码引用",
+      "pdfs": [
+        {
+          "name": "refund-policy.pdf",
+          "pages": [
+            "The refund window is 14 days for physical goods.",
+            "Digital goods are not refundable once downloaded.",
+            "Refunds are processed back to the original payment method within 5 days."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "window",
+          "text": "实体商品的退款窗口是 14 days",
+          "keywords": ["14 days", "14 天"],
+          "pages": [1]
+        },
+        {
+          "id": "processing",
+          "text": "退款在 5 days 内退回原支付方式",
+          "keywords": ["5 days", "5 天"],
+          "pages": [3]
+        }
+      ]
+    }
+  ]
+}

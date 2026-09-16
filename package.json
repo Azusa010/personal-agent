@@ -13,6 +13,8 @@
     "test:ts": "pnpm --dir apps/desktop test",
     "test:py": "uv run --project services/agent-runtime --locked pytest",
     "test": "pnpm test:pack && pnpm test:ts && pnpm test:py",
+    "eval": "pnpm --dir apps/desktop exec vitest run src/main/eval",
+    "eval:live": "pnpm --dir apps/desktop exec vitest run src/main/eval/live-eval.test.ts",
     "build": "pnpm --dir apps/desktop build",
     "verify": "pnpm typecheck && pnpm lint:ts && pnpm lint:py && pnpm test",
     "verify:all": "pnpm verify && pnpm build"

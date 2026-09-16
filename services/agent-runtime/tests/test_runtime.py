@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from personal_agent.live_model import LIVE_MODEL_ENV, LiveModel
 from personal_agent.model_gateway import SummaryDecision, ToolCallDecision
 from personal_agent.protocol.models import (
     CapabilityDescriptor,
@@ -445,8 +446,36 @@ def test_model_factory_is_called_exactly_once_per_task():
 
 def test_resolve_model_factory_returns_none_without_env(monkeypatch):
     # 生产默认不配模型，收到 run_task 回 RUNTIME_MODEL_NOT_CONFIGURED。
+    # 两个变量都要清：跑过 live eval 的 shell 里可能还留着 OPENAI_MODEL。
     monkeypatch.delenv(SCRIPT_ENV, raising=False)
+    monkeypatch.delenv(LIVE_MODEL_ENV, raising=False)
     assert resolve_model_factory() is None
+
+
+def test_resolve_model_factory_prefers_the_live_model(monkeypatch, tmp_path):
+    # 两个都配了取真模型：配 OPENAI_MODEL 是显式动作，静默降级成演一遍剧本
+    # 会让人以为真模型跑通了。
+    monkeypatch.setenv(SCRIPT_ENV, str(write_script(tmp_path)))
+    monkeypatch.setenv(LIVE_MODEL_ENV, "gpt-test")
+
+    factory = resolve_model_factory()
+
+    assert factory is not None
+    model = factory()
+    assert isinstance(model, LiveModel)
+    # 工厂不建 client、不查 Key：配错了是任务收成 MODEL_CALL_FAILED，
+    # 而不是这个进程起不来。
+    assert model.usage_snapshot() is None
+
+
+def test_resolve_model_factory_builds_the_live_model_without_the_script(monkeypatch):
+    monkeypatch.delenv(SCRIPT_ENV, raising=False)
+    monkeypatch.setenv(LIVE_MODEL_ENV, "gpt-test")
+
+    factory = resolve_model_factory()
+
+    assert factory is not None
+    assert isinstance(factory(), LiveModel)
 
 
 def test_resolve_model_factory_builds_a_fresh_model_per_call(monkeypatch, tmp_path):

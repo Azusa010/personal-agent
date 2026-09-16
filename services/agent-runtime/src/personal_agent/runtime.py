@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from personal_agent.context import ContextManager
 from personal_agent.engine import AgentEngine
 from personal_agent.host_channel import HostChannel
+from personal_agent.live_model import LIVE_MODEL_ENV, LiveModel
 from personal_agent.model_gateway import ModelGateway
 from personal_agent.planning import PlanError, make_plan
 from personal_agent.protocol.models import (
@@ -29,9 +30,10 @@ from personal_agent.scripted_model import ScriptedModel, ScriptLoadError, load_s
 
 SERVER_INFO = ServerInfo(name="personal-agent-runtime", version="0.1.0")
 
-# Phase 1 全程用 ScriptedModel（CON-006 + PAT-004），真实模型 adapter 还不存在。
-# 所以 main() 起的进程握手与 ping 都正常，收到 agent.run_task 时回这个码，
+# 没配模型（OPENAI_MODEL 与 PERSONAL_AGENT_SCRIPT 都没有）时代码走这里。
+# 这种进程握手与 ping 都正常，只在收到 agent.run_task 时回这个码，
 # 而不是拿一个空脚本的 ScriptedModel 去跑然后立即耗尽。
+# 剧本读坏了也归这一类（TASK-013 的既有行为）：起不来的进程比缺模型更难排查。
 RUNTIME_MODEL_NOT_CONFIGURED = "RUNTIME_MODEL_NOT_CONFIGURED"
 
 # 计划建不出来：握手时下发的能力清单缺了计划需要的能力。
@@ -206,7 +208,17 @@ log = _setup_logging()
 def resolve_model_factory() -> Callable[[], ModelGateway] | None:
     """
     按环境变量决定这个进程用哪个 ModelGateway，工厂每次调用都造一个新实例。
+
+    优先级：OPENAI_MODEL（真模型，DEP-012）> PERSONAL_AGENT_SCRIPT（剧本，CI 默认）。
+    两个都配了就取真模型——配 OPENAI_MODEL 是显式动作，剧本是给 CI 与 E2E 用的；
+    反过来静默降级成演一遍剧本，会让人以为真模型跑通了。
     """
+    live_model = os.environ.get(LIVE_MODEL_ENV)
+    if live_model:
+        # 这里不建 client、不校验 API Key：构造期碰网络会让握手与 ping 一起受牵连，
+        # 配错了只是这次任务收成 MODEL_CALL_FAILED（LiveModel 自己兜）。
+        return lambda: LiveModel(model=live_model)
+
     script_path = os.environ.get(SCRIPT_ENV)
     if not script_path:
         return None

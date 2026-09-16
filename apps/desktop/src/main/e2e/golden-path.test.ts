@@ -19,10 +19,10 @@ import {
   writeFileSync
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 
 import { executeHostTool, listVisibleCapabilities } from '../capabilities/host-executor'
+import { repoRoot } from '../eval/paths'
 import { findCapability } from '../capabilities/registry'
 import { ROOT_ENV, toPosix } from '../capabilities/roots'
 import { migrate, openProductState, type SqliteDatabase } from '../product-state/database'
@@ -39,18 +39,8 @@ import { realVerificationPorts } from '../verification/ports'
 import { verifyTaskCompletion } from '../verification/verify-task'
 import type { RunTaskIpcResult, SummaryFact } from '../../shared/ipc-contract'
 
-// 不写死 '../../../../../'：层级被人挪动时会静默指错地方，
-// 而找特征文件失败会直接抛错，看得见。
-function repoRoot(): string {
-  let dir = dirname(fileURLToPath(import.meta.url))
-  for (;;) {
-    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir
-    const parent = dirname(dir)
-    if (parent === dir) throw new Error('找不到仓库根（pnpm-workspace.yaml）')
-    dir = parent
-  }
-}
-
+// 仓库根由 eval/paths 的 repoRoot 提供（不写死 '../../../../../'：
+// 层级被人挪动时会静默指错地方，而找特征文件失败会直接抛错，看得见）。
 const ROOT = repoRoot()
 const VENV_PYTHON = join(ROOT, 'services', 'agent-runtime', '.venv', 'Scripts', 'python.exe')
 const RUNTIME_CWD = join(ROOT, 'services', 'agent-runtime')

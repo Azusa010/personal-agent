@@ -21,17 +21,21 @@ from personal_agent.engine import (
     DEFAULT_MAX_STEPS,
     DEFAULT_MAX_TOOL_CALLS,
     EVENT_BUDGET_EXHAUSTED,
+    EVENT_MODEL_USAGE,
     EVENT_TASK_COMPLETED,
     EVENT_TASK_FAILED,
     EVENT_TASK_STARTED,
     EVENT_TOOL_CALLED,
     EVENT_TOOL_RESULT,
+    MODEL_CALL_FAILED,
     AgentEngine,
     Budget,
     now_occurred_at,
 )
 from personal_agent.host_channel import HostChannelClosed, HostRequestFailed
 from personal_agent.model_gateway import (
+    ModelCallFailed,
+    ModelUsage,
     Observation,
     SummaryDecision,
     ToolCallDecision,
@@ -140,6 +144,8 @@ def test_event_type_literals_are_pinned():
     assert EVENT_BUDGET_EXHAUSTED == "budget_exhausted"
     assert EVENT_TASK_COMPLETED == "task_completed"
     assert EVENT_TASK_FAILED == "task_failed"
+    # TASK-027 加的一条：TS 侧 eval 的成本统计按这个字面值捞事件。
+    assert EVENT_MODEL_USAGE == "model_usage"
 
 
 def test_not_registered_code_matches_ts_registry():
@@ -429,6 +435,116 @@ def test_run_task_completed_payload_survives_json_dumps():
 
     assert json.loads(text)["events"][-1]["payload"]["facts"] == [
         {"text": "摘要", "pageRefs": [1]}
+    ]
+
+
+# ---- run：模型用量结算与模型侧失败（TASK-027）----
+
+
+class UsageModel:
+    """会记账的假网关：决策照剧本吐，用量按预设值结。
+
+    只实现 decide + usage_snapshot 两个方法——engine 用 isinstance 问的是
+    有没有 usage_snapshot（UsageReporting 是 runtime_checkable 的结构化端口），
+    所以这里不必继承什么。
+    """
+
+    def __init__(self, decisions, usage=None):
+        self._scripted = ScriptedModel(decisions)
+        self._usage = usage
+
+    def decide(self, context):
+        return self._scripted.decide(context)
+
+    def usage_snapshot(self):
+        return self._usage
+
+
+class FailingModel:
+    def decide(self, context):
+        raise ModelCallFailed("502 bad gateway")
+
+
+def make_engine_with_model(model, results):
+    return AgentEngine(
+        model=model,
+        channel=FakeChannel(results),
+        context=ContextManager(),
+    )
+
+
+def test_scripted_runs_carry_no_model_usage_event():
+    # ScriptedModel 不实现 UsageReporting：确定性链路的事件流必须一条不多，
+    # Golden Path E2E 逐条钉着事件类型序列。
+    engine, *_ = make_engine([list_result(), pdf_result()], golden_path())
+
+    outcome = engine.run("g", VISIBLE)
+
+    assert EVENT_MODEL_USAGE not in [e.type for e in outcome.events]
+
+
+def test_model_usage_event_lands_before_the_terminal_event():
+    usage = ModelUsage(model="gpt-test", inputTokens=120, outputTokens=40, calls=3)
+    model = UsageModel(golden_path(), usage=usage)
+    engine = make_engine_with_model(model, [list_result(), pdf_result()])
+
+    outcome = engine.run("g", VISIBLE)
+
+    types = [e.type for e in outcome.events]
+    assert types == [
+        EVENT_TASK_STARTED,
+        EVENT_TOOL_CALLED,
+        EVENT_TOOL_RESULT,
+        EVENT_TOOL_CALLED,
+        EVENT_TOOL_RESULT,
+        EVENT_MODEL_USAGE,
+        EVENT_TASK_COMPLETED,
+    ]
+    # payload 的 key 是 wire 的一部分（TS 侧 eval 的 ModelUsagePayload 逐字读）。
+    assert outcome.events[-2].payload == {
+        "model": "gpt-test",
+        "inputTokens": 120,
+        "outputTokens": 40,
+        "calls": 3,
+    }
+
+
+def test_failed_runs_settle_usage_too():
+    # 失败的任务也花过 token，账不能只记成功的那些。
+    usage = ModelUsage(model="gpt-test", inputTokens=8, outputTokens=1, calls=1)
+    engine = make_engine_with_model(UsageModel([], usage=usage), [])
+    # 空剧本：第一次 decide 就走 ScriptExhausted 的失败路径。
+
+    outcome = engine.run("g", VISIBLE)
+
+    assert isinstance(outcome, RunTaskFailed)
+    assert [e.type for e in outcome.events] == [
+        EVENT_TASK_STARTED,
+        EVENT_MODEL_USAGE,
+        EVENT_TASK_FAILED,
+    ]
+
+
+def test_model_without_usage_gets_no_zero_event():
+    engine = make_engine_with_model(UsageModel(golden_path(), usage=None), [list_result(), pdf_result()])
+
+    outcome = engine.run("g", VISIBLE)
+
+    assert EVENT_MODEL_USAGE not in [e.type for e in outcome.events]
+
+
+def test_model_call_failed_is_a_task_failure_not_an_internal_error():
+    # 模型侧的问题（网络、鉴权、结构化输出不合契约）是任务失败原因，
+    # 不是运行时内部错误：reason 带前缀，任务记录里直接看得出是哪一侧。
+    engine = make_engine_with_model(FailingModel(), [])
+
+    outcome = engine.run("g", VISIBLE)
+
+    assert isinstance(outcome, RunTaskFailed)
+    assert outcome.reason == f"{MODEL_CALL_FAILED}: 502 bad gateway"
+    assert [e.type for e in outcome.events] == [
+        EVENT_TASK_STARTED,
+        EVENT_TASK_FAILED,
     ]
 
 
