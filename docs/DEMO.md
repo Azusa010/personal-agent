@@ -81,6 +81,12 @@ Remove-Item Env:\PERSONAL_AGENT_SCRIPT     # 真模型优先，但别留剧本�
 - [ ] 摘要里的页码全部来自真实提取过的页面（闸口会拒掉编造的页码）
 - [ ] 模型失败（网络、鉴权、配额）时任务以 `MODEL_CALL_FAILED` 收场，界面能看到原因
 
+> 不必再手工 export：应用侧栏「设置」→ 模型设置里可以填 Key / 模型名 / Base URL，
+> 保存后 runtime 自动重启生效。Key 用系统密钥库加密存在 `%APPDATA%\PersonalAgent\model-settings.json`，
+> 不回显、不进日志。填了面板的字段会压过同名环境变量。
+> **剧本模式不受面板影响**：启动时设了 `PERSONAL_AGENT_SCRIPT` 就不注入面板里的三个模型字段——
+> 第 1 节的演示脚本因此永远走剧本，不会被之前存过的设置改成真模型。
+
 > 真模型跑批的评测入口是 `pnpm eval:live`（20 条 Case，需要 `EVAL_LIVE=1` +
 > `OPENAI_MODEL` + `OPENAI_API_KEY`），口径见 [tests/evals/README.md](../tests/evals/README.md)。
 
