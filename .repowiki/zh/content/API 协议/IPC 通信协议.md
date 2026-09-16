@@ -72,15 +72,15 @@ MRUNTIME --> PY
 
 图表来源
 - [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
-- [apps/desktop/src/main/index.ts:106-325](file://apps/desktop/src/main/index.ts#L106-L325)
-- [apps/desktop/src/main/runtime/runtime-host.ts:15-87](file://apps/desktop/src/main/runtime/runtime-host.ts#L15-L87)
+- [apps/desktop/src/main/index.ts:108-327](file://apps/desktop/src/main/index.ts#L108-L327)
+- [apps/desktop/src/main/runtime/runtime-host.ts:15-148](file://apps/desktop/src/main/runtime/runtime-host.ts#L15-L148)
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 - [packages/protocol/schemas/envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
 
 章节来源
 - [apps/desktop/src/shared/ipc-contract.ts:24-75](file://apps/desktop/src/shared/ipc-contract.ts#L24-L75)
 - [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
-- [apps/desktop/src/main/index.ts:106-325](file://apps/desktop/src/main/index.ts#L106-L325)
+- [apps/desktop/src/main/index.ts:108-327](file://apps/desktop/src/main/index.ts#L108-L327)
 
 ## 核心组件
 - 共享契约与类型：统一 IPC 返回结构、错误码联合、领域对象（任务、计划、权限等）。
@@ -93,8 +93,8 @@ MRUNTIME --> PY
 章节来源
 - [apps/desktop/src/shared/ipc-contract.ts:24-75](file://apps/desktop/src/shared/ipc-contract.ts#L24-L75)
 - [apps/desktop/src/preload/index.d.ts:33-57](file://apps/desktop/src/preload/index.d.ts#L33-L57)
-- [apps/desktop/src/main/index.ts:132-321](file://apps/desktop/src/main/index.ts#L132-L321)
-- [apps/desktop/src/main/runtime/runtime-host.ts:22-87](file://apps/desktop/src/main/runtime/runtime-host.ts#L22-L87)
+- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
+- [apps/desktop/src/main/runtime/runtime-host.ts:90-160](file://apps/desktop/src/main/runtime/runtime-host.ts#L90-L160)
 - [apps/desktop/src/main/permission/permission-ipc.ts:44-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L83)
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 
@@ -133,16 +133,16 @@ PL-->>UI : Promise 解析
 
 图表来源
 - [apps/desktop/src/main/tasks/run-task.ts:100-222](file://apps/desktop/src/main/tasks/run-task.ts#L100-L222)
-- [apps/desktop/src/main/runtime/runtime-host.ts:77-87](file://apps/desktop/src/main/runtime/runtime-host.ts#L77-L87)
+- [apps/desktop/src/main/runtime/runtime-host.ts:151-160](file://apps/desktop/src/main/runtime/runtime-host.ts#L151-L160)
 - [packages/protocol/schemas/agent.ts:105-138](file://packages/protocol/schemas/agent.ts#L105-L138)
 
 ## 详细组件分析
 
 ### 运行时状态管理（启动/就绪/崩溃）
 - 状态枚举：stopped、starting、ready、crashed。
-- 启动流程：检查 venv python 是否存在 → 创建 PythonSupervisor → 监听崩溃事件 → initialize 成功后置 ready。
+- 启动流程：检查运行时命令是否存在（按布局解析：PERSONAL_AGENT_RUNTIME 覆盖 / 打包冻结产物 / 仓库 venv） → 创建 PythonSupervisor → 监听崩溃事件 → initialize 成功后置 ready。
 - 崩溃处理：收到 runtime.crashed 事件后设置 crashed 并记录 detail；初始化失败也进入 crashed。
-- 查询接口：渲染进程通过 runtimeStatus 获取当前状态与详情。
+- 查询接口：渲染进程通过 runtimeStatus 获取当前状态与详情。状态不是一次性的——Main 侧从 starting 走到 ready/crashed 是异步的（打包版要先把冻结产物拉起来），渲染层在 starting 期间每秒轮询、到终态停表，否则状态栏会永远停在「运行时启动中」（TASK-029 修的）。
 
 ```mermaid
 stateDiagram-v2
@@ -156,12 +156,12 @@ stopped --> stopped : "重复调用 startRuntime()"
 ```
 
 图表来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:26-75](file://apps/desktop/src/main/runtime/runtime-host.ts#L26-L75)
-- [apps/desktop/src/main/index.ts:132-132](file://apps/desktop/src/main/index.ts#L132-L132)
+- [apps/desktop/src/main/runtime/runtime-host.ts:94-148](file://apps/desktop/src/main/runtime/runtime-host.ts#L94-L148)
+- [apps/desktop/src/main/index.ts:134-134](file://apps/desktop/src/main/index.ts#L134-L134)
 
 章节来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:22-87](file://apps/desktop/src/main/runtime/runtime-host.ts#L22-L87)
-- [apps/desktop/src/main/index.ts:132-132](file://apps/desktop/src/main/index.ts#L132-L132)
+- [apps/desktop/src/main/runtime/runtime-host.ts:90-160](file://apps/desktop/src/main/runtime/runtime-host.ts#L90-L160)
+- [apps/desktop/src/main/index.ts:134-134](file://apps/desktop/src/main/index.ts#L134-L134)
 
 ### 权限通知与决策流程
 - 通知通道：主进程向所有窗口广播 personal-agent:permission-notice，包含 requested/resolved 两类通知。
@@ -282,12 +282,12 @@ M --> P["权限代理"]
 
 图表来源
 - [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
-- [apps/desktop/src/main/index.ts:132-321](file://apps/desktop/src/main/index.ts#L132-L321)
+- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
 - [packages/protocol/schemas/index.ts:1-8](file://packages/protocol/schemas/index.ts#L1-L8)
 
 章节来源
 - [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
-- [apps/desktop/src/main/index.ts:132-321](file://apps/desktop/src/main/index.ts#L132-L321)
+- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
 - [packages/protocol/schemas/index.ts:1-8](file://packages/protocol/schemas/index.ts#L1-L8)
 
 ## 性能考量
@@ -299,15 +299,15 @@ M --> P["权限代理"]
 [本节为通用指导，无需特定文件引用]
 
 ## 故障排查指南
-- 运行时未启动：检查 venv python 路径与存在性；确认 startRuntime 已调用且未重复 spawn。
+- 运行时未启动：检查 运行时命令路径与存在性；确认 startRuntime 已调用且未重复 spawn。
 - 计划构建失败：查看 make_plan 超时与错误码，必要时增加日志定位 Python 侧问题。
 - 权限通道不可用：确认 product-state 数据库已打开；若 broker 构造失败，批准通道不可用。
 - 数据库失败：捕获 RUNTIME_DB_FAILED，检查 SQLite 连接与事务异常。
 - 响应无效：核对 Python 返回结构与 Zod 模式，确保字段齐全且类型正确。
 
 章节来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:31-62](file://apps/desktop/src/main/runtime/runtime-host.ts#L31-L62)
-- [apps/desktop/src/main/index.ts:122-129](file://apps/desktop/src/main/index.ts#L122-L129)
+- [apps/desktop/src/main/runtime/runtime-host.ts:94-136](file://apps/desktop/src/main/runtime/runtime-host.ts#L94-L136)
+- [apps/desktop/src/main/index.ts:124-131](file://apps/desktop/src/main/index.ts#L124-L131)
 - [apps/desktop/src/main/tasks/run-task.ts:104-122](file://apps/desktop/src/main/tasks/run-task.ts#L104-L122)
 - [apps/desktop/src/main/tasks/run-task.ts:190-217](file://apps/desktop/src/main/tasks/run-task.ts#L190-L217)
 
@@ -340,7 +340,7 @@ M --> P["权限代理"]
 - personal-agent:permission-notice：主进程推送权限通知。
 
 章节来源
-- [apps/desktop/src/main/index.ts:132-321](file://apps/desktop/src/main/index.ts#L132-L321)
+- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
 
 ### 调试技巧
 - 启用开发日志：运行时 stderr 输出在开发模式下打印到控制台，便于定位 Python 侧问题。
@@ -350,5 +350,5 @@ M --> P["权限代理"]
 - 协议校验：利用 Zod 的错误信息快速定位字段缺失或类型不匹配。
 
 章节来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:47-50](file://apps/desktop/src/main/runtime/runtime-host.ts#L47-L50)
+- [apps/desktop/src/main/runtime/runtime-host.ts:155-159](file://apps/desktop/src/main/runtime/runtime-host.ts#L155-L159)
 - [apps/desktop/src/main/index.ts:56-90](file://apps/desktop/src/main/index.ts#L56-L90)

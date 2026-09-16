@@ -73,7 +73,7 @@ VM -.-> SHARED
 
 图表来源
 - [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
-- [apps/desktop/src/main/index.ts:1-354](file://apps/desktop/src/main/index.ts#L1-L354)
+- [apps/desktop/src/main/index.ts:1-356](file://apps/desktop/src/main/index.ts#L1-L356)
 - [apps/desktop/src/main/capabilities/host-executor.ts:1-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L117)
 - [apps/desktop/src/main/tasks/run-task.ts:1-222](file://apps/desktop/src/main/tasks/run-task.ts#L1-L222)
 - [apps/desktop/src/main/permission/permission-ipc.ts:1-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L1-L83)
@@ -84,7 +84,7 @@ VM -.-> SHARED
 
 章节来源
 - [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
-- [apps/desktop/src/main/index.ts:1-354](file://apps/desktop/src/main/index.ts#L1-L354)
+- [apps/desktop/src/main/index.ts:1-356](file://apps/desktop/src/main/index.ts#L1-L356)
 - [packages/protocol/schemas/envelope.ts:1-40](file://packages/protocol/schemas/envelope.ts#L1-L40)
 - [apps/desktop/src/shared/ipc-contract.ts:1-74](file://apps/desktop/src/shared/ipc-contract.ts#L1-L74)
 
@@ -99,7 +99,7 @@ VM -.-> SHARED
 章节来源
 - [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
 - [apps/desktop/src/main/index.ts:35-54](file://apps/desktop/src/main/index.ts#L35-L54)
-- [apps/desktop/src/main/index.ts:132-321](file://apps/desktop/src/main/index.ts#L132-L321)
+- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
 - [packages/protocol/schemas/envelope.ts:1-40](file://packages/protocol/schemas/envelope.ts#L1-L40)
 - [apps/desktop/src/main/capabilities/host-executor.ts:1-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L117)
 - [apps/desktop/src/main/tasks/run-task.ts:1-222](file://apps/desktop/src/main/tasks/run-task.ts#L1-L222)
@@ -130,7 +130,7 @@ PL-->>UI : 结果对象
 
 图表来源
 - [apps/desktop/src/preload/index.ts:23-25](file://apps/desktop/src/preload/index.ts#L23-L25)
-- [apps/desktop/src/main/index.ts:252-274](file://apps/desktop/src/main/index.ts#L252-L274)
+- [apps/desktop/src/main/index.ts:254-276](file://apps/desktop/src/main/index.ts#L254-L276)
 - [apps/desktop/src/main/capabilities/host-executor.ts:99-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L99-L117)
 - [apps/desktop/src/main/tasks/run-task.ts:105-162](file://apps/desktop/src/main/tasks/run-task.ts#L105-L162)
 
@@ -175,12 +175,12 @@ MapErr --> Out["返回 {ok:false, code, message}"]
 ```
 
 图表来源
-- [apps/desktop/src/main/index.ts:132-321](file://apps/desktop/src/main/index.ts#L132-L321)
+- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
 - [apps/desktop/src/main/tasks/run-task.ts:29-37](file://apps/desktop/src/main/tasks/run-task.ts#L29-L37)
 - [apps/desktop/src/main/permission/permission-ipc.ts:17-32](file://apps/desktop/src/main/permission/permission-ipc.ts#L17-L32)
 
 章节来源
-- [apps/desktop/src/main/index.ts:132-321](file://apps/desktop/src/main/index.ts#L132-L321)
+- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
 - [apps/desktop/src/main/tasks/run-task.ts:29-37](file://apps/desktop/src/main/tasks/run-task.ts#L29-L37)
 - [apps/desktop/src/main/permission/permission-ipc.ts:17-32](file://apps/desktop/src/main/permission/permission-ipc.ts#L17-L32)
 
@@ -276,7 +276,7 @@ MP-->>UI : {ok, permission, repeated}
 - [packages/protocol/schemas/filesystem.ts:1-71](file://packages/protocol/schemas/filesystem.ts#L1-L71)
 - [apps/desktop/src/main/permission/permission-ipc.ts:44-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L83)
 - [apps/desktop/src/main/index.ts:35-54](file://apps/desktop/src/main/index.ts#L35-L54)
-- [apps/desktop/src/main/index.ts:296-321](file://apps/desktop/src/main/index.ts#L296-L321)
+- [apps/desktop/src/main/index.ts:298-323](file://apps/desktop/src/main/index.ts#L298-L323)
 
 章节来源
 - [apps/desktop/src/main/capabilities/host-executor.ts:1-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L117)
@@ -336,14 +336,14 @@ TASKS --> ERR["runtime/error-code.ts"]
 
 图表来源
 - [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
-- [apps/desktop/src/main/index.ts:1-354](file://apps/desktop/src/main/index.ts#L1-L354)
+- [apps/desktop/src/main/index.ts:1-356](file://apps/desktop/src/main/index.ts#L1-L356)
 - [apps/desktop/src/main/tasks/run-task.ts:1-222](file://apps/desktop/src/main/tasks/run-task.ts#L1-L222)
 - [apps/desktop/src/main/runtime/timeouts.ts:1-16](file://apps/desktop/src/main/runtime/timeouts.ts#L1-L16)
 - [apps/desktop/src/main/runtime/error-code.ts:1-17](file://apps/desktop/src/main/runtime/error-code.ts#L1-L17)
 
 章节来源
 - [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
-- [apps/desktop/src/main/index.ts:1-354](file://apps/desktop/src/main/index.ts#L1-L354)
+- [apps/desktop/src/main/index.ts:1-356](file://apps/desktop/src/main/index.ts#L1-L356)
 - [apps/desktop/src/main/tasks/run-task.ts:1-222](file://apps/desktop/src/main/tasks/run-task.ts#L1-L222)
 
 ## 性能与并发
@@ -355,7 +355,7 @@ TASKS --> ERR["runtime/error-code.ts"]
 章节来源
 - [apps/desktop/src/main/runtime/timeouts.ts:1-16](file://apps/desktop/src/main/runtime/timeouts.ts#L1-L16)
 - [apps/desktop/src/main/tasks/run-task.ts:127-143](file://apps/desktop/src/main/tasks/run-task.ts#L127-L143)
-- [apps/desktop/src/main/index.ts:210-215](file://apps/desktop/src/main/index.ts#L210-L215)
+- [apps/desktop/src/main/index.ts:212-217](file://apps/desktop/src/main/index.ts#L212-L217)
 
 ## 故障排除指南
 - 常见错误码

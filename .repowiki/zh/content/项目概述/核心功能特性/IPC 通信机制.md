@@ -90,7 +90,7 @@ PY --> MODELS
 
 章节来源
 - [apps/desktop/src/preload/index.ts:8-46](file://apps/desktop/src/preload/index.ts#L8-L46)
-- [apps/desktop/src/main/index.ts:132-321](file://apps/desktop/src/main/index.ts#L132-L321)
+- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
 - [apps/desktop/src/main/capabilities/host-executor.ts:54-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L54-L117)
 - [apps/desktop/src/main/tasks/run-task.ts:105-162](file://apps/desktop/src/main/tasks/run-task.ts#L105-L162)
 - [apps/desktop/src/main/permission/permission-ipc.ts:43-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L43-L83)
@@ -122,7 +122,7 @@ PL-->>UI : 返回结果
 
 图表来源
 - [apps/desktop/src/preload/index.ts:23-25](file://apps/desktop/src/preload/index.ts#L23-L25)
-- [apps/desktop/src/main/index.ts:252-275](file://apps/desktop/src/main/index.ts#L252-L275)
+- [apps/desktop/src/main/index.ts:254-277](file://apps/desktop/src/main/index.ts#L254-L277)
 - [apps/desktop/src/main/tasks/run-task.ts:105-162](file://apps/desktop/src/main/tasks/run-task.ts#L105-L162)
 - [services/agent-runtime/src/personal_agent/protocol/models.py:264-320](file://services/agent-runtime/src/personal_agent/protocol/models.py#L264-L320)
 
@@ -170,12 +170,12 @@ I --> J
 ```
 
 图表来源
-- [apps/desktop/src/main/index.ts:132-321](file://apps/desktop/src/main/index.ts#L132-L321)
+- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
 - [apps/desktop/src/main/tasks/run-task.ts:29-37](file://apps/desktop/src/main/tasks/run-task.ts#L29-L37)
 - [apps/desktop/src/main/permission/permission-ipc.ts:25-32](file://apps/desktop/src/main/permission/permission-ipc.ts#L25-L32)
 
 章节来源
-- [apps/desktop/src/main/index.ts:132-321](file://apps/desktop/src/main/index.ts#L132-L321)
+- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
 - [apps/desktop/src/main/tasks/run-task.ts:29-37](file://apps/desktop/src/main/tasks/run-task.ts#L29-L37)
 - [apps/desktop/src/main/permission/permission-ipc.ts:25-32](file://apps/desktop/src/main/permission/permission-ipc.ts#L25-L32)
 
@@ -312,7 +312,7 @@ E --> |否| R["返回 result"]
 
 章节来源
 - [apps/desktop/src/preload/index.ts:10-45](file://apps/desktop/src/preload/index.ts#L10-L45)
-- [apps/desktop/src/main/index.ts:132-321](file://apps/desktop/src/main/index.ts#L132-L321)
+- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
 
 ## 依赖关系分析
 - 耦合与内聚：主进程集中注册 IPC 处理器，职责清晰；能力网关与任务编排解耦，通过依赖注入（RunTaskDeps）提高可测试性。

@@ -112,11 +112,11 @@ Note over R : 焦点/遮罩/ESC/点击外部等行为由 Radix 处理
 ```
 
 图表来源
-- [App.tsx:265-271](file://apps/desktop/src/renderer/src/App.tsx#L265-L271)
+- [App.tsx:282-288](file://apps/desktop/src/renderer/src/App.tsx#L282-L288)
 - [dialog.tsx:10-144](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx#L10-L144)
 
 章节来源
-- [App.tsx:265-271](file://apps/desktop/src/renderer/src/App.tsx#L265-L271)
+- [App.tsx:282-288](file://apps/desktop/src/renderer/src/App.tsx#L282-L288)
 - [dialog.tsx:10-144](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx#L10-L144)
 
 ## 详细组件分析
@@ -230,12 +230,12 @@ Note over PD,A : 若失败或过期，保持面板可见以便用户理解原因
 图表来源
 - [PermissionDialog.tsx:30-134](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L30-L134)
 - [PermissionDialog.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L136-L164)
-- [App.tsx:94-133](file://apps/desktop/src/renderer/src/App.tsx#L94-L133)
+- [App.tsx:111-150](file://apps/desktop/src/renderer/src/App.tsx#L111-L150)
 
 章节来源
 - [PermissionDialog.tsx:30-134](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L30-L134)
 - [PermissionDialog.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L136-L164)
-- [App.tsx:94-133](file://apps/desktop/src/renderer/src/App.tsx#L94-L133)
+- [App.tsx:111-150](file://apps/desktop/src/renderer/src/App.tsx#L111-L150)
 
 ## 依赖关系分析
 - 基础 UI 依赖：
@@ -262,7 +262,7 @@ App["App"] --> Biz
 - [DiagnosticsDialog.tsx:185-203](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx#L185-L203)
 - [IndexDialog.tsx:65-77](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx#L65-L77)
 - [PermissionDialog.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L136-L164)
-- [App.tsx:265-271](file://apps/desktop/src/renderer/src/App.tsx#L265-L271)
+- [App.tsx:282-288](file://apps/desktop/src/renderer/src/App.tsx#L282-L288)
 
 章节来源
 - [dialog.tsx:10-144](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx#L10-L144)
@@ -272,7 +272,7 @@ App["App"] --> Biz
 - [DiagnosticsDialog.tsx:185-203](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx#L185-L203)
 - [IndexDialog.tsx:65-77](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx#L65-L77)
 - [PermissionDialog.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L136-L164)
-- [App.tsx:265-271](file://apps/desktop/src/renderer/src/App.tsx#L265-L271)
+- [App.tsx:282-288](file://apps/desktop/src/renderer/src/App.tsx#L282-L288)
 
 ## 性能与可访问性
 - 性能
@@ -325,7 +325,7 @@ App["App"] --> Biz
   - 用户批准后调用 onDecide，上层负责 IPC 与状态清理
 
 章节来源
-- [App.tsx:265-271](file://apps/desktop/src/renderer/src/App.tsx#L265-L271)
+- [App.tsx:282-288](file://apps/desktop/src/renderer/src/App.tsx#L282-L288)
 - [IndexDialog.tsx:65-77](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx#L65-L77)
 - [DiagnosticsDialog.tsx:185-203](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx#L185-L203)
 - [PermissionDialog.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L136-L164)
