@@ -47,7 +47,7 @@ A --> D["能力处理器<br/>hostHandler(由主进程注入)"]
 ```
 
 图表来源
-- [python-supervisor.ts:96-126](file://apps/desktop/src/main/runtime/python-supervisor.ts#L96-L126)
+- [python-supervisor.ts:96-133](file://apps/desktop/src/main/runtime/python-supervisor.ts#L96-L133)
 - [runtime.py:187-256](file://services/agent-runtime/src/personal_agent/runtime.py#L187-L256)
 - [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
 
@@ -55,7 +55,7 @@ A --> D["能力处理器<br/>hostHandler(由主进程注入)"]
 - [envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
 - [models.py:1-368](file://services/agent-runtime/src/personal_agent/protocol/models.py#L1-L368)
 - [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [python-supervisor.ts:128-200](file://apps/desktop/src/main/runtime/python-supervisor.ts#L128-L200)
+- [python-supervisor.ts:135-207](file://apps/desktop/src/main/runtime/python-supervisor.ts#L135-L207)
 
 ## 核心组件
 - 消息信封：jsonrpc、id、method、params；响应包含 result 或 error（二者互斥）。
@@ -91,7 +91,7 @@ P-->>M : "agent.run_task 最终结果(facts, events)"
 ```
 
 图表来源
-- [python-supervisor.ts:128-200](file://apps/desktop/src/main/runtime/python-supervisor.ts#L128-L200)
+- [python-supervisor.ts:135-207](file://apps/desktop/src/main/runtime/python-supervisor.ts#L135-L207)
 - [runtime.py:109-184](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L184)
 - [host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
 
@@ -136,7 +136,7 @@ P-->>M : "agent.run_task 最终结果(facts, events)"
 章节来源
 - [host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
 - [host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
-- [python-supervisor.ts:258-314](file://apps/desktop/src/main/runtime/python-supervisor.ts#L258-L314)
+- [python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
 - [models.py:75-126](file://services/agent-runtime/src/personal_agent/protocol/models.py#L75-L126)
 
 ### 流式响应与事件
@@ -162,9 +162,9 @@ P-->>M : "agent.run_task 最终结果(facts, events)"
 章节来源
 - [runtime.py:65-93](file://services/agent-runtime/src/personal_agent/runtime.py#L65-L93)
 - [runtime.py:158-184](file://services/agent-runtime/src/personal_agent/runtime.py#L158-L184)
-- [python-supervisor.ts:156-200](file://apps/desktop/src/main/runtime/python-supervisor.ts#L156-L200)
-- [python-supervisor.ts:258-314](file://apps/desktop/src/main/runtime/python-supervisor.ts#L258-L314)
-- [python-supervisor.ts:332-345](file://apps/desktop/src/main/runtime/python-supervisor.ts#L332-L345)
+- [python-supervisor.ts:163-207](file://apps/desktop/src/main/runtime/python-supervisor.ts#L163-L207)
+- [python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
+- [python-supervisor.ts:339-352](file://apps/desktop/src/main/runtime/python-supervisor.ts#L339-L352)
 
 ## 依赖关系分析
 - TypeScript 协议层（Zod）与 Python 协议层（Pydantic）保持字段一致，确保两端校验行为对齐。
@@ -219,7 +219,7 @@ HostExecuteToolResponse --> HostExecuteToolResult : "包含"
 
 章节来源
 - [models.py:1-368](file://services/agent-runtime/src/personal_agent/protocol/models.py#L1-L368)
-- [python-supervisor.ts:66-126](file://apps/desktop/src/main/runtime/python-supervisor.ts#L66-L126)
+- [python-supervisor.ts:66-133](file://apps/desktop/src/main/runtime/python-supervisor.ts#L66-L133)
 - [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
 
 ## 性能与可靠性
@@ -242,8 +242,8 @@ HostExecuteToolResponse --> HostExecuteToolResult : "包含"
 
 章节来源
 - [runtime.py:109-184](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L184)
-- [python-supervisor.ts:128-200](file://apps/desktop/src/main/runtime/python-supervisor.ts#L128-L200)
-- [python-supervisor.ts:332-345](file://apps/desktop/src/main/runtime/python-supervisor.ts#L332-L345)
+- [python-supervisor.ts:135-207](file://apps/desktop/src/main/runtime/python-supervisor.ts#L135-L207)
+- [python-supervisor.ts:339-352](file://apps/desktop/src/main/runtime/python-supervisor.ts#L339-L352)
 
 ## 结论
 本协议以 JSON-RPC 2.0 为基础，通过行帧传输实现主进程与 Python 运行时的可靠通信。协议明确了消息信封、方法集合、错误码与版本管理，支持宿主能力反向调用与任务执行事件。实现上，两端均提供严格的校验与完善的错误处理，确保稳定性与可维护性。建议在实际使用中遵循本规范，结合超时、重试与监控策略，构建健壮的自动化代理系统。

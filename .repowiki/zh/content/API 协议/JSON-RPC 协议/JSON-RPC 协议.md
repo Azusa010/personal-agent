@@ -68,7 +68,7 @@ SCHEMA_TS --- FIXTURES
 ```
 
 **图表来源**
-- [apps/desktop/src/main/runtime/python-supervisor.ts:103-356](file://apps/desktop/src/main/runtime/python-supervisor.ts#L103-L356)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:110-363](file://apps/desktop/src/main/runtime/python-supervisor.ts#L110-L363)
 - [services/agent-runtime/src/personal_agent/runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
 - [services/agent-runtime/src/personal_agent/host_channel.py:36-90](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L90)
 - [packages/protocol/schemas/envelope.ts:5-40](file://packages/protocol/schemas/envelope.ts#L5-L40)
@@ -81,7 +81,7 @@ SCHEMA_TS --- FIXTURES
 - [packages/protocol/schemas/host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
 - [packages/protocol/schemas/agent.ts:4-138](file://packages/protocol/schemas/agent.ts#L4-L138)
 - [services/agent-runtime/src/personal_agent/runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:103-356](file://apps/desktop/src/main/runtime/python-supervisor.ts#L103-L356)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:110-363](file://apps/desktop/src/main/runtime/python-supervisor.ts#L110-L363)
 
 ## 核心组件
 - 消息信封：统一的 JSON-RPC 2.0 请求/响应/通知结构，强制 result 与 error 互斥。
@@ -95,7 +95,7 @@ SCHEMA_TS --- FIXTURES
 - [packages/protocol/schemas/host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
 - [packages/protocol/schemas/agent.ts:4-138](file://packages/protocol/schemas/agent.ts#L4-L138)
 - [services/agent-runtime/src/personal_agent/runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:103-356](file://apps/desktop/src/main/runtime/python-supervisor.ts#L103-L356)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:110-363](file://apps/desktop/src/main/runtime/python-supervisor.ts#L110-L363)
 - [packages/protocol/schemas/errors.ts:1-30](file://packages/protocol/schemas/errors.ts#L1-L30)
 - [apps/desktop/src/main/runtime/error-code.ts:1-18](file://apps/desktop/src/main/runtime/error-code.ts#L1-L18)
 
@@ -130,8 +130,8 @@ PY-->>PS : 返回 RunTaskResult(completed/failed)
 ```
 
 **图表来源**
-- [apps/desktop/src/main/runtime/python-supervisor.ts:129-153](file://apps/desktop/src/main/runtime/python-supervisor.ts#L129-L153)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:258-314](file://apps/desktop/src/main/runtime/python-supervisor.ts#L258-L314)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:136-160](file://apps/desktop/src/main/runtime/python-supervisor.ts#L136-L160)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
 - [services/agent-runtime/src/personal_agent/runtime.py:109-184](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L184)
 - [services/agent-runtime/src/personal_agent/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
 
@@ -196,12 +196,12 @@ Ok -- 是 --> Success["返回 ok=true 的结果"]
 
 **图表来源**
 - [packages/protocol/schemas/host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:258-314](file://apps/desktop/src/main/runtime/python-supervisor.ts#L258-L314)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
 - [services/agent-runtime/src/personal_agent/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
 
 **章节来源**
 - [packages/protocol/schemas/host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:258-314](file://apps/desktop/src/main/runtime/python-supervisor.ts#L258-L314)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
 - [services/agent-runtime/src/personal_agent/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
 
 ### Agent 方法：make_plan 与 run_task
@@ -255,7 +255,7 @@ PY-->>TS : RunTaskResult{status, facts/events 或 reason/events}
 - [apps/desktop/src/main/runtime/error-code.ts:1-18](file://apps/desktop/src/main/runtime/error-code.ts#L1-L18)
 - [services/agent-runtime/src/personal_agent/host_channel.py:18-34](file://services/agent-runtime/src/personal_agent/host_channel.py#L18-L34)
 - [services/agent-runtime/src/personal_agent/host_channel.py:74-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L74-L85)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:258-314](file://apps/desktop/src/main/runtime/python-supervisor.ts#L258-L314)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
 
 ### 协议测试方法
 - 使用 fixtures 中的合法/非法样例，结合 Zod/Pydantic 模型进行双向校验，确保契约不漂移。
@@ -282,13 +282,13 @@ HC --> PS
 
 **图表来源**
 - [apps/desktop/src/main/capabilities/registry.ts:9-55](file://apps/desktop/src/main/capabilities/registry.ts#L9-L55)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:103-356](file://apps/desktop/src/main/runtime/python-supervisor.ts#L103-L356)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:110-363](file://apps/desktop/src/main/runtime/python-supervisor.ts#L110-L363)
 - [services/agent-runtime/src/personal_agent/runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
 - [services/agent-runtime/src/personal_agent/host_channel.py:36-90](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L90)
 
 **章节来源**
 - [apps/desktop/src/main/capabilities/registry.ts:9-55](file://apps/desktop/src/main/capabilities/registry.ts#L9-L55)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:103-356](file://apps/desktop/src/main/runtime/python-supervisor.ts#L103-L356)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:110-363](file://apps/desktop/src/main/runtime/python-supervisor.ts#L110-L363)
 - [services/agent-runtime/src/personal_agent/runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
 - [services/agent-runtime/src/personal_agent/host_channel.py:36-90](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L90)
 
@@ -309,9 +309,9 @@ HC --> PS
 - 协议校验失败：对照 envelope/host/agent schema 与 fixtures，定位字段缺失或类型不符。
 
 **章节来源**
-- [apps/desktop/src/main/runtime/python-supervisor.ts:129-153](file://apps/desktop/src/main/runtime/python-supervisor.ts#L129-L153)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:156-200](file://apps/desktop/src/main/runtime/python-supervisor.ts#L156-L200)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:258-314](file://apps/desktop/src/main/runtime/python-supervisor.ts#L258-L314)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:136-160](file://apps/desktop/src/main/runtime/python-supervisor.ts#L136-L160)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:163-207](file://apps/desktop/src/main/runtime/python-supervisor.ts#L163-L207)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
 - [services/agent-runtime/src/personal_agent/runtime.py:69-93](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L93)
 - [services/agent-runtime/src/personal_agent/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
 

@@ -74,9 +74,9 @@ Extract --> DB
 - [apps/desktop/src/main/db/database.ts:15-40](file://apps/desktop/src/main/db/database.ts#L15-L40)
 - [apps/desktop/src/main/db/pdf-repository.ts:15-66](file://apps/desktop/src/main/db/pdf-repository.ts#L15-L66)
 - [packages/protocol/schemas/document.ts:5-31](file://packages/protocol/schemas/document.ts#L5-L31)
-- [apps/desktop/src/shared/ipc-contract.ts:36-50](file://apps/desktop/src/shared/ipc-contract.ts#L36-L50)
-- [apps/desktop/src/preload/index.ts:17-18](file://apps/desktop/src/preload/index.ts#L17-L18)
-- [apps/desktop/src/main/index.ts:221-221](file://apps/desktop/src/main/index.ts#L221-L221)
+- [apps/desktop/src/shared/ipc-contract.ts:38-52](file://apps/desktop/src/shared/ipc-contract.ts#L38-L52)
+- [apps/desktop/src/preload/index.ts:21-22](file://apps/desktop/src/preload/index.ts#L21-L22)
+- [apps/desktop/src/main/index.ts:235-235](file://apps/desktop/src/main/index.ts#L235-L235)
 
 ## 核心组件
 - PDF 扫描器：按授权根目录列出 .pdf 文件，收集名称、绝对路径、修改时间、大小等元数据，并按修改时间倒序返回。
@@ -91,7 +91,7 @@ Extract --> DB
 - [apps/desktop/src/main/capabilities/executor.ts:157-172](file://apps/desktop/src/main/capabilities/executor.ts#L157-L172)
 - [apps/desktop/src/main/db/pdf-repository.ts:32-66](file://apps/desktop/src/main/db/pdf-repository.ts#L32-L66)
 - [packages/protocol/schemas/document.ts:5-31](file://packages/protocol/schemas/document.ts#L5-L31)
-- [apps/desktop/src/shared/ipc-contract.ts:36-50](file://apps/desktop/src/shared/ipc-contract.ts#L36-L50)
+- [apps/desktop/src/shared/ipc-contract.ts:38-52](file://apps/desktop/src/shared/ipc-contract.ts#L38-L52)
 
 ## 架构总览
 PDF 索引由“扫描—解析—持久化—查询”四阶段组成，能力执行器作为入口，协调文件系统、解析器与数据库。
@@ -122,8 +122,8 @@ Repo-->>Exec : 完成
 ```
 
 **图表来源**
-- [apps/desktop/src/main/index.ts:221-221](file://apps/desktop/src/main/index.ts#L221-L221)
-- [apps/desktop/src/preload/index.ts:17-18](file://apps/desktop/src/preload/index.ts#L17-L18)
+- [apps/desktop/src/main/index.ts:235-235](file://apps/desktop/src/main/index.ts#L235-L235)
+- [apps/desktop/src/preload/index.ts:21-22](file://apps/desktop/src/preload/index.ts#L21-L22)
 - [apps/desktop/src/main/capabilities/executor.ts:73-113](file://apps/desktop/src/main/capabilities/executor.ts#L73-L113)
 - [apps/desktop/src/main/capabilities/filesystem-list.ts:6-31](file://apps/desktop/src/main/capabilities/filesystem-list.ts#L6-L31)
 - [apps/desktop/src/main/capabilities/document-extract-pdf.ts:31-68](file://apps/desktop/src/main/capabilities/document-extract-pdf.ts#L31-L68)
@@ -261,9 +261,9 @@ PdfRepository --> Database : "使用"
 
 **章节来源**
 - [packages/protocol/schemas/document.ts:5-31](file://packages/protocol/schemas/document.ts#L5-L31)
-- [apps/desktop/src/shared/ipc-contract.ts:36-50](file://apps/desktop/src/shared/ipc-contract.ts#L36-L50)
-- [apps/desktop/src/preload/index.ts:17-18](file://apps/desktop/src/preload/index.ts#L17-L18)
-- [apps/desktop/src/main/index.ts:221-221](file://apps/desktop/src/main/index.ts#L221-L221)
+- [apps/desktop/src/shared/ipc-contract.ts:38-52](file://apps/desktop/src/shared/ipc-contract.ts#L38-L52)
+- [apps/desktop/src/preload/index.ts:21-22](file://apps/desktop/src/preload/index.ts#L21-L22)
+- [apps/desktop/src/main/index.ts:235-235](file://apps/desktop/src/main/index.ts#L235-L235)
 
 ## 依赖关系分析
 - 能力注册：registry.ts 声明 document.extract_pdf 能力。
@@ -291,8 +291,8 @@ IPC["preload/index.ts & main/index.ts"] --> Executor
 - [apps/desktop/src/main/db/pdf-repository.ts:32-66](file://apps/desktop/src/main/db/pdf-repository.ts#L32-L66)
 - [apps/desktop/src/main/db/database.ts:15-40](file://apps/desktop/src/main/db/database.ts#L15-L40)
 - [packages/protocol/schemas/document.ts:5-31](file://packages/protocol/schemas/document.ts#L5-L31)
-- [apps/desktop/src/preload/index.ts:17-18](file://apps/desktop/src/preload/index.ts#L17-L18)
-- [apps/desktop/src/main/index.ts:221-221](file://apps/desktop/src/main/index.ts#L221-L221)
+- [apps/desktop/src/preload/index.ts:21-22](file://apps/desktop/src/preload/index.ts#L21-L22)
+- [apps/desktop/src/main/index.ts:235-235](file://apps/desktop/src/main/index.ts#L235-L235)
 
 **章节来源**
 - [apps/desktop/src/main/capabilities/registry.ts:9-40](file://apps/desktop/src/main/capabilities/registry.ts#L9-L40)

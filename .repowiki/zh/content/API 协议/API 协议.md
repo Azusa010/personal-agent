@@ -67,7 +67,7 @@ SC -.-> PS
 ```
 
 图表来源
-- [apps/desktop/src/main/runtime/python-supervisor.ts:1-126](file://apps/desktop/src/main/runtime/python-supervisor.ts#L1-L126)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:1-133](file://apps/desktop/src/main/runtime/python-supervisor.ts#L1-L133)
 - [packages/protocol/schemas/envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
 - [packages/protocol/schemas/systems.ts:1-21](file://packages/protocol/schemas/systems.ts#L1-L21)
 - [packages/protocol/schemas/host.ts:1-76](file://packages/protocol/schemas/host.ts#L1-L76)
@@ -75,7 +75,7 @@ SC -.-> PS
 - [packages/protocol/schemas/agent.ts:1-138](file://packages/protocol/schemas/agent.ts#L1-L138)
 - [services/agent-runtime/src/personal_agent/protocol/models.py:1-368](file://services/agent-runtime/src/personal_agent/protocol/models.py#L1-L368)
 - [services/agent-runtime/src/personal_agent/host_channel.py:1-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L1-L91)
-- [apps/desktop/src/shared/ipc-contract.ts:1-75](file://apps/desktop/src/shared/ipc-contract.ts#L1-L75)
+- [apps/desktop/src/shared/ipc-contract.ts:1-103](file://apps/desktop/src/shared/ipc-contract.ts#L1-L103)
 
 章节来源
 - [packages/protocol/schemas/index.ts:1-8](file://packages/protocol/schemas/index.ts#L1-L8)
@@ -123,7 +123,7 @@ PS-->>UI : 返回结果或错误
 ```
 
 图表来源
-- [apps/desktop/src/main/runtime/python-supervisor.ts:128-200](file://apps/desktop/src/main/runtime/python-supervisor.ts#L128-L200)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:135-207](file://apps/desktop/src/main/runtime/python-supervisor.ts#L135-L207)
 - [services/agent-runtime/src/personal_agent/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
 - [packages/protocol/schemas/systems.ts:1-21](file://packages/protocol/schemas/systems.ts#L1-L21)
 - [packages/protocol/schemas/agent.ts:105-138](file://packages/protocol/schemas/agent.ts#L105-L138)
@@ -170,13 +170,13 @@ ReturnRes --> End
 图表来源
 - [services/agent-runtime/src/personal_agent/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
 - [packages/protocol/schemas/host.ts:28-67](file://packages/protocol/schemas/host.ts#L28-L67)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:258-314](file://apps/desktop/src/main/runtime/python-supervisor.ts#L258-L314)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
 
 章节来源
 - [packages/protocol/schemas/host.ts:1-76](file://packages/protocol/schemas/host.ts#L1-L76)
 - [packages/protocol/schemas/filesystem.ts:1-71](file://packages/protocol/schemas/filesystem.ts#L1-L71)
 - [services/agent-runtime/src/personal_agent/host_channel.py:1-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L1-L91)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:258-314](file://apps/desktop/src/main/runtime/python-supervisor.ts#L258-L314)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
 
 ### Agent 方法：run_task 与 make_plan
 - agent.run_task：TS 触发 Python 执行任务，返回完成或失败的结果，包含事件流与摘要事实。
@@ -204,7 +204,7 @@ ReturnRes --> End
 章节来源
 - [packages/protocol/tests/envelope.test.ts:1-655](file://packages/protocol/tests/envelope.test.ts#L1-L655)
 - [services/agent-runtime/src/personal_agent/protocol/models.py:1-368](file://services/agent-runtime/src/personal_agent/protocol/models.py#L1-L368)
-- [apps/desktop/src/shared/ipc-contract.ts:1-75](file://apps/desktop/src/shared/ipc-contract.ts#L1-L75)
+- [apps/desktop/src/shared/ipc-contract.ts:1-103](file://apps/desktop/src/shared/ipc-contract.ts#L1-L103)
 
 ## 依赖关系分析
 - PythonSupervisor 依赖协议包的 schemas 与错误码，负责生命周期管理与超时控制。
@@ -224,7 +224,7 @@ HC --> PS
 ```
 
 图表来源
-- [apps/desktop/src/main/runtime/python-supervisor.ts:1-126](file://apps/desktop/src/main/runtime/python-supervisor.ts#L1-L126)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:1-133](file://apps/desktop/src/main/runtime/python-supervisor.ts#L1-L133)
 - [services/agent-runtime/src/personal_agent/host_channel.py:1-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L1-L91)
 - [packages/protocol/schemas/envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
 - [packages/protocol/schemas/systems.ts:1-21](file://packages/protocol/schemas/systems.ts#L1-L21)
@@ -243,8 +243,8 @@ HC --> PS
 
 章节来源
 - [apps/desktop/src/main/runtime/timeouts.ts:1-17](file://apps/desktop/src/main/runtime/timeouts.ts#L1-L17)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:156-200](file://apps/desktop/src/main/runtime/python-supervisor.ts#L156-L200)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:332-354](file://apps/desktop/src/main/runtime/python-supervisor.ts#L332-L354)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:163-207](file://apps/desktop/src/main/runtime/python-supervisor.ts#L163-L207)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:339-361](file://apps/desktop/src/main/runtime/python-supervisor.ts#L339-L361)
 
 ## 故障排查指南
 - 常见错误码：
@@ -263,7 +263,7 @@ HC --> PS
 
 章节来源
 - [packages/protocol/schemas/errors.ts:1-30](file://packages/protocol/schemas/errors.ts#L1-L30)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:224-256](file://apps/desktop/src/main/runtime/python-supervisor.ts#L224-L256)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:231-263](file://apps/desktop/src/main/runtime/python-supervisor.ts#L231-L263)
 - [packages/protocol/tests/envelope.test.ts:270-296](file://packages/protocol/tests/envelope.test.ts#L270-L296)
 
 ## 结论
@@ -279,7 +279,7 @@ HC --> PS
 章节来源
 - [packages/protocol/fixtures/initialize.request.json:1-22](file://packages/protocol/fixtures/initialize.request.json#L1-L22)
 - [packages/protocol/fixtures/initialize.response.json:1-5](file://packages/protocol/fixtures/initialize.response.json#L1-L5)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:128-153](file://apps/desktop/src/main/runtime/python-supervisor.ts#L128-L153)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:135-160](file://apps/desktop/src/main/runtime/python-supervisor.ts#L135-L160)
 
 ### 运行任务（agent.run_task）
 - 请求示例路径：[agent-run-task.request.json](file://packages/protocol/fixtures/agent-run-task.request.json)
@@ -301,7 +301,7 @@ HC --> PS
 章节来源
 - [packages/protocol/schemas/host.ts:28-67](file://packages/protocol/schemas/host.ts#L28-L67)
 - [services/agent-runtime/src/personal_agent/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:258-314](file://apps/desktop/src/main/runtime/python-supervisor.ts#L258-L314)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
 
 ### 协议测试方法
 - 使用 fixtures 与 schema 测试验证合法/非法消息。
@@ -322,5 +322,5 @@ HC --> PS
 - 使用最小化 fixture 复现问题，逐步缩小范围。
 
 章节来源
-- [apps/desktop/src/main/runtime/python-supervisor.ts:224-256](file://apps/desktop/src/main/runtime/python-supervisor.ts#L224-L256)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:332-354](file://apps/desktop/src/main/runtime/python-supervisor.ts#L332-L354)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:231-263](file://apps/desktop/src/main/runtime/python-supervisor.ts#L231-L263)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:339-361](file://apps/desktop/src/main/runtime/python-supervisor.ts#L339-L361)

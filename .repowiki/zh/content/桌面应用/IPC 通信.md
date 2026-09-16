@@ -72,21 +72,21 @@ VM -.-> SHARED
 ```
 
 图表来源
-- [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
-- [apps/desktop/src/main/index.ts:1-356](file://apps/desktop/src/main/index.ts#L1-L356)
+- [apps/desktop/src/preload/index.ts:1-60](file://apps/desktop/src/preload/index.ts#L1-L60)
+- [apps/desktop/src/main/index.ts:1-385](file://apps/desktop/src/main/index.ts#L1-L385)
 - [apps/desktop/src/main/capabilities/host-executor.ts:1-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L117)
 - [apps/desktop/src/main/tasks/run-task.ts:1-222](file://apps/desktop/src/main/tasks/run-task.ts#L1-L222)
 - [apps/desktop/src/main/permission/permission-ipc.ts:1-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L1-L83)
 - [packages/protocol/schemas/envelope.ts:1-40](file://packages/protocol/schemas/envelope.ts#L1-L40)
 - [packages/protocol/schemas/filesystem.ts:1-71](file://packages/protocol/schemas/filesystem.ts#L1-L71)
 - [apps/desktop/src/shared/domain.ts:1-158](file://apps/desktop/src/shared/domain.ts#L1-L158)
-- [apps/desktop/src/shared/ipc-contract.ts:1-74](file://apps/desktop/src/shared/ipc-contract.ts#L1-L74)
+- [apps/desktop/src/shared/ipc-contract.ts:1-76](file://apps/desktop/src/shared/ipc-contract.ts#L1-L76)
 
 章节来源
-- [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
-- [apps/desktop/src/main/index.ts:1-356](file://apps/desktop/src/main/index.ts#L1-L356)
+- [apps/desktop/src/preload/index.ts:1-60](file://apps/desktop/src/preload/index.ts#L1-L60)
+- [apps/desktop/src/main/index.ts:1-385](file://apps/desktop/src/main/index.ts#L1-L385)
 - [packages/protocol/schemas/envelope.ts:1-40](file://packages/protocol/schemas/envelope.ts#L1-L40)
-- [apps/desktop/src/shared/ipc-contract.ts:1-74](file://apps/desktop/src/shared/ipc-contract.ts#L1-L74)
+- [apps/desktop/src/shared/ipc-contract.ts:1-76](file://apps/desktop/src/shared/ipc-contract.ts#L1-L76)
 
 ## 核心组件
 - 预加载桥接层：仅暴露必要方法，使用 contextBridge + contextIsolation，禁止直接访问 Node/Electron API。
@@ -97,9 +97,9 @@ VM -.-> SHARED
 - 权限通道：三个通道——personal-agent:permission-respond 与 personal-agent:list-permissions 是 renderer 发起的 invoke，personal-agent:permission-notice 是全应用唯一一个 main → renderer 的推送；broker 管理授权生命周期，permission-ipc 负责入参收窄与错误码映射。
 
 章节来源
-- [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
-- [apps/desktop/src/main/index.ts:35-54](file://apps/desktop/src/main/index.ts#L35-L54)
-- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
+- [apps/desktop/src/preload/index.ts:1-60](file://apps/desktop/src/preload/index.ts#L1-L60)
+- [apps/desktop/src/main/index.ts:45-68](file://apps/desktop/src/main/index.ts#L45-L68)
+- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
 - [packages/protocol/schemas/envelope.ts:1-40](file://packages/protocol/schemas/envelope.ts#L1-L40)
 - [apps/desktop/src/main/capabilities/host-executor.ts:1-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L117)
 - [apps/desktop/src/main/tasks/run-task.ts:1-222](file://apps/desktop/src/main/tasks/run-task.ts#L1-L222)
@@ -129,8 +129,8 @@ PL-->>UI : 结果对象
 ```
 
 图表来源
-- [apps/desktop/src/preload/index.ts:23-25](file://apps/desktop/src/preload/index.ts#L23-L25)
-- [apps/desktop/src/main/index.ts:254-276](file://apps/desktop/src/main/index.ts#L254-L276)
+- [apps/desktop/src/preload/index.ts:27-29](file://apps/desktop/src/preload/index.ts#L27-L29)
+- [apps/desktop/src/main/index.ts:268-290](file://apps/desktop/src/main/index.ts#L268-L290)
 - [apps/desktop/src/main/capabilities/host-executor.ts:99-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L99-L117)
 - [apps/desktop/src/main/tasks/run-task.ts:105-162](file://apps/desktop/src/main/tasks/run-task.ts#L105-L162)
 
@@ -151,12 +151,12 @@ Methods --> End(["渲染进程安全调用"])
 ```
 
 图表来源
-- [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
-- [apps/desktop/src/main/index.ts:56-72](file://apps/desktop/src/main/index.ts#L56-L72)
+- [apps/desktop/src/preload/index.ts:1-60](file://apps/desktop/src/preload/index.ts#L1-L60)
+- [apps/desktop/src/main/index.ts:70-86](file://apps/desktop/src/main/index.ts#L70-L86)
 
 章节来源
-- [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
-- [apps/desktop/src/main/index.ts:56-72](file://apps/desktop/src/main/index.ts#L56-L72)
+- [apps/desktop/src/preload/index.ts:1-60](file://apps/desktop/src/preload/index.ts#L1-L60)
+- [apps/desktop/src/main/index.ts:70-86](file://apps/desktop/src/main/index.ts#L70-L86)
 
 ### 主进程 IPC 路由与错误处理
 - 每个 channel 对应一个 handle，统一返回 {ok, code, message} 或业务成功体。
@@ -175,14 +175,47 @@ MapErr --> Out["返回 {ok:false, code, message}"]
 ```
 
 图表来源
-- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
+- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
 - [apps/desktop/src/main/tasks/run-task.ts:29-37](file://apps/desktop/src/main/tasks/run-task.ts#L29-L37)
 - [apps/desktop/src/main/permission/permission-ipc.ts:17-32](file://apps/desktop/src/main/permission/permission-ipc.ts#L17-L32)
 
 章节来源
-- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
+- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
 - [apps/desktop/src/main/tasks/run-task.ts:29-37](file://apps/desktop/src/main/tasks/run-task.ts#L29-L37)
 - [apps/desktop/src/main/permission/permission-ipc.ts:17-32](file://apps/desktop/src/main/permission/permission-ipc.ts#L17-L32)
+
+### 模型设置通道（TASK-030）
+- 两个通道：`personal-agent:get-model-settings` 与 `personal-agent:set-model-settings`；逻辑都在 main/settings/settings-ipc.ts 的纯函数里，index.ts 只做接线（真实存储 + 真实重启端口）。
+- 入参一律不可信：set 走 Zod 收窄；apiKey 类型不对时不把收到的值写进错误消息（那是密钥，消息会进日志）。
+- 失败码单独一张表（SETTINGS_READ_FAILED / SETTINGS_WRITE_FAILED / SETTINGS_ENCRYPTION_UNAVAILABLE），并入 IpcErrorCode。
+- SEC-008：get 只回 `apiKeySet` 布尔与 model / baseUrl，Key 明文不回传 Renderer。
+- 保存顺序固定为「先落盘、后重启」：applied 为 `restarted`（空闲，已重启生效）或 `on-next-restart`（有任务在跑 / 重启失败），两者都算保存成功。
+
+```mermaid
+sequenceDiagram
+participant R as "Renderer(SettingsDialog)"
+participant M as "Main(index.ts)"
+participant S as "settings-ipc"
+participant F as "model-settings.json"
+participant P as "Python runtime"
+R->>M : "invoke personal-agent:set-model-settings"
+M->>S : "setModelSettings(input, {store, runtime})"
+S->>F : "加密 Key 后落盘"
+S->>P : "restartRuntime()：空闲则 stop + start"
+S-->>R : "{ok:true, applied:'restarted'|'on-next-restart'}"
+```
+
+**图表来源**
+- [settings-ipc.ts:53-71](file://apps/desktop/src/main/settings/settings-ipc.ts#L53-L71)
+- [settings-ipc.ts:73-122](file://apps/desktop/src/main/settings/settings-ipc.ts#L73-L122)
+- [main/index.ts:357-370](file://apps/desktop/src/main/index.ts#L357-L370)
+
+**章节来源**
+- [settings-ipc.ts:53-71](file://apps/desktop/src/main/settings/settings-ipc.ts#L53-L71)
+- [settings-ipc.ts:73-122](file://apps/desktop/src/main/settings/settings-ipc.ts#L73-L122)
+- [ipc-contract.ts:78-102](file://apps/desktop/src/shared/ipc-contract.ts#L78-L102)
+- [main/index.ts:357-370](file://apps/desktop/src/main/index.ts#L357-L370)
+- [preload/index.ts:39-44](file://apps/desktop/src/preload/index.ts#L39-L44)
 
 ### 共享域模型与类型安全
 - shared/domain.ts 定义任务、计划、事件、权限等核心实体与枚举，作为跨进程契约。
@@ -241,7 +274,7 @@ ExecutionEventRecord <.. TaskTimeline : "包含"
 
 章节来源
 - [apps/desktop/src/shared/domain.ts:1-158](file://apps/desktop/src/shared/domain.ts#L1-L158)
-- [apps/desktop/src/shared/ipc-contract.ts:1-74](file://apps/desktop/src/shared/ipc-contract.ts#L1-L74)
+- [apps/desktop/src/shared/ipc-contract.ts:1-76](file://apps/desktop/src/shared/ipc-contract.ts#L1-L76)
 - [packages/protocol/schemas/envelope.ts:1-40](file://packages/protocol/schemas/envelope.ts#L1-L40)
 
 ### 能力执行与权限控制
@@ -275,8 +308,8 @@ MP-->>UI : {ok, permission, repeated}
 - [apps/desktop/src/main/capabilities/host-executor.ts:54-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L54-L117)
 - [packages/protocol/schemas/filesystem.ts:1-71](file://packages/protocol/schemas/filesystem.ts#L1-L71)
 - [apps/desktop/src/main/permission/permission-ipc.ts:44-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L83)
-- [apps/desktop/src/main/index.ts:35-54](file://apps/desktop/src/main/index.ts#L35-L54)
-- [apps/desktop/src/main/index.ts:298-323](file://apps/desktop/src/main/index.ts#L298-L323)
+- [apps/desktop/src/main/index.ts:45-68](file://apps/desktop/src/main/index.ts#L45-L68)
+- [apps/desktop/src/main/index.ts:312-337](file://apps/desktop/src/main/index.ts#L312-L337)
 
 章节来源
 - [apps/desktop/src/main/capabilities/host-executor.ts:1-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L117)
@@ -284,7 +317,7 @@ MP-->>UI : {ok, permission, repeated}
 - [apps/desktop/src/main/permission/permission-ipc.ts:1-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L1-L83)
 - [apps/desktop/src/main/permission/permission-ipc.ts:17-32](file://apps/desktop/src/main/permission/permission-ipc.ts#L17-L32)
 - [apps/desktop/src/shared/domain.ts:86-94](file://apps/desktop/src/shared/domain.ts#L86-L94)
-- [apps/desktop/src/preload/index.ts:29-45](file://apps/desktop/src/preload/index.ts#L29-L45)
+- [apps/desktop/src/preload/index.ts:33-55](file://apps/desktop/src/preload/index.ts#L33-L55)
 
 ### 任务编排与异步调用
 - run-task 负责端到端编排：索要计划 → 建 Task/Plan → 调用 Python 运行时 → 写事件 → 更新状态。
@@ -335,15 +368,15 @@ TASKS --> ERR["runtime/error-code.ts"]
 ```
 
 图表来源
-- [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
-- [apps/desktop/src/main/index.ts:1-356](file://apps/desktop/src/main/index.ts#L1-L356)
+- [apps/desktop/src/preload/index.ts:1-60](file://apps/desktop/src/preload/index.ts#L1-L60)
+- [apps/desktop/src/main/index.ts:1-385](file://apps/desktop/src/main/index.ts#L1-L385)
 - [apps/desktop/src/main/tasks/run-task.ts:1-222](file://apps/desktop/src/main/tasks/run-task.ts#L1-L222)
 - [apps/desktop/src/main/runtime/timeouts.ts:1-16](file://apps/desktop/src/main/runtime/timeouts.ts#L1-L16)
 - [apps/desktop/src/main/runtime/error-code.ts:1-17](file://apps/desktop/src/main/runtime/error-code.ts#L1-L17)
 
 章节来源
-- [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
-- [apps/desktop/src/main/index.ts:1-356](file://apps/desktop/src/main/index.ts#L1-L356)
+- [apps/desktop/src/preload/index.ts:1-60](file://apps/desktop/src/preload/index.ts#L1-L60)
+- [apps/desktop/src/main/index.ts:1-385](file://apps/desktop/src/main/index.ts#L1-L385)
 - [apps/desktop/src/main/tasks/run-task.ts:1-222](file://apps/desktop/src/main/tasks/run-task.ts#L1-L222)
 
 ## 性能与并发
@@ -355,7 +388,7 @@ TASKS --> ERR["runtime/error-code.ts"]
 章节来源
 - [apps/desktop/src/main/runtime/timeouts.ts:1-16](file://apps/desktop/src/main/runtime/timeouts.ts#L1-L16)
 - [apps/desktop/src/main/tasks/run-task.ts:127-143](file://apps/desktop/src/main/tasks/run-task.ts#L127-L143)
-- [apps/desktop/src/main/index.ts:212-217](file://apps/desktop/src/main/index.ts#L212-L217)
+- [apps/desktop/src/main/index.ts:226-231](file://apps/desktop/src/main/index.ts#L226-L231)
 
 ## 故障排除指南
 - 常见错误码

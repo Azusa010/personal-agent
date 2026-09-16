@@ -71,16 +71,16 @@ MRUNTIME --> PY
 ```
 
 图表来源
-- [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
-- [apps/desktop/src/main/index.ts:108-327](file://apps/desktop/src/main/index.ts#L108-L327)
-- [apps/desktop/src/main/runtime/runtime-host.ts:15-141](file://apps/desktop/src/main/runtime/runtime-host.ts#L15-L141)
+- [apps/desktop/src/preload/index.ts:1-61](file://apps/desktop/src/preload/index.ts#L1-L61)
+- [apps/desktop/src/main/index.ts:122-341](file://apps/desktop/src/main/index.ts#L122-L341)
+- [apps/desktop/src/main/runtime/runtime-host.ts:24-202](file://apps/desktop/src/main/runtime/runtime-host.ts#L24-L202)
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 - [packages/protocol/schemas/envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
 
 章节来源
-- [apps/desktop/src/shared/ipc-contract.ts:24-75](file://apps/desktop/src/shared/ipc-contract.ts#L24-L75)
-- [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
-- [apps/desktop/src/main/index.ts:108-327](file://apps/desktop/src/main/index.ts#L108-L327)
+- [apps/desktop/src/shared/ipc-contract.ts:25-103](file://apps/desktop/src/shared/ipc-contract.ts#L25-L103)
+- [apps/desktop/src/preload/index.ts:1-61](file://apps/desktop/src/preload/index.ts#L1-L61)
+- [apps/desktop/src/main/index.ts:122-341](file://apps/desktop/src/main/index.ts#L122-L341)
 
 ## 核心组件
 - 共享契约与类型：统一 IPC 返回结构、错误码联合、领域对象（任务、计划、权限等）。
@@ -91,10 +91,10 @@ MRUNTIME --> PY
 - 任务编排：创建任务、生成计划、执行 agent.run_task、落库事件、同步结果。
 
 章节来源
-- [apps/desktop/src/shared/ipc-contract.ts:24-75](file://apps/desktop/src/shared/ipc-contract.ts#L24-L75)
-- [apps/desktop/src/preload/index.d.ts:33-57](file://apps/desktop/src/preload/index.d.ts#L33-L57)
-- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
-- [apps/desktop/src/main/runtime/runtime-host.ts:83-153](file://apps/desktop/src/main/runtime/runtime-host.ts#L83-L153)
+- [apps/desktop/src/shared/ipc-contract.ts:25-103](file://apps/desktop/src/shared/ipc-contract.ts#L25-L103)
+- [apps/desktop/src/preload/index.d.ts:39-67](file://apps/desktop/src/preload/index.d.ts#L39-L67)
+- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
+- [apps/desktop/src/main/runtime/runtime-host.ts:92-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L92-L214)
 - [apps/desktop/src/main/permission/permission-ipc.ts:44-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L83)
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 
@@ -133,7 +133,7 @@ PL-->>UI : Promise 解析
 
 图表来源
 - [apps/desktop/src/main/tasks/run-task.ts:100-222](file://apps/desktop/src/main/tasks/run-task.ts#L100-L222)
-- [apps/desktop/src/main/runtime/runtime-host.ts:144-153](file://apps/desktop/src/main/runtime/runtime-host.ts#L144-L153)
+- [apps/desktop/src/main/runtime/runtime-host.ts:205-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L205-L214)
 - [packages/protocol/schemas/agent.ts:105-138](file://packages/protocol/schemas/agent.ts#L105-L138)
 
 ## 详细组件分析
@@ -156,12 +156,12 @@ stopped --> stopped : "重复调用 startRuntime()"
 ```
 
 图表来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:87-141](file://apps/desktop/src/main/runtime/runtime-host.ts#L87-L141)
-- [apps/desktop/src/main/index.ts:134-134](file://apps/desktop/src/main/index.ts#L134-L134)
+- [apps/desktop/src/main/runtime/runtime-host.ts:136-202](file://apps/desktop/src/main/runtime/runtime-host.ts#L136-L202)
+- [apps/desktop/src/main/index.ts:148-148](file://apps/desktop/src/main/index.ts#L148-L148)
 
 章节来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:83-153](file://apps/desktop/src/main/runtime/runtime-host.ts#L83-L153)
-- [apps/desktop/src/main/index.ts:134-134](file://apps/desktop/src/main/index.ts#L134-L134)
+- [apps/desktop/src/main/runtime/runtime-host.ts:92-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L92-L214)
+- [apps/desktop/src/main/index.ts:148-148](file://apps/desktop/src/main/index.ts#L148-L148)
 
 ### 权限通知与决策流程
 - 通知通道：主进程向所有窗口广播 personal-agent:permission-notice，包含 requested/resolved 两类通知。
@@ -193,14 +193,14 @@ MAIN-->>UI : send("personal-agent : permission-notice", notice)
 ```
 
 图表来源
-- [apps/desktop/src/main/index.ts:35-54](file://apps/desktop/src/main/index.ts#L35-L54)
+- [apps/desktop/src/main/index.ts:45-68](file://apps/desktop/src/main/index.ts#L45-L68)
 - [apps/desktop/src/main/permission/permission-ipc.ts:44-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L83)
-- [apps/desktop/src/preload/index.ts:29-45](file://apps/desktop/src/preload/index.ts#L29-L45)
+- [apps/desktop/src/preload/index.ts:33-55](file://apps/desktop/src/preload/index.ts#L33-L55)
 
 章节来源
-- [apps/desktop/src/main/index.ts:35-54](file://apps/desktop/src/main/index.ts#L35-L54)
+- [apps/desktop/src/main/index.ts:45-68](file://apps/desktop/src/main/index.ts#L45-L68)
 - [apps/desktop/src/main/permission/permission-ipc.ts:1-84](file://apps/desktop/src/main/permission/permission-ipc.ts#L1-L84)
-- [apps/desktop/src/preload/index.ts:29-45](file://apps/desktop/src/preload/index.ts#L29-L45)
+- [apps/desktop/src/preload/index.ts:33-55](file://apps/desktop/src/preload/index.ts#L33-L55)
 
 ### 任务执行生命周期管理
 - 创建与计划：先调用 agent.make_plan 获取步骤，再在事务中创建 Task 并写入 Plan。
@@ -281,13 +281,13 @@ M --> P["权限代理"]
 ```
 
 图表来源
-- [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
-- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
+- [apps/desktop/src/preload/index.ts:1-61](file://apps/desktop/src/preload/index.ts#L1-L61)
+- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
 - [packages/protocol/schemas/index.ts:1-8](file://packages/protocol/schemas/index.ts#L1-L8)
 
 章节来源
-- [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
-- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
+- [apps/desktop/src/preload/index.ts:1-61](file://apps/desktop/src/preload/index.ts#L1-L61)
+- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
 - [packages/protocol/schemas/index.ts:1-8](file://packages/protocol/schemas/index.ts#L1-L8)
 
 ## 性能考量
@@ -306,8 +306,8 @@ M --> P["权限代理"]
 - 响应无效：核对 Python 返回结构与 Zod 模式，确保字段齐全且类型正确。
 
 章节来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:87-129](file://apps/desktop/src/main/runtime/runtime-host.ts#L87-L129)
-- [apps/desktop/src/main/index.ts:124-131](file://apps/desktop/src/main/index.ts#L124-L131)
+- [apps/desktop/src/main/runtime/runtime-host.ts:136-181](file://apps/desktop/src/main/runtime/runtime-host.ts#L136-L181)
+- [apps/desktop/src/main/index.ts:138-145](file://apps/desktop/src/main/index.ts#L138-L145)
 - [apps/desktop/src/main/tasks/run-task.ts:104-122](file://apps/desktop/src/main/tasks/run-task.ts#L104-L122)
 - [apps/desktop/src/main/tasks/run-task.ts:190-217](file://apps/desktop/src/main/tasks/run-task.ts#L190-L217)
 
@@ -325,8 +325,8 @@ M --> P["权限代理"]
 - 权限操作：订阅 onPermissionNotice 接收 requested/resolved 通知；调用 respondPermission 提交决策；调用 listPermissions 查看记录。
 
 章节来源
-- [apps/desktop/src/preload/index.d.ts:39-57](file://apps/desktop/src/preload/index.d.ts#L39-L57)
-- [apps/desktop/src/preload/index.ts:11-45](file://apps/desktop/src/preload/index.ts#L11-L45)
+- [apps/desktop/src/preload/index.d.ts:45-67](file://apps/desktop/src/preload/index.d.ts#L45-L67)
+- [apps/desktop/src/preload/index.ts:15-55](file://apps/desktop/src/preload/index.ts#L15-L55)
 
 ### 主进程 IPC 通道清单
 - personal-agent:runtime-status：返回运行时状态。
@@ -340,7 +340,7 @@ M --> P["权限代理"]
 - personal-agent:permission-notice：主进程推送权限通知。
 
 章节来源
-- [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
+- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
 
 ### 调试技巧
 - 启用开发日志：运行时 stderr 输出在开发模式下打印到控制台，便于定位 Python 侧问题。
@@ -350,5 +350,5 @@ M --> P["权限代理"]
 - 协议校验：利用 Zod 的错误信息快速定位字段缺失或类型不匹配。
 
 章节来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:148-152](file://apps/desktop/src/main/runtime/runtime-host.ts#L148-L152)
-- [apps/desktop/src/main/index.ts:56-90](file://apps/desktop/src/main/index.ts#L56-L90)
+- [apps/desktop/src/main/runtime/runtime-host.ts:209-213](file://apps/desktop/src/main/runtime/runtime-host.ts#L209-L213)
+- [apps/desktop/src/main/index.ts:70-104](file://apps/desktop/src/main/index.ts#L70-L104)
