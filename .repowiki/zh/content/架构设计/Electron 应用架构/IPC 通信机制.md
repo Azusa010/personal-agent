@@ -70,7 +70,7 @@ M --> HE
 - [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
 - [apps/desktop/src/main/index.ts:133-323](file://apps/desktop/src/main/index.ts#L133-L323)
 - [apps/desktop/src/main/permission/permission-broker.ts:100-258](file://apps/desktop/src/main/permission/permission-broker.ts#L100-L258)
-- [apps/desktop/src/main/runtime/runtime-host.ts:90-160](file://apps/desktop/src/main/runtime/runtime-host.ts#L90-L160)
+- [apps/desktop/src/main/runtime/runtime-host.ts:83-153](file://apps/desktop/src/main/runtime/runtime-host.ts#L83-L153)
 - [apps/desktop/src/main/capabilities/host-executor.ts:62-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L62-L117)
 
 章节来源
@@ -88,7 +88,7 @@ M --> HE
 - [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
 - [apps/desktop/src/main/index.ts:133-323](file://apps/desktop/src/main/index.ts#L133-L323)
 - [apps/desktop/src/main/permission/permission-broker.ts:100-258](file://apps/desktop/src/main/permission/permission-broker.ts#L100-L258)
-- [apps/desktop/src/main/runtime/runtime-host.ts:90-160](file://apps/desktop/src/main/runtime/runtime-host.ts#L90-L160)
+- [apps/desktop/src/main/runtime/runtime-host.ts:83-153](file://apps/desktop/src/main/runtime/runtime-host.ts#L83-L153)
 - [apps/desktop/src/main/capabilities/host-executor.ts:62-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L62-L117)
 
 ## 架构总览
@@ -119,7 +119,7 @@ MP->>UI : send("personal-agent : permission-notice", notice)
 
 图表来源
 - [apps/desktop/src/main/index.ts:254-296](file://apps/desktop/src/main/index.ts#L254-L296)
-- [apps/desktop/src/main/runtime/runtime-host.ts:151-160](file://apps/desktop/src/main/runtime/runtime-host.ts#L151-L160)
+- [apps/desktop/src/main/runtime/runtime-host.ts:144-153](file://apps/desktop/src/main/runtime/runtime-host.ts#L144-L153)
 - [apps/desktop/src/main/permission/permission-broker.ts:133-181](file://apps/desktop/src/main/permission/permission-broker.ts#L133-L181)
 - [apps/desktop/src/main/capabilities/host-executor.ts:79-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L79-L117)
 
@@ -178,7 +178,7 @@ Resolve --> End(["返回 ok:true + permission"])
 - 错误码映射：将子进程错误 envelope 中的 code 原样透传，未知码收敛为 CRASHED，避免 UI 收到不可识别字符串。
 
 章节来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:90-160](file://apps/desktop/src/main/runtime/runtime-host.ts#L90-L160)
+- [apps/desktop/src/main/runtime/runtime-host.ts:83-153](file://apps/desktop/src/main/runtime/runtime-host.ts#L83-L153)
 - [apps/desktop/src/main/tasks/run-task.ts:25-37](file://apps/desktop/src/main/tasks/run-task.ts#L25-L37)
 
 ### 能力执行器：安全边界与通道入口
@@ -221,7 +221,7 @@ end
 
 图表来源
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
-- [apps/desktop/src/main/runtime/runtime-host.ts:151-160](file://apps/desktop/src/main/runtime/runtime-host.ts#L151-L160)
+- [apps/desktop/src/main/runtime/runtime-host.ts:144-153](file://apps/desktop/src/main/runtime/runtime-host.ts#L144-L153)
 
 章节来源
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
@@ -250,7 +250,7 @@ Tasks --> HostExec
 - [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
 - [apps/desktop/src/main/index.ts:133-323](file://apps/desktop/src/main/index.ts#L133-L323)
 - [apps/desktop/src/main/permission/permission-broker.ts:100-258](file://apps/desktop/src/main/permission/permission-broker.ts#L100-L258)
-- [apps/desktop/src/main/runtime/runtime-host.ts:90-160](file://apps/desktop/src/main/runtime/runtime-host.ts#L90-L160)
+- [apps/desktop/src/main/runtime/runtime-host.ts:83-153](file://apps/desktop/src/main/runtime/runtime-host.ts#L83-L153)
 - [apps/desktop/src/main/capabilities/host-executor.ts:62-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L62-L117)
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 
@@ -258,7 +258,7 @@ Tasks --> HostExec
 - [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
 - [apps/desktop/src/main/index.ts:133-323](file://apps/desktop/src/main/index.ts#L133-L323)
 - [apps/desktop/src/main/permission/permission-broker.ts:100-258](file://apps/desktop/src/main/permission/permission-broker.ts#L100-L258)
-- [apps/desktop/src/main/runtime/runtime-host.ts:90-160](file://apps/desktop/src/main/runtime/runtime-host.ts#L90-L160)
+- [apps/desktop/src/main/runtime/runtime-host.ts:83-153](file://apps/desktop/src/main/runtime/runtime-host.ts#L83-L153)
 - [apps/desktop/src/main/capabilities/host-executor.ts:62-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L62-L117)
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 

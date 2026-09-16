@@ -65,7 +65,7 @@ Main --> |读写| DB
 - [apps/desktop/src/main/index.ts:56-89](file://apps/desktop/src/main/index.ts#L56-L89)
 - [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
 - [apps/desktop/src/renderer/src/App.tsx:43-125](file://apps/desktop/src/renderer/src/App.tsx#L43-L125)
-- [apps/desktop/src/main/runtime/runtime-host.ts:94-136](file://apps/desktop/src/main/runtime/runtime-host.ts#L94-L136)
+- [apps/desktop/src/main/runtime/runtime-host.ts:87-129](file://apps/desktop/src/main/runtime/runtime-host.ts#L87-L129)
 
 章节来源
 - [apps/desktop/src/main/index.ts:56-89](file://apps/desktop/src/main/index.ts#L56-L89)
@@ -83,7 +83,7 @@ Main --> |读写| DB
 - [apps/desktop/src/main/index.ts:133-324](file://apps/desktop/src/main/index.ts#L133-L324)
 - [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
 - [apps/desktop/src/renderer/src/App.tsx:43-125](file://apps/desktop/src/renderer/src/App.tsx#L43-L125)
-- [apps/desktop/src/main/runtime/runtime-host.ts:94-161](file://apps/desktop/src/main/runtime/runtime-host.ts#L94-L161)
+- [apps/desktop/src/main/runtime/runtime-host.ts:87-154](file://apps/desktop/src/main/runtime/runtime-host.ts#L87-L154)
 - [apps/desktop/src/main/permission/permission-broker.ts:100-258](file://apps/desktop/src/main/permission/permission-broker.ts#L100-L258)
 - [apps/desktop/src/main/capabilities/host-executor.ts:52-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L52-L117)
 
@@ -121,7 +121,7 @@ P-->>R : "回调触发"
 - [apps/desktop/src/preload/index.ts:23-45](file://apps/desktop/src/preload/index.ts#L23-L45)
 - [apps/desktop/src/main/index.ts:254-296](file://apps/desktop/src/main/index.ts#L254-L296)
 - [apps/desktop/src/main/capabilities/host-executor.ts:79-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L79-L117)
-- [apps/desktop/src/main/runtime/runtime-host.ts:150-161](file://apps/desktop/src/main/runtime/runtime-host.ts#L150-L161)
+- [apps/desktop/src/main/runtime/runtime-host.ts:143-154](file://apps/desktop/src/main/runtime/runtime-host.ts#L143-L154)
 - [apps/desktop/src/main/runtime/python-supervisor.ts:156-200](file://apps/desktop/src/main/runtime/python-supervisor.ts#L156-L200)
 
 ## 详细组件分析
@@ -238,13 +238,13 @@ L --> |否| N["等待/超时/取消"]
 ```
 
 图表来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:94-136](file://apps/desktop/src/main/runtime/runtime-host.ts#L94-L136)
+- [apps/desktop/src/main/runtime/runtime-host.ts:87-129](file://apps/desktop/src/main/runtime/runtime-host.ts#L87-L129)
 - [apps/desktop/src/main/runtime/python-supervisor.ts:103-153](file://apps/desktop/src/main/runtime/python-supervisor.ts#L103-L153)
 - [apps/desktop/src/main/runtime/python-supervisor.ts:156-200](file://apps/desktop/src/main/runtime/python-supervisor.ts#L156-L200)
 - [apps/desktop/src/main/runtime/python-supervisor.ts:203-222](file://apps/desktop/src/main/runtime/python-supervisor.ts#L203-L222)
 
 章节来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:94-161](file://apps/desktop/src/main/runtime/runtime-host.ts#L94-L161)
+- [apps/desktop/src/main/runtime/runtime-host.ts:87-154](file://apps/desktop/src/main/runtime/runtime-host.ts#L87-L154)
 - [apps/desktop/src/main/runtime/python-supervisor.ts:103-222](file://apps/desktop/src/main/runtime/python-supervisor.ts#L103-L222)
 - [apps/desktop/src/main/runtime/python-supervisor.ts:225-356](file://apps/desktop/src/main/runtime/python-supervisor.ts#L225-L356)
 
@@ -340,13 +340,13 @@ Renderer["renderer App.tsx"] --> Preload
 图表来源
 - [apps/desktop/src/main/index.ts:1-31](file://apps/desktop/src/main/index.ts#L1-L31)
 - [apps/desktop/src/main/capabilities/host-executor.ts:1-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L117)
-- [apps/desktop/src/main/runtime/runtime-host.ts:1-161](file://apps/desktop/src/main/runtime/runtime-host.ts#L1-L161)
+- [apps/desktop/src/main/runtime/runtime-host.ts:1-154](file://apps/desktop/src/main/runtime/runtime-host.ts#L1-L154)
 - [apps/desktop/src/preload/index.ts:1-50](file://apps/desktop/src/preload/index.ts#L1-L50)
 - [apps/desktop/src/renderer/src/App.tsx:1-20](file://apps/desktop/src/renderer/src/App.tsx#L1-L20)
 
 章节来源
 - [apps/desktop/src/main/index.ts:1-31](file://apps/desktop/src/main/index.ts#L1-L31)
-- [apps/desktop/src/main/runtime/runtime-host.ts:1-161](file://apps/desktop/src/main/runtime/runtime-host.ts#L1-L161)
+- [apps/desktop/src/main/runtime/runtime-host.ts:1-154](file://apps/desktop/src/main/runtime/runtime-host.ts#L1-L154)
 - [apps/desktop/src/main/permission/permission-broker.ts:1-76](file://apps/desktop/src/main/permission/permission-broker.ts#L1-L76)
 - [apps/desktop/src/main/capabilities/host-executor.ts:1-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L117)
 
@@ -384,7 +384,7 @@ Renderer["renderer App.tsx"] --> Preload
   - 排查：核对通道名与方法签名；确认主进程已注册对应 handler。
 
 章节来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:94-136](file://apps/desktop/src/main/runtime/runtime-host.ts#L94-L136)
+- [apps/desktop/src/main/runtime/runtime-host.ts:87-129](file://apps/desktop/src/main/runtime/runtime-host.ts#L87-L129)
 - [apps/desktop/src/main/runtime/python-supervisor.ts:156-200](file://apps/desktop/src/main/runtime/python-supervisor.ts#L156-L200)
 - [apps/desktop/src/main/runtime/python-supervisor.ts:341-356](file://apps/desktop/src/main/runtime/python-supervisor.ts#L341-L356)
 - [apps/desktop/src/main/permission/permission-broker.ts:183-234](file://apps/desktop/src/main/permission/permission-broker.ts#L183-L234)

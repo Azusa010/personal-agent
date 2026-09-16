@@ -73,7 +73,7 @@ MRUNTIME --> PY
 图表来源
 - [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
 - [apps/desktop/src/main/index.ts:108-327](file://apps/desktop/src/main/index.ts#L108-L327)
-- [apps/desktop/src/main/runtime/runtime-host.ts:15-148](file://apps/desktop/src/main/runtime/runtime-host.ts#L15-L148)
+- [apps/desktop/src/main/runtime/runtime-host.ts:15-141](file://apps/desktop/src/main/runtime/runtime-host.ts#L15-L141)
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 - [packages/protocol/schemas/envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
 
@@ -94,7 +94,7 @@ MRUNTIME --> PY
 - [apps/desktop/src/shared/ipc-contract.ts:24-75](file://apps/desktop/src/shared/ipc-contract.ts#L24-L75)
 - [apps/desktop/src/preload/index.d.ts:33-57](file://apps/desktop/src/preload/index.d.ts#L33-L57)
 - [apps/desktop/src/main/index.ts:134-323](file://apps/desktop/src/main/index.ts#L134-L323)
-- [apps/desktop/src/main/runtime/runtime-host.ts:90-160](file://apps/desktop/src/main/runtime/runtime-host.ts#L90-L160)
+- [apps/desktop/src/main/runtime/runtime-host.ts:83-153](file://apps/desktop/src/main/runtime/runtime-host.ts#L83-L153)
 - [apps/desktop/src/main/permission/permission-ipc.ts:44-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L83)
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 
@@ -133,7 +133,7 @@ PL-->>UI : Promise 解析
 
 图表来源
 - [apps/desktop/src/main/tasks/run-task.ts:100-222](file://apps/desktop/src/main/tasks/run-task.ts#L100-L222)
-- [apps/desktop/src/main/runtime/runtime-host.ts:151-160](file://apps/desktop/src/main/runtime/runtime-host.ts#L151-L160)
+- [apps/desktop/src/main/runtime/runtime-host.ts:144-153](file://apps/desktop/src/main/runtime/runtime-host.ts#L144-L153)
 - [packages/protocol/schemas/agent.ts:105-138](file://packages/protocol/schemas/agent.ts#L105-L138)
 
 ## 详细组件分析
@@ -156,11 +156,11 @@ stopped --> stopped : "重复调用 startRuntime()"
 ```
 
 图表来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:94-148](file://apps/desktop/src/main/runtime/runtime-host.ts#L94-L148)
+- [apps/desktop/src/main/runtime/runtime-host.ts:87-141](file://apps/desktop/src/main/runtime/runtime-host.ts#L87-L141)
 - [apps/desktop/src/main/index.ts:134-134](file://apps/desktop/src/main/index.ts#L134-L134)
 
 章节来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:90-160](file://apps/desktop/src/main/runtime/runtime-host.ts#L90-L160)
+- [apps/desktop/src/main/runtime/runtime-host.ts:83-153](file://apps/desktop/src/main/runtime/runtime-host.ts#L83-L153)
 - [apps/desktop/src/main/index.ts:134-134](file://apps/desktop/src/main/index.ts#L134-L134)
 
 ### 权限通知与决策流程
@@ -306,7 +306,7 @@ M --> P["权限代理"]
 - 响应无效：核对 Python 返回结构与 Zod 模式，确保字段齐全且类型正确。
 
 章节来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:94-136](file://apps/desktop/src/main/runtime/runtime-host.ts#L94-L136)
+- [apps/desktop/src/main/runtime/runtime-host.ts:87-129](file://apps/desktop/src/main/runtime/runtime-host.ts#L87-L129)
 - [apps/desktop/src/main/index.ts:124-131](file://apps/desktop/src/main/index.ts#L124-L131)
 - [apps/desktop/src/main/tasks/run-task.ts:104-122](file://apps/desktop/src/main/tasks/run-task.ts#L104-L122)
 - [apps/desktop/src/main/tasks/run-task.ts:190-217](file://apps/desktop/src/main/tasks/run-task.ts#L190-L217)
@@ -350,5 +350,5 @@ M --> P["权限代理"]
 - 协议校验：利用 Zod 的错误信息快速定位字段缺失或类型不匹配。
 
 章节来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:155-159](file://apps/desktop/src/main/runtime/runtime-host.ts#L155-L159)
+- [apps/desktop/src/main/runtime/runtime-host.ts:148-152](file://apps/desktop/src/main/runtime/runtime-host.ts#L148-L152)
 - [apps/desktop/src/main/index.ts:56-90](file://apps/desktop/src/main/index.ts#L56-L90)
