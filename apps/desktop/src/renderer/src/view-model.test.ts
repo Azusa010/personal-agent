@@ -104,10 +104,11 @@ describe('describeRunOutcome', () => {
 })
 
 describe('EVENT_LABELS', () => {
-  it('登记的键就是写库方用的十个事件类型，一个不多一个不少', () => {
+  it('登记的键就是写库方用的十三个事件类型，一个不多一个不少', () => {
     // 前六个是跨语言契约：Python 写库、TS 读库，字符串来自 engine.py 的 EVENT_*。
     // 中间三个来自 permission-broker 的 PERMISSION_EVENT，写库方是 TS 自己。
     // reminder_created 来自 executor.ts 的 REMINDER_CREATED_EVENT（TASK-023）。
+    // 最后三个来自 verify-deliverables.ts（TASK-026），写库方是 run-task.ts。
     // 任一边改名，timeline 上就会出现没翻译的英文 type。这条测试钉住展示层这一半。
     expect(Object.keys(EVENT_LABELS).sort()).toEqual(
       [
@@ -120,7 +121,10 @@ describe('EVENT_LABELS', () => {
         'task_failed',
         'task_started',
         'tool_called',
-        'tool_result'
+        'tool_result',
+        'verification_failed',
+        'verification_passed',
+        'verification_started'
       ].sort()
     )
   })
@@ -416,6 +420,40 @@ describe('summarizePayload', () => {
 
     expect(a).toBe(b)
     expect(a.trim().length).toBeGreaterThan(0)
+  })
+
+  it('verification_started：报出待校验的摘要条数', () => {
+    expect(summarizePayload('verification_started', { factCount: 3 })).toContain('3')
+  })
+
+  it('verification_passed：报出通过项数', () => {
+    const line = summarizePayload('verification_passed', {
+      report: {
+        ok: true,
+        checks: [
+          { id: 'summary_present', ok: true, detail: '有摘要' },
+          { id: 'file_at_target', ok: true, detail: '文件在目标目录' }
+        ],
+        reason: null
+      },
+      evidence: { taskId: 't-1' }
+    })
+
+    expect(line).toContain('2/2')
+  })
+
+  it('verification_failed：给出判定表的原因（这一行是 UI 上唯一的失败解释）', () => {
+    const line = summarizePayload('verification_failed', {
+      report: { ok: false, checks: [], reason: '被批准的文件不在目标目录' }
+    })
+
+    expect(line).toContain('被批准的文件不在目标目录')
+  })
+
+  it('verification_* 缺 report 时也要给出一行，不把 Evidence Bundle 原样吐出来', () => {
+    const line = summarizePayload('verification_failed', {})
+
+    expect(line.trim().length).toBeGreaterThan(0)
   })
 
   it.each([

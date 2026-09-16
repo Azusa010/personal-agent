@@ -21,6 +21,17 @@ import { RuntimeError } from '../runtime/python-supervisor'
 import { RUNTIME_ERROR_CODE } from '../runtime/error-code'
 import { currentTask, endTask, type ActiveTask } from '../policy/task-context'
 import { RUN_TASK_TIMEOUT_MS } from '../runtime/timeouts'
+import {
+  VERIFICATION_FAILED_EVENT,
+  VERIFICATION_PASSED_EVENT,
+  VERIFICATION_STARTED_EVENT
+} from '../verification/verify-deliverables'
+import type {
+  CompletionVerifier,
+  VerificationInput,
+  VerificationOutcome
+} from '../verification/verify-task'
+import type { VerificationReport } from '../verification/evidence-bundle'
 import { runTask, MAKE_PLAN_TIMEOUT_MS, type RunTaskDeps, type RuntimeSend } from './run-task'
 
 const GOAL = '整理 Downloads 里的 PDF'
@@ -59,10 +70,12 @@ function pythonEvents(): Array<{ type: string; payload: unknown; occurredAt: str
   ]
 }
 
+const COMPLETED_FACTS = [{ text: '下载目录里有一份 a.pdf', pageRefs: [1] }]
+
 function completedResult(): unknown {
   return {
     status: 'completed',
-    facts: [{ text: '下载目录里有一份 a.pdf', pageRefs: [1] }],
+    facts: COMPLETED_FACTS,
     events: pythonEvents()
   }
 }
@@ -129,7 +142,19 @@ function sendThrowing(
   })
 }
 
-function openHarness(send: RuntimeSend = sendReturning(completedResult())): Harness {
+/** 默认判定器：通过。run-task 单测验的是编排（闸口开 / 合 / 异常三条路），
+ *  判定表本身的规则在 verification/verify-deliverables.test.ts 里逐条钉。 */
+function passingVerifier(): CompletionVerifier {
+  return async (): Promise<VerificationOutcome> => ({
+    report: { ok: true, checks: [], reason: null },
+    evidence: null
+  })
+}
+
+function openHarness(
+  send: RuntimeSend = sendReturning(completedResult()),
+  verify: CompletionVerifier = passingVerifier()
+): Harness {
   const d = openProductState(MEMORY_DB)
   db = d
   migrate(d)
@@ -140,6 +165,7 @@ function openHarness(send: RuntimeSend = sendReturning(completedResult())): Harn
     plans: new SqlitePlanRepository(d),
     events: new SqliteEventRepository(d),
     send,
+    verify,
     now: () => T0,
     newId: () => `id-${++idCounter}`
   }
@@ -252,20 +278,23 @@ describe('runTask：Golden Path', () => {
     expect(send.calls[1]?.opts?.timeoutMs).toBe(RUN_TASK_TIMEOUT_MS)
   })
 
-  it('events 一条不增不减全落，seq 从 1 递增', async () => {
+  it('events 全落 + 校验事件收尾，seq 从 1 递增', async () => {
     const h = openHarness()
     const out = await runTask(GOAL, h)
     if (!out.ok) throw new Error('预期 ok:true')
 
     const logged = h.events.listByTask(out.taskId)
-    // TS 侧不另造 task_started：engine 保证第一条就是它，再造就重复。
+    // 前四条来自 Python：TS 侧不另造 task_started，engine 保证第一条就是它，再造就重复。
+    // 后两条是 TS 侧的闸口记录（TASK-026），Python 不产。
     expect(logged.map((e) => e.type)).toEqual([
       'task_started',
       'tool_called',
       'tool_result',
-      'task_completed'
+      'task_completed',
+      VERIFICATION_STARTED_EVENT,
+      VERIFICATION_PASSED_EVENT
     ])
-    expect(logged.map((e) => e.seq)).toEqual([1, 2, 3, 4])
+    expect(logged.map((e) => e.seq)).toEqual([1, 2, 3, 4, 5, 6])
     expect(logged[0]?.payload).toEqual({ goal: GOAL })
     expect(logged[0]?.occurredAt).toBe(AT)
   })
@@ -278,6 +307,123 @@ describe('runTask：Golden Path', () => {
     expect(idCounter).toBe(2)
     const plan = h.plans.findLatest(out.taskId)
     expect(plan?.id).not.toBe(out.taskId)
+  })
+})
+
+describe('runTask：完成闸口（TASK-026）', () => {
+  const PASSED: VerificationReport = { ok: true, checks: [], reason: null }
+  const REFUSED: VerificationReport = {
+    ok: false,
+    checks: [{ id: 'file_at_target', ok: false, detail: '源路径还在，文件没被移走' }],
+    reason: '被批准的文件不在目标目录'
+  }
+
+  /** 判定器替身：记录每次收到的输入，返回固定报告。 */
+  function spyVerifier(report: VerificationReport): {
+    verify: CompletionVerifier
+    inputs: VerificationInput[]
+  } {
+    const inputs: VerificationInput[] = []
+    return {
+      inputs,
+      verify: async (input) => {
+        inputs.push(input)
+        return { report, evidence: null }
+      }
+    }
+  }
+
+  it('判定通过才落 completed，校验事件接在 Python 事件之后', async () => {
+    const spy = spyVerifier(PASSED)
+    const h = openHarness(sendReturning(completedResult()), spy.verify)
+    const out = await runTask(GOAL, h)
+    if (!out.ok) throw new Error('预期 ok:true')
+
+    expect(out.status).toBe('completed')
+    expect(h.tasks.findById(out.taskId)?.status).toBe('completed')
+
+    const logged = h.events.listByTask(out.taskId)
+    expect(logged.map((e) => e.type).slice(-2)).toEqual([
+      VERIFICATION_STARTED_EVENT,
+      VERIFICATION_PASSED_EVENT
+    ])
+    // 报告进 payload：US-07 要能核对「凭什么算完成」。
+    expect(logged.at(-1)?.payload).toEqual({ report: PASSED, evidence: null })
+    expect(spy.inputs).toEqual([{ taskId: out.taskId, facts: COMPLETED_FACTS }])
+  })
+
+  it('判定不通过 → failed + task_failed(RUNTIME_VERIFICATION_FAILED)，completed 从没落过库', async () => {
+    const h = openHarness(sendReturning(completedResult()), spyVerifier(REFUSED).verify)
+    const out = await runTask(GOAL, h)
+
+    expect(out.ok).toBe(true)
+    if (!out.ok) return
+    expect(out.status).toBe('failed')
+    expect(out.reason).toContain('被批准的文件不在目标目录')
+    expect(out.facts).toBeUndefined()
+    // 任务表里没有中间态：直接 running → failed，没有 completed 的痕迹。
+    expect(h.tasks.findById(out.taskId)?.status).toBe('failed')
+
+    const logged = h.events.listByTask(out.taskId)
+    expect(logged.map((e) => e.type)).toEqual([
+      'task_started',
+      'tool_called',
+      'tool_result',
+      'task_completed',
+      VERIFICATION_STARTED_EVENT,
+      VERIFICATION_FAILED_EVENT,
+      'task_failed'
+    ])
+    expect(logged.at(-2)?.payload).toEqual({ report: REFUSED, evidence: null })
+    // 失败原因与稳定错误码：UI 的失败行与诊断都读这一条。
+    expect(logged.at(-1)?.payload).toEqual({
+      code: RUNTIME_ERROR_CODE.VERIFICATION_FAILED,
+      message: expect.stringContaining('被批准的文件不在目标目录')
+    })
+  })
+
+  it('判定期间任务仍是 running：判定表读事实，不读「已经完成」的假象', async () => {
+    let statusDuringVerify: TaskStatus | null = null
+    const h = openHarness(sendReturning(completedResult()))
+    h.verify = async (input) => {
+      statusDuringVerify = h.tasks.findById(input.taskId)?.status ?? null
+      return { report: PASSED, evidence: null }
+    }
+    await runTask(GOAL, h)
+
+    // B1 只落事件不翻状态，正是为了让判定表看到一个「还没完成」的任务。
+    expect(statusDuringVerify).toBe('running')
+  })
+
+  it('判定器抛异常 → 按未通过处理（闸口坏了不能变成敞开的门）', async () => {
+    const h = openHarness(sendReturning(completedResult()), async () => {
+      throw new Error('读 PDF 时炸了')
+    })
+    const out = await runTask(GOAL, h)
+
+    expect(out.ok).toBe(true)
+    if (!out.ok) return
+    expect(out.status).toBe('failed')
+    expect(out.reason).toContain('读 PDF 时炸了')
+    expect(h.tasks.findById(out.taskId)?.status).toBe('failed')
+    expect(h.events.listByTask(out.taskId).at(-1)?.type).toBe('task_failed')
+  })
+
+  it('Python 回 failed 时不开校验：没有交付物可验', async () => {
+    const spy = spyVerifier(PASSED)
+    const h = openHarness(sendReturning(failedResult('预算耗尽')), spy.verify)
+    const out = await runTask(GOAL, h)
+
+    expect(out.ok).toBe(true)
+    if (!out.ok) return
+    expect(out.status).toBe('failed')
+    expect(out.reason).toBe('预算耗尽')
+    expect(spy.inputs).toEqual([])
+    expect(h.events.listByTask(out.taskId).map((e) => e.type)).toEqual([
+      'task_started',
+      'budget_exhausted',
+      'task_failed'
+    ])
   })
 })
 
@@ -362,15 +508,18 @@ describe('runTask：任务失败', () => {
     expect(h.tasks.findById(sentTaskId(send))?.status).toBe('failed')
   })
 
-  it('Python 回了 completed 但 events 是空数组 → 不补事件', async () => {
+  it('Python 回了 completed 但 events 是空数组 → 只补校验事件，不补 task 业务事件', async () => {
     const h = openHarness(sendReturning({ status: 'completed', facts: [], events: [] }))
     const out = await runTask(GOAL, h)
     if (!out.ok) throw new Error('预期 ok:true')
 
     // 补一条 task_failed 会与 status:completed 自相矛盾。这是 Python 侧的 bug，
-    // TS 不替它圆谎，timeline 空着就是空着。
+    // TS 不替它圆谎：Python 的事件一条没有，就是空着。TS 只写自己的闸口记录。
     expect(out.status).toBe('completed')
-    expect(h.events.listByTask(out.taskId)).toEqual([])
+    expect(h.events.listByTask(out.taskId).map((e) => e.type)).toEqual([
+      VERIFICATION_STARTED_EVENT,
+      VERIFICATION_PASSED_EVENT
+    ])
   })
 })
 
@@ -416,7 +565,7 @@ describe('runTask：参数与故障', () => {
     expect(send.calls.map((c) => c.method)).toEqual([AGENT_MAKE_PLAN])
   })
 
-  it('事务 B 原子性：事件写一半失败时状态不推进，已写的事件也回滚', async () => {
+  it('事务 B1 原子性：事件写一半失败时状态不推进，已写的事件也回滚', async () => {
     const send = sendReturning(completedResult())
     const h = openHarness(send)
     const realEvents = h.events
@@ -428,8 +577,9 @@ describe('runTask：参数与故障', () => {
     expect(out.code).toBe(RUNTIME_ERROR_CODE.DB_FAILED)
 
     const taskId = sentTaskId(send)
-    // 状态留在 running 是有意的：事务 B 回滚了，这条 Task 变成孤儿，
+    // 状态留在 running 是有意的：事务回滚了，这条 Task 变成孤儿，
     // 下次启动由 reconcileOrphanTasks 收。比强行二次写入更可靠。
+    // 校验也因此从没跑过——闸口只在证据完整落库之后才开。
     expect(h.tasks.findById(taskId)?.status).toBe('running')
     expect(realEvents.listByTask(taskId)).toEqual([])
   })
@@ -458,10 +608,10 @@ describe('runTask：参数与故障', () => {
     expect(h.tasks.findAll()).toHaveLength(2)
     expect(h.plans.findLatest(first.taskId)?.taskId).toBe(first.taskId)
     expect(h.plans.findLatest(second.taskId)?.taskId).toBe(second.taskId)
-    expect(h.events.listByTask(first.taskId)).toHaveLength(4)
-    expect(h.events.listByTask(second.taskId)).toHaveLength(4)
+    expect(h.events.listByTask(first.taskId)).toHaveLength(6)
+    expect(h.events.listByTask(second.taskId)).toHaveLength(6)
     // seq 是库级自增，跨任务连续，不是每个任务从 1 开始
-    expect(h.events.listByTask(second.taskId)[0]?.seq).toBe(5)
+    expect(h.events.listByTask(second.taskId)[0]?.seq).toBe(7)
   })
 })
 

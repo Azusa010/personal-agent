@@ -13,5 +13,8 @@ export const RUNTIME_ERROR_CODE = {
   // 第二个会拿第一个的计划对齐，判定结果看起来合法却毫无意义。所以这不是业务
   // 失败而是编程错误，直接拒，不排队。
   TASK_BUSY: 'RUNTIME_TASK_BUSY',
-  ORPHANED: 'RUNTIME_ORPHANED'
+  ORPHANED: 'RUNTIME_ORPHANED',
+  // 交付物校验未通过（TASK-026）：Python 说完成了，但可信侧的证据不支持。
+  // 唯一闸口在 verification/verify-deliverables.ts，任务落 failed 时带这个码。
+  VERIFICATION_FAILED: 'RUNTIME_VERIFICATION_FAILED'
 } as const

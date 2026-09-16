@@ -27,11 +27,16 @@ import { findCapability } from '../capabilities/registry'
 import { ROOT_ENV, toPosix } from '../capabilities/roots'
 import { migrate, openProductState, type SqliteDatabase } from '../product-state/database'
 import { SqliteEventRepository } from '../product-state/event-repository'
+import { SqlitePermissionRepository } from '../product-state/permission-repository'
 import { SqlitePlanRepository } from '../product-state/plan-repository'
+import { SqliteReminderRepository } from '../product-state/reminder-repository'
 import { SqliteTaskRepository } from '../product-state/task-repository'
+import { SqliteToolExecutionRepository } from '../product-state/tool-execution-repository'
 import { projectTimeline } from '../product-state/timeline-projection'
 import { PythonSupervisor } from '../runtime/python-supervisor'
 import { runTask, type RunTaskDeps } from '../tasks/run-task'
+import { realVerificationPorts } from '../verification/ports'
+import { verifyTaskCompletion } from '../verification/verify-task'
 import type { RunTaskIpcResult, SummaryFact } from '../../shared/ipc-contract'
 
 // 不写死 '../../../../../'：层级被人挪动时会静默指错地方，
@@ -65,7 +70,10 @@ const GOLDEN_EVENT_TYPES = [
   'tool_result',
   'tool_called',
   'tool_result',
-  'task_completed'
+  'task_completed',
+  // 后两条是 TS 侧的闸口记录（TASK-026）：Python 说完成了，Main 校验交付物后才翻状态。
+  'verification_started',
+  'verification_passed'
 ]
 // 与 Python 侧 planning.make_plan 的三步逐字一致。跟 SCRIPT_ENV 同一个处境：
 // 跨语言没有共享常量表，只能在这儿钉一份当漂移探测器。钉在 E2E 而不是
@@ -117,12 +125,30 @@ function makeDeps(): RunTaskDeps {
   const store = db
   const sup = supervisor
   if (store === null || sup === null) throw new Error('E2E 环境没起来')
+  const tasks = new SqliteTaskRepository(store)
+  const plans = new SqlitePlanRepository(store)
+  const events = new SqliteEventRepository(store)
   return {
     db: store,
-    tasks: new SqliteTaskRepository(store),
-    plans: new SqlitePlanRepository(store),
-    events: new SqliteEventRepository(store),
-    send: (method, params, opts) => sup.request(method, params, opts)
+    tasks,
+    plans,
+    events,
+    send: (method, params, opts) => sup.request(method, params, opts),
+    // 真判定器 + 真端口：PDF 页号是从 fixture 文件重读出来的，
+    // 文件位置是真实 stat 的。这条 E2E 因此同时是闸口的端到端验收。
+    verify: (input) =>
+      verifyTaskCompletion(
+        {
+          tasks,
+          plans,
+          events,
+          permissions: new SqlitePermissionRepository(store),
+          executions: new SqliteToolExecutionRepository(store),
+          reminders: new SqliteReminderRepository(store),
+          ...realVerificationPorts
+        },
+        input
+      )
   }
 }
 
@@ -215,7 +241,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
       // 单轮卡住时由 supervisor 自己超时并转成 failed，这里只是一个够宽的观察窗口。
     }, 300_000)
 
-    it('每轮事件流形状一致：三步计划跑出六条事件', () => {
+    it('每轮事件流形状一致：三步计划 + 闸口跑出八条事件', () => {
       const deps = makeDeps()
 
       for (const [i, taskId] of taskIds().entries()) {
@@ -225,7 +251,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
 
         expect(timeline?.task.status).toBe('completed')
         expect(timeline?.events.map((e) => e.type)).toEqual(GOLDEN_EVENT_TYPES)
-        // seq 是整表自增、跨任务接着走的，所以只能钉「一轮占六条且连续」。
+        // seq 是整表自增、跨任务接着走的，所以只能钉「一轮占八条且连续」。
         expect(first).toBe(i * GOLDEN_EVENT_TYPES.length + 1)
         expect(seqs).toEqual(Array.from({ length: GOLDEN_EVENT_TYPES.length }, (_, j) => first + j))
       }

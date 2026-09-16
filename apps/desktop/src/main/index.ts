@@ -22,11 +22,15 @@ import { SqliteTaskRepository } from './product-state/task-repository'
 import { SqlitePlanRepository } from './product-state/plan-repository'
 import { SqliteEventRepository } from './product-state/event-repository'
 import { SqlitePermissionRepository } from './product-state/permission-repository'
+import { SqliteToolExecutionRepository } from './product-state/tool-execution-repository'
+import { SqliteReminderRepository } from './product-state/reminder-repository'
 import { createPermissionBroker, type PermissionBroker } from './permission/permission-broker'
 import { listTaskPermissions, respondToPermission } from './permission/permission-ipc'
 import { runTask } from './tasks/run-task'
 import { getTimeline } from './tasks/get-timeline'
 import { reconcileOrphanTasks } from './tasks/reconcile'
+import { realVerificationPorts } from './verification/ports'
+import { verifyTaskCompletion } from './verification/verify-task'
 import icon from '../../resources/icon.png?asset'
 import { executeCapability } from './capabilities/host-executor'
 
@@ -217,7 +221,22 @@ app.whenReady().then(() => {
         tasks: new SqliteTaskRepository(store),
         plans: new SqlitePlanRepository(store),
         events: new SqliteEventRepository(store),
-        send: requestRuntime
+        send: requestRuntime,
+        // 完成判定（TASK-026）：completed 的唯一闸口。判定表要读真库、真 PDF、
+        // 真文件系统，所以每次调用重建一遍依赖，与上面几条 IPC 的写法一致。
+        verify: (input) =>
+          verifyTaskCompletion(
+            {
+              tasks: new SqliteTaskRepository(store),
+              plans: new SqlitePlanRepository(store),
+              events: new SqliteEventRepository(store),
+              permissions: new SqlitePermissionRepository(store),
+              executions: new SqliteToolExecutionRepository(store),
+              reminders: new SqliteReminderRepository(store),
+              ...realVerificationPorts
+            },
+            input
+          )
       })
     }
   )

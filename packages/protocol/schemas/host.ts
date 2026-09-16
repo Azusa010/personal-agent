@@ -12,6 +12,7 @@ export const CapabilityId = z.enum([
   "scheduler.create",
   "notification.send",
 ]);
+export const EXTRACT_PDF_CAPABILITY = CapabilityId.enum['document.extract_pdf']
 
 export type CapabilityId = z.infer<typeof CapabilityId>;
 

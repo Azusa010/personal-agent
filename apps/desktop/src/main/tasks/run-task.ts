@@ -4,7 +4,8 @@ import {
   ERROR_CODE,
   MakePlanResult,
   RunTaskParams,
-  RunTaskResult
+  RunTaskResult,
+  type SummaryFact
 } from '@personal-agent/protocol'
 import type { IpcErrorCode, RunTaskIpcResult } from '../../shared/ipc-contract'
 import type { PlanStep } from '../../shared/domain'
@@ -16,6 +17,15 @@ import type { TaskRepository } from '../product-state/task-repository'
 import { RuntimeError } from '../runtime/python-supervisor'
 import { RUNTIME_ERROR_CODE } from '../runtime/error-code'
 import { RUN_TASK_TIMEOUT_MS } from '../runtime/timeouts'
+import {
+  VERIFICATION_FAILED_EVENT,
+  VERIFICATION_PASSED_EVENT,
+  VERIFICATION_STARTED_EVENT
+} from '../verification/verify-deliverables'
+import type { CompletionVerifier, VerificationOutcome } from '../verification/verify-task'
+
+// reconcile.ts 也用这个字面量：任务的失败原因落成事件，UI 与诊断都读它。
+const TASK_FAILED_EVENT = 'task_failed'
 
 // agent.make_plan 是纯计算（查一次能力清单 + 返回固定三步），10 秒已经宽得离谱。
 // 真超过就是子进程卡死或 stdout 堵了，早点报错比跟着等 RUN_TASK_TIMEOUT_MS 强：
@@ -50,10 +60,23 @@ export interface RunTaskDeps {
   plans: PlanRepository
   events: EventRepository
   send: RuntimeSend
+  /**
+   * 完成判定（TASK-026）。completed 的唯一闸口：Python 回 completed 只是声明，
+   * 判定表通过才翻状态。故意设成必填——漏传不该退化成「谁都放行」。
+   */
+  verify: CompletionVerifier
   /** 默认 new Date().toISOString()，格式与 RunTaskEvent.occurredAt 一致 */
   now?: () => string
   /** 默认 node:crypto 的 randomUUID */
   newId?: () => string
+}
+
+function dbFailed(e: unknown): RunTaskIpcResult {
+  return {
+    ok: false,
+    code: RUNTIME_ERROR_CODE.DB_FAILED,
+    message: e instanceof Error ? e.message : String(e)
+  }
 }
 
 function persistRuntimeFailure(
@@ -66,7 +89,7 @@ function persistRuntimeFailure(
     const runFail = deps.db.transaction(() => {
       deps.events.append({
         taskId,
-        type: 'task_failed',
+        type: TASK_FAILED_EVENT,
         payload: { code, message },
         occurredAt: deps.now?.() ?? new Date().toISOString()
       })
@@ -74,11 +97,7 @@ function persistRuntimeFailure(
     })
     runFail()
   } catch (e) {
-    return {
-      ok: false,
-      code: RUNTIME_ERROR_CODE.DB_FAILED,
-      message: e instanceof Error ? e.message : String(e)
-    }
+    return dbFailed(e)
   }
   return { ok: true, taskId, status: 'failed', reason: message }
 }
@@ -142,7 +161,8 @@ export async function runTask(goal: unknown, deps: RunTaskDeps): Promise<RunTask
   }
 }
 
-/** 占槽之后的全部流程：事务 A（建 Task + 写 Plan）→ agent.run_task → 事务 B。
+/** 占槽之后的全部流程：事务 A（建 Task + 写 Plan）→ agent.run_task →
+ *  事务 B1（事件落库）→ 完成判定 → 事务 B2（校验报告 + 终态）。
  *  拆出来的唯一理由是让 endTask 有一个干净的 finally 可挂。 */
 async function runAgentPhase(
   taskId: string,
@@ -172,11 +192,7 @@ async function runAgentPhase(
     })
     runA()
   } catch (e) {
-    return {
-      ok: false,
-      code: RUNTIME_ERROR_CODE.DB_FAILED,
-      message: e instanceof Error ? e.message : String(e)
-    }
+    return dbFailed(e)
   }
 
   let rawResult: unknown
@@ -198,25 +214,128 @@ async function runAgentPhase(
     )
   }
   const result = parsedResult.data
-  const { status, events } = result
+  const { events } = result
+  const stamp = deps.now?.() ?? new Date().toISOString()
 
+  // failed 不经判定：没有交付物可验，Python 给的原因就是终态原因。
+  if (result.status === 'failed') {
+    try {
+      const runFail = deps.db.transaction(() => {
+        for (const ev of events) {
+          deps.events.append({ taskId, ...ev })
+        }
+        deps.tasks.updateStatus(taskId, 'failed', stamp)
+      })
+      runFail()
+    } catch (e) {
+      return dbFailed(e)
+    }
+    return { ok: true, taskId, status: 'failed', reason: result.reason }
+  }
+
+  // 事务 B1：Python 的事件落库 + 校验开始标记。状态**留在 running**——
+  // completed 只能由判定表翻转（REQ-009 / PAT-003），Python 的 task_completed
+  // 事件只是 Agent 侧的完成声明。
   try {
-    const runB = deps.db.transaction(() => {
+    const runB1 = deps.db.transaction(() => {
       for (const ev of events) {
         deps.events.append({ taskId, ...ev })
       }
-      deps.tasks.updateStatus(taskId, status, deps.now?.() ?? new Date().toISOString())
+      deps.events.append({
+        taskId,
+        type: VERIFICATION_STARTED_EVENT,
+        payload: { factCount: result.facts.length },
+        occurredAt: stamp
+      })
     })
-    runB()
+    runB1()
   } catch (e) {
-    return {
-      ok: false,
-      code: RUNTIME_ERROR_CODE.DB_FAILED,
-      message: e instanceof Error ? e.message : String(e)
-    }
+    return dbFailed(e)
   }
 
-  return result.status === 'completed'
+  // 判定表要读库、读真实 PDF、读文件系统，塞不进 better-sqlite3 的同步事务，
+  // 所以 B1 与 B2 之间有一小段 running 窗口。此刻崩溃的话任务成了孤儿，
+  // 下次启动被 reconcileOrphanTasks 收成 failed——宁可失败，也不放行未校验的 completed。
+  const outcome = await verifyCompletion(deps, taskId, result.facts)
+
+  // 事务 B2：校验报告（与 Evidence Bundle）落库 + 终态翻转。
+  const gate = GATE_OUTCOMES[outcome.report.ok ? 'passed' : 'refused']
+  try {
+    const runB2 = deps.db.transaction(() => {
+      deps.events.append({
+        taskId,
+        type: gate.eventType,
+        payload: { report: outcome.report, evidence: outcome.evidence },
+        occurredAt: stamp
+      })
+      if (gate.extraTaskFailedEvent) {
+        // 状态翻 failed 的同事务写一条 task_failed：UI 的失败原因与诊断都读它。
+        deps.events.append({
+          taskId,
+          type: TASK_FAILED_EVENT,
+          payload: {
+            code: RUNTIME_ERROR_CODE.VERIFICATION_FAILED,
+            message: verificationReason(outcome)
+          },
+          occurredAt: stamp
+        })
+      }
+      deps.tasks.updateStatus(taskId, gate.status, stamp)
+    })
+    runB2()
+  } catch (e) {
+    return dbFailed(e)
+  }
+
+  return gate.status === 'completed'
     ? { ok: true, taskId, status: 'completed', facts: result.facts }
-    : { ok: true, taskId, status: 'failed', reason: result.reason }
+    : { ok: true, taskId, status: 'failed', reason: verificationReason(outcome) }
+}
+
+/**
+ * 闸口结局 → 「写哪条事件、要不要补 task_failed、翻到哪个状态」。
+ *
+ * 三种结局里，「不通过」与「校验器异常」在 verifyCompletion 里已经合并成同一份
+ * 未通过的报告（fail-closed），所以表只需要两行，IPC 回包也由 status 派生。
+ * 加第四种结局（比如「证据不足，转人工」）时，改这一行表 + verifyCompletion
+ * 的分流即可，主流程（B2 事务）不用动。
+ */
+interface GateOutcome {
+  eventType: string
+  /** 未通过时补一条 task_failed：UI 的失败行与诊断读它 */
+  extraTaskFailedEvent: boolean
+  status: 'completed' | 'failed'
+}
+
+const GATE_OUTCOMES: Record<'passed' | 'refused', GateOutcome> = {
+  passed: {
+    eventType: VERIFICATION_PASSED_EVENT,
+    extraTaskFailedEvent: false,
+    status: 'completed'
+  },
+  refused: { eventType: VERIFICATION_FAILED_EVENT, extraTaskFailedEvent: true, status: 'failed' }
+}
+
+/** 判定表异常一律按未通过处理：闸口坏了不能变成敞开的门。 */
+async function verifyCompletion(
+  deps: RunTaskDeps,
+  taskId: string,
+  facts: SummaryFact[]
+): Promise<VerificationOutcome> {
+  try {
+    return await deps.verify({ taskId, facts })
+  } catch (e) {
+    return {
+      report: {
+        ok: false,
+        checks: [],
+        reason: `交付物校验器异常（按未通过处理）: ${e instanceof Error ? e.message : String(e)}`
+      },
+      evidence: null
+    }
+  }
+}
+
+function verificationReason(outcome: VerificationOutcome): string {
+  return `交付物校验未通过: ${outcome.report.reason ?? '（判定表没给原因）'}`
 }

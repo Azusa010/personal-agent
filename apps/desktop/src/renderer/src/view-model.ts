@@ -67,7 +67,11 @@ export const EVENT_LABELS: Readonly<Record<string, string>> = {
   permission_requested: '请求批准',
   permission_decision: '批准结论',
   permission_expired: '批准超时',
-  reminder_created: '创建提醒'
+  reminder_created: '创建提醒',
+  // TASK-026：completed 只由校验结论触发，这三条是闸口的开合记录
+  verification_started: '开始校验交付物',
+  verification_passed: '交付物校验通过',
+  verification_failed: '交付物校验未通过'
 }
 
 // ---- 三、任务状态标签 ----
@@ -248,6 +252,22 @@ export function summarizePayload(type: string, payload: unknown): string {
         message
       ]
       return parts.every((p) => p === null) ? fallback(payload) : join(parts)
+    }
+    case 'verification_started': {
+      const count = num(record['factCount'])
+      return count === null ? '开始校验交付物' : `待校验 ${count} 条摘要`
+    }
+    case 'verification_passed':
+    case 'verification_failed': {
+      // payload = { report, evidence }。行内只报「通过几项 / 为什么没通过」，
+      // 完整证据包留给诊断面板——时间线一行塞不下一个 Evidence Bundle。
+      const report = asRecord(record['report'])
+      const rawChecks = report['checks']
+      const checks = Array.isArray(rawChecks) ? rawChecks : []
+      const passed = checks.filter((c) => asRecord(c)['ok'] === true).length
+      const tally = checks.length === 0 ? null : `通过 ${passed}/${checks.length} 项检查`
+      const combined = join([str(report['reason']), tally])
+      return combined === '' ? fallback(payload) : combined
     }
     default:
       return fallback(payload)

@@ -239,7 +239,9 @@ describe('RUNTIME_ERROR_CODE 注册表', () => {
       PLAN_NOT_BUILDABLE: 'PLAN_NOT_BUILDABLE',
       DB_FAILED: 'RUNTIME_DB_FAILED',
       TASK_BUSY: 'RUNTIME_TASK_BUSY',
-      ORPHANED: 'RUNTIME_ORPHANED'
+      ORPHANED: 'RUNTIME_ORPHANED',
+      // TASK-026：交付物校验未通过。completion gate 拒绝 completed 时的稳定码。
+      VERIFICATION_FAILED: 'RUNTIME_VERIFICATION_FAILED'
     })
   })
 })
