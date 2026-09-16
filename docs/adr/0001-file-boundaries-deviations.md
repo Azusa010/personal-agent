@@ -2,7 +2,7 @@
 
 - 状态：已接受
 - 日期：2026-09-13
-- 最后修订：2026-09-16（TASK-029 收口：Windows Demo 打包、README 与演示脚本；陪练点一处待填，已知红 1 条）
+- 最后修订：2026-09-16（TASK-029 收口：Windows Demo 打包、README 与演示脚本；陪练点已由主人填完，`pnpm verify` 901 + 289 全绿）
 - 对照对象：`architecture-personal-agent-v0.1.md` 的 §5 Files（FILE-001~022）与 Phase 1 File Boundaries
 
 ## 上下文
@@ -113,4 +113,4 @@ FILE-021 `tests/evals/cases.json` 在 TASK-027 落地，路径与指导书一致
 - TASK-029 顺带统一了产品身份：`productName: PersonalAgent` 写在 apps/desktop/package.json（Electron 运行时的 `app.getName()`/userData 路径与 electron-builder 产物命名共用这一处，写两处必漂）；`appId` 与主进程的 `setAppUserModelId` 一起改成 `com.personalagent.app`（Windows 通知按 AUMID 匹配开始菜单快捷方式，不一致时开发态正常、安装版不弹）；模板继承的 mac/linux/dmg/appImage 段与 `publish`（指向 example.com 的假更新源）删除——配置写着支持而从未验证，比没有配置更误导（CON-003 本就只承诺 Windows）。**副作用：userData 从 `%APPDATA%\apps-desktop` 变为 `%APPDATA%\PersonalAgent`**，旧库不会自动迁移。
 - TASK-029 的真机验收（TEST-015）跑通全链路：`pnpm package:dir` → `scripts/demo/start-demo.ps1` 启动打包版 → 发送目标 → 三次批准（create_dir / move / scheduler.create，面板每次都展示能力名、来源与目标绝对路径、参数摘要、指纹与到期时间）→ 文件真的移动 → `verification_passed` 四项全过、任务 completed → 提醒到点 `notification_sent` 且库里 `fired` → 关窗后 `PersonalAgent.exe` 与 `personal_agent.exe` 全部退出。冒烟里假地址那两条 live 用例还证明 openai SDK 确实随包可用（收成 MODEL_CALL_FAILED 而不是进程崩）。
 - TASK-029 逼出并修掉两处缺陷：① Renderer 只在挂载时读一次 runtime-status，而 Main 侧从 starting 到 ready 是异步的（打包版还要先拉冻结产物），状态栏会永远停在「运行时启动中」——改成在 starting 期间每秒轮询、到终态停表；② `extraResources.from` 相对 **apps/desktop** 解析（不是仓库根），写成 `../services/...` 会指向 `apps/services/...`，而 electron-builder 只打一行 `file source doesn't exist` 日志、照样产出少一个目录的安装包——这类「静默漏拷贝」只能靠产物检查与真机启动发现。
-- TASK-029 的陪练点一处：`resolvePackagedLaunch`（边界与异常，打包布局的路径解析）。AI 先用临时实现把「打包版自动发现运行时」整条链路在真机上验通（填法与期望值都在 `runtime-host.test.ts` 里钉着），再恢复成占位交付；填完前 `pnpm verify` 有且仅有这 1 条红。另外演示脚本有个使用注意点写进了 DEMO.md：剧本的 `remindAt` 是脚本运行时算死的静态时刻，三个批准要在它之前点完，否则 scheduler.create 会以 `REMINDER_TIME_IN_PAST` 失败、闸口照样判不通过（这是产品的正确行为，不是 bug）。
+- TASK-029 的陪练点一处：`resolvePackagedLaunch`（边界与异常，打包布局的路径解析）。AI 先用临时实现把「打包版自动发现运行时」整条链路在真机上验通（填法与期望值都在 `runtime-host.test.ts` 里钉着），再恢复成占位交付。**填的经过**：主人一次填对结构（args 为空、cwd 跟着 exe、layout 正确），唯一偏的是随包目录名——写成 PyInstaller 产物名 `personal-agent`，而实际由 electron-builder 的 `extraResources.to: agent-runtime` 决定，测试输出直接给出期望与实际，改一处即过。**验收**：`pnpm verify` 901 + 289 全绿；真机 `pnpm package:dir` + `scripts/demo/start-demo.ps1` 走完整条链路（状态栏「运行时就绪」、三次批准、文件移动、`verification_passed`、提醒到点 `fired`、关窗无孤儿）。另外演示脚本有个使用注意点写进了 DEMO.md：剧本的 `remindAt` 是脚本运行时算死的静态时刻，三个批准要在它之前点完，否则 scheduler.create 会以 `REMINDER_TIME_IN_PAST` 失败、闸口照样判不通过（这是产品的正确行为，不是 bug）。

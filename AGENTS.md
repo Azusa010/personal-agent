@@ -181,9 +181,7 @@ pnpm verify = typecheck + lint:ts + lint:py + test
 找不到就落 `crashed` 并带布局名与路径，不静默降级。
 
 `runtime/packaged-runtime.test.ts` 是打包冒烟：冻结产物存在才跑（先 `pnpm package:py`，
-再 `pnpm test:ts` 会多这 4 条），也在 `test:ts` 里。TASK-029 收口时留了一处陪练点——
-`resolvePackagedLaunch`（打包布局解析），填完前 `pnpm verify` 有且仅有
-`runtime-host.test.ts` 的「打包布局」1 条红。
+再 `pnpm test:ts` 会多这 4 条），也在 `test:ts` 里。
 
 ---
 
@@ -223,6 +221,7 @@ pnpm verify = typecheck + lint:ts + lint:py + test
 
 - `product-state/tool-execution-repository.ts` 的 `ALLOWED_TRANSITIONS`：转换表由主人填写（原 TODO 标记已随填写移除），逐格一致性断言的测试由 AI 预先写好。
 - `main/verification/`（TASK-026）：五类陪练点曾各留一处——取证的选择规则（思维与算法）、文件系统探测的失败收场（边界与异常）、能力名与事件名的硬编码（工程与规范）、收尾分支的重构点与串行 await（架构与设计）、两份测试文件里的逐条断言（验证与质量）。这一轮的标记已随填写移除（主人明确授权 AI 一次写完，见 ADR-0001），需要看「五类各长什么样」时翻这两个文件的 git 历史。
+- `main/runtime/runtime-host.ts` 的 `resolvePackagedLaunch`（TASK-029，边界与异常）：打包布局的路径解析留一处 TODO，参数化纯函数 + 聚焦测试（`runtime-host.test.ts` 的「打包布局」用例）让红绿反馈一步到位。主人一次填对结构（args 为空、cwd 跟着 exe、layout 正确），唯一偏的是随包目录名——写成 PyInstaller 产物名 `personal-agent`，实际由 electron-builder 的 `extraResources.to: agent-runtime` 决定；测试输出直接给出期望与实际，改一处即过。验收：`pnpm verify` 全绿 + 真机走完整条演示链路。
 
 ---
 
