@@ -74,7 +74,7 @@ MRUNTIME --> PY
 - [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
 - [apps/desktop/src/main/index.ts:101-273](file://apps/desktop/src/main/index.ts#L101-L273)
 - [apps/desktop/src/main/runtime/runtime-host.ts:15-87](file://apps/desktop/src/main/runtime/runtime-host.ts#L15-L87)
-- [apps/desktop/src/main/tasks/run-task.ts:86-222](file://apps/desktop/src/main/tasks/run-task.ts#L86-L222)
+- [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 - [packages/protocol/schemas/envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
 
 章节来源
@@ -96,7 +96,7 @@ MRUNTIME --> PY
 - [apps/desktop/src/main/index.ts:127-269](file://apps/desktop/src/main/index.ts#L127-L269)
 - [apps/desktop/src/main/runtime/runtime-host.ts:22-87](file://apps/desktop/src/main/runtime/runtime-host.ts#L22-L87)
 - [apps/desktop/src/main/permission/permission-ipc.ts:44-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L83)
-- [apps/desktop/src/main/tasks/run-task.ts:86-222](file://apps/desktop/src/main/tasks/run-task.ts#L86-L222)
+- [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 
 ## 架构总览
 IPC 通信遵循 JSON-RPC 2.0 信封，使用 Zod 进行严格校验；主进程作为网关，将渲染进程请求转发至运行时或本地能力，并通过 SQLite 持久化关键状态。权限通知采用主进程主动推送（on），其余为请求-响应（invoke）。
@@ -126,7 +126,7 @@ MAIN->>DB : 追加事件
 end
 PY-->>RT : RunTaskResult(completed/failed)
 RT-->>MAIN : 结果
-MAIN->>DB : 事务B(更新状态/落事件)
+MAIN->>DB : 事务B1(落事件) → 交付物判定 → 事务B2(校验报告+终态)
 MAIN-->>PL : RunTaskIpcResult
 PL-->>UI : Promise 解析
 ```
@@ -205,7 +205,7 @@ MAIN-->>UI : send("personal-agent : permission-notice", notice)
 ### 任务执行生命周期管理
 - 创建与计划：先调用 agent.make_plan 获取步骤，再在事务中创建 Task 并写入 Plan。
 - 执行监控：调用 agent.run_task，期间持续接收事件并落库。
-- 结果同步：根据 RunTaskResult 更新任务状态，完成或失败均返回统一 IPC 结果。
+- 结果同步：RunTaskResult 的 completed 只是 Agent 侧声明——先落事件（B1，状态仍在 running），再由交付物闸口按计划推导的必需交付物判定，通过才翻 completed（B2）；失败与校验拒绝都返回统一 IPC 结果。
 - 并发控制：单槽设计，避免多任务并发导致对齐基准错乱。
 
 ```mermaid
@@ -220,7 +220,8 @@ BeginTxA --> Exec["requestRuntime('agent.run_task')"]
 Exec --> Events["循环接收事件并落库"]
 Events --> Result{"RunTaskResult 有效?"}
 Result --> |否| PersistFail["持久化失败事件+标记failed"]
-Result --> |是| TxB["事务B: 追加事件+更新状态"]
+Result --> |是| TxB["事务B1: 追加事件 + verification_started"]
+TxB --> TxV["交付物判定(八项检查) → 事务B2: 校验报告+终态"]
 TxB --> Done["返回 RunTaskIpcResult"]
 ReturnErr --> End(["结束"])
 ReturnPlanErr --> End
@@ -229,12 +230,12 @@ Done --> End
 ```
 
 图表来源
-- [apps/desktop/src/main/tasks/run-task.ts:86-222](file://apps/desktop/src/main/tasks/run-task.ts#L86-L222)
+- [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 - [packages/protocol/schemas/agent.ts:7-35](file://packages/protocol/schemas/agent.ts#L7-L35)
 - [packages/protocol/schemas/agent.ts:62-138](file://packages/protocol/schemas/agent.ts#L62-L138)
 
 章节来源
-- [apps/desktop/src/main/tasks/run-task.ts:86-222](file://apps/desktop/src/main/tasks/run-task.ts#L86-L222)
+- [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 
 ### 消息格式与事件类型
 - 信封：JSON-RPC 2.0，包含 jsonrpc、id、method、params；响应包含 result 或 error（二者互斥）。

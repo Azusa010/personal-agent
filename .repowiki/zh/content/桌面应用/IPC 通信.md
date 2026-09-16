@@ -132,7 +132,7 @@ PL-->>UI : 结果对象
 - [apps/desktop/src/preload/index.ts:23-25](file://apps/desktop/src/preload/index.ts#L23-L25)
 - [apps/desktop/src/main/index.ts:200-222](file://apps/desktop/src/main/index.ts#L200-L222)
 - [apps/desktop/src/main/capabilities/host-executor.ts:37-55](file://apps/desktop/src/main/capabilities/host-executor.ts#L37-L55)
-- [apps/desktop/src/main/tasks/run-task.ts:86-143](file://apps/desktop/src/main/tasks/run-task.ts#L86-L143)
+- [apps/desktop/src/main/tasks/run-task.ts:105-162](file://apps/desktop/src/main/tasks/run-task.ts#L105-L162)
 
 ## 详细组件分析
 
@@ -302,12 +302,14 @@ F --> G["事务A: 插入Task/Plan"]
 G --> H["发送 AGENT_RUN_TASK (带超时)"]
 H --> I{"响应有效?"}
 I --> |否| J["持久化失败事件并返回失败"]
-I --> |是| K["事务B: 写入events/更新状态"]
+I --> |是| K["事务B1: 写入events + verification_started"]
+K --> K2["交付物判定: 取证 + 八项检查"]
+K2 --> K3["事务B2: 写校验报告, 按 GATE_OUTCOMES 翻终态"]
 K --> L["返回 {ok:true, taskId, status, facts|reason}"]
 ```
 
 图表来源
-- [apps/desktop/src/main/tasks/run-task.ts:86-223](file://apps/desktop/src/main/tasks/run-task.ts#L86-L223)
+- [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 - [apps/desktop/src/main/runtime/timeouts.ts:1-12](file://apps/desktop/src/main/runtime/timeouts.ts#L1-L12)
 
 章节来源

@@ -194,7 +194,7 @@ Resolve --> End(["返回 ok:true + permission"])
 - 计划阶段：调用 AGENT_MAKE_PLAN，带独立超时，失败直接返回错误码。
 - 建槽与持久化：beginTask 占槽，事务 A 写入 Task/Plan。
 - 执行阶段：调用 AGENT_RUN_TASK，带整体超时；捕获运行时错误并持久化为 task_failed。
-- 收尾阶段：事务 B 写入 events 并更新任务状态；返回统一结果。
+- 收尾阶段：事务 B1 写入 events 与 verification_started（状态仍是 running）→ 交付物判定 → 事务 B2 写校验报告并按 GATE_OUTCOMES 翻终态；返回统一结果。
 
 ```mermaid
 sequenceDiagram
@@ -209,7 +209,9 @@ MP->>DB : 事务A : insert Task(pending->running), append Plan
 MP->>RT : request(AGENT_RUN_TASK, params, {timeoutMs})
 RT-->>MP : RunTaskResult 或 RuntimeError
 alt 成功
-MP->>DB : 事务B : append events, update status
+MP->>DB : 事务B1 : append events + verification_started, 状态仍 running
+MP->>MP : 交付物判定(八项检查)
+MP->>DB : 事务B2 : append 校验报告, 按 GATE_OUTCOMES 翻终态
 MP-->>UI : {ok : true, taskId, status, facts?}
 else 失败
 MP->>DB : 写 task_failed 事件并更新状态
@@ -218,11 +220,11 @@ end
 ```
 
 图表来源
-- [apps/desktop/src/main/tasks/run-task.ts:86-222](file://apps/desktop/src/main/tasks/run-task.ts#L86-L222)
+- [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 - [apps/desktop/src/main/runtime/runtime-host.ts:77-87](file://apps/desktop/src/main/runtime/runtime-host.ts#L77-L87)
 
 章节来源
-- [apps/desktop/src/main/tasks/run-task.ts:86-222](file://apps/desktop/src/main/tasks/run-task.ts#L86-L222)
+- [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 
 ## 依赖关系分析
 - 预加载层依赖 shared 契约类型，确保渲染侧调用签名正确。
@@ -250,7 +252,7 @@ Tasks --> HostExec
 - [apps/desktop/src/main/permission/permission-broker.ts:99-257](file://apps/desktop/src/main/permission/permission-broker.ts#L99-L257)
 - [apps/desktop/src/main/runtime/runtime-host.ts:22-87](file://apps/desktop/src/main/runtime/runtime-host.ts#L22-L87)
 - [apps/desktop/src/main/capabilities/host-executor.ts:26-55](file://apps/desktop/src/main/capabilities/host-executor.ts#L26-L55)
-- [apps/desktop/src/main/tasks/run-task.ts:86-222](file://apps/desktop/src/main/tasks/run-task.ts#L86-L222)
+- [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 
 章节来源
 - [apps/desktop/src/preload/index.ts:1-51](file://apps/desktop/src/preload/index.ts#L1-L51)
@@ -258,7 +260,7 @@ Tasks --> HostExec
 - [apps/desktop/src/main/permission/permission-broker.ts:99-257](file://apps/desktop/src/main/permission/permission-broker.ts#L99-L257)
 - [apps/desktop/src/main/runtime/runtime-host.ts:22-87](file://apps/desktop/src/main/runtime/runtime-host.ts#L22-L87)
 - [apps/desktop/src/main/capabilities/host-executor.ts:26-55](file://apps/desktop/src/main/capabilities/host-executor.ts#L26-L55)
-- [apps/desktop/src/main/tasks/run-task.ts:86-222](file://apps/desktop/src/main/tasks/run-task.ts#L86-L222)
+- [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 
 ## 性能与超时
 - 超时分层设计：
@@ -338,7 +340,7 @@ Tasks --> HostExec
 
 章节来源
 - [apps/desktop/src/shared/domain.ts:1-158](file://apps/desktop/src/shared/domain.ts#L1-L158)
-- [apps/desktop/src/main/tasks/run-task.ts:86-122](file://apps/desktop/src/main/tasks/run-task.ts#L86-L122)
+- [apps/desktop/src/main/tasks/run-task.ts:105-162](file://apps/desktop/src/main/tasks/run-task.ts#L105-L162)
 - [apps/desktop/src/main/permission/permission-broker.ts:275-319](file://apps/desktop/src/main/permission/permission-broker.ts#L275-L319)
 
 ### 渲染侧视图与展示

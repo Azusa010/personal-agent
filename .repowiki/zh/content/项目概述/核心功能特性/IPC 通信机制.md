@@ -73,7 +73,7 @@ PY --> MODELS
 - [apps/desktop/src/main/index.ts:51-85](file://apps/desktop/src/main/index.ts#L51-L85)
 - [apps/desktop/src/preload/index.ts:8-46](file://apps/desktop/src/preload/index.ts#L8-L46)
 - [apps/desktop/src/main/capabilities/host-executor.ts:17-55](file://apps/desktop/src/main/capabilities/host-executor.ts#L17-L55)
-- [apps/desktop/src/main/tasks/run-task.ts:86-143](file://apps/desktop/src/main/tasks/run-task.ts#L86-L143)
+- [apps/desktop/src/main/tasks/run-task.ts:105-162](file://apps/desktop/src/main/tasks/run-task.ts#L105-L162)
 - [services/agent-runtime/src/personal_agent/host_channel.py:36-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L85)
 
 章节来源
@@ -92,7 +92,7 @@ PY --> MODELS
 - [apps/desktop/src/preload/index.ts:8-46](file://apps/desktop/src/preload/index.ts#L8-L46)
 - [apps/desktop/src/main/index.ts:127-269](file://apps/desktop/src/main/index.ts#L127-L269)
 - [apps/desktop/src/main/capabilities/host-executor.ts:17-55](file://apps/desktop/src/main/capabilities/host-executor.ts#L17-L55)
-- [apps/desktop/src/main/tasks/run-task.ts:86-143](file://apps/desktop/src/main/tasks/run-task.ts#L86-L143)
+- [apps/desktop/src/main/tasks/run-task.ts:105-162](file://apps/desktop/src/main/tasks/run-task.ts#L105-L162)
 - [apps/desktop/src/main/permission/permission-ipc.ts:43-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L43-L83)
 - [packages/protocol/schemas/envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
 - [services/agent-runtime/src/personal_agent/protocol/models.py:8-38](file://services/agent-runtime/src/personal_agent/protocol/models.py#L8-L38)
@@ -123,7 +123,7 @@ PL-->>UI : 返回结果
 图表来源
 - [apps/desktop/src/preload/index.ts:23-25](file://apps/desktop/src/preload/index.ts#L23-L25)
 - [apps/desktop/src/main/index.ts:200-223](file://apps/desktop/src/main/index.ts#L200-L223)
-- [apps/desktop/src/main/tasks/run-task.ts:100-143](file://apps/desktop/src/main/tasks/run-task.ts#L100-L143)
+- [apps/desktop/src/main/tasks/run-task.ts:105-162](file://apps/desktop/src/main/tasks/run-task.ts#L105-L162)
 - [services/agent-runtime/src/personal_agent/protocol/models.py:264-320](file://services/agent-runtime/src/personal_agent/protocol/models.py#L264-L320)
 
 ## 详细组件分析
@@ -226,11 +226,11 @@ MP-->>MP : 返回 RunTaskIpcResult
 ```
 
 图表来源
-- [apps/desktop/src/main/tasks/run-task.ts:86-143](file://apps/desktop/src/main/tasks/run-task.ts#L86-L143)
+- [apps/desktop/src/main/tasks/run-task.ts:105-162](file://apps/desktop/src/main/tasks/run-task.ts#L105-L162)
 - [apps/desktop/src/main/tasks/run-task.ts:147-223](file://apps/desktop/src/main/tasks/run-task.ts#L147-L223)
 
 章节来源
-- [apps/desktop/src/main/tasks/run-task.ts:86-143](file://apps/desktop/src/main/tasks/run-task.ts#L86-L143)
+- [apps/desktop/src/main/tasks/run-task.ts:105-162](file://apps/desktop/src/main/tasks/run-task.ts#L105-L162)
 - [apps/desktop/src/main/tasks/run-task.ts:147-223](file://apps/desktop/src/main/tasks/run-task.ts#L147-L223)
 
 ### 权限通道：permission-ipc
