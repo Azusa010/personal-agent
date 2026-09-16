@@ -1,4 +1,4 @@
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { PythonSupervisor, RuntimeError } from './python-supervisor'
 import { app } from 'electron/main'
 import { is } from '@electron-toolkit/utils'
@@ -12,11 +12,79 @@ let supervisor: PythonSupervisor | null = null
 let state: RuntimeState = 'stopped'
 let detail: string | undefined
 
-function resolveRuntimeLaunch(): { command: string; args: string[]; cwd: string } {
-  const repoRoot = join(app.getAppPath(), '..', '..')
+/** 显式覆盖运行时命令：指向一个自带入口的可执行文件（通常是冻结产物 exe）。
+ *  打包/开发两种布局之外的口子，冒烟与排障用它把 app 指到别的运行时上。 */
+export const RUNTIME_ENV = 'PERSONAL_AGENT_RUNTIME'
+
+/** 运行时启动参数：command/args 交给 spawn，cwd 是子进程工作目录。
+ *  layout 只用于崩溃时的可读提示（哪种布局命中了）。 */
+export interface RuntimeLaunch {
+  command: string
+  args: string[]
+  cwd: string
+  layout: string
+}
+
+/** 布局解析的全部输入。显式传参而不是直接读 app/process：
+ *  这样三分支能被单测直接喂值覆盖，不必把 electron mock 成打包态。 */
+export interface RuntimeLayoutInput {
+  isPackaged: boolean
+  /** app.getAppPath()：开发态指向 apps/desktop */
+  appPath: string
+  /** process.resourcesPath：打包后指向 <安装目录>/resources */
+  resourcesPath: string
+  /** PERSONAL_AGENT_RUNTIME，没设就是 undefined */
+  override?: string
+}
+
+function resolveOverrideLaunch(command: string): RuntimeLaunch {
+  return { command, args: [], cwd: dirname(command), layout: `${RUNTIME_ENV} 覆盖` }
+}
+
+/**
+ * 打包布局：electron-builder 的 extraResources 把 PyInstaller 冻结产物
+ * （services/agent-runtime/dist/personal_agent/）随安装包分发。
+ */
+function resolvePackagedLaunch(resourcesPath: string): RuntimeLaunch {
+  // TODO(你填)[边界与异常]: 打包布局下运行时落在哪。
+  //
+  // 契约：给定 process.resourcesPath（打包后 = <安装目录>/resources，开发态是
+  // electron 自己的 resources 目录），返回 { command, args, cwd, layout }，三个值
+  // 都必须落在 resourcesPath 所指的安装目录里——安装目录之外的东西在用户机器上不存在。
+  // 线索在两处：apps/desktop/electron-builder.yml 的 extraResources（随包目录名），
+  // 与根 package.json 的 package:py（PyInstaller onedir 产物长什么样、exe 叫什么）。
+  //  - command：exe 的绝对路径；
+  //  - args：冻结产物自带入口，与开发布局的 ['-m','personal_agent'] 不同，这里该是什么；
+  //  - cwd：Python 侧不读 cwd，选「跟实际文件放一起、排障时一眼看懂」的目录；
+  //  - layout：写进崩溃提示的布局名，用于区分是哪种布局找不到命令。
+  // 失败收场不在这里做：command 不存在时由 startRuntime 的 existsSync 收成
+  // crashed + 可读 detail，与开发布局同一条路。
+  //
+  // 验收：src/main/runtime/runtime-host.test.ts 的「打包布局」用例（现在是红的）。
+  // 填完后再跑一次真机：pnpm package:dir && powershell -File scripts/demo/start-demo.ps1，
+  // 状态栏应从「运行时崩溃」变成「运行时就绪」。
+  return { command: '', args: [], cwd: resourcesPath, layout: '打包布局' }
+}
+
+/** 开发布局：仓库里 uv 建的 venv，`python -m personal_agent` 跑源码。
+ *  不走 `uv run` 是为了避开「Electron GUI 进程 PATH 与终端不同」这个坑。 */
+function resolveDevLaunch(appPath: string): RuntimeLaunch {
+  const repoRoot = join(appPath, '..', '..')
   const cwd = join(repoRoot, 'services', 'agent-runtime')
   const command = join(cwd, '.venv', 'Scripts', 'python.exe')
-  return { command, args: ['-m', 'personal_agent'], cwd }
+  return { command, args: ['-m', 'personal_agent'], cwd, layout: '开发布局（venv）' }
+}
+
+/** 优先级：显式覆盖 > 打包布局 > 开发布局。
+ *  命令不存在时不在这里收场——调用方 existsSync 检查后落 crashed 并带出可读提示。 */
+export function resolveRuntimeLaunch(input: RuntimeLayoutInput): RuntimeLaunch {
+  if (input.override !== undefined && input.override !== '') {
+    return resolveOverrideLaunch(input.override)
+  }
+  if (input.isPackaged) {
+    return resolvePackagedLaunch(input.resourcesPath)
+  }
+  return resolveDevLaunch(input.appPath)
 }
 
 export function getRuntimeStatus(): RuntimeStatus {
@@ -28,10 +96,15 @@ export async function startRuntime(): Promise<void> {
   state = 'starting'
   detail = undefined
 
-  const launch = resolveRuntimeLaunch()
+  const launch = resolveRuntimeLaunch({
+    isPackaged: app.isPackaged,
+    appPath: app.getAppPath(),
+    resourcesPath: process.resourcesPath,
+    override: process.env[RUNTIME_ENV]
+  })
   if (!existsSync(launch.command)) {
     state = 'crashed'
-    detail = `找不到 venv python: ${launch.command}`
+    detail = `找不到运行时（${launch.layout}）: ${launch.command}`
     return
   }
 

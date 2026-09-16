@@ -98,7 +98,9 @@ function createWindow(): void {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  // 与 electron-builder.yml 的 appId 一致：Windows 通知按 AUMID 匹配开始菜单快捷方式，
+  // 两处不一致时开发态看着正常、安装版反而弹不出通知。
+  electronApp.setAppUserModelId('com.personalagent.app')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.

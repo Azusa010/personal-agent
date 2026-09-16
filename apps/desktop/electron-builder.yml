@@ -1,5 +1,7 @@
-appId: com.electron.app
-productName: apps-desktop
+# productName 不在这里写：apps/desktop/package.json 的 productName 同时决定
+# Electron 运行时（app.getName() 与 userData 路径）与 electron-builder 的产物命名，
+# 两处各写一份一定会漂。
+appId: com.personalagent.app
 directories:
   buildResources: build
 files:
@@ -12,33 +14,20 @@ files:
 asarUnpack:
   - resources/**
   - node_modules/better-sqlite3/**
+# Agent Runtime 随包分发：根 package.json 的 package:py 先把 services/agent-runtime
+# 冻成 onedir 包（dist/personal_agent/），这里整份复制到 <安装目录>/resources/agent-runtime/。
+# runtime-host.ts 的 resolvePackagedLaunch 按同一路径找 exe——改这里的目录名要一起改。
+extraResources:
+  # from 相对 apps/desktop（electron-builder 的 projectDir），回仓库根是两级。
+  - from: ../../services/agent-runtime/dist/personal_agent
+    to: agent-runtime
 win:
-  executableName: apps-desktop
+  executableName: PersonalAgent
+# V0.1 只做 Windows（CON-003）。此前从模板继承的 mac / linux / dmg / appImage 段
+# 与自动更新 provider 都已移除：配置里写着支持而从未验证过，比没有配置更误导。
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: ${productName}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
-mac:
-  entitlementsInherit: build/entitlements.mac.plist
-  extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  notarize: false
-dmg:
-  artifactName: ${name}-${version}.${ext}
-linux:
-  target:
-    - AppImage
-    - snap
-    - deb
-  maintainer: electronjs.org
-  category: Utility
-appImage:
-  artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: generic
-  url: https://example.com/auto-updates

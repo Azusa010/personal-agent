@@ -16,6 +16,9 @@
     "eval": "pnpm --dir apps/desktop exec vitest run src/main/eval",
     "eval:live": "pnpm --dir apps/desktop exec vitest run src/main/eval/live-eval.test.ts",
     "build": "pnpm --dir apps/desktop build",
+    "package:py": "uv run --project services/agent-runtime --locked pyinstaller --noconfirm --distpath services/agent-runtime/dist --workpath services/agent-runtime/dist/_pyi-work services/agent-runtime/packaging/personal_agent.spec",
+    "package:dir": "pnpm package:py && pnpm --dir apps/desktop build:unpack",
+    "package:win": "pnpm package:py && pnpm --dir apps/desktop build:win",
     "verify": "pnpm typecheck && pnpm lint:ts && pnpm lint:py && pnpm test",
     "verify:all": "pnpm verify && pnpm build"
   },

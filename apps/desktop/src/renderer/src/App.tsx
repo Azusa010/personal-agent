@@ -88,7 +88,24 @@ function App(): React.JSX.Element {
         if (result.ok) setIndexedCount(result.entries.length)
       })
       .catch((err) => console.error('[renderer] 读索引数量失败', err))
-    void window.personalAgent.runtimeStatus().then(setRuntimeStatus)
+  }, [])
+
+  // Runtime 状态不是一次性的：Main 侧从 starting 走到 ready/crashed 是异步的
+  // （打包版要先把冻结产物拉起来），挂载时读一次的话状态栏会永远停在「启动中」。
+  // 在 starting 期间每秒再问一次，到终态就停表。
+  useEffect(() => {
+    let timer: number | null = null
+    const poll = async (): Promise<void> => {
+      const status = await window.personalAgent.runtimeStatus()
+      setRuntimeStatus(status)
+      if (status.state === 'starting') {
+        timer = window.setTimeout(() => void poll(), 1000)
+      }
+    }
+    void poll()
+    return () => {
+      if (timer !== null) window.clearTimeout(timer)
+    }
   }, [])
 
   // 批准通道的推送订阅。这是全应用唯一一个 main → renderer 的事件流。
