@@ -165,6 +165,26 @@ pnpm verify = typecheck + lint:ts + lint:py + test
 两套都在 `test:ts` 里。握手时下发几个能力决定计划几步（`planning.make_plan` 随可见能力
 伸缩），交付物闸口再按计划推导要求——改能力清单时三处要一起看。
 
+### 打包与演示（TASK-029）
+
+| 命令 | 跑什么 |
+|------|--------|
+| `pnpm package:py` | PyInstaller 把 Python runtime 冻成 onedir 产物（约 33 MB，含 openai/pydantic） |
+| `pnpm package:dir` | 冻结 + electron-builder `--dir` → `apps/desktop/dist/win-unpacked/PersonalAgent.exe` |
+| `pnpm package:win` | 冻结 + electron-builder `--win` → NSIS 安装包 |
+| `powershell -File scripts/demo/start-demo.ps1` | 备好演示素材并启动 app（`-Dev` 用开发版）；步骤见 `docs/DEMO.md` |
+
+打包分两步、顺序不能反：`extraResources` 要把 `services/agent-runtime/dist/personal_agent/`
+整份复制进 `<安装目录>/resources/agent-runtime/`；冻结产物不在时 electron-builder 只打一行
+`file source doesn't exist` 日志、照样出一个少目录的包。运行时位置由 `runtime-host.ts` 的
+`resolveRuntimeLaunch` 按「`PERSONAL_AGENT_RUNTIME` 覆盖 > 打包布局 > 开发布局」解析，
+找不到就落 `crashed` 并带布局名与路径，不静默降级。
+
+`runtime/packaged-runtime.test.ts` 是打包冒烟：冻结产物存在才跑（先 `pnpm package:py`，
+再 `pnpm test:ts` 会多这 4 条），也在 `test:ts` 里。TASK-029 收口时留了一处陪练点——
+`resolvePackagedLaunch`（打包布局解析），填完前 `pnpm verify` 有且仅有
+`runtime-host.test.ts` 的「打包布局」1 条红。
+
 ---
 
 ## 6. 协作模式：核心代码留 TODO（项目陪练）
