@@ -2,7 +2,7 @@
 
 - 状态：已接受
 - 日期：2026-09-13
-- 最后修订：2026-09-15（TASK-025 完成：main/scheduler 补记 recover-reminders.ts 与 ReminderRepository.findAll；「后果」一节的生产接线现状改为「恢复已就位但启动路径未调用」）
+- 最后修订：2026-09-16（TASK-026 收口：陪练点经主人明确授权由 AI 一次填完，标记清零，pnpm verify 815 条测试全绿）
 - 对照对象：`architecture-personal-agent-v0.1.md` 的 §5 Files（FILE-001~022）与 Phase 1 File Boundaries
 
 ## 上下文
@@ -38,6 +38,7 @@
 TS 侧：
 
 - `main/tasks/`（run-task.ts、reconcile.ts、get-timeline.ts）——RunTask 编排同时依赖 product-state 与 runtime，放进任何一层都会产生反向依赖，所以单独成层。
+- `main/verification/`（evidence-bundle.ts、ports.ts、verify-deliverables.ts、verify-task.ts）——TASK-026 的 DeliverableVerifier 与 Evidence Bundle。指导书把它放在 Python 侧（FILE-017 `personal_agent/verification.py`，已另行映射到 summary.py），但完成状态只有一个写入方：`tasks.updateStatus`。证据又全在 Main 侧——Product State 六张表、真实文件系统、真实 PDF——Python 既看不到也管不着（SEC-003、CON-005）。所以拆成四块：evidence-bundle 取证（只读、可重复）、ports 三个外部依赖的生产实现（PDF 页号、路径解析、存在性；测试注入假件）、verify-deliverables 判定表（纯函数，**本 TASK 的陪练点**）、verify-task 把两者串起来。`run-task.ts` 的收尾事务因此拆成两段：B1 落 Python 事件 + `verification_started` 但**不翻状态**，判定跑完再由 B2 落报告并翻终态；中间那段 running 窗口崩溃的话任务变孤儿，由启动收尸收成 failed，宁可失败也不放行未校验的 completed。
 - `main/notifications/`（notification-port.ts、windows-notification.ts）——PAT-001 的 Notification Port/Adapter 边界（TASK-024）。port 是纯契约（不 import electron），唯一实现是 Windows adapter（DEP-011：Electron Notification，不引第三方框架）；测试注入假 port 与假 electron，换实现不动调用方。
 - `main/scheduler/`（fire-reminder.ts、reminder-timer.ts、recover-reminders.ts）——TASK-024 的提醒触发链路。fireReminder 是 timer 到点与 notification.send 执行体两条入口共用的「发送一次并记录结果」编排（状态机翻转与 notification_sent / notification_failed 事件同事务）；reminder-timer 是进程内 setTimeout 挂表，超过 2^31-1 ms 的延迟分段重挂绕开溢出。recover-reminders 是 TASK-025 的启动恢复：扫 reminders 表按四状态分流（重挂 / 补发错过的 / 有 notification_sent 证据就只补记 fired / fired 与 failed 原样保留），判定表 `decideRecovery` 是纯函数，编排负责 firing→scheduled 回滚与时间戳。它扫的是全表而非 status='scheduled'，因为 fired/failed 也要进处置报告，`idx_reminders_due` 因此暂未被这一路径使用（demo 规模无所谓，真要按到期扫描再收窄查询）。
 - `main/policy/`（execution-policy.ts、task-context.ts、risk.ts、argument-binders.ts、alignment.ts）——FILE-006 只规划了 execution-policy.ts，另外四个是同一条校验管道的组成部分，与它同生共死。
@@ -88,3 +89,4 @@ FILE-001、FILE-002、FILE-005、FILE-006、FILE-007、FILE-008、FILE-010、FIL
 - `personal_agent/tools/` 是空壳，留着会让人以为 Python 侧还有工具实现。
 - 批准链在真实运行中仍未接通，尽管组件已全部就位：`main/capabilities/executor.ts` 已有六个执行体（list / extract_pdf / create_dir / move / scheduler.create / notification.send，后两个分别属 TASK-023、TASK-024），broker、幂等关、安全矩阵也都在 TASK-022 验证过，但 `host-executor.ts` 的 `BOOTSTRAP_SCOPE` 仍是只读、不挂 permission/idempotency/scheduler wiring——notification.send 的通知端口与 ReminderTimerService 因此也没有生产接线，`planning.py` 的计划仍固定三步全 READ。因此 PermissionDialog、诊断区权限表与 Reminder 链路在真实运行中不会被触发，只能靠单测与 e2e 组件级验证。把生产接线（WRITE scope + broker + scheduler wiring + 计划扩展）留给 TASK-028 的完整 Golden Path E2E。
 - TASK-025 的恢复服务同属「组件就位、启动路径未调用」：`recoverReminders` 与十例重启测试都在，但 `index.ts` 的启动流程没调它（调了也没有可恢复的行——reminders 表在生产里还写不进去），接线依赖上面那条一起做。因此「应用启动恢复」目前在验证层成立（真库 + 真 timer + 假通知端口的十轮重启测试），不在真实启动路径上成立。
+- TASK-026 的陪练点按 AGENTS.md §6 的五类切法铺开后，经主人明确授权（「你直接给 debug，然后写完吧」）由 AI 一次填完，标记清零：取证的选择规则（选哪份 PDF / 跟随移动 / 配对工具结果）、文件系统探测与 PDF 缺口的收场、能力名从 protocol 派生、端口失败留痕、串行探测并行化与收尾三态表驱动、两份测试文件里「断言待补」的用例。填完的判定表按**计划**决定要哪些交付物（计划里有 move 才要求文件与批准、有 scheduler.create 才要求 Reminder），不是照搬 Golden Path 的固定清单——否则只读计划的 20 轮 E2E 会永远红。验收：`pnpm verify` 815 条全绿，含 20 轮只读 Golden Path E2E（真判定器 + 真端口 + 真 Python）。
