@@ -12,7 +12,8 @@ from personal_agent.engine import AgentEngine
 from personal_agent.host_channel import HostChannel
 from personal_agent.live_model import LIVE_MODEL_ENV, LiveModel
 from personal_agent.model_gateway import ModelGateway
-from personal_agent.planning import PlanError, make_plan
+from personal_agent.planner import DeterministicPlanner, Planner
+from personal_agent.planning import PlanError
 from personal_agent.protocol.models import (
     AGENT_MAKE_PLAN,
     AGENT_RUN_TASK,
@@ -59,6 +60,7 @@ class RuntimeDeps:
 
     channel: HostChannel
     model_factory: Callable[[], ModelGateway] | None = None
+    planner_factory: Callable[[], Planner] = DeterministicPlanner
     capabilities: list[CapabilityDescriptor] = field(default_factory=list)
 
 
@@ -139,8 +141,9 @@ def handle_make_plan(req: Request, deps: RuntimeDeps | None = None) -> dict:
         )
 
     visible = [c.name for c in deps.capabilities] if deps is not None else []
+    planner = deps.planner_factory() if deps is not None else DeterministicPlanner()
     try:
-        steps = make_plan(params.goal, visible)
+        steps = planner.plan(params.goal, visible)
     except PlanError as e:
         return build_error(req.id, PLAN_NOT_BUILDABLE, str(e))
     except Exception:

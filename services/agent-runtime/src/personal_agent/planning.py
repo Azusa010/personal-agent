@@ -1,5 +1,11 @@
 """
 planning.py —— 计划生成。
+
+这里是「固定计划」的实现：两个 READ 打底、三个 WRITE 按可见性追加、末尾一步
+摘要。剧本、CI、E2E 与演示都走它，所以它
+对同一个 (goal, visibleCapabilities) 永远给同一份计划。
+
+按目标出计划的实现是 planner.LivePlanner，与这里并列挂在 planner.Planner 端口下。
 """
 
 from collections.abc import Sequence
@@ -54,12 +60,13 @@ SUMMARY_STEP_DESCRIPTION = "基于页面内容生成带页码引用的摘要"
 def make_plan(goal: str, visibleCapabilities: Sequence[str]) -> list[PlanStep]:
     """按目标产出一份有序计划。
 
-    Parameters:：
+     Parameters:：
     - goal：用户的目标文本。契约层已经拦过空串（min_length=1），这里不重复校验。
-      计划是固定五步加摘要，goal 只是带着走，将来做动态规划时才用。
-    - visibleCapabilities：握手时 Main 下发、存在 RuntimeDeps.capabilities 里的能力名，
-      也就是模型这一步真正能看见的清单。runtime.py 的 handle_make_plan 会传
-      [c.name for c in deps.capabilities]。
+       **它不参与决策**：这个实现服务 CI 与演示，必须对同一个目标永远给同一份计划。
+       按目标出计划是 planner.LivePlanner 的事。
+     - visibleCapabilities：握手时 Main 下发、存在 RuntimeDeps.capabilities 里的能力名，
+       也就是模型这一步真正能看见的清单。runtime.py 的 handle_make_plan 会传
+       [c.name for c in deps.capabilities]。
     """
     for required, _ in READ_STEPS:
         if required not in visibleCapabilities:

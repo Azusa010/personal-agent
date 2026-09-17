@@ -3,6 +3,7 @@ from pathlib import Path
 
 from personal_agent.live_model import LIVE_MODEL_ENV, LiveModel
 from personal_agent.model_gateway import SummaryDecision, ToolCallDecision
+from personal_agent.planning import PlanStep
 from personal_agent.protocol.models import (
     CapabilityDescriptor,
     HostExecuteToolResult,
@@ -47,6 +48,16 @@ class ExplodingModel:
 
     def decide(self, context):
         raise RuntimeError("模型适配器炸了")
+
+
+class StubPlanner:
+    def __init__(self, steps):
+        self._steps = steps
+        self.calls = []
+
+    def plan(self, goal, visibleCapabilities):
+        self.calls.append((goal, visibleCapabilities))
+        return self._steps
 
 
 # 握手时下发的清单要与 Main 侧 listVisibleCapabilities() 同形：完整性由 e2e 侧
@@ -108,7 +119,7 @@ def run_task_line(req_id="30", task_id="task-001", goal="整理 Downloads 里的
             "jsonrpc": "2.0",
             "id": req_id,
             "method": "agent.run_task",
-            "params": {"taskId": task_id, "goal": goal , "plan": PLAN},
+            "params": {"taskId": task_id, "goal": goal, "plan": PLAN},
         }
     )
 
@@ -154,7 +165,9 @@ def write_script(tmp_path, payload=None):
     """把剧本落盘。payload 传字符串就是写坏文件用的。"""
     if payload is None:
         payload = [d.model_dump() for d in read_only_script()]
-    text = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)
+    text = (
+        payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)
+    )
     path = tmp_path / "script.json"
     path.write_text(text, encoding="utf-8")
     return path
@@ -276,9 +289,7 @@ def test_run_task_without_model_returns_model_not_configured():
 
 
 def test_run_task_invalid_params_returns_protocol_error():
-    resp = handle_line(
-        run_task_line(goal=""), deps_with(read_only_script())
-    )
+    resp = handle_line(run_task_line(goal=""), deps_with(read_only_script()))
     assert resp["error"]["code"] == "PROTOCOL_INVALID_REQUEST"
 
 
@@ -512,14 +523,18 @@ def test_resolve_model_factory_builds_a_fresh_model_per_call(monkeypatch, tmp_pa
     assert first.remaining == second.remaining == 3
 
 
-def test_resolve_model_factory_returns_none_when_script_is_broken(monkeypatch, tmp_path):
+def test_resolve_model_factory_returns_none_when_script_is_broken(
+    monkeypatch, tmp_path
+):
     # 剧本坏了不能让进程起不来：握手与 ping 都得照常，
     # 只是 run_task 回 NOT_CONFIGURED。抛出去的话整个 runtime 启不了。
     monkeypatch.setenv(SCRIPT_ENV, str(tmp_path / "不存在.json"))
     assert resolve_model_factory() is None
 
 
-def test_resolve_model_factory_returns_none_when_script_is_not_json(monkeypatch, tmp_path):
+def test_resolve_model_factory_returns_none_when_script_is_not_json(
+    monkeypatch, tmp_path
+):
     monkeypatch.setenv(SCRIPT_ENV, str(write_script(tmp_path, "{ 这不是 JSON")))
     assert resolve_model_factory() is None
 
@@ -691,3 +706,20 @@ def test_make_plan_wrong_version_initialize_does_not_leak_capabilities():
     out = handle_line(make_plan_line(), deps)
 
     assert out["error"]["code"] == PLAN_NOT_BUILDABLE
+
+
+def test_make_plan_goes_through_the_planner_factory():
+    planner = StubPlanner(
+        [PlanStep(description="自定义的一步", capability="filesystem.list")]
+    )
+
+    deps = RuntimeDeps(channel=StubChannel(), planner_factory=lambda: planner)
+    handle_line(initialize_line(), deps)
+
+    out = handle_line(make_plan_line(), deps)
+
+    assert out["result"]["steps"] == [
+        {"description": "自定义的一步", "capability": "filesystem.list"}
+    ]
+    # 端口拿到的是目标文本 + 握手下发的能力名清单，顺序原样（不排序、不裁剪）。
+    assert planner.calls == [("整理 Downloads 里的 PDF", EXPECTED_PLAN_CAPABILITIES)]
