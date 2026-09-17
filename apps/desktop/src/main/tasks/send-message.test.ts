@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import type { RunTaskIpcResult, Turn } from '@personal-agent/protocol'
+import type { Turn } from '@personal-agent/protocol'
+import type { RunTaskIpcResult } from '../../shared/ipc-contract'
 import {
   openProductState,
   migrate,

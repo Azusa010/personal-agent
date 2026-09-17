@@ -282,7 +282,7 @@ async function runAgentPhase(
   }
 
   return gate.status === 'completed'
-    ? { ok: true, taskId, status: 'completed', facts: result.facts }
+    ? { ok: true, taskId, status: 'completed', reply: result.reply, facts: result.facts }
     : { ok: true, taskId, status: 'failed', reason: verificationReason(outcome) }
 }
 

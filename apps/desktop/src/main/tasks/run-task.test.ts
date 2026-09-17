@@ -16,12 +16,7 @@ import {
   type PlanRecord
 } from '../product-state/plan-repository'
 import { SqliteEventRepository, type EventRepository } from '../product-state/event-repository'
-import {
-  AGENT_MAKE_PLAN,
-  AGENT_RUN_TASK,
-  ERROR_CODE,
-  type Turn
-} from '@personal-agent/protocol'
+import { AGENT_MAKE_PLAN, AGENT_RUN_TASK, ERROR_CODE, type Turn } from '@personal-agent/protocol'
 import { RuntimeError } from '../runtime/python-supervisor'
 import { RUNTIME_ERROR_CODE } from '../runtime/error-code'
 import { currentTask, endTask, type ActiveTask } from '../policy/task-context'
@@ -544,7 +539,9 @@ describe('runTask：任务失败', () => {
   })
 
   it('Python 回了 completed 但 events 是空数组 → 只补校验事件，不补 task 业务事件', async () => {
-    const h = openHarness(sendReturning({ status: 'completed', reply: '已完成', facts: [], events: [] }))
+    const h = openHarness(
+      sendReturning({ status: 'completed', reply: '已完成', facts: [], events: [] })
+    )
     const out = await runTask(GOAL, h)
     if (!out.ok) throw new Error('预期 ok:true')
 

@@ -56,10 +56,13 @@ export type RunTaskIpcResult =
       ok: true
       taskId: string
       status: RunTaskResult['status']
+      reply?: string
       facts?: SummaryFact[]
       reason?: string
     }
   | { ok: false; code: IpcErrorCode; message: string }
+
+export type SendMessageIpcResult = RunTaskIpcResult & { conversationId: string }
 
 export type TimelineIpcResult =
   { ok: true; timeline: TaskTimeline | null } | { ok: false; code: IpcErrorCode; message: string }
