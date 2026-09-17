@@ -95,13 +95,20 @@ def initialize_line(req_id="10", capabilities=None, version="0.1"):
     )
 
 
+PLAN = [
+    {"description": "列出 Downloads 下的 PDF", "capability": "filesystem.list"},
+    {"description": "提取目标 PDF 的每页文本", "capability": "document.extract_pdf"},
+    {"description": "基于页面内容生成带页码引用的摘要"},
+]
+
+
 def run_task_line(req_id="30", task_id="task-001", goal="整理 Downloads 里的 PDF"):
     return json.dumps(
         {
             "jsonrpc": "2.0",
             "id": req_id,
             "method": "agent.run_task",
-            "params": {"taskId": task_id, "goal": goal},
+            "params": {"taskId": task_id, "goal": goal , "plan": PLAN},
         }
     )
 

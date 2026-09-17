@@ -266,9 +266,15 @@ AGENT_RUN_TASK = "agent.run_task"
 OCCURRED_AT_PATTERN = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$"
 
 
+class PlanStepDto(BaseModel):
+    description: str = Field(min_length=1)
+    capability: CapabilityId | None = None
+
+
 class RunTaskParams(BaseModel):
     taskId: str = Field(min_length=1)
     goal: str = Field(min_length=1)
+    plan: list[PlanStepDto] = Field(min_length=1)
 
 
 class RunTaskEvent(BaseModel):
@@ -331,16 +337,6 @@ class MakePlanParams(BaseModel):
     goal: str = Field(min_length=1)
 
 
-class PlanStepDto(BaseModel):
-    """capability 缺失表示这一步不经工具，由模型自己产出。
-
-    与 zod 侧的差别：这边 None 是合法值，但 Response.model_dump(exclude_none=True)
-    会递归剔掉它，所以线上形状与 TS 的 optional 一致。zod 的 optional 收
-    undefined 却不收 null，这个键一旦以 null 出现就两端判定相反。
-    """
-
-    description: str = Field(min_length=1)
-    capability: CapabilityId | None = None
 
 
 class MakePlanResult(BaseModel):

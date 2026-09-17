@@ -57,8 +57,6 @@ describe('三层超时链', () => {
 })
 
 describe('与 Python 侧 Budget 的一致性', () => {
-  /** Budget 在 Python 侧、契约里不传（RunTaskParams 只有 taskId 与 goal），
-   *  所以 TS 只能硬编码一份。这里直接读源码比对，漂了就红。 */
   function readDefault(name: string): number {
     const source = readFileSync(enginePy, 'utf8')
     const matched = new RegExp(`${name}\\s*=\\s*(\\d+)`).exec(source)

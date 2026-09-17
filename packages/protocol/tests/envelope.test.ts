@@ -328,24 +328,69 @@ const TASK_EVENT = {
 };
 
 describe("RunTaskParams 约束", () => {
+  const PLAN = [
+    { description: "列出 Downloads 下的 PDF", capability: "filesystem.list" },
+    { description: "基于页面内容生成带页码引用的摘要" },
+  ];
+
   it("合法入参被接受", () => {
     expect(() =>
-      RunTaskParams.parse({ taskId: "t-1", goal: "整理 PDF" }),
+      RunTaskParams.parse({ taskId: "t-1", goal: "整理 PDF", plan: PLAN }),
     ).not.toThrow();
   });
 
   it("空 goal 被拒", () => {
-    expect(() => RunTaskParams.parse({ taskId: "t-1", goal: "" })).toThrow();
+    expect(() =>
+      RunTaskParams.parse({ taskId: "t-1", goal: "", plan: PLAN }),
+    ).toThrow();
   });
 
   it("缺 taskId 被拒", () => {
-    expect(() => RunTaskParams.parse({ goal: "整理 PDF" })).toThrow();
+    expect(() =>
+      RunTaskParams.parse({ goal: "整理 PDF", plan: PLAN }),
+    ).toThrow();
+  });
+
+  it("缺 plan 被拒", () => {
+    expect(() =>
+      RunTaskParams.parse({ taskId: "t-1", goal: "整理 PDF" }),
+    ).toThrow();
+  });
+
+  it("空 plan 被拒", () => {
+    expect(() =>
+      RunTaskParams.parse({ taskId: "t-1", goal: "整理 PDF", plan: [] }),
+    ).toThrow();
+  });
+
+  it("plan 里出现枚举外的 capability 被拒", () => {
+    expect(() =>
+      RunTaskParams.parse({
+        taskId: "t-1",
+        goal: "整理 PDF",
+        plan: [{ description: "执行 shell", capability: "shell.exec" }],
+      }),
+    ).toThrow();
+  });
+
+  it("capability 显式给 null 被拒", () => {
+    expect(() =>
+      RunTaskParams.parse({
+        taskId: "t-1",
+        goal: "整理 PDF",
+        plan: [{ description: "给出摘要", capability: null }],
+      }),
+    ).toThrow();
   });
 
   it("字段清单钉死：预算不在契约里", () => {
-    // 多出预算字段就意味着 TS 能调预算，UI 就得暴露旋钮并校验范围，
-    // 而指导书没这个需求。
-    expect(Object.keys(RunTaskParams.shape)).toEqual(["taskId", "goal"]);
+    // 多出预算字段就意味着 TS 能调预算，UI 就得暴露旋钮并校验范围，而指导书
+    // 没这个需求。plan 相反：它是这次执行的合约，必须在契约里。
+    expect(Object.keys(RunTaskParams.shape)).toEqual([
+      "taskId",
+      "goal",
+      "plan",
+    ]);
   });
 });
 

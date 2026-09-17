@@ -63,6 +63,7 @@ export type MakePlanResponse = z.infer<typeof MakePlanResponse>;
 export const RunTaskParams = z.object({
   taskId: z.string().min(1),
   goal: z.string().min(1),
+  plan: z.array(PlanStepDto).min(1),
 });
 
 const OCCURRED_AT_PATTERN = new RegExp(

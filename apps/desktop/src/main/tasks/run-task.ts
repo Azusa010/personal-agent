@@ -4,6 +4,7 @@ import {
   ERROR_CODE,
   MakePlanResult,
   RunTaskParams,
+  MakePlanParams,
   RunTaskResult,
   type SummaryFact
 } from '@personal-agent/protocol'
@@ -27,15 +28,8 @@ import type { CompletionVerifier, VerificationOutcome } from '../verification/ve
 // reconcile.ts 也用这个字面量：任务的失败原因落成事件，UI 与诊断都读它。
 const TASK_FAILED_EVENT = 'task_failed'
 
-// agent.make_plan 是纯计算（查一次能力清单 + 返回固定三步），10 秒已经宽得离谱。
-// 真超过就是子进程卡死或 stdout 堵了，早点报错比跟着等 RUN_TASK_TIMEOUT_MS 强：
-// 那段时间里库里连一条 Task 都没有，UI 上什么都看不见。
 export const MAKE_PLAN_TIMEOUT_MS = 10_000
 
-// supervisor 把 error envelope 里的 code 原样塞进 RuntimeError.code（类型是 string），
-// 而 IPC 返回值的 code 是闭合联合。认得出的原样透传，认不出的收成 CRASHED——
-// 那种情况是 Python 新加了码没在 error-code.ts 登记，让它显式变成可识别的码，
-// 比把一个 UI 查不到的字符串推上去好。
 const KNOWN_IPC_CODES: ReadonlySet<IpcErrorCode> = new Set<IpcErrorCode>([
   ...Object.values(RUNTIME_ERROR_CODE),
   ...Object.values(ERROR_CODE)
@@ -60,10 +54,6 @@ export interface RunTaskDeps {
   plans: PlanRepository
   events: EventRepository
   send: RuntimeSend
-  /**
-   * 完成判定（TASK-026）。completed 的唯一闸口：Python 回 completed 只是声明，
-   * 判定表通过才翻状态。故意设成必填——漏传不该退化成「谁都放行」。
-   */
   verify: CompletionVerifier
   /** 默认 new Date().toISOString()，格式与 RunTaskEvent.occurredAt 一致 */
   now?: () => string
@@ -106,25 +96,20 @@ export async function runTask(goal: unknown, deps: RunTaskDeps): Promise<RunTask
   // 跑一个完整的编排：索要计划 → 建 Task → 写 Plan → 调 Python → 落 events → 推状态。
   const taskId = deps.newId?.() ?? crypto.randomUUID()
   const planId = deps.newId?.() ?? crypto.randomUUID()
-  const parsedParams = RunTaskParams.safeParse({ taskId, goal })
-  if (!parsedParams.success) {
+  const parsedPlanParams = MakePlanParams.safeParse({ taskId, goal })
+  if (!parsedPlanParams.success) {
     return {
       ok: false,
       code: ERROR_CODE.PROTOCOL_INVALID_REQUEST,
-      message: parsedParams.error.message
+      message: parsedPlanParams.error.message
     }
   }
-  const request = parsedParams.data
-
-  // 计划在建 Task 之前索要：拿不到计划就是任务从没开始，库里不该留一条
-  // 永远停在 pending 的 Task——reconcileOrphanTasks 只收 running 的，收了也不会动它。
-  // MakePlanParams 与 RunTaskParams 字段逐字相同（envelope.test.ts 钉着），所以 request 直接复用。
   let rawPlan: unknown
   try {
-    rawPlan = await deps.send(AGENT_MAKE_PLAN, request, { timeoutMs: MAKE_PLAN_TIMEOUT_MS })
+    rawPlan = await deps.send(AGENT_MAKE_PLAN, parsedPlanParams.data, {
+      timeoutMs: MAKE_PLAN_TIMEOUT_MS
+    })
   } catch (e) {
-    // PLAN_NOT_BUILDABLE 走这条路：supervisor 把 error envelope 转成 RuntimeError，
-    // code 原样透传给 UI，TS 不替 Python 改写错误语义。
     return {
       ok: false,
       code: e instanceof RuntimeError ? toIpcCode(e.code) : RUNTIME_ERROR_CODE.CRASHED,
@@ -139,9 +124,16 @@ export async function runTask(goal: unknown, deps: RunTaskDeps): Promise<RunTask
       message: parsedPlan.error.message
     }
   }
-  // 顺序原样落库：ActionAlignment 要拿计划里第 i 个带 capability 的步骤去比对
-  // 第 i 次 tool call，这里裁剪或重排就等于把比对基准改了。
   const steps = parsedPlan.data.steps
+  const parsedParams = RunTaskParams.safeParse({ taskId, goal, plan: steps })
+  if (!parsedParams.success) {
+    return {
+      ok: false,
+      code: ERROR_CODE.PROTOCOL_INVALID_REQUEST,
+      message: parsedParams.error.message
+    }
+  }
+  const request = parsedParams.data
 
   try {
     beginTask(taskId, request.goal, steps)
@@ -152,8 +144,6 @@ export async function runTask(goal: unknown, deps: RunTaskDeps): Promise<RunTask
     throw e
   }
 
-  // ActionAlignment 的比对基准从这里生效：接下来 agent.run_task 回来的每一次
-  // host.execute_tool 都要按这份计划排队。endTask 必须放 finally：Python 崩了、
   try {
     return await runAgentPhase(taskId, planId, request, steps, deps)
   } finally {

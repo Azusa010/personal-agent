@@ -345,17 +345,37 @@ RUN_TASK_RESULT = TypeAdapter(RunTaskResult)
 
 
 def test_run_task_params_constraints():
-    RunTaskParams.model_validate({"taskId": "t-1", "goal": "整理 PDF"})
+    plan = [
+        {"description": "列出 Downloads 下的 PDF", "capability": "filesystem.list"},
+        {"description": "基于页面内容生成带页码引用的摘要"},
+    ]
+    RunTaskParams.model_validate({"taskId": "t-1", "goal": "整理 PDF", "plan": plan})
 
     with pytest.raises(ValidationError):
-        RunTaskParams.model_validate({"taskId": "t-1", "goal": ""})
+        RunTaskParams.model_validate({"taskId": "t-1", "goal": "", "plan": plan})
 
     with pytest.raises(ValidationError):
-        RunTaskParams.model_validate({"goal": "整理 PDF"})
+        RunTaskParams.model_validate({"goal": "整理 PDF", "plan": plan})
 
-    # 多出预算字段就意味着 TS 能调预算，UI 就得暴露旋钮并校验范围，
-    # 而指导书没这个需求。
-    assert list(RunTaskParams.model_fields) == ["taskId", "goal"]
+    # plan 必填且非空：它既是 ActionAlignment 的比对基准，也是模型提示词的来源。
+    with pytest.raises(ValidationError):
+        RunTaskParams.model_validate({"taskId": "t-1", "goal": "整理 PDF"})
+
+    with pytest.raises(ValidationError):
+        RunTaskParams.model_validate({"taskId": "t-1", "goal": "整理 PDF", "plan": []})
+
+    with pytest.raises(ValidationError):
+        RunTaskParams.model_validate(
+            {
+                "taskId": "t-1",
+                "goal": "整理 PDF",
+                "plan": [{"description": "执行 shell", "capability": "shell.exec"}],
+            }
+        )
+
+    # 多出预算字段就意味着 TS 能调预算，UI 就得暴露旋钮并校验范围，而指导书
+    # 没这个需求。
+    assert list(RunTaskParams.model_fields) == ["taskId", "goal", "plan"]
 
 
 def test_run_task_event_constraints():
@@ -373,9 +393,7 @@ def test_run_task_event_constraints():
         "2026-09-11T10:00:00.120000Z",
     ):
         with pytest.raises(ValidationError):
-            RunTaskEvent.model_validate(
-                {**TASK_EVENT, "occurredAt": bad_occurred_at}
-            )
+            RunTaskEvent.model_validate({**TASK_EVENT, "occurredAt": bad_occurred_at})
 
     with pytest.raises(ValidationError):
         RunTaskEvent.model_validate({**TASK_EVENT, "type": ""})
@@ -411,9 +429,7 @@ def test_summary_fact_constraints():
 
 
 def test_run_task_result_discriminated_union():
-    RUN_TASK_RESULT.validate_python(
-        {"status": "completed", "facts": [], "events": []}
-    )
+    RUN_TASK_RESULT.validate_python({"status": "completed", "facts": [], "events": []})
     RUN_TASK_RESULT.validate_python(
         {"status": "failed", "reason": "预算耗尽", "events": []}
     )
@@ -519,9 +535,7 @@ def test_make_plan_response_dumps_without_a_null_capability():
     """
     fixture = _load("agent-make-plan.response.json")
     MakePlanResponse.model_validate(fixture)
-    assert fixture["result"]["steps"][2] == {
-        "description": SUMMARY_STEP_DESCRIPTION
-    }
+    assert fixture["result"]["steps"][2] == {"description": SUMMARY_STEP_DESCRIPTION}
 
     rebuilt = MakePlanResponse.model_validate(
         {
@@ -567,12 +581,12 @@ def test_scheduler_create_params_constraints():
     # message 是到期通知的正文（PRD 4.8 Reminder 的「通知内容」），缺了它
     # TASK-024 的通知就没有内容可发。
     with pytest.raises(ValidationError):
-        SchedulerCreateParams.model_validate(
-            {"remindAt": "2026-09-15T20:00:00.000Z"}
-        )
+        SchedulerCreateParams.model_validate({"remindAt": "2026-09-15T20:00:00.000Z"})
 
     with pytest.raises(ValidationError):
-        SchedulerCreateParams.model_validate({"remindAt": 1789495200000, "message": "x"})
+        SchedulerCreateParams.model_validate(
+            {"remindAt": 1789495200000, "message": "x"}
+        )
 
     # 契约层只钉形状：「今晚」能不能解析、是不是已经过了，是 host 侧 binder
     # 的职责（REMINDER_TIME_IN_PAST）。TS 侧对称用例钉住同一分层。

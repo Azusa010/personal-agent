@@ -257,16 +257,18 @@ describe('runTask：Golden Path', () => {
     expect(statusDuringPlan).toBeNull()
   })
 
-  it('两次 RPC：先 make_plan 后 run_task，params 都只有 taskId 与 goal', async () => {
+  it('两次 RPC：先 make_plan 后 run_task；计划原样进 run_task 的入参', async () => {
     const send = sendReturning(completedResult())
     const h = openHarness(send)
     await runTask(GOAL, h)
 
     const taskId = sentTaskId(send)
     expect(send.calls.map((c) => c.method)).toEqual([AGENT_MAKE_PLAN, AGENT_RUN_TASK])
-    // 两个 Params 的字段逐字相同（envelope.test.ts 钉着），多塞东西 Python 侧会校验失败。
+    // make_plan 的入参里没有 plan：计划正是这次调用的产物。
     expect(send.calls[0]?.params).toEqual({ taskId, goal: GOAL })
-    expect(send.calls[1]?.params).toEqual({ taskId, goal: GOAL })
+    // run_task 带着计划出门，且与 make_plan 的回包逐字相同（PLAN_STEPS 就是 stub 给的那份）。
+    // 多塞东西 Python 侧会校验失败；少了 plan 同样过不去。
+    expect(send.calls[1]?.params).toEqual({ taskId, goal: GOAL, plan: PLAN_STEPS })
   })
 
   it('两次 RPC 各用自己的超时，不吃 supervisor 的 30 秒默认值', async () => {
