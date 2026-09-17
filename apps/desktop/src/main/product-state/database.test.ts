@@ -168,8 +168,8 @@ describe('migrate', () => {
     const db = openProductState(MEMORY_DB)
     memDb = db
 
-    expect(migrate(db, MIGRATIONS)).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
-    expect(version(db)).toBe(8)
+    expect(migrate(db, MIGRATIONS)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
+    expect(version(db)).toBe(9)
     expect(tables(db)).toEqual(
       expect.arrayContaining([
         'tasks',
@@ -312,9 +312,9 @@ describe('migration 0005：重建 tasks 表放宽 CHECK', () => {
     memDb = db
     seedAtV4(db)
 
-    expect(migrate(db, MIGRATIONS)).toEqual([5, 6, 7, 8])
+    expect(migrate(db, MIGRATIONS)).toEqual([5, 6, 7, 8, 9])
 
-    expect(version(db)).toBe(8)
+    expect(version(db)).toBe(9)
     expect(db.prepare('SELECT id, goal, status, updated_at FROM tasks').all()).toEqual([
       {
         id: 't-1',

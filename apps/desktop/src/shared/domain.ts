@@ -1,3 +1,8 @@
+/**
+ * shared/domain.ts
+ * 领域模型定义
+ */
+
 export const TASK_STATUSES = [
   'pending',
   'running',
@@ -155,4 +160,27 @@ export interface ToolExecutionRecord {
   finishedAt: string | null
   /** succeeded 时缓存的执行结果，命中已执行时原样返回。null = 非 succeeded */
   resultPayload: unknown | null
+}
+
+export const MESSAGE_ROLES = ['user', 'assistant'] as const
+
+export type MessageRole = (typeof MESSAGE_ROLES)[number]
+
+// 一个对话
+export interface ConversationRecord {
+  id: string
+  title: string
+  createdAt: string
+  updatedAt: string
+}
+
+// 一条对话消息
+export interface MessageRecord {
+  seq: number
+  id: string
+  conversationId: string
+  role: MessageRole
+  text: string
+  taskId: string | null
+  createdAt: string
 }
