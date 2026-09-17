@@ -48,6 +48,7 @@ class PdfEntry(BaseModel):
 class FilesystemListParams(BaseModel):
     rootId: Literal["downloads"]
 
+
 class FilesystemListResult(BaseModel):
     entries: list[PdfEntry]
 
@@ -87,13 +88,12 @@ CapabilityId = Literal[
 
 
 class HostExecuteToolParams(BaseModel):
-
     callId: str = Field(min_length=1)
     capability: CapabilityId
     arguments: dict[str, Any] = Field(default_factory=dict)
 
-class HostExecuteToolResult(BaseModel):
 
+class HostExecuteToolResult(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     ok: bool
@@ -124,17 +124,20 @@ class CapabilityFailure(BaseModel):
     code: str
     reason: str
 
+
 class PageText(BaseModel):
     pageNumber: int = Field(ge=1)
     text: str
 
+
 class DocumentExtractPdfParams(BaseModel):
-    path:str = Field(min_length=1)
+    path: str = Field(min_length=1)
 
 
 class DocumentExtractPdfResult(BaseModel):
     ok: Literal[True]
     pages: list[PageText]
+
 
 DocumentExtractPdfOutcome = Annotated[
     DocumentExtractPdfResult | CapabilityFailure, Field(discriminator="ok")
@@ -271,12 +274,6 @@ class PlanStepDto(BaseModel):
     capability: CapabilityId | None = None
 
 
-class RunTaskParams(BaseModel):
-    taskId: str = Field(min_length=1)
-    goal: str = Field(min_length=1)
-    plan: list[PlanStepDto] = Field(min_length=1)
-
-
 class RunTaskEvent(BaseModel):
     type: str = Field(min_length=1)
     payload: Any
@@ -308,12 +305,6 @@ RunTaskResult = Annotated[
 ]
 
 
-class RunTaskRequest(BaseModel):
-    jsonrpc: Literal["2.0"]
-    id: str = Field(min_length=1)
-    method: Literal["agent.run_task"]
-    params: RunTaskParams
-
 
 class RunTaskResponse(BaseModel):
     jsonrpc: Literal["2.0"]
@@ -335,11 +326,29 @@ class RunTaskResponse(BaseModel):
 AGENT_MAKE_PLAN = "agent.make_plan"
 
 
+class Turn(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str = Field(min_length=1)
+
+
 class MakePlanParams(BaseModel):
     taskId: str = Field(min_length=1)
     goal: str = Field(min_length=1)
+    history: list[Turn] = Field(default_factory=list)
 
 
+class RunTaskParams(BaseModel):
+    taskId: str = Field(min_length=1)
+    goal: str = Field(min_length=1)
+    plan: list[PlanStepDto] = Field(min_length=1)
+    history: list[Turn] = Field(default_factory=list)
+
+
+class RunTaskRequest(BaseModel):
+    jsonrpc: Literal["2.0"]
+    id: str = Field(min_length=1)
+    method: Literal["agent.run_task"]
+    params: RunTaskParams
 
 
 class MakePlanResult(BaseModel):

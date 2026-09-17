@@ -64,7 +64,7 @@ def test_a_script_never_takes_part_in_planning(monkeypatch):
 
 def test_make_plan_reports_a_model_side_planner_failure_with_its_own_code():
     class ExplodingPlanner:
-        def plan(self, goal, visibleCapabilities):
+        def plan(self, goal, visibleCapabilities, history=()):
             raise ModelCallFailed("模型没给出任何步骤")
 
     deps = RuntimeDeps(channel=StubChannel(), planner_factory=ExplodingPlanner)

@@ -30,16 +30,16 @@ function toRecord(row: MessageRow): MessageRecord {
   }
 }
 
-export type newMessage = Omit<MessageRecord, 'seq'>
+export type NewMessage = Omit<MessageRecord, 'seq'>
 export interface MessageRepository {
-  append(record: newMessage): number
+  append(record: NewMessage): number
   listByConversation(conversationId: string): MessageRecord[]
 }
 
 export class SqliteMessageRepository implements MessageRepository {
   constructor(private db: SqliteDatabase) {}
 
-  append(record: newMessage): number {
+  append(record: NewMessage): number {
     const info = this.db
       .prepare(
         `INSERT INTO messages (id, conversation_id, role, text, task_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`

@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { openProductState, migrate, MEMORY_DB, type SqliteDatabase } from './database'
-import { SqliteConversationRepository } from './conversation-repository'
+import { ConversationRecord, SqliteConversationRepository } from './conversation-repository'
 
 let db: SqliteDatabase | null = null
 
@@ -16,7 +16,7 @@ function makeRepo(): SqliteConversationRepository {
   return new SqliteConversationRepository(d)
 }
 
-function conversation(id: string, updatedAt = '2026-09-17T10:00:00.000Z') {
+function conversation(id: string, updatedAt = '2026-09-17T10:00:00.000Z'): ConversationRecord {
   return {
     id,
     title: `会话 ${id}`,

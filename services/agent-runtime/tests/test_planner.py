@@ -4,6 +4,7 @@ import pytest
 
 from personal_agent.planner import DeterministicPlanner, Planner
 from personal_agent.planning import PlanError, make_plan
+from personal_agent.protocol.models import Turn
 
 FULL = [
     "filesystem.list",
@@ -43,3 +44,15 @@ def test_deterministic_planner_reports_missing_read_capability():
 
 def test_deterministic_planner_satisfies_the_port():
     assert isinstance(DeterministicPlanner(), Planner)
+
+
+def test_deterministic_planner_ignores_history():
+    # 历史是 LivePlanner 用来解析「它」「那个文件」的，确定性路径刻意忽略：
+    # 同一个目标永远给同一份计划（CON-006），多聊几句不能让它开始变化。
+    planner = DeterministicPlanner()
+    no_history = planner.plan("整理 PDF", FULL)
+    with_history = planner.plan(
+        "整理 PDF", FULL, [Turn(role="user", text="上一轮说过的话")]
+    )
+
+    assert no_history == with_history

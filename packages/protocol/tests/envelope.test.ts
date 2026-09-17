@@ -43,6 +43,7 @@ import {
   RunTaskResponse,
   RunTaskResult,
   SummaryFact,
+  Turn,
 } from "../schemas/agent.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -390,7 +391,60 @@ describe("RunTaskParams 约束", () => {
       "taskId",
       "goal",
       "plan",
+      "history",
     ]);
+  });
+
+  it("字段清单钉死：history 可选（第一轮没有历史）", () => {
+    expect(Object.keys(MakePlanParams.shape)).toEqual([
+      "taskId",
+      "goal",
+      "history",
+    ]);
+    expect(Object.keys(RunTaskParams.shape)).toEqual([
+      "taskId",
+      "goal",
+      "plan",
+      "history",
+    ]);
+  });
+});
+
+describe("Turn 与 history 约束（TASK-032）", () => {
+  const PLAN = [
+    { description: "列出 Downloads 下的 PDF", capability: "filesystem.list" },
+  ];
+
+  it("合法 turn 被接受：role 只有 user / assistant", () => {
+    expect(() => Turn.parse({ role: "user", text: "把它移到 Reading" })).not.toThrow();
+    expect(() => Turn.parse({ role: "assistant", text: "已移好" })).not.toThrow();
+  });
+
+  it("role 出了枚举被拒", () => {
+    // system 不进历史：系统层的部分由提示词承担，SEC-006 的口径不变。
+    expect(() => Turn.parse({ role: "system", text: "x" })).toThrow();
+  });
+
+  it("空 text 被拒", () => {
+    expect(() => Turn.parse({ role: "user", text: "" })).toThrow();
+  });
+
+  it("history 可选：两个 params 都不强制（第一轮没有历史）", () => {
+    expect(() => MakePlanParams.parse({ taskId: "t-1", goal: "g" })).not.toThrow();
+    expect(() =>
+      RunTaskParams.parse({ taskId: "t-1", goal: "g", plan: PLAN }),
+    ).not.toThrow();
+  });
+
+  it("history 里的坏 turn 会被 params 连带拒掉", () => {
+    expect(() =>
+      RunTaskParams.parse({
+        taskId: "t-1",
+        goal: "g",
+        plan: PLAN,
+        history: [{ role: "system", text: "x" }],
+      }),
+    ).toThrow();
   });
 });
 
@@ -657,7 +711,7 @@ describe("InitializeParams 的能力清单约束", () => {
 
 describe("MakePlan 的约束", () => {
   it("MakePlanParams 字段清单钉死", () => {
-    expect(Object.keys(MakePlanParams.shape)).toEqual(["taskId", "goal"]);
+    expect(Object.keys(MakePlanParams.shape)).toEqual(["taskId", "goal","history"]);
   });
 
   it("PlanStepDto 字段清单钉死", () => {

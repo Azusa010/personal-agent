@@ -4,9 +4,17 @@ import { CapabilityId } from "./host";
 export const AGENT_RUN_TASK = "agent.run_task";
 export const AGENT_MAKE_PLAN = "agent.make_plan";
 
+export const Turn = z.object({
+  role: z.enum(["user", "assistant"]),
+  text: z.string().min(1),
+})
+
+export type Turn = z.infer<typeof Turn>;
+
 export const MakePlanParams = z.object({
   taskId: z.string().min(1),
   goal: z.string().min(1),
+  history: z.array(Turn).optional(),
 });
 
 // 计划里的一步。capability 可选：摘要那一步不经工具，由模型自己产出，
@@ -64,6 +72,7 @@ export const RunTaskParams = z.object({
   taskId: z.string().min(1),
   goal: z.string().min(1),
   plan: z.array(PlanStepDto).min(1),
+  history: z.array(Turn).optional(),
 });
 
 const OCCURRED_AT_PATTERN = new RegExp(

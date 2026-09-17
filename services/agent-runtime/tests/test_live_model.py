@@ -26,7 +26,7 @@ from personal_agent.model_gateway import (
     SummaryDecision,
     ToolCallDecision,
 )
-from personal_agent.protocol.models import CapabilityId, PlanStepDto
+from personal_agent.protocol.models import CapabilityId, PlanStepDto, Turn
 
 VISIBLE = ["filesystem.list", "document.extract_pdf"]
 
@@ -85,12 +85,14 @@ def summary_json(facts=None, reply="已完成，结论如下。"):
 def context_with(
     observations: list[Observation] | None = None,
     plan: list[PlanStepDto] | None = None,
+    history: list[Turn] | None = None,
 ) -> ModelContext:
     return ModelContext(
         taskGoal="整理 Downloads 里的 PDF",
         visibleCapabilities=VISIBLE,
         observations=observations or [],
         plan=plan or [],
+        history=history or [],
     )
 
 
@@ -175,6 +177,22 @@ def test_render_input_with_an_empty_plan_says_so():
 
     assert "本轮计划" in rendered
     assert "（空）" in rendered
+
+
+def test_render_input_renders_the_history_for_coreference():
+    # 执行侧同样要看得见之前聊了什么：计划是「做什么」，历史补齐「指什么」。
+    rendered = render_input(
+        context_with(history=[Turn(role="user", text="把最新的 PDF 整理到 Reading")])
+    )
+
+    assert "之前的对话" in rendered
+    assert "[user] 把最新的 PDF 整理到 Reading" in rendered
+
+
+def test_render_input_omits_the_history_section_on_the_first_turn():
+    rendered = render_input(context_with())
+
+    assert "之前的对话" not in rendered
 
 
 def test_instructions_no_longer_hardcode_the_golden_path():

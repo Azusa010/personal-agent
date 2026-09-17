@@ -12,6 +12,7 @@ from personal_agent.live_planner import (
     render_plan_input,
 )
 from personal_agent.model_gateway import ModelCallFailed
+from personal_agent.protocol.models import Turn
 
 VISIBLE = [
     "filesystem.list",
@@ -110,6 +111,30 @@ def test_render_plan_input_lists_goal_and_only_visible_capabilities():
     assert "notification.send" not in rendered
 
 
+def test_render_plan_input_renders_the_history_for_coreference():
+    # 「把它移回 Downloads」里的「它」只能从上一轮解析：历史要以可读的
+    # 角色标记进入规划请求。
+    rendered = render_plan_input(
+        "把它移回 Downloads",
+        ["filesystem.list", "filesystem.move"],
+        [
+            Turn(role="user", text="把最新的 PDF 整理到 Reading"),
+            Turn(role="assistant", text="已整理好"),
+        ],
+    )
+
+    assert "之前的对话" in rendered
+    assert "[user] 把最新的 PDF 整理到 Reading" in rendered
+    assert "[assistant] 已整理好" in rendered
+
+
+def test_render_plan_input_omits_the_history_section_on_the_first_turn():
+    # 第一轮最常见：整段省略，不给模型一个空标题。
+    rendered = render_plan_input("整理 Downloads 里的 PDF", VISIBLE, [])
+
+    assert "之前的对话" not in rendered
+
+
 # ---- LivePlanner：请求形状与失败路径 ----
 
 def test_plan_sends_the_planner_instructions_and_the_output_schema():
@@ -130,6 +155,22 @@ def test_plan_sends_the_planner_instructions_and_the_output_schema():
     # strict=True 会拒掉自由对象，与执行侧同一个理由。
     assert request["text"]["format"]["strict"] is False
     assert request["store"] is False
+
+
+def test_plan_sends_the_history_in_the_input():
+    client = FakeClient([FakeResponse(full_plan_json())])
+    planner = LivePlanner(model="gpt-test", client=client)
+
+    planner.plan(
+        "把它移回 Downloads",
+        VISIBLE,
+        [Turn(role="user", text="把最新的 PDF 整理到 Reading")],
+    )
+
+    request = client.responses.requests[0]
+    # 历史与本轮目标同框：模型解析「它」靠的是 request["input"] 这段文本。
+    assert "把最新的 PDF 整理到 Reading" in request["input"]
+    assert "把它移回 Downloads" in request["input"]
 
 
 def test_plan_rejects_a_plan_that_uses_an_invisible_capability():

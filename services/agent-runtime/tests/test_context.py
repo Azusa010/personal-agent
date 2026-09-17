@@ -16,7 +16,7 @@ from personal_agent.context import (
     truncate_strings,
 )
 from personal_agent.model_gateway import Observation
-from personal_agent.protocol.models import PlanStepDto
+from personal_agent.protocol.models import PlanStepDto, Turn
 
 
 def obs(call_id="call-1", capability="document.extract_pdf", ok=True, payload=None):
@@ -293,3 +293,30 @@ def test_build_truncates_overlong_plan_descriptions():
     assert ctx.plan[0].description == "长" * 10 + TRUNCATION_MARKER
     # capability 不是自由文本，截断逻辑碰它等于改计划。
     assert ctx.plan[0].capability == "filesystem.list"
+
+
+# ---- build：历史 ----
+
+
+def test_build_carries_history_into_the_context():
+    # 模型靠它解析「它」「那个文件」：历史要与 plan、observations 一样
+    # 原样走到 ModelContext。
+    history = [Turn(role="user", text="把最新的 PDF 整理到 Reading")]
+
+    ctx = ContextManager(history=history).build("把它移回 Downloads", [])
+
+    assert [(t.role, t.text) for t in ctx.history] == [
+        ("user", "把最新的 PDF 整理到 Reading")
+    ]
+
+
+def test_build_truncates_overlong_history_text():
+    # 历史文本是用户与模型的话，同为自由文本：走同一个字符预算。
+    ctx = ContextManager(
+        maxCharsPerString=10,
+        history=[Turn(role="user", text="长" * 500)],
+    ).build("g", [])
+
+    assert ctx.history[0].text == "长" * 10 + TRUNCATION_MARKER
+    # role 是枚举标识，不在截断范围。
+    assert ctx.history[0].role == "user"

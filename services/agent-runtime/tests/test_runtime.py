@@ -55,8 +55,8 @@ class StubPlanner:
         self._steps = steps
         self.calls = []
 
-    def plan(self, goal, visibleCapabilities):
-        self.calls.append((goal, visibleCapabilities))
+    def plan(self, goal, visibleCapabilities, history=()):
+        self.calls.append((goal, visibleCapabilities, list(history)))
         return self._steps
 
 
@@ -358,6 +358,38 @@ def test_run_task_hands_the_plan_to_the_model():
             ("列出 Downloads 下的 PDF", "filesystem.list"),
             ("提取目标 PDF 的每页文本", "document.extract_pdf"),
             ("基于页面内容生成带页码引用的摘要", None),
+        ]
+
+
+def test_run_task_hands_the_history_to_the_model():
+    # 对话历史是模型的输入之一：模型从 ModelContext.history 读「之前聊了什么」，
+    # 才能解析本轮目标里的「它」「那个文件」。
+    factory = RecordingFactory(read_only_script())
+    deps = deps_with_factory(factory)
+    handle_line(initialize_line(), deps)
+    line = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": "40",
+            "method": "agent.run_task",
+            "params": {
+                "taskId": "task-001",
+                "goal": "把它移回 Downloads",
+                "plan": PLAN,
+                "history": [
+                    {"role": "user", "text": "把最新的 PDF 整理到 Reading"},
+                    {"role": "assistant", "text": "已整理好"},
+                ],
+            },
+        }
+    )
+    handle_line(line, deps)
+
+    assert factory.instances[0].receivedContexts
+    for ctx in factory.instances[0].receivedContexts:
+        assert [(t.role, t.text) for t in ctx.history] == [
+            ("user", "把最新的 PDF 整理到 Reading"),
+            ("assistant", "已整理好"),
         ]
 
 
@@ -740,5 +772,37 @@ def test_make_plan_goes_through_the_planner_factory():
     assert out["result"]["steps"] == [
         {"description": "自定义的一步", "capability": "filesystem.list"}
     ]
-    # 端口拿到的是目标文本 + 握手下发的能力名清单，顺序原样（不排序、不裁剪）。
-    assert planner.calls == [("整理 Downloads 里的 PDF", EXPECTED_PLAN_CAPABILITIES)]
+    # 端口拿到的是目标文本 + 握手下发的能力名清单（顺序原样）+ 空历史（第一轮）。
+    assert planner.calls == [("整理 Downloads 里的 PDF", EXPECTED_PLAN_CAPABILITIES, [])]
+
+
+def test_make_plan_hands_the_history_to_the_planner():
+    # 「把它移回 Downloads」这类指代只能靠历史解析：handle_make_plan 要把
+    # params.history 原样交给端口，不裁剪不重排。
+    planner = StubPlanner(
+        [PlanStep(description="自定义的一步", capability="filesystem.list")]
+    )
+    deps = RuntimeDeps(channel=StubChannel(), planner_factory=lambda: planner)
+    handle_line(initialize_line(), deps)
+
+    line = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": "21",
+            "method": "agent.make_plan",
+            "params": {
+                "taskId": "task-001",
+                "goal": "把它移回 Downloads",
+                "history": [
+                    {"role": "user", "text": "把最新的 PDF 整理到 Reading"},
+                    {"role": "assistant", "text": "已整理好"},
+                ],
+            },
+        }
+    )
+    handle_line(line, deps)
+
+    assert [(t.role, t.text) for t in planner.calls[-1][2]] == [
+        ("user", "把最新的 PDF 整理到 Reading"),
+        ("assistant", "已整理好"),
+    ]

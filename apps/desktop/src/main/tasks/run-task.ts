@@ -6,7 +6,8 @@ import {
   RunTaskParams,
   MakePlanParams,
   RunTaskResult,
-  type SummaryFact
+  type SummaryFact,
+  Turn
 } from '@personal-agent/protocol'
 import type { IpcErrorCode, RunTaskIpcResult } from '../../shared/ipc-contract'
 import type { PlanStep } from '../../shared/domain'
@@ -92,11 +93,14 @@ function persistRuntimeFailure(
   return { ok: true, taskId, status: 'failed', reason: message }
 }
 
-export async function runTask(goal: unknown, deps: RunTaskDeps): Promise<RunTaskIpcResult> {
-  // 跑一个完整的编排：索要计划 → 建 Task → 写 Plan → 调 Python → 落 events → 推状态。
+export async function runTask(
+  goal: unknown,
+  deps: RunTaskDeps,
+  history: Turn[] = []
+): Promise<RunTaskIpcResult> {
   const taskId = deps.newId?.() ?? crypto.randomUUID()
   const planId = deps.newId?.() ?? crypto.randomUUID()
-  const parsedPlanParams = MakePlanParams.safeParse({ taskId, goal })
+  const parsedPlanParams = MakePlanParams.safeParse({ taskId, goal, history })
   if (!parsedPlanParams.success) {
     return {
       ok: false,
@@ -125,7 +129,7 @@ export async function runTask(goal: unknown, deps: RunTaskDeps): Promise<RunTask
     }
   }
   const steps = parsedPlan.data.steps
-  const parsedParams = RunTaskParams.safeParse({ taskId, goal, plan: steps })
+  const parsedParams = RunTaskParams.safeParse({ taskId, goal, plan: steps, history })
   if (!parsedParams.success) {
     return {
       ok: false,

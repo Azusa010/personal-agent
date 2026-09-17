@@ -16,7 +16,12 @@ import {
   type PlanRecord
 } from '../product-state/plan-repository'
 import { SqliteEventRepository, type EventRepository } from '../product-state/event-repository'
-import { AGENT_MAKE_PLAN, AGENT_RUN_TASK, ERROR_CODE } from '@personal-agent/protocol'
+import {
+  AGENT_MAKE_PLAN,
+  AGENT_RUN_TASK,
+  ERROR_CODE,
+  type Turn
+} from '@personal-agent/protocol'
 import { RuntimeError } from '../runtime/python-supervisor'
 import { RUNTIME_ERROR_CODE } from '../runtime/error-code'
 import { currentTask, endTask, type ActiveTask } from '../policy/task-context'
@@ -265,11 +270,36 @@ describe('runTask：Golden Path', () => {
 
     const taskId = sentTaskId(send)
     expect(send.calls.map((c) => c.method)).toEqual([AGENT_MAKE_PLAN, AGENT_RUN_TASK])
-    // make_plan 的入参里没有 plan：计划正是这次调用的产物。
-    expect(send.calls[0]?.params).toEqual({ taskId, goal: GOAL })
+    // make_plan 的入参里没有 plan：计划正是这次调用的产物。history 恒在：
+    // 第一轮是空数组，R8 起两次 RPC 的形状保持一致，编排层不用做缺键分支。
+    expect(send.calls[0]?.params).toEqual({ taskId, goal: GOAL, history: [] })
     // run_task 带着计划出门，且与 make_plan 的回包逐字相同（PLAN_STEPS 就是 stub 给的那份）。
     // 多塞东西 Python 侧会校验失败；少了 plan 同样过不去。
-    expect(send.calls[1]?.params).toEqual({ taskId, goal: GOAL, plan: PLAN_STEPS })
+    expect(send.calls[1]?.params).toEqual({
+      taskId,
+      goal: GOAL,
+      plan: PLAN_STEPS,
+      history: []
+    })
+  })
+
+  it('第三参 history 原样进两次 RPC 的入参（多轮会话的上下文）', async () => {
+    const send = sendReturning(completedResult())
+    const h = openHarness(send)
+    const history: Turn[] = [
+      { role: 'user', text: '上一句' },
+      { role: 'assistant', text: '上一答' }
+    ]
+    await runTask(GOAL, h, history)
+
+    const taskId = sentTaskId(send)
+    expect(send.calls[0]?.params).toEqual({ taskId, goal: GOAL, history })
+    expect(send.calls[1]?.params).toEqual({
+      taskId,
+      goal: GOAL,
+      plan: PLAN_STEPS,
+      history
+    })
   })
 
   it('两次 RPC 各用自己的超时，不吃 supervisor 的 30 秒默认值', async () => {

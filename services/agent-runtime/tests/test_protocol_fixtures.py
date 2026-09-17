@@ -38,6 +38,7 @@ from personal_agent.protocol.models import (
     SchedulerCreateParams,
     SchedulerCreateResult,
     SummaryFact,
+    Turn,
 )
 
 FIXTURES_DIR = (
@@ -374,8 +375,8 @@ def test_run_task_params_constraints():
         )
 
     # 多出预算字段就意味着 TS 能调预算，UI 就得暴露旋钮并校验范围，而指导书
-    # 没这个需求。
-    assert list(RunTaskParams.model_fields) == ["taskId", "goal", "plan"]
+    # 没这个需求。history 可选（TASK-032）：第一轮没有历史。
+    assert list(RunTaskParams.model_fields) == ["taskId", "goal", "plan", "history"]
 
 
 def test_run_task_event_constraints():
@@ -468,6 +469,42 @@ def test_run_task_completed_reply_constraints():
         )
 
 
+def test_turn_and_history_constraints():
+    # 对话历史随参数下发（TASK-032）：role 只有 user / assistant，system 不进
+    # 历史——系统层的部分由提示词承担，SEC-006 的口径不变。
+    assert list(Turn.model_fields) == ["role", "text"]
+
+    Turn.model_validate({"role": "user", "text": "把它移到 Reading"})
+    Turn.model_validate({"role": "assistant", "text": "已移好"})
+
+    with pytest.raises(ValidationError):
+        Turn.model_validate({"role": "system", "text": "x"})
+
+    with pytest.raises(ValidationError):
+        Turn.model_validate({"role": "user", "text": ""})
+
+    # history 可选：第一轮没有历史，两个 params 都不强制。
+    MakePlanParams.model_validate({"taskId": "t-1", "goal": "整理 PDF"})
+    plan = [
+        {"description": "列出 Downloads 下的 PDF", "capability": "filesystem.list"},
+        {"description": "基于页面内容生成带页码引用的摘要"},
+    ]
+    RunTaskParams.model_validate({"taskId": "t-1", "goal": "整理 PDF", "plan": plan})
+
+    with pytest.raises(ValidationError):
+        RunTaskParams.model_validate(
+            {
+                "taskId": "t-1",
+                "goal": "整理 PDF",
+                "plan": plan,
+                "history": [{"role": "system", "text": "x"}],
+            }
+        )
+
+    assert list(MakePlanParams.model_fields) == ["taskId", "goal", "history"]
+    assert list(RunTaskParams.model_fields) == ["taskId", "goal", "plan", "history"]
+
+
 def test_run_task_envelope_constraints():
     with pytest.raises(ValidationError):
         RunTaskRequest.model_validate(
@@ -499,7 +536,8 @@ SUMMARY_STEP_DESCRIPTION = "基于页面内容生成带页码引用的摘要"
 
 
 def test_make_plan_constraints():
-    assert list(MakePlanParams.model_fields) == ["taskId", "goal"]
+    # history 可选（TASK-032）：第一轮没有历史；R8 只透传，R9 起规划器使用。
+    assert list(MakePlanParams.model_fields) == ["taskId", "goal", "history"]
     assert list(PlanStepDto.model_fields) == ["description", "capability"]
 
     # capability 缺失合法：摘要那一步不经工具。
