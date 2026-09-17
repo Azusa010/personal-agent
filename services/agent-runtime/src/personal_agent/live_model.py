@@ -27,7 +27,9 @@ from personal_agent.model_gateway import (
     ModelContext,
     ModelDecision,
     ModelUsage,
+    Observation,
 )
+from personal_agent.protocol.models import PlanStepDto
 
 log = logging.getLogger("personal_agent")
 
@@ -50,25 +52,24 @@ TOOL_SPECS: dict[str, str] = {
     "notification.send": '发送某条已落库 Reminder 的通知。参数 {"reminderId": "<reminder id>"}',
 }
 
-INSTRUCTIONS = """你是 Personal Agent 的执行器，负责完成用户交给的 PDF 整理任务。
+INSTRUCTIONS = """你是 Personal Agent 的执行器：按「本轮计划」替用户完成任务。
 
 每一步只输出一个决策，两种之一：
 
 1. 调用工具：
    {"kind": "tool_call", "callId": "call-1", "capability": "<能力名>", "arguments": {...}}
-   callId 每次递增（call-1、call-2……），capability 只能取下面列出的可用能力。
+   callId 每次递增（call-1、call-2……），capability 只能取「可用能力」里列出的名字。
 
 2. 给出最终摘要：
    {"kind": "summary", "facts": [{"text": "<一条结论>", "pageRefs": [<页码>]}]}
 
-整理任务的完整路径（按这个顺序做完，再给摘要）：
-1. filesystem.list：列出 Downloads 下的 PDF，挑出目标文件；
-2. document.extract_pdf：提取它的每页文本；
-3. filesystem.create_dir：在 Downloads 下创建 Reading 目录（已存在也无害）；
-4. filesystem.move：把选中的 PDF 移到 Reading 目录下；
-5. scheduler.create：建一条一次性阅读提醒，remindAt 用未来时刻的 ISO-8601
-   （例如当前时间往后一小时），message 写清提醒什么；
-6. 最后给出摘要。
+执行规则：
+
+- 严格按「本轮计划」的顺序走，不跳步、不加步。计划里没有的能力不要调用：
+  调用会被对齐闸口拒绝，ok=false 会回到你这里。
+- 工具失败（ok=false）时按返回的原因修正参数重试，或继续计划里能走的下一步；
+  不要为绕过失败发明计划外的调用。
+- 计划里标注「不经工具」的最后一步就是给出摘要：把已发生调用的结果整理成结论。
 
 写操作会让用户看到批准面板：调用会挂起，直到用户批准或拒绝。被拒绝时你会拿到
 ok=false 与原因，按它调整（例如换个目标路径）或继续下一步。
@@ -168,17 +169,29 @@ class LiveModel:
             raise ModelCallFailed(f"模型输出不符合 ModelDecision 契约: {e}") from e
 
 
-
 DECISION_SCHEMA: dict[str, Any] = DECISION_ADAPTER.json_schema()
 
 
 def render_input(context: ModelContext) -> str:
     """把 ModelContext 渲染成一次请求的输入文本。
 
-    只列 context.visibleCapabilities 里的能力（Scope 外的能力不下发给模型），
-    observations 里是这一次任务已经发生的工具调用与结果——模型据此决定下一步。
+    只列 context.visibleCapabilities 里的能力（Scope 外的能力不下发给模型）。
+    本轮计划告诉模型「这轮要做哪几步」，observations 告诉它「已经做到哪一步」——
+    两者合起来才是决策依据，单靠任何一个都会跑偏。
     """
-    lines = [f"任务目标：{context.taskGoal}", "", "可用能力："]
+    lines = [
+        f"任务目标：{context.taskGoal}",
+        "",
+        "本轮计划（按顺序执行，不跳步、不加步）：",
+    ]
+    if not context.plan:
+        lines.append("（空）")
+    for index, step in enumerate(context.plan, start=1):
+        if step.capability is None:
+            lines.append(f"{index}. {step.description}（不经工具，最后直接回复用户）")
+        else:
+            lines.append(f"{index}. {step.description}（{step.capability}）")
+    lines.extend(["", "可用能力："])
     for name in context.visibleCapabilities:
         lines.append(f"- {name}: {TOOL_SPECS.get(name, '（参数见能力契约）')}")
     lines.extend(["", "已发生的工具调用："])
@@ -201,3 +214,20 @@ def _as_int(value: Any) -> int:
 
 def _describe(e: Exception) -> str:
     return f"{type(e).__name__}: {e}"
+
+
+if __name__ == "__main__":
+    context = ModelContext(
+        taskGoal="测试目标",
+        visibleCapabilities=["测试1", "测试2"],
+        observations=[
+            Observation(
+                callId="test-1",
+                capability="测试1",
+                ok=True,
+                payload={"test": "test1payload"},
+            )
+        ],
+        plan=[PlanStepDto(description="测试1第一步", capability="filesystem.list")],
+    )
+    print(render_input(context))

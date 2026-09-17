@@ -171,7 +171,7 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
             req.id, RUNTIME_MODEL_NOT_CONFIGURED, "运行时未配置模型，无法执行任务"
         )
 
-    context = ContextManager()
+    context = ContextManager(plan=params.plan)
     engine = AgentEngine(
         model=deps.model_factory(), channel=deps.channel, context=context
     )
@@ -251,7 +251,11 @@ def run(channel: HostChannel | None = None) -> None:
         if channel is not None
         else HostChannel(readline=sys.stdin.readline, write_msg=write)
     )
-    deps = RuntimeDeps(channel=ch, model_factory=resolve_model_factory(),planner_factory=resolve_planner_factory())
+    deps = RuntimeDeps(
+        channel=ch,
+        model_factory=resolve_model_factory(),
+        planner_factory=resolve_planner_factory(),
+    )
     log.info("runtime started")
     while True:
         line = ch.next_line()

@@ -2,6 +2,8 @@ from typing import Annotated, Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
+from personal_agent.protocol.models import PlanStepDto
+
 
 class Observation(BaseModel):
     """一次 host 工具调用的结果，engine 记下来喂回模型。
@@ -21,6 +23,7 @@ class ModelContext(BaseModel):
     taskGoal: str
     visibleCapabilities: list[str] = Field(default_factory=list)
     observations: list[Observation] = Field(default_factory=list)
+    plan: list[PlanStepDto] = Field(default_factory=list)
 
 
 class ToolCallDecision(BaseModel):

@@ -10,6 +10,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from personal_agent.model_gateway import ModelContext, Observation
+from personal_agent.protocol.models import PlanStepDto
 
 # 一页 A4 文本约 2000-4000 字符。12 页 × 2000 ≈ 24k 字符 ≈ 6k token，
 # 真实模型的窗口装得下；ScriptedModel 不读内容，CI 确定性不受影响。
@@ -45,10 +46,15 @@ def truncate_strings(value: Any, limit: int) -> Any:
 class ContextManager:
     """保存原始观察，按需组装出截断过的 ModelContext。"""
 
-    def __init__(self, maxCharsPerString: int = DEFAULT_MAX_CHARS_PER_STRING) -> None:
+    def __init__(
+        self,
+        maxCharsPerString: int = DEFAULT_MAX_CHARS_PER_STRING,
+        plan: Sequence[PlanStepDto] = (),
+    ) -> None:
         if maxCharsPerString < 1:
             raise ValueError(f"maxCharsPerString 必须 >= 1，收到 {maxCharsPerString}")
         self._maxCharsPerString = maxCharsPerString
+        self._plan: list[PlanStepDto] = list(plan)
         self._observations: list[Observation] = []
 
     @property
@@ -71,8 +77,16 @@ class ContextManager:
                     payload=value,
                 )
             )
+        plan = [
+            PlanStepDto(
+                description=truncate_strings(step.description, self._maxCharsPerString),
+                capability=step.capability,
+            )
+            for step in self._plan
+        ]
         return ModelContext(
             taskGoal=taskGoal,
             visibleCapabilities=visibleCapabilities,
+            plan=plan,
             observations=observations,
         )
