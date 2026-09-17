@@ -463,6 +463,9 @@ describe('collectEvidence：证据缺口如实记录（不抛错、不编造）'
     const world = new FakeWorld()
     const deps = openHarness(world)
     seedTask(deps)
+    // 计划里答应了「提取 PDF」，取证才把「没有成功的提取」当缺口；
+    // 零工具计划的轮次这是预期，不再记 gap（TASK-031 的分档）。
+    seedPlan(deps)
     seedEvent(deps, 'tool_called', {
       callId: 'c-extract',
       capability: 'document.extract_pdf',
@@ -623,6 +626,8 @@ describe('collectEvidence：证据缺口如实记录（不抛错、不编造）'
   it('事件载荷畸形（不是对象 / 缺 callId）→ 跳过该条，不崩', async () => {
     const deps = openHarness()
     seedTask(deps)
+    // 同上：计划承诺了 extract，这条 gap 才成立。
+    seedPlan(deps)
     seedEvent(deps, 'tool_called', '这不是一个对象')
     seedEvent(deps, 'tool_called', { capability: 'filesystem.list' })
     seedEvent(deps, 'tool_result', null)

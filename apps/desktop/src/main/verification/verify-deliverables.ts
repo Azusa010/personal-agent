@@ -90,8 +90,8 @@ function fail(detail: string): CheckResult {
 const CHECKS: CheckSpec[] = [
   {
     id: 'summary_present',
-    required: () => true,
-    notApplicable: '',
+    required: (evidence) => planHas(evidence, EXTRACT_PDF_CAPABILITY),
+    notApplicable: '计划里没有提取 PDF 的步骤：摘要不依据页文本',
     run: (evidence) => {
       if (evidence.summary.length === 0) {
         return fail('没有任何 fact：模型没给出完成证据')
@@ -103,6 +103,18 @@ const CHECKS: CheckSpec[] = [
       return pass(
         `${evidence.summary.length} 条 fact 都带页码引用（共 ${evidence.pageReferences.length} 个页码）`
       )
+    }
+  },
+  {
+    id: 'reply_present',
+    required: () => true,
+    notApplicable: '',
+    run: (evidence) => {
+      const reply = evidence.reply?.trim() ?? ''
+      if (reply === '') {
+        return fail('completed 缺少要说给用户的话（reply 缺失或为空）')
+      }
+      return pass(`回复非空（${evidence.reply?.length ?? 0} 字）`)
     }
   },
   {
@@ -161,8 +173,8 @@ const CHECKS: CheckSpec[] = [
   },
   {
     id: 'timeline_evidence',
-    required: () => true,
-    notApplicable: '',
+    required: (evidence) => evidence.planSteps.some((step) => step.capability !== undefined),
+    notApplicable: '本轮计划没有经工具的步骤：时间线不含工具调用',
     run: (evidence) => {
       if (evidence.eventSequenceRange === null) {
         return fail('这个任务一条事件都没有，时间线为空')

@@ -705,9 +705,10 @@ describe('runTask：索要计划', () => {
 
 describe('MAKE_PLAN_TIMEOUT_MS', () => {
   it('钉住字面值，且必须比 run_task 短', () => {
-    expect(MAKE_PLAN_TIMEOUT_MS).toBe(10_000)
-    // 计划是纯计算，真卡住要早报错。跟 run_task 用同一个值的话，
-    // 库里连 Task 都没有的那段时间会被拖到整个批准窗口那么长。
+    // TASK-031 起规划在真模型模式下是一次网络调用（LivePlanner），60 秒是上限
+    // 不是常态；剧本模式仍是纯计算。跟 run_task 用同一个值的话，库里连 Task
+    // 都没有的那段时间会被拖到整个批准窗口那么长。
+    expect(MAKE_PLAN_TIMEOUT_MS).toBe(60_000)
     expect(MAKE_PLAN_TIMEOUT_MS).toBeLessThan(RUN_TASK_TIMEOUT_MS)
   })
 })

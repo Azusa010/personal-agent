@@ -352,6 +352,13 @@ export function extractFacts(events: ExecutionEventRecord[]): SummaryFact[] {
   return facts
 }
 
+export function extractReply(events: ExecutionEventRecord[]): string | null {
+  const record = lastCompletedPayload(events)
+  if (record === null) return null
+  const raw = record['reply']
+  return typeof raw === 'string' && raw.trim().length > 0 ? raw : null
+}
+
 // 倒着找：一个任务正常只有一条 task_completed，但库里可能有脏数据，
 // 取最后一条才是最终结局。
 function lastCompletedPayload(events: ExecutionEventRecord[]): Record<string, unknown> | null {

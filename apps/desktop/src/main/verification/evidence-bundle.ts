@@ -63,7 +63,9 @@ export const VERIFICATION_CHECK_IDS = [
   /** 被批准移动的文件确实位于目标目录（源已消失、目标存在） */
   'file_at_target',
   /** Reminder 已持久化，且带唯一幂等键 */
-  'reminder_persisted'
+  'reminder_persisted',
+  /** 有回复存在 */
+  'reply_present'
 ] as const
 
 export type VerificationCheckId = (typeof VERIFICATION_CHECK_IDS)[number]
@@ -144,6 +146,7 @@ export interface CollectedEvidence {
   /** Agent 的完成声明（已过 Python 侧 SummaryVerifier，但在可信侧仍只是声明） */
   summary: SummaryFact[]
   /** summary 里出现过的页码，去重升序 */
+  reply: string | null
   pageReferences: number[]
   /** 摘要依据的那份 PDF：时间线里最后一次成功的 document.extract_pdf 的入参路径 */
   selectedPdf: string | null
@@ -292,6 +295,17 @@ export function lastExtractedPath(events: ExecutionEventRecord[]): string | null
   return lastPath
 }
 
+export function completedReply(events: ExecutionEventRecord[]): string | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i]
+    if (e === undefined || e.type !== 'task_completed') continue
+    const payload = asRecord(e.payload)
+    const reply = asString(payload['reply'])
+    return typeof reply === 'string' && reply.length > 0 ? reply : null
+  }
+  return null
+}
+
 /**
  * 重读页号时该读哪个路径（业务主逻辑）。
  *
@@ -401,7 +415,8 @@ async function collectPdfPages(
   deps: EvidenceDeps,
   events: ExecutionEventRecord[],
   moves: MoveEvidence[],
-  gaps: string[]
+  gaps: string[],
+  planHasExtractPdf: boolean
 ): Promise<{
   selectedPdf: string | null
   resolvedPdfPath: string | null
@@ -410,7 +425,9 @@ async function collectPdfPages(
 }> {
   const selectedPdf = lastExtractedPath(events)
   if (selectedPdf === null) {
-    gaps.push('时间线里没有成功的 document.extract_pdf 调用，拿不到摘要依据的 PDF')
+    if (planHasExtractPdf) {
+      gaps.push('时间线里没有成功的 document.extract_pdf 调用，拿不到摘要依据的 PDF')
+    }
     return {
       selectedPdf: null,
       resolvedPdfPath: null,
@@ -491,8 +508,12 @@ export async function collectEvidence(
     gaps.push(`任务不存在: ${input.taskId}`)
   }
 
+  const hasExtractPdf = (state.plan?.steps ?? []).some(
+    (step) => step.capability === 'document.extract_pdf'
+  )
+
   const moves = await collectMoveEvidence(state.executions, deps, gaps)
-  const pdf = await collectPdfPages(deps, state.events, moves, gaps)
+  const pdf = await collectPdfPages(deps, state.events, moves, gaps, hasExtractPdf)
 
   return {
     taskId: input.taskId,
@@ -500,6 +521,7 @@ export async function collectEvidence(
     planVersion: state.plan?.version ?? null,
     planSteps: state.plan?.steps ?? [],
     summary: input.facts,
+    reply: completedReply(state.events),
     pageReferences: collectPageReferences(input.facts),
     selectedPdf: pdf.selectedPdf,
     resolvedPdfPath: pdf.resolvedPdfPath,

@@ -28,7 +28,7 @@ import type { CompletionVerifier, VerificationOutcome } from '../verification/ve
 // reconcile.ts 也用这个字面量：任务的失败原因落成事件，UI 与诊断都读它。
 const TASK_FAILED_EVENT = 'task_failed'
 
-export const MAKE_PLAN_TIMEOUT_MS = 10_000
+export const MAKE_PLAN_TIMEOUT_MS = 60_000
 
 const KNOWN_IPC_CODES: ReadonlySet<IpcErrorCode> = new Set<IpcErrorCode>([
   ...Object.values(RUNTIME_ERROR_CODE),

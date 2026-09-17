@@ -5,6 +5,7 @@ import {
   describeEvent,
   describePlanSteps,
   extractFacts,
+  extractReply,
   STATUS_LABELS,
   summarizePayload
 } from '../view-model'
@@ -47,6 +48,8 @@ export function MessageStream({
 
   const status = pendingGoal !== null ? 'running' : (timeline?.task.status ?? null)
   const goal = pendingGoal ?? timeline?.task.goal ?? null
+  const reply = timeline !== null ? extractReply(timeline.events) : null
+  const facts = timeline !== null ? extractFacts(timeline.events) : []
 
   useEffect(() => {
     const node = scrollRef.current
@@ -64,7 +67,7 @@ export function MessageStream({
           <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-secondary">
             <Bot size={18} />
           </div>
-          <p className="m-0 text-[13px]">问点什么，它会只基于本地 PDF 整理回答。</p>
+          <p className="m-0 text-[13px]">问点什么</p>
         </div>
       )}
 
@@ -101,13 +104,12 @@ export function MessageStream({
             {status === 'cancelled' && <p className="m-0 text-muted-foreground">任务已取消。</p>}
             {status === 'completed' && timeline !== null && (
               <>
-                {extractFacts(timeline.events).length === 0 ? (
-                  <p className="m-0">任务完成，但没有产出摘要。</p>
-                ) : (
+                {reply !== null && <p className="m-0 whitespace-pre-wrap">{reply}</p>}
+                {facts.length > 0 && (
                   <>
                     <p className="m-0">已对本地文件做了核对，结论如下：</p>
                     <ul className="my-2 list-disc space-y-1 pl-5">
-                      {extractFacts(timeline.events).map((fact, i) => (
+                      {facts.map((fact, i) => (
                         <li key={i}>
                           {fact.text}
                           {fact.pageRefs.map((page) => (
@@ -122,6 +124,9 @@ export function MessageStream({
                       ))}
                     </ul>
                   </>
+                )}
+                {reply === null && facts.length === 0 && (
+                  <p className="m-0">任务完成，但没有产出摘要。</p>
                 )}
               </>
             )}
