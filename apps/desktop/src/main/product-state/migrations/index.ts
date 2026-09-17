@@ -7,7 +7,7 @@ import { M0005_WIDEN_TASK_STATUS } from './0005-widen-task-status-check'
 import { M0006_CREATE_TOOL_EXECUTIONS } from './0006-create-tool-executions'
 import { M0007_CREATE_REMINDERS } from './0007-create-reminders'
 import { M0008_SCOPE_PERMISSION_UNIQUE_BY_TASK } from './0008-scope-permission-unique-by-task'
-import { M0009_CREATE_CONVERSATIONS } from './0009-create-conversations.ts'
+import { M0009_CREATE_CONVERSATIONS } from './0009-create-conversations'
 
 export type { Migration }
 

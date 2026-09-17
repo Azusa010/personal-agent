@@ -24,8 +24,14 @@ if (process.contextIsolated) {
       listTasks: () => {
         return ipcRenderer.invoke('personal-agent:list-tasks')
       },
-      runTask: (goal: string) => {
-        return ipcRenderer.invoke('personal-agent:run-task', goal)
+      listConversations: () => {
+        return ipcRenderer.invoke('personal-agent:list-conversations')
+      },
+      getConversation: (conversationId: string) => {
+        return ipcRenderer.invoke('personal-agent:get-conversation', conversationId)
+      },
+      sendMessage: (input: { conversationId: string | null; text: string }) => {
+        return ipcRenderer.invoke('personal-agent:send-message', input)
       },
       getTimeline: (taskId: string | null) => {
         return ipcRenderer.invoke('personal-agent:get-timeline', taskId)

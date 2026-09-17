@@ -1,13 +1,13 @@
 import { Activity, Files, FolderCog, MessageSquare, Plus, Settings } from 'lucide-react'
-import type { RuntimeStatus, TaskRecord } from '../../../shared/ipc-contract'
+import type { ConversationSummary, RuntimeStatus } from '../../../shared/ipc-contract'
 import { cn } from '@renderer/lib/utils'
 
 export interface SidebarProps {
-  tasks: TaskRecord[]
-  selectedTaskId: string | null
+  conversations: ConversationSummary[]
+  selectedConversationId: string | null
   runtimeStatus: RuntimeStatus | null
   indexedCount: number | null
-  onSelectTask: (taskId: string) => void
+  onSelectConversation: (conversationId: string) => void
   onNewChat: () => void
   onOpenIndex: () => void
   onOpenDiagnostics: () => void
@@ -32,14 +32,16 @@ function dayKey(iso: string): string {
   return '更早'
 }
 
-/** 侧栏历史按天分组。库里的顺序是 created_at 升序，这里倒过来让最新的在最上面。 */
-function groupTasks(tasks: TaskRecord[]): Array<{ label: string; items: TaskRecord[] }> {
-  const groups = new Map<string, TaskRecord[]>()
-  for (const task of [...tasks].reverse()) {
-    const label = dayKey(task.createdAt)
+/** 侧栏会话按最近活动分组。库里 list() 已按 updated_at 倒序，顺序分组即可。 */
+function groupConversations(
+  conversations: ConversationSummary[]
+): Array<{ label: string; items: ConversationSummary[] }> {
+  const groups = new Map<string, ConversationSummary[]>()
+  for (const conversation of conversations) {
+    const label = dayKey(conversation.updatedAt)
     const bucket = groups.get(label)
-    if (bucket === undefined) groups.set(label, [task])
-    else bucket.push(task)
+    if (bucket === undefined) groups.set(label, [conversation])
+    else bucket.push(conversation)
   }
   return ['今天', '昨天', '更早']
     .filter((label) => groups.has(label))
@@ -47,11 +49,11 @@ function groupTasks(tasks: TaskRecord[]): Array<{ label: string; items: TaskReco
 }
 
 export function Sidebar({
-  tasks,
-  selectedTaskId,
+  conversations,
+  selectedConversationId,
   runtimeStatus,
   indexedCount,
-  onSelectTask,
+  onSelectConversation,
   onNewChat,
   onOpenIndex,
   onOpenDiagnostics,
@@ -84,29 +86,29 @@ export function Sidebar({
       </div>
 
       <nav className="mt-6 flex-1 overflow-y-auto px-3" aria-label="历史会话">
-        {tasks.length === 0 && (
+        {conversations.length === 0 && (
           <p className="px-2 text-[11px] text-muted-foreground">还没有历史会话</p>
         )}
-        {groupTasks(tasks).map((group) => (
+        {groupConversations(conversations).map((group) => (
           <div key={group.label}>
             <p className="mb-2 mt-6 px-2 text-[11px] font-medium text-muted-foreground first:mt-0">
               {group.label}
             </p>
             <div className="space-y-1">
-              {group.items.map((task) => (
+              {group.items.map((conversation) => (
                 <button
-                  key={task.id}
+                  key={conversation.id}
                   type="button"
-                  onClick={() => onSelectTask(task.id)}
+                  onClick={() => onSelectConversation(conversation.id)}
                   className={cn(
                     'flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[13px]',
-                    task.id === selectedTaskId
+                    conversation.id === selectedConversationId
                       ? 'bg-secondary text-foreground'
                       : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
                   )}
                 >
                   <MessageSquare size={14} className="shrink-0" />
-                  <span className="truncate">{task.goal}</span>
+                  <span className="truncate">{conversation.title}</span>
                 </button>
               ))}
             </div>

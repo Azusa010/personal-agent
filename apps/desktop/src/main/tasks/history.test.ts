@@ -18,7 +18,7 @@ function message(seq: number, role: 'user' | 'assistant', text: string): Message
 }
 
 /** 交替的 u/a 序列，seq 从 1 起。 */
-function conversationOf(texts: Array<[('user' | 'assistant'), string]>): MessageRecord[] {
+function conversationOf(texts: Array<['user' | 'assistant', string]>): MessageRecord[] {
   return texts.map(([role, text], i) => message(i + 1, role, text))
 }
 

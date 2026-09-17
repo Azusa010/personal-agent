@@ -20,9 +20,12 @@ import type {
   PermissionListResult,
   PermissionNotice,
   PermissionRespondResult,
-  RunTaskIpcResult,
   SetModelSettingsResult,
-  TimelineIpcResult
+  TimelineIpcResult,
+  ConversationSummary,
+  GetConversationResult,
+  ListConversationsResult,
+  SendMessageIpcResult
 } from '../shared/ipc-contract'
 import { getDb, closeDb } from './db/database'
 import { upsertMany, findAll } from './db/pdf-repository'
@@ -36,7 +39,7 @@ import { SqliteReminderRepository } from './product-state/reminder-repository'
 import { createPermissionBroker, type PermissionBroker } from './permission/permission-broker'
 import { listTaskPermissions, respondToPermission } from './permission/permission-ipc'
 import { getModelSettingsView, setModelSettings } from './settings/settings-ipc'
-import { runTask } from './tasks/run-task'
+import { runTask, RunTaskDeps } from './tasks/run-task'
 import { getTimeline } from './tasks/get-timeline'
 import { reconcileOrphanTasks } from './tasks/reconcile'
 import { realVerificationPorts } from './verification/ports'
@@ -48,6 +51,11 @@ import { fireReminder, type FireOutcome } from './scheduler/fire-reminder'
 import { recoverReminders } from './scheduler/recover-reminders'
 import { ReminderTimerService } from './scheduler/reminder-timer'
 import type { ReminderRecord } from '../shared/domain'
+import { SqliteConversationRepository } from './product-state/conversation-repository'
+import { SqliteMessageRepository } from './product-state/message-repository'
+import { getConversation } from './tasks/get-conversation'
+import { buildHistory } from './tasks/history'
+import { sendMessage, SendMessageInput } from './tasks/send-message'
 
 const PRELOAD_PATH = join(__dirname, '../preload/index.js')
 
@@ -122,6 +130,29 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
+
+  function runTaskDeps(store: SqliteDatabase): RunTaskDeps {
+    return {
+      db: store,
+      tasks: new SqliteTaskRepository(store),
+      plans: new SqlitePlanRepository(store),
+      events: new SqliteEventRepository(store),
+      send: requestRuntime,
+      verify: (input) =>
+        verifyTaskCompletion(
+          {
+            tasks: new SqliteTaskRepository(store),
+            plans: new SqlitePlanRepository(store),
+            events: new SqliteEventRepository(store),
+            permissions: new SqlitePermissionRepository(store),
+            executions: new SqliteToolExecutionRepository(store),
+            reminders: new SqliteReminderRepository(store),
+            ...realVerificationPorts
+          },
+          input
+        )
+    }
+  }
 
   // 收尸必须在注册任何 IPC handler 之前：否则 Renderer 可能先读到一个僵尸 running。
   // 失败不中断启动 —— PDF 列表走的是另一个库（db/database），不该被 product-state 连累。
@@ -269,9 +300,59 @@ app.whenReady().then(() => {
       }
     }
   })
+  ipcMain.handle('personal-agent:list-conversations', (): ListConversationsResult => {
+    let store: SqliteDatabase
+    try {
+      store = getStore()
+    } catch (err) {
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: err instanceof Error ? err.message : String(err)
+      }
+    }
+    try {
+      const rows = new SqliteConversationRepository(store).list()
+      const conversations: ConversationSummary[] = rows.map((c) => ({
+        id: c.id,
+        title: c.title,
+        updatedAt: c.updatedAt
+      }))
+      return { ok: true, conversations }
+    } catch (err) {
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: err instanceof Error ? err.message : String(err)
+      }
+    }
+  })
+
   ipcMain.handle(
-    'personal-agent:run-task',
-    async (_e, goal: unknown): Promise<RunTaskIpcResult> => {
+    'personal-agent:get-conversation',
+    (_e, conversationId: unknown): Promise<GetConversationResult> => {
+      let store: SqliteDatabase
+      try {
+        store = getStore()
+      } catch (err) {
+        return Promise.resolve({
+          ok: false,
+          code: RUNTIME_ERROR_CODE.DB_FAILED,
+          message: err instanceof Error ? err.message : String(err)
+        })
+      }
+      return getConversation(conversationId as string, {
+        messages: new SqliteMessageRepository(store),
+        tasks: new SqliteTaskRepository(store),
+        plans: new SqlitePlanRepository(store),
+        events: new SqliteEventRepository(store)
+      })
+    }
+  )
+
+  ipcMain.handle(
+    'personal-agent:send-message',
+    async (_e, input: unknown): Promise<SendMessageIpcResult> => {
       let store: SqliteDatabase
       try {
         store = getStore()
@@ -279,32 +360,15 @@ app.whenReady().then(() => {
         return {
           ok: false,
           code: RUNTIME_ERROR_CODE.DB_FAILED,
-          message: err instanceof Error ? err.message : String(err)
+          message: err instanceof Error ? err.message : String(err),
+          conversationId: ''
         }
       }
-      // runTask 的契约是永不抛、总返回 RunTaskIpcResult：
-      // 任务失败（包括 runtime 未启动、超时、Python 回错）都是 ok:true + status:'failed'。
-      return runTask(goal, {
-        db: store,
-        tasks: new SqliteTaskRepository(store),
-        plans: new SqlitePlanRepository(store),
-        events: new SqliteEventRepository(store),
-        send: requestRuntime,
-        // 完成判定（TASK-026）：completed 的唯一闸口。判定表要读真库、真 PDF、
-        // 真文件系统，所以每次调用重建一遍依赖，与上面几条 IPC 的写法一致。
-        verify: (input) =>
-          verifyTaskCompletion(
-            {
-              tasks: new SqliteTaskRepository(store),
-              plans: new SqlitePlanRepository(store),
-              events: new SqliteEventRepository(store),
-              permissions: new SqlitePermissionRepository(store),
-              executions: new SqliteToolExecutionRepository(store),
-              reminders: new SqliteReminderRepository(store),
-              ...realVerificationPorts
-            },
-            input
-          )
+      return sendMessage(input as SendMessageInput, {
+        conversations: new SqliteConversationRepository(store),
+        messages: new SqliteMessageRepository(store),
+        buildHistory,
+        runTask: (goal, history) => runTask(goal, runTaskDeps(store), history)
       })
     }
   )

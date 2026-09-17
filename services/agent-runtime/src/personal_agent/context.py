@@ -7,7 +7,6 @@ observation 的条数已经被步数预算钉死（engine 侧），再叠一层�
 """
 
 from collections.abc import Sequence
-from pydoc import text
 from typing import Any
 
 from personal_agent.model_gateway import ModelContext, Observation

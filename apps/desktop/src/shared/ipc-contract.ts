@@ -3,6 +3,7 @@ import type { RUNTIME_ERROR_CODE } from '../main/runtime/error-code'
 import type { SETTINGS_ERROR_CODE } from '../main/settings/error-code'
 import type {
   ExecutionEventRecord,
+  MessageRole,
   PermissionDecision,
   PermissionNotice,
   PermissionRecord,
@@ -103,3 +104,26 @@ export interface SetModelSettingsInput {
 export type SetModelSettingsResult =
   | { ok: true; applied: 'restarted' | 'on-next-restart' }
   | { ok: false; code: IpcErrorCode; message: string }
+
+export interface ConversationSummary {
+  id: string
+  title: string
+  updatedAt: string
+}
+
+export interface MessageView {
+  seq: number
+  id: string
+  role: MessageRole
+  text: string
+  taskId: string | null
+  createdAt: string
+  timeline: TaskTimeline | null
+}
+
+export type ListConversationsResult =
+  | { ok: true; conversations: ConversationSummary[] }
+  | { ok: false; code: IpcErrorCode; message: string }
+
+export type GetConversationResult =
+  { ok: true; messages: MessageView[] } | { ok: false; code: IpcErrorCode; message: string }

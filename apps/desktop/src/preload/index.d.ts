@@ -14,7 +14,10 @@ import type {
   TimelineIpcResult,
   SummaryFact,
   TaskRecord,
-  TaskTimeline
+  TaskTimeline,
+  ListConversationsResult,
+  GetConversationResult,
+  SendMessageIpcResult
 } from '../shared/ipc-contract'
 
 export type {
@@ -48,7 +51,12 @@ export type PersonalAgentApi = {
   indexedPdfs(): Promise<IndexedPdfsResult>
   /** 侧栏历史会话列表：全量任务，renderer 自己按天分组与倒序 */
   listTasks(): Promise<ListTasksResult>
-  runTask(goal: string): Promise<RunTaskIpcResult>
+  /** 侧栏会话列表：按最近更新倒序 */
+  listConversations(): Promise<ListConversationsResult>
+  /** 读一段会话的全部消息；assistant 消息内嵌任务 timeline */
+  getConversation(conversationId: string): Promise<GetConversationResult>
+  /** 发一条消息。conversationId 传 null = 开新会话；回包带会话 id */
+  sendMessage(input: { conversationId: string | null; text: string }): Promise<SendMessageIpcResult>
   /** taskId 传 null 表示读最近创建的任务：应用重启后 renderer 的 state 已清空，没有这个入口就再也指不回上一个任务 */
   getTimeline(taskId: string | null): Promise<TimelineIpcResult>
   /** 批准面板的「批准 / 拒绝」。同结论重复调用无副作用，repeated 会是 true */

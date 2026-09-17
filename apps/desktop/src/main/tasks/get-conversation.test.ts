@@ -71,7 +71,7 @@ describe('getConversation', () => {
       createdAt: AT,
       updatedAt: AT
     })
-    deps.plans.append({ id: 'p-1', taskId: 't-1', version: 1, steps: [], createdAt: AT })
+    deps.plans.append({ id: 'p-1', taskId: 't-1', steps: [], createdAt: AT })
     deps.events.append({
       taskId: 't-1',
       type: 'task_started',

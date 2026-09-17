@@ -9,6 +9,7 @@ import {
 } from '../product-state/database'
 import { SqliteConversationRepository } from '../product-state/conversation-repository'
 import { SqliteMessageRepository } from '../product-state/message-repository'
+import { SqliteTaskRepository } from '../product-state/task-repository'
 import { sendMessage, type SendMessageDeps } from './send-message'
 import type { MessageRecord } from '../../shared/domain'
 
@@ -61,14 +62,18 @@ function makeDeps(
   const conversations = new SqliteConversationRepository(d)
   const messages = new SqliteMessageRepository(d)
   const calls: RunTaskCall[] = []
+  // 真 runTask 会在自己的事务 A 里建任务行（先于 assistant 消息落库）；
+  // 假 runTask 不碰库，所以这里预置等价物——外键是真的，幻影 taskId 会红。
+  // 会话行不在这里种：各用例自己建（新会话路径的 id 来自注入的 newId）。
+  const tasks = new SqliteTaskRepository(d)
+  tasks.insert({ id: 't-1', goal: '目标一', status: 'completed', createdAt: AT, updatedAt: AT })
+  tasks.insert({ id: 't-2', goal: '目标二', status: 'failed', createdAt: AT, updatedAt: AT })
   return {
     conversations,
     messages,
     calls,
     // 默认替身：原样映射。编排不该加工历史的内容，裁剪是 buildHistory 的事。
-    buildHistory:
-      buildHistory ??
-      ((ms) => ms.map((m) => ({ role: m.role, text: m.text }))),
+    buildHistory: buildHistory ?? ((ms) => ms.map((m) => ({ role: m.role, text: m.text }))),
     runTask: async (goal, history) => {
       calls.push({ goal, history })
       return respond(goal, history)
@@ -102,7 +107,7 @@ function seedOneTurn(deps: SendMessageDeps): void {
     conversationId: 'c-1',
     role: 'assistant',
     text: '第一答',
-    taskId: 't-0',
+    taskId: 't-1',
     createdAt: AT
   })
 }
@@ -123,10 +128,13 @@ describe('sendMessage 编排（TASK-032）', () => {
 
   it('既有会话：消息进同一会话；buildHistory 收到本轮之前的消息（不含本轮）', async () => {
     const seen: MessageRecord[][] = []
-    const deps = makeDeps(async () => completed(), (ms) => {
-      seen.push([...ms])
-      return ms.map((m) => ({ role: m.role, text: m.text }))
-    })
+    const deps = makeDeps(
+      async () => completed(),
+      (ms) => {
+        seen.push([...ms])
+        return ms.map((m) => ({ role: m.role, text: m.text }))
+      }
+    )
     seedOneTurn(deps)
 
     const result = await sendMessage({ conversationId: 'c-1', text: '第二问' }, deps)
@@ -139,19 +147,25 @@ describe('sendMessage 编排（TASK-032）', () => {
       { role: 'assistant', text: '第一答' }
     ])
     const texts = deps.messages.listByConversation('c-1').map((m) => `${m.role}:${m.text}`)
-    expect(texts).toEqual(['user:第一问', 'assistant:第一答', 'user:第二问', 'assistant:已整理好，结论见下。'])
+    expect(texts).toEqual([
+      'user:第一问',
+      'assistant:第一答',
+      'user:第二问',
+      'assistant:已整理好，结论见下。'
+    ])
   })
 
   it('completed：assistant 消息 = reply，挂 taskId，会话 touch 到本轮时间', async () => {
     const deps = makeDeps(async () => completed())
-    await sendMessage({ conversationId: null, text: '整理 PDF' }, deps)
+    const result = await sendMessage({ conversationId: null, text: '整理 PDF' }, deps)
+    if (!result.ok) throw new Error('预期 ok:true')
 
-    const messages = deps.messages.listByConversation('c-1')
+    const messages = deps.messages.listByConversation(result.conversationId)
     const assistant = messages[messages.length - 1]
     expect(assistant?.role).toBe('assistant')
     expect(assistant?.text).toBe('已整理好，结论见下。')
     expect(assistant?.taskId).toBe('t-1')
-    expect(deps.conversations.findById('c-1')?.updatedAt).toBe(NOW)
+    expect(deps.conversations.findById(result.conversationId)?.updatedAt).toBe(NOW)
   })
 
   it('failed：assistant 消息 = reason，任务 id 仍挂上（执行留痕）', async () => {
