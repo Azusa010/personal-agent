@@ -16,5 +16,8 @@ export const RUNTIME_ERROR_CODE = {
   ORPHANED: 'RUNTIME_ORPHANED',
   // 交付物校验未通过（TASK-026）：Python 说完成了，但可信侧的证据不支持。
   // 唯一闸口在 verification/verify-deliverables.ts，任务落 failed 时带这个码。
-  VERIFICATION_FAILED: 'RUNTIME_VERIFICATION_FAILED'
+  VERIFICATION_FAILED: 'RUNTIME_VERIFICATION_FAILED',
+  // 计划这一侧没拿到可用计划（TASK-031）：模型规划失败、输出不合契约，或计划用了
+  // 不可见的能力。字面值同样由 Python 侧 runtime.py 定，两边必须逐字一致。
+  PLAN_MODEL_FAILED: 'PLAN_MODEL_FAILED',
 } as const

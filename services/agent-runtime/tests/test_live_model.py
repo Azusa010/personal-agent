@@ -26,7 +26,7 @@ from personal_agent.model_gateway import (
     SummaryDecision,
     ToolCallDecision,
 )
-from personal_agent.protocol.models import CapabilityId
+from personal_agent.protocol.models import CapabilityId, PlanStepDto
 
 VISIBLE = ["filesystem.list", "document.extract_pdf"]
 
@@ -81,11 +81,15 @@ def summary_json(facts=None):
     )
 
 
-def context_with(observations: list[Observation] | None = None) -> ModelContext:
+def context_with(
+    observations: list[Observation] | None = None,
+    plan: list[PlanStepDto] | None = None,
+) -> ModelContext:
     return ModelContext(
         taskGoal="整理 Downloads 里的 PDF",
         visibleCapabilities=VISIBLE,
         observations=observations or [],
+        plan=plan or [],
     )
 
 
@@ -143,6 +147,42 @@ def test_render_input_skips_capabilities_outside_the_visible_list():
     assert "filesystem.list" in rendered
     assert "document.extract_pdf" not in rendered
     assert "（还没有调用过任何工具）" in rendered
+
+
+def test_render_input_renders_the_plan_in_order():
+    rendered = render_input(
+        context_with(
+            plan=[
+                PlanStepDto(
+                    description="列出 Downloads 下的 PDF", capability="filesystem.list"
+                ),
+                PlanStepDto(description="基于页面内容生成带页码引用的摘要"),
+            ]
+        )
+    )
+
+    # 计划带顺序编号；不经工具的那一步要有明确标注——模型得知道「这一步不调
+    # 工具，直接给摘要」，否则它会试图为摘要步编一个能力名出来。
+    assert "1. 列出 Downloads 下的 PDF（filesystem.list）" in rendered
+    assert "2. 基于页面内容生成带页码引用的摘要（不经工具，最后直接回复用户）" in rendered
+
+
+def test_render_input_with_an_empty_plan_says_so():
+    # 生产路径上 Main 必发 plan（契约 min(1)）；空计划只可能来自替身测试。
+    # 渲染不该崩，也不该留下一个没有内容的「本轮计划：」悬空标题。
+    rendered = render_input(context_with())
+
+    assert "本轮计划" in rendered
+    assert "（空）" in rendered
+
+
+def test_instructions_no_longer_hardcode_the_golden_path():
+    # 写死五步是「只能固定执行」的根因之一：提示词里不许再出现具体的步骤序列、
+    # 能力名或目标目录名——这一轮做什么，只由输入里的「本轮计划」说了算。
+    assert "Reading" not in INSTRUCTIONS
+    assert "Downloads" not in INSTRUCTIONS
+    for capability in get_args(CapabilityId):
+        assert capability not in INSTRUCTIONS
 
 
 def test_decide_sends_the_contract_schema_and_returns_a_tool_call():

@@ -16,6 +16,7 @@ from personal_agent.context import (
     truncate_strings,
 )
 from personal_agent.model_gateway import Observation
+from personal_agent.protocol.models import PlanStepDto
 
 
 def obs(call_id="call-1", capability="document.extract_pdf", ok=True, payload=None):
@@ -263,3 +264,32 @@ def test_build_returns_every_observation_without_window():
         m.record(obs(f"call-{i}"))
 
     assert len(m.build("g", []).observations) == 12
+
+
+# ---- build：计划 ----
+
+
+def test_build_carries_the_plan_into_the_context():
+    # 计划是任务级常量，跟 observations 一样归这个容器管：Main 随 run_task
+    # 带回来的计划要原样走到 ModelContext.plan，模型才知道这一轮要做哪几步。
+    plan = [
+        PlanStepDto(description="列出 Downloads 下的 PDF", capability="filesystem.list"),
+        PlanStepDto(description="基于页面内容生成带页码引用的摘要"),
+    ]
+
+    ctx = ContextManager(plan=plan).build("整理 Downloads 里的 PDF", ["filesystem.list"])
+
+    assert ctx.plan == plan
+
+
+def test_build_truncates_overlong_plan_descriptions():
+    # description 是模型产的，长度没有上界。PDF 页文本都截，一条计划描述
+    # 更该截——不然一条脏数据就能把上下文撑爆。
+    ctx = ContextManager(
+        maxCharsPerString=10,
+        plan=[PlanStepDto(description="长" * 500, capability="filesystem.list")],
+    ).build("g", ["filesystem.list"])
+
+    assert ctx.plan[0].description == "长" * 10 + TRUNCATION_MARKER
+    # capability 不是自由文本，截断逻辑碰它等于改计划。
+    assert ctx.plan[0].capability == "filesystem.list"

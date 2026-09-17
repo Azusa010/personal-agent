@@ -526,8 +526,10 @@ describe.skipIf(!existsSync(VENV_PYTHON))('提醒到点：真定时器 + 假通�
     let sup: PythonSupervisor | null = null
     try {
       copyFileSync(FIXTURE_PDF, join(root, PDF_NAME))
-      // 1.2 秒后到点：够走完五步，又不用等太久。
-      const remindAt = new Date(Date.now() + 1200).toISOString()
+      // 到点时刻必须晚于 scheduler.create 真正执行到的时刻（binder 拒收过去的
+      // 时间，1.2 秒在机器一慢时不够走到第五步）；又不能长到拖慢测试，
+      // 到点等待由下方 waitFor(…, 8000) 兜住。
+      const remindAt = new Date(Date.now() + 5000).toISOString()
       const template = readFileSync(SCRIPT_TEMPLATE, 'utf8')
       const scriptPath = join(dir, 'fire.json')
       writeFileSync(

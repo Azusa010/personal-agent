@@ -11,7 +11,8 @@ from personal_agent.context import ContextManager
 from personal_agent.engine import AgentEngine
 from personal_agent.host_channel import HostChannel
 from personal_agent.live_model import LIVE_MODEL_ENV, LiveModel
-from personal_agent.model_gateway import ModelGateway
+from personal_agent.live_planner import LivePlanner
+from personal_agent.model_gateway import ModelCallFailed, ModelGateway
 from personal_agent.planner import DeterministicPlanner, Planner
 from personal_agent.planning import PlanError
 from personal_agent.protocol.models import (
@@ -45,6 +46,8 @@ PLAN_NOT_BUILDABLE = "PLAN_NOT_BUILDABLE"
 # 剧本路径从这个环境变量读。与 DEP-012 的 OPENAI_MODEL 同构：
 # 默认不配，要用就显式开启。
 SCRIPT_ENV = "PERSONAL_AGENT_SCRIPT"
+
+PLAN_MODEL_FAILED = "PLAN_MODEL_FAILED"
 
 
 @dataclass
@@ -128,11 +131,7 @@ def handle_initialize(req: Request, deps: RuntimeDeps | None = None) -> dict:
 
 
 def handle_make_plan(req: Request, deps: RuntimeDeps | None = None) -> dict:
-    """产出一份计划回给 Main。
-
-    不需要 model_factory：计划是确定性的，没配剧本的进程也该能回答。
-    真正跑任务时才需要模型，那边自己拦。
-    """
+    """产出一份计划回给 Main。"""
     try:
         params = MakePlanParams.model_validate(req.params)
     except ValidationError:
@@ -146,10 +145,11 @@ def handle_make_plan(req: Request, deps: RuntimeDeps | None = None) -> dict:
         steps = planner.plan(params.goal, visible)
     except PlanError as e:
         return build_error(req.id, PLAN_NOT_BUILDABLE, str(e))
+    except ModelCallFailed as e:
+        return build_error(req.id, PLAN_MODEL_FAILED, e.reason)
     except Exception:
         log.exception("agent.make_plan 未预期异常 (id=%s)", req.id)
         return build_error(req.id, "RUNTIME_INTERNAL", "运行时内部错误")
-
     # exclude_none 必须一路带到底：摘要那一步的 capability 是 None，
     # 而 zod 的 optional 不收 null，漏剔就是两端判定相反的契约漂移。
     result = MakePlanResult(steps=[s.model_dump(exclude_none=True) for s in steps])
@@ -212,7 +212,7 @@ def resolve_model_factory() -> Callable[[], ModelGateway] | None:
     """
     按环境变量决定这个进程用哪个 ModelGateway，工厂每次调用都造一个新实例。
 
-    优先级：OPENAI_MODEL（真模型，DEP-012）> PERSONAL_AGENT_SCRIPT（剧本，CI 默认）。
+    优先级：OPENAI_MODEL> PERSONAL_AGENT_SCRIPT（剧本，CI 默认）。
     两个都配了就取真模型——配 OPENAI_MODEL 是显式动作，剧本是给 CI 与 E2E 用的；
     反过来静默降级成演一遍剧本，会让人以为真模型跑通了。
     """
@@ -238,13 +238,20 @@ def resolve_model_factory() -> Callable[[], ModelGateway] | None:
     return factory
 
 
+def resolve_planner_factory() -> Callable[[], Planner]:
+    live_model = os.environ.get(LIVE_MODEL_ENV)
+    if live_model:
+        return lambda: LivePlanner(model=live_model)
+    return DeterministicPlanner
+
+
 def run(channel: HostChannel | None = None) -> None:
     ch = (
         channel
         if channel is not None
         else HostChannel(readline=sys.stdin.readline, write_msg=write)
     )
-    deps = RuntimeDeps(channel=ch, model_factory=resolve_model_factory())
+    deps = RuntimeDeps(channel=ch, model_factory=resolve_model_factory(),planner_factory=resolve_planner_factory())
     log.info("runtime started")
     while True:
         line = ch.next_line()

@@ -342,6 +342,23 @@ def test_run_task_capabilities_from_initialize_reach_model():
         assert ctx.taskGoal == "整理 Downloads 里的 PDF"
 
 
+def test_run_task_hands_the_plan_to_the_model():
+    # 计划是 Main 随 run_task 带回来的，要一路走到 ModelContext.plan——
+    # 模型按它决定调用顺序，Main 的 ActionAlignment 也按它放行，两边同一份。
+    factory = RecordingFactory(read_only_script())
+    deps = deps_with_factory(factory)
+    handle_line(initialize_line(), deps)
+    handle_line(run_task_line(), deps)
+
+    assert factory.instances[0].receivedContexts
+    for ctx in factory.instances[0].receivedContexts:
+        assert [(s.description, s.capability) for s in ctx.plan] == [
+            ("列出 Downloads 下的 PDF", "filesystem.list"),
+            ("提取目标 PDF 的每页文本", "document.extract_pdf"),
+            ("基于页面内容生成带页码引用的摘要", None),
+        ]
+
+
 def test_run_task_without_initialize_gives_model_no_capabilities():
     # 没握手就跑任务不是错误，但模型什么工具都看不到，
     # 自然会在预算里耗尽 —— 不需要额外拦一道。

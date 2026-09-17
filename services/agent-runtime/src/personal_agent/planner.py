@@ -25,7 +25,6 @@ class Planner(Protocol):
         - visible_capabilities：可见能力清单
           planning.make_plan 的返回值给它
         """
-        pass
 
 
 class DeterministicPlanner:

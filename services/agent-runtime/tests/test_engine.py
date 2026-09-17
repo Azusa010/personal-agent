@@ -117,9 +117,7 @@ def make_engine(results, decisions, budget=None, maxCharsPerString=None):
         if maxCharsPerString is None
         else ContextManager(maxCharsPerString=maxCharsPerString)
     )
-    engine = AgentEngine(
-        model=model, channel=channel, context=context, budget=budget
-    )
+    engine = AgentEngine(model=model, channel=channel, context=context, budget=budget)
     return engine, model, channel, context
 
 
@@ -179,7 +177,10 @@ def test_budget_exceeded_is_or_not_and():
     engine, *_ = make_engine([], [])
     assert engine._budget_exceeded(DEFAULT_MAX_STEPS, 0) is True
     assert engine._budget_exceeded(0, DEFAULT_MAX_TOOL_CALLS) is True
-    assert engine._budget_exceeded(DEFAULT_MAX_STEPS - 1, DEFAULT_MAX_TOOL_CALLS - 1) is False
+    assert (
+        engine._budget_exceeded(DEFAULT_MAX_STEPS - 1, DEFAULT_MAX_TOOL_CALLS - 1)
+        is False
+    )
     assert engine._budget_exceeded(0, 0) is False
 
 
@@ -230,7 +231,9 @@ def test_execute_uses_decision_call_id():
 
 def test_execute_preserves_capability_and_arguments():
     engine, _, channel, _ = make_engine([pdf_result()], [])
-    engine._execute(tool_call(call_id="c-2", capability="document.extract_pdf", path="D:/a.pdf"))
+    engine._execute(
+        tool_call(call_id="c-2", capability="document.extract_pdf", path="D:/a.pdf")
+    )
     assert channel.calls[0].capability == "document.extract_pdf"
     assert channel.calls[0].arguments == {"path": "D:/a.pdf"}
 
@@ -262,7 +265,9 @@ def test_run_rejects_page_ref_that_was_never_extracted():
         [list_result(), pdf_result()],
         [
             tool_call(call_id="c-1"),
-            tool_call(call_id="c-2", capability="document.extract_pdf", path="D:/a.pdf"),
+            tool_call(
+                call_id="c-2", capability="document.extract_pdf", path="D:/a.pdf"
+            ),
             SummaryDecision(
                 kind="summary", facts=[{"text": "编的", "pageRefs": [9999]}]
             ),
@@ -311,8 +316,12 @@ def test_run_accepts_page_ref_from_a_second_extract():
             {"ok": True, "pages": [{"pageNumber": 4, "text": "第二份"}]},
         ],
         [
-            tool_call(call_id="c-1", capability="document.extract_pdf", path="D:/a.pdf"),
-            tool_call(call_id="c-2", capability="document.extract_pdf", path="D:/b.pdf"),
+            tool_call(
+                call_id="c-1", capability="document.extract_pdf", path="D:/a.pdf"
+            ),
+            tool_call(
+                call_id="c-2", capability="document.extract_pdf", path="D:/b.pdf"
+            ),
             SummaryDecision(kind="summary", facts=[{"text": "结论", "pageRefs": [4]}]),
         ],
     )
@@ -393,7 +402,9 @@ def test_run_task_completed_payload_facts_match_the_verified_ones():
     engine, *_ = make_engine([list_result(), pdf_result()], golden_path())
     outcome = engine.run("g", VISIBLE)
 
-    assert _completed_payload(outcome)["facts"] == [f.model_dump() for f in outcome.facts]
+    assert _completed_payload(outcome)["facts"] == [
+        f.model_dump() for f in outcome.facts
+    ]
 
 
 def test_run_task_completed_payload_carries_every_fact_not_just_the_first():
@@ -528,7 +539,9 @@ def test_failed_runs_settle_usage_too():
 
 
 def test_model_without_usage_gets_no_zero_event():
-    engine = make_engine_with_model(UsageModel(golden_path(), usage=None), [list_result(), pdf_result()])
+    engine = make_engine_with_model(
+        UsageModel(golden_path(), usage=None), [list_result(), pdf_result()]
+    )
 
     outcome = engine.run("g", VISIBLE)
 
@@ -588,7 +601,9 @@ def test_run_truncates_before_feeding_model():
     engine, model, _, context = make_engine(
         [pdf_result(text="x" * 5000)],
         [
-            tool_call(call_id="c-1", capability="document.extract_pdf", path="D:/a.pdf"),
+            tool_call(
+                call_id="c-1", capability="document.extract_pdf", path="D:/a.pdf"
+            ),
             SummaryDecision(kind="summary", facts=[{"text": "摘要", "pageRefs": [1]}]),
         ],
         maxCharsPerString=10,
@@ -608,8 +623,12 @@ def test_run_ok_false_is_fed_back_and_loop_continues():
             pdf_result(),
         ],
         [
-            tool_call(call_id="c-1", capability="document.extract_pdf", path="D:/bad.pdf"),
-            tool_call(call_id="c-2", capability="document.extract_pdf", path="D:/a.pdf"),
+            tool_call(
+                call_id="c-1", capability="document.extract_pdf", path="D:/bad.pdf"
+            ),
+            tool_call(
+                call_id="c-2", capability="document.extract_pdf", path="D:/a.pdf"
+            ),
             SummaryDecision(kind="summary", facts=[{"text": "摘要", "pageRefs": [1]}]),
         ],
     )
@@ -712,7 +731,8 @@ def test_run_script_exhausted_fails_task_instead_of_crashing():
 
 def test_run_immediate_summary_without_tools_fails():
     engine, _, channel, _ = make_engine(
-        [], [SummaryDecision(kind="summary", facts=[{"text": "无需工具", "pageRefs": []}])]
+        [],
+        [SummaryDecision(kind="summary", facts=[{"text": "无需工具", "pageRefs": []}])],
     )
     outcome = engine.run("g", VISIBLE)
     # REQ-007 的判定者到位了：一页都没提取过，pageRefs 还是空的，两条都不过。
