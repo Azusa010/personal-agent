@@ -25,6 +25,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from personal_agent.live_model import TOOL_SPECS
 from personal_agent.model_gateway import ModelCallFailed
 from personal_agent.planning import PlanStep
+from personal_agent.protocol.models import Turn
 
 log = logging.getLogger(__name__)
 
@@ -62,13 +63,21 @@ PLAN_OUTPUT_ADAPTER: TypeAdapter[PlanOutput] = TypeAdapter(PlanOutput)
 PLAN_OUTPUT_SCHEMA: dict[str, Any] = PLAN_OUTPUT_ADAPTER.json_schema()
 
 
-def render_plan_input(goal: str, visibleCapabilities: Sequence[str]) -> str:
+def render_plan_input(
+    goal: str, visibleCapabilities: Sequence[str], history: Sequence[Turn] = ()
+) -> str:
     """把目标与可用能力渲染成一次规划请求的输入文本。
 
     只列 visibleCapabilities 里的能力（Scope 外的能力不下发给模型）——与
     live_model.render_input 同一条规矩。
     """
     lines = [f"目标：{goal}", "", "可用能力："]
+    if history:
+        lines.append("之前的对话（供理解本轮目标中的指代）：")
+        for turn in history:
+            lines.append(f"[{turn.role}] {turn.text}")
+        lines.append("")
+    lines.extend([f"目标：{goal}", "", "可用能力："])
     for name in visibleCapabilities:
         lines.append(f"- {name}: {TOOL_SPECS.get(name, '（参数见能力契约）')}")
     return "\n".join(lines)
@@ -113,7 +122,12 @@ class LivePlanner:
         self._model = model
         self._client = client
 
-    def plan(self, goal: str, visibleCapabilities: Sequence[str]):
+    def plan(
+        self,
+        goal: str,
+        visibleCapabilities: Sequence[str],
+        history: Sequence[Turn] = (),
+    ):
         client = self._client_or_create()
         text: ResponseTextConfigParam = {
             "format": {
@@ -127,7 +141,7 @@ class LivePlanner:
             response = client.responses.create(
                 model=self._model,
                 instructions=PLANNER_INSTRUCTIONS,
-                input=render_plan_input(goal, visibleCapabilities),
+                input=render_plan_input(goal, visibleCapabilities, history),
                 text=text,
                 store=False,
             )

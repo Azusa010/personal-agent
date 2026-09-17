@@ -216,6 +216,8 @@ describe('runTask：Golden Path', () => {
     if (!out.ok) return
     expect(out.status).toBe('completed')
     expect(out.facts).toEqual([{ text: '下载目录里有一份 a.pdf', pageRefs: [1] }])
+    // TASK-032：reply 随回包透出，send-message 靠它落 assistant 消息。
+    expect(out.reply).toBe('已完成：下载目录里有一份 a.pdf，摘要见下。')
     expect(out.taskId).toBe(sentTaskId(send))
   })
 

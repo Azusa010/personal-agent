@@ -7,10 +7,11 @@ observation 的条数已经被步数预算钉死（engine 侧），再叠一层�
 """
 
 from collections.abc import Sequence
+from pydoc import text
 from typing import Any
 
 from personal_agent.model_gateway import ModelContext, Observation
-from personal_agent.protocol.models import PlanStepDto
+from personal_agent.protocol.models import PlanStepDto, Turn
 
 # 一页 A4 文本约 2000-4000 字符。12 页 × 2000 ≈ 24k 字符 ≈ 6k token，
 # 真实模型的窗口装得下；ScriptedModel 不读内容，CI 确定性不受影响。
@@ -50,12 +51,14 @@ class ContextManager:
         self,
         maxCharsPerString: int = DEFAULT_MAX_CHARS_PER_STRING,
         plan: Sequence[PlanStepDto] = (),
+        history: Sequence[Turn] = (),
     ) -> None:
         if maxCharsPerString < 1:
             raise ValueError(f"maxCharsPerString 必须 >= 1，收到 {maxCharsPerString}")
         self._maxCharsPerString = maxCharsPerString
         self._plan: list[PlanStepDto] = list(plan)
         self._observations: list[Observation] = []
+        self._history: list[Turn] = list(history)
 
     @property
     def observations(self) -> tuple[Observation, ...]:
@@ -90,9 +93,17 @@ class ContextManager:
             )
             for step in self._plan
         ]
+        history = [
+            Turn(
+                role=turn.role,
+                text=truncate_strings(turn.text, self._maxCharsPerString),
+            )
+            for turn in self._history
+        ]
         return ModelContext(
             taskGoal=taskGoal,
             visibleCapabilities=visibleCapabilities,
             plan=plan,
             observations=observations,
+            history=history,
         )

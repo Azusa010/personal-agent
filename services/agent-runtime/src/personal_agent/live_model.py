@@ -180,11 +180,15 @@ def render_input(context: ModelContext) -> str:
     本轮计划告诉模型「这轮要做哪几步」，observations 告诉它「已经做到哪一步」——
     两者合起来才是决策依据，单靠任何一个都会跑偏。
     """
-    lines = [
-        f"任务目标：{context.taskGoal}",
-        "",
-        "本轮计划（按顺序执行，不跳步、不加步）：",
-    ]
+    lines :list[str] = []
+    if context.history:
+        lines.append("之前的对话（供理解本轮目标中的指代）：")
+        for turn in context.history:
+            lines.append(f"[{turn.role}] {turn.text}")
+        lines.append("")
+    lines.append(f"任务目标：{context.taskGoal}")
+    lines.append("")
+    lines.append("本轮计划（按顺序执行，不跳步、不加步）：")
     if not context.plan:
         lines.append("（空）")
     for index, step in enumerate(context.plan, start=1):

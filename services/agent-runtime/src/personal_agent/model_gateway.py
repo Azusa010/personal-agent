@@ -2,7 +2,7 @@ from typing import Annotated, Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
-from personal_agent.protocol.models import PlanStepDto
+from personal_agent.protocol.models import PlanStepDto, Turn
 
 
 class Observation(BaseModel):
@@ -24,6 +24,7 @@ class ModelContext(BaseModel):
     visibleCapabilities: list[str] = Field(default_factory=list)
     observations: list[Observation] = Field(default_factory=list)
     plan: list[PlanStepDto] = Field(default_factory=list)
+    history: list[Turn] = Field(default_factory=list)
 
 
 class ToolCallDecision(BaseModel):
