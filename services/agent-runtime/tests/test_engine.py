@@ -43,6 +43,7 @@ from personal_agent.model_gateway import (
 from personal_agent.protocol.models import (
     OCCURRED_AT_PATTERN,
     HostExecuteToolResult,
+    PlanStepDto,
     RunTaskCompleted,
     RunTaskFailed,
 )
@@ -105,18 +106,19 @@ def golden_path():
             capability="document.extract_pdf",
             arguments={"path": "D:/downloads/a.pdf"},
         ),
-        SummaryDecision(kind="summary", facts=[{"text": "摘要", "pageRefs": [1]}]),
+        SummaryDecision(
+            kind="summary", reply="已完成", facts=[{"text": "摘要", "pageRefs": [1]}]
+        ),
     ]
 
 
-def make_engine(results, decisions, budget=None, maxCharsPerString=None):
+def make_engine(results, decisions, budget=None, maxCharsPerString=None, plan=None):
     channel = FakeChannel(results)
     model = ScriptedModel(decisions)
-    context = (
-        ContextManager()
-        if maxCharsPerString is None
-        else ContextManager(maxCharsPerString=maxCharsPerString)
-    )
+    if maxCharsPerString is None:
+        context = ContextManager(plan=plan or ())
+    else:
+        context = ContextManager(maxCharsPerString=maxCharsPerString, plan=plan or ())
     engine = AgentEngine(model=model, channel=channel, context=context, budget=budget)
     return engine, model, channel, context
 
@@ -269,7 +271,9 @@ def test_run_rejects_page_ref_that_was_never_extracted():
                 call_id="c-2", capability="document.extract_pdf", path="D:/a.pdf"
             ),
             SummaryDecision(
-                kind="summary", facts=[{"text": "编的", "pageRefs": [9999]}]
+                kind="summary",
+                reply="已完成",
+                facts=[{"text": "编的", "pageRefs": [9999]}],
             ),
         ],
     )
@@ -285,7 +289,9 @@ def test_run_rejects_summary_when_nothing_was_extracted():
         [list_result()],
         [
             tool_call(call_id="c-1"),
-            SummaryDecision(kind="summary", facts=[{"text": "结论", "pageRefs": [1]}]),
+            SummaryDecision(
+                kind="summary", reply="已完成", facts=[{"text": "结论", "pageRefs": [1]}]
+            ),
         ],
     )
     outcome = engine.run("g", VISIBLE)
@@ -301,7 +307,9 @@ def test_run_failed_extract_contributes_no_pages():
             tool_call(
                 call_id="c-1", capability="document.extract_pdf", path="D:/bad.pdf"
             ),
-            SummaryDecision(kind="summary", facts=[{"text": "结论", "pageRefs": [1]}]),
+            SummaryDecision(
+                kind="summary", reply="已完成", facts=[{"text": "结论", "pageRefs": [1]}]
+            ),
         ],
     )
     outcome = engine.run("g", VISIBLE)
@@ -322,7 +330,9 @@ def test_run_accepts_page_ref_from_a_second_extract():
             tool_call(
                 call_id="c-2", capability="document.extract_pdf", path="D:/b.pdf"
             ),
-            SummaryDecision(kind="summary", facts=[{"text": "结论", "pageRefs": [4]}]),
+            SummaryDecision(
+                kind="summary", reply="已完成", facts=[{"text": "结论", "pageRefs": [4]}]
+            ),
         ],
     )
     outcome = engine.run("g", VISIBLE)
@@ -381,6 +391,7 @@ def test_run_task_completed_payload_carries_fact_count_and_facts():
     outcome = engine.run("g", VISIBLE)
 
     assert _completed_payload(outcome) == {
+        "reply": "已完成",
         "factCount": 1,
         "facts": [{"text": "摘要", "pageRefs": [1]}],
     }
@@ -423,6 +434,7 @@ def test_run_task_completed_payload_carries_every_fact_not_just_the_first():
         ),
         SummaryDecision(
             kind="summary",
+            reply="已完成",
             facts=[
                 {"text": "第一条", "pageRefs": [1]},
                 {"text": "第二条", "pageRefs": [1]},
@@ -604,7 +616,9 @@ def test_run_truncates_before_feeding_model():
             tool_call(
                 call_id="c-1", capability="document.extract_pdf", path="D:/a.pdf"
             ),
-            SummaryDecision(kind="summary", facts=[{"text": "摘要", "pageRefs": [1]}]),
+            SummaryDecision(
+                kind="summary", reply="已完成", facts=[{"text": "摘要", "pageRefs": [1]}]
+            ),
         ],
         maxCharsPerString=10,
     )
@@ -629,7 +643,9 @@ def test_run_ok_false_is_fed_back_and_loop_continues():
             tool_call(
                 call_id="c-2", capability="document.extract_pdf", path="D:/a.pdf"
             ),
-            SummaryDecision(kind="summary", facts=[{"text": "摘要", "pageRefs": [1]}]),
+            SummaryDecision(
+                kind="summary", reply="已完成", facts=[{"text": "摘要", "pageRefs": [1]}]
+            ),
         ],
     )
     outcome = engine.run("g", VISIBLE)
@@ -679,7 +695,9 @@ def test_run_summary_rejected_fails_task():
         [list_result()],
         [
             tool_call(call_id="c-1"),
-            SummaryDecision(kind="summary", facts=[{"text": "", "pageRefs": [1]}]),
+            SummaryDecision(
+                kind="summary", reply="已完成", facts=[{"text": "", "pageRefs": [1]}]
+            ),
         ],
     )
     outcome = engine.run("g", VISIBLE)
@@ -729,19 +747,41 @@ def test_run_script_exhausted_fails_task_instead_of_crashing():
     assert outcome.events[-1].type == EVENT_TASK_FAILED
 
 
-def test_run_immediate_summary_without_tools_fails():
+def test_run_immediate_summary_with_extract_promised_fails():
+    # 计划里答应了「提取 PDF」，摘要就必须可溯源：没提取过、facts 也不带页码，
+    # 两条都过不了——分档不豁免「计划承诺过的证据」。
     engine, _, channel, _ = make_engine(
         [],
-        [SummaryDecision(kind="summary", facts=[{"text": "无需工具", "pageRefs": []}])],
+        [SummaryDecision(kind="summary", reply="已完成", facts=[])],
+        plan=[
+            PlanStepDto(description="提取目标 PDF", capability="document.extract_pdf")
+        ],
     )
     outcome = engine.run("g", VISIBLE)
-    # REQ-007 的判定者到位了：一页都没提取过，pageRefs 还是空的，两条都不过。
     assert isinstance(outcome, RunTaskFailed)
     assert channel.calls == []
     assert [e.type for e in outcome.events] == [
         EVENT_TASK_STARTED,
         EVENT_TASK_FAILED,
     ]
+
+
+def test_run_zero_tool_plan_completes_with_reply_and_empty_facts():
+    # 零工具轮次：计划里没有 extract_pdf，facts 允许为空，reply 承载回答。
+    # 这是「你好」这类纯对话轮在 Python 侧的通路。
+    engine, _, channel, _ = make_engine(
+        [],
+        [SummaryDecision(kind="summary", reply="你好！有什么可以帮你整理的？", facts=[])],
+    )
+    outcome = engine.run("g", VISIBLE)
+
+    assert isinstance(outcome, RunTaskCompleted)
+    assert outcome.reply == "你好！有什么可以帮你整理的？"
+    assert outcome.facts == []
+    assert channel.calls == []
+    payload = _completed_payload(outcome)
+    assert payload["reply"] == "你好！有什么可以帮你整理的？"
+    assert payload["factCount"] == 0
 
 
 def test_run_returns_protocol_models_not_dicts():

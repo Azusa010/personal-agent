@@ -135,6 +135,7 @@ const notified: NotificationRequest[] = []
 // 自动批准没成功的话落在这里，由「三条批准记录」那条用例断言为空。
 const approveFailures: string[] = []
 let expectedFacts: SummaryFact[] = []
+let expectedReply = ''
 let expectedRemindAt = ''
 const rounds: RunTaskIpcResult[] = []
 let savedDownloadsEnv: string | undefined
@@ -152,6 +153,17 @@ function readExpectedFacts(scriptPath: string): SummaryFact[] {
   const summary = items.find((item) => item['kind'] === 'summary')
   if (summary === undefined) throw new Error(`剧本里没有 summary 项: ${scriptPath}`)
   return summary['facts'] as SummaryFact[]
+}
+
+/** TASK-031 起摘要决策还带 reply：task_completed 的 payload 会原样透传它。 */
+function readExpectedReply(scriptPath: string): string {
+  const items = JSON.parse(readFileSync(scriptPath, 'utf8')) as Array<Record<string, unknown>>
+  const summary = items.find((item) => item['kind'] === 'summary')
+  if (summary === undefined) throw new Error(`剧本里没有 summary 项: ${scriptPath}`)
+  if (typeof summary['reply'] !== 'string' || summary['reply'] === '') {
+    throw new Error(`剧本 summary 缺 reply（TASK-031 起必填）: ${scriptPath}`)
+  }
+  return summary['reply']
 }
 
 /** 把剧本模板的占位符换成这一次运行的实参，落盘。 */
@@ -304,6 +316,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
       expectedRemindAt = new Date(Date.now() + 60 * 60 * 1000).toISOString()
       const scriptPath = writeScript(expectedRemindAt)
       expectedFacts = readExpectedFacts(scriptPath)
+      expectedReply = readExpectedReply(scriptPath)
 
       supervisor = await spawnRuntime(scriptPath)
     }, 60_000)
@@ -470,6 +483,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
 
       expect(completed).toHaveLength(1)
       expect(completed?.[0]?.payload).toEqual({
+        reply: expectedReply,
         factCount: expectedFacts.length,
         facts: expectedFacts
       })

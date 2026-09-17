@@ -29,7 +29,9 @@ def golden_path() -> list:
             capability="document.extract_pdf",
             arguments={"path": "D:/downloads/a.pdf"},
         ),
-        SummaryDecision(kind="summary", facts=[{"text": "摘要", "pageRefs": [1]}]),
+        SummaryDecision(
+            kind="summary", reply="已完成", facts=[{"text": "摘要", "pageRefs": [1]}]
+        ),
     ]
 
 
@@ -128,7 +130,7 @@ SCRIPT = [
         "capability": "filesystem.list",
         "arguments": {"rootId": "downloads"},
     },
-    {"kind": "summary", "facts": [{"text": "摘要", "pageRefs": [1]}]},
+    {"kind": "summary", "reply": "已完成", "facts": [{"text": "摘要", "pageRefs": [1]}]},
 ]
 
 
@@ -147,7 +149,9 @@ def test_load_script_returns_decisions_in_file_order(tmp_path):
             capability="filesystem.list",
             arguments={"rootId": "downloads"},
         ),
-        SummaryDecision(kind="summary", facts=[{"text": "摘要", "pageRefs": [1]}]),
+        SummaryDecision(
+            kind="summary", reply="已完成", facts=[{"text": "摘要", "pageRefs": [1]}]
+        ),
     ]
 
 

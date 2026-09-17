@@ -3,6 +3,7 @@
   "id": "req-002",
   "result": {
     "status": "completed",
+    "reply": "报告已整理完毕：第三季度营收增长 12%，完整实验参数在附录。",
     "facts": [
       { "text": "报告指出第三季度营收增长 12%", "pageRefs": [3] },
       { "text": "附录列出了完整的实验参数", "pageRefs": [11, 12] }
@@ -21,6 +22,7 @@
       {
         "type": "task_completed",
         "payload": {
+          "reply": "报告已整理完毕：第三季度营收增长 12%，完整实验参数在附录。",
           "factCount": 2,
           "facts": [
             { "text": "报告指出第三季度营收增长 12%", "pageRefs": [3] },

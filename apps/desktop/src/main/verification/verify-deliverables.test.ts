@@ -61,6 +61,7 @@ const FULL: CollectedEvidence = {
   planVersion: 1,
   planSteps: FULL_PLAN,
   summary: [{ text: '第一页与第三页讲了同一件事', pageRefs: [1, 3] }],
+  reply: '已把报告移到 Reading，摘要见下。',
   pageReferences: [1, 3],
   selectedPdf: PDF,
   resolvedPdfPath: READING,
@@ -424,5 +425,72 @@ describe('判定表：权限与已拒绝的操作', () => {
     // 拒绝之后什么都没发生：这正是我们要的结果，不能把「有 denied 记录」当成问题
     expect(checkOf(report, 'denied_no_side_effect').ok).toBe(true)
     expect(checkOf(report, 'denied_no_side_effect').detail).toContain('没有产生副作用')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 零工具轮次与 reply（TASK-031）
+// ---------------------------------------------------------------------------
+
+const CHAT_REPLY = '你好！我可以帮你整理 Downloads 里的 PDF。'
+
+/** 零工具计划的证据包：计划只有一步「直接回答」，没有任何工具调用与交付物。 */
+function zeroToolEvidence(overrides: Partial<CollectedEvidence> = {}): CollectedEvidence {
+  return evidence({
+    goal: '你好',
+    planSteps: [{ description: '直接回答用户' }],
+    summary: [],
+    pageReferences: [],
+    selectedPdf: null,
+    resolvedPdfPath: null,
+    parsedPageNumbers: null,
+    parsedPageCount: null,
+    toolResults: [],
+    permissions: [],
+    executions: [],
+    moves: [],
+    finalFilePath: null,
+    reminder: null,
+    reply: CHAT_REPLY,
+    ...overrides
+  })
+}
+
+describe('零工具轮次与 reply（TASK-031）', () => {
+  it('零工具计划 + 非空 reply → 整体通过：这就是「你好」轮能 completed 的判定', () => {
+    const report = verifyDeliverables(zeroToolEvidence())
+
+    expect(report.ok).toBe(true)
+    // 两项对固定流程有意义的检查，在零工具轮次如实标注不适用
+    expect(checkOf(report, 'summary_present').detail).toContain('没有提取 PDF')
+    expect(checkOf(report, 'timeline_evidence').detail).toContain('没有经工具')
+  })
+
+  it('reply 缺失（null）→ 拒绝：completed 必须有要说给用户的话', () => {
+    const report = verifyDeliverables(zeroToolEvidence({ reply: null }))
+
+    expect(report.ok).toBe(false)
+    expect(checkOf(report, 'reply_present').ok).toBe(false)
+  })
+
+  it('reply 是纯空白 → 拒绝：空泡在界面上等于没有回答', () => {
+    const report = verifyDeliverables(zeroToolEvidence({ reply: '   ' }))
+
+    expect(report.ok).toBe(false)
+    expect(checkOf(report, 'reply_present').ok).toBe(false)
+  })
+
+  it('reply_present 对完整 Golden Path 同样生效（两档共用这条底线）', () => {
+    const report = verifyDeliverables(evidence({ reply: null }))
+
+    expect(report.ok).toBe(false)
+    expect(checkOf(report, 'reply_present').ok).toBe(false)
+  })
+
+  it('计划有 extract_pdf 但一个 fact 都没有 → summary_present 照旧拒绝（分档不豁免承诺）', () => {
+    const report = verifyDeliverables(evidence({ summary: [], pageReferences: [] }))
+
+    expect(report.ok).toBe(false)
+    expect(checkOf(report, 'summary_present').ok).toBe(false)
   })
 })

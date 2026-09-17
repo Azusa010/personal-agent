@@ -27,9 +27,7 @@ from personal_agent.model_gateway import (
     ModelContext,
     ModelDecision,
     ModelUsage,
-    Observation,
 )
-from personal_agent.protocol.models import PlanStepDto
 
 log = logging.getLogger("personal_agent")
 
@@ -60,8 +58,10 @@ INSTRUCTIONS = """你是 Personal Agent 的执行器：按「本轮计划」替�
    {"kind": "tool_call", "callId": "call-1", "capability": "<能力名>", "arguments": {...}}
    callId 每次递增（call-1、call-2……），capability 只能取「可用能力」里列出的名字。
 
-2. 给出最终摘要：
-   {"kind": "summary", "facts": [{"text": "<一条结论>", "pageRefs": [<页码>]}]}
+2. 完成本轮：
+   {"kind": "summary", "reply": "<要说给用户的话>", "facts": [{"text": "<一条结论>", "pageRefs": [<页码>]}]}
+   reply 永远必填：它是用户在界面上看到的回复。计划里没有「提取 PDF」的步骤时
+   facts 可以是空数组（结论来自工具观察，不引用页面）。
 
 执行规则：
 
@@ -69,14 +69,15 @@ INSTRUCTIONS = """你是 Personal Agent 的执行器：按「本轮计划」替�
   调用会被对齐闸口拒绝，ok=false 会回到你这里。
 - 工具失败（ok=false）时按返回的原因修正参数重试，或继续计划里能走的下一步；
   不要为绕过失败发明计划外的调用。
-- 计划里标注「不经工具」的最后一步就是给出摘要：把已发生调用的结果整理成结论。
+- 计划里标注「不经工具」的最后一步就是完成本轮：把结果整理成 reply，依据页面
+  文本的结论放进 facts 并带页码。
 
 写操作会让用户看到批准面板：调用会挂起，直到用户批准或拒绝。被拒绝时你会拿到
 ok=false 与原因，按它调整（例如换个目标路径）或继续下一步。
 
-摘要的硬要求：
-- 每条 fact 必须带 pageRefs，页码只能来自你真的提取过的页面，不许推测或编造；
-- 结论要来自页面文本，不要复述任务目标；
+完成本轮的硬要求：
+- 页码只能来自你真的提取过的页面，不许推测或编造；没有提取过页面就不要给页码；
+- 结论要来自工具拿到的真实内容，不要复述任务目标；
 - 已经提取过页面文本就不要再提取同一份文件，直接走后面的步骤。"""
 
 
@@ -214,20 +215,3 @@ def _as_int(value: Any) -> int:
 
 def _describe(e: Exception) -> str:
     return f"{type(e).__name__}: {e}"
-
-
-if __name__ == "__main__":
-    context = ModelContext(
-        taskGoal="测试目标",
-        visibleCapabilities=["测试1", "测试2"],
-        observations=[
-            Observation(
-                callId="test-1",
-                capability="测试1",
-                ok=True,
-                payload={"test": "test1payload"},
-            )
-        ],
-        plan=[PlanStepDto(description="测试1第一步", capability="filesystem.list")],
-    )
-    print(render_input(context))

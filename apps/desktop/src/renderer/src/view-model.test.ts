@@ -18,6 +18,7 @@ import {
   describeRunOutcome,
   extractFactCount,
   extractFacts,
+  extractReply,
   formatOccurredAt,
   formatRemaining,
   summarizePayload
@@ -840,5 +841,32 @@ describe('describeReminderPreview', () => {
         argsCanonical: JSON.stringify({ remindAt: 42 })
       })
     ).toBeNull()
+  })
+})
+
+describe('extractReply', () => {
+  it('payload 里的 reply 原样取出', () => {
+    expect(extractReply([ev('task_completed', { reply: '你好！', factCount: 0 })])).toBe('你好！')
+  })
+
+  it('没有 task_completed → null，表示这个任务没跑完过', () => {
+    expect(extractReply([ev('task_started', { goal: '目标' })])).toBeNull()
+    expect(extractReply([])).toBeNull()
+  })
+
+  it('reply 空串、纯空白或非字符串 → null：界面上不该出现一个空泡', () => {
+    expect(extractReply([ev('task_completed', {})])).toBeNull()
+    expect(extractReply([ev('task_completed', { reply: '' })])).toBeNull()
+    expect(extractReply([ev('task_completed', { reply: '   ' })])).toBeNull()
+    expect(extractReply([ev('task_completed', { reply: 42 })])).toBeNull()
+  })
+
+  it('多条 task_completed 取最后一条（库里可能有脏数据，最终结局才算数）', () => {
+    const events = [
+      ev('task_completed', { reply: '旧的' }, 1),
+      ev('task_completed', { reply: '最终的' }, 2)
+    ]
+
+    expect(extractReply(events)).toBe('最终的')
   })
 })

@@ -194,7 +194,9 @@ def read_only_script():
             capability=EXTRACT_PDF_CAPABILITY,
             arguments={"path": "D:/downloads/a.pdf"},
         ),
-        SummaryDecision(kind="summary", facts=[{"text": "摘要", "pageRefs": [1]}]),
+        SummaryDecision(
+            kind="summary", reply="已完成", facts=[{"text": "摘要", "pageRefs": [1]}]
+        ),
     ]
 
 

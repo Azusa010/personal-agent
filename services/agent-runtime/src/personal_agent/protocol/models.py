@@ -290,6 +290,9 @@ class SummaryFact(BaseModel):
 
 class RunTaskCompleted(BaseModel):
     status: Literal["completed"]
+    # reply 是这一轮要说给用户的话：进 task_completed 事件与 completed 回包，
+    # 是 UI 上助手气泡的正文。facts 是带页码引用的证据，零工具轮次允许为空。
+    reply: str = Field(min_length=1)
     facts: list[SummaryFact]
     events: list[RunTaskEvent]
 

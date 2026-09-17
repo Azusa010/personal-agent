@@ -53,20 +53,24 @@ def _validation_details(error: ValidationError) -> str:
 
 
 def verify_summary(
-    facts: Sequence[dict[str, Any]], available_pages: frozenset[int]
+    facts: Sequence[dict[str, Any]],
+    available_pages: frozenset[int],
+    *,
+    require_page_refs: bool = True,
 ) -> list[SummaryFact]:
     if not facts:
-        raise SummaryRejected("模型没有给出任何 fact，不构成完成证据")
-
+        if require_page_refs:
+            raise SummaryRejected("模型没有给出任何 fact，不构成完成证据")
+        return []
     verified: list[SummaryFact] = []
-    for index, raw_fact in enumerate(facts, start=1):
+    for index, raw_fact in enumerate(facts,start=1):
         try:
             fact = SummaryFact.model_validate(raw_fact)
         except ValidationError as e:
             raise SummaryRejected(
                 f"第 {index} 条 fact 结构不合法: {_validation_details(e)}"
             ) from e
-        if not fact.pageRefs:
+        if require_page_refs and not fact.pageRefs:
             raise SummaryRejected(f"第 {index} 条 fact 没有页码引用，无法追溯到页面")
         missing = [ref for ref in fact.pageRefs if ref not in available_pages]
         if missing:

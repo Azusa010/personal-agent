@@ -429,7 +429,9 @@ def test_summary_fact_constraints():
 
 
 def test_run_task_result_discriminated_union():
-    RUN_TASK_RESULT.validate_python({"status": "completed", "facts": [], "events": []})
+    RUN_TASK_RESULT.validate_python(
+        {"status": "completed", "reply": "已完成", "facts": [], "events": []}
+    )
     RUN_TASK_RESULT.validate_python(
         {"status": "failed", "reason": "预算耗尽", "events": []}
     )
@@ -438,12 +440,32 @@ def test_run_task_result_discriminated_union():
     # Python 能回 running 就等于给了它改任务生命周期的权力。
     for bad_result in (
         {"status": "running", "events": []},
-        {"status": "completed", "events": []},
+        {"status": "completed", "reply": "已完成", "events": []},
         {"status": "failed", "events": []},
         {"status": "failed", "reason": "预算耗尽"},
     ):
         with pytest.raises(ValidationError):
             RUN_TASK_RESULT.validate_python(bad_result)
+
+
+def test_run_task_completed_reply_constraints():
+    # reply 是这一轮要说给用户的话（TASK-031）：UI 的助手气泡直接渲染它，
+    # 空串在界面上就是一个空泡。零工具轮次 facts 可空，reply 不行。
+    base = {
+        "status": "completed",
+        "reply": "已把 a.pdf 移到 Reading。",
+        "facts": [],
+        "events": [TASK_EVENT],
+    }
+    RUN_TASK_RESULT.validate_python(base)
+
+    with pytest.raises(ValidationError):
+        RUN_TASK_RESULT.validate_python({**base, "reply": ""})
+
+    with pytest.raises(ValidationError):
+        RUN_TASK_RESULT.validate_python(
+            {"status": "completed", "facts": [], "events": [TASK_EVENT]}
+        )
 
 
 def test_run_task_envelope_constraints():

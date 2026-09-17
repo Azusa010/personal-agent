@@ -37,6 +37,7 @@
   },
   {
     "kind": "summary",
+    "reply": "已把 three-page-text.pdf 移到 Reading，并建了一条到点的一次性阅读提醒。摘要：第一页是 PersonalAgent fixture page one，第二、三页分别是 page two 和 page three。",
     "facts": [
       { "text": "第一页的正文是 PersonalAgent fixture page one", "pageRefs": [1] },
       { "text": "第二页与第三页分别是 page two 和 page three", "pageRefs": [2, 3] }

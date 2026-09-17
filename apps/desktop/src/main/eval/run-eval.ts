@@ -238,6 +238,9 @@ export function writeScriptedDecisions(
     },
     {
       kind: 'summary',
+      // reply 是 TASK-031 起的必填字段：eval 的判定只读 facts，reply 只是让
+      // 剧本与真模型的输出形状一致（缺了它 Python 侧的契约校验会拒）。
+      reply: `已根据 ${materialized.targetPath} 的页面内容给出带页码引用的摘要`,
       facts: evalCase.keyPoints.map((keyPoint) => ({
         text: keyPoint.text,
         pageRefs: keyPoint.pages

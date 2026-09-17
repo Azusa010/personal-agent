@@ -77,6 +77,9 @@ const toolCall = (callId: string, capability: string, args: Record<string, unkno
 })
 const summary = (pageRefs: number[] = [1]): Decision => ({
   kind: 'summary',
+  // reply 是 TASK-031 起的必填决策字段：缺了它 Python 侧 ModelDecision 校验拒收，
+  // 整份剧本加载失败，任务会以「未配置模型」当场失败——一个工具调用都不会发生。
+  reply: '已完成，第一页讲了 fixture 的内容。',
   facts: [{ text: '第一页讲了 fixture 的内容', pageRefs }]
 })
 
@@ -438,7 +441,10 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
     const world = await openWorld({
       decisions: goldenPathDecisions(),
       failNotification: true,
-      remindAt: new Date(Date.now() + 1200).toISOString()
+      // 到点时刻必须晚于 scheduler.create 真正执行到的时刻（binder 拒收过去的
+      // 时间，1.2 秒在机器一慢时不够走到第五步，与 golden-path 同一处竞态）；
+      // 到点等待由下方 waitFor(…, 8000) 兜住。
+      remindAt: new Date(Date.now() + 5000).toISOString()
     })
 
     const result = await runTask(GOAL, makeDeps(world))
@@ -464,7 +470,8 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
     })
     expect(dirty.ok).toBe(false)
     expect(dirty.violations.join(' ')).toContain('budget_exhausted')
-  })
+    // 到点等待占 5 秒以上，vitest 默认 5 秒超时兜不住（golden-path 那条同理给 60s）
+  }, 60_000)
 })
 
 /** 轮询等待。定时器是真实时间，只能等不能推。 */

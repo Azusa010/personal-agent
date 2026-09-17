@@ -72,10 +72,11 @@ def tool_call_json(call_id="call-1", capability="filesystem.list", **arguments):
     )
 
 
-def summary_json(facts=None):
+def summary_json(facts=None, reply="已完成，结论如下。"):
     return json.dumps(
         {
             "kind": "summary",
+            "reply": reply,
             "facts": facts if facts is not None else [{"text": "p1 说了 A", "pageRefs": [1]}],
         }
     )

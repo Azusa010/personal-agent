@@ -37,6 +37,7 @@ import { SqliteToolExecutionRepository } from '../product-state/tool-execution-r
 import {
   collectEvidence,
   collectToolResults,
+  completedReply,
   currentPathOf,
   finalPathOf,
   lastExtractedPath,
@@ -662,5 +663,87 @@ describe('collectEvidence：只取本任务的事实', () => {
     expect(evidence.permissions.map((p) => p.toolCallId)).toEqual(['c-move'])
     expect(evidence.executions.map((e) => e.idempotencyKey)).toEqual(['filesystem.move:h-move'])
     expect(evidence.reminder?.id).toBe('r-1')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// completedReply 与零工具轮次的取证（TASK-031）
+// ---------------------------------------------------------------------------
+
+const CHAT_REPLY = '你好！我可以帮你整理 Downloads 里的 PDF。'
+const CHAT_PLAN: PlanStep[] = [{ description: '直接回答用户' }]
+
+describe('completedReply：从事件流里取给用户的回复', () => {
+  it('task_completed 的 payload.reply 是非空字符串 → 原样返回', () => {
+    const events = [
+      event(1, 'task_started', { goal: GOAL }),
+      event(2, 'task_completed', { reply: CHAT_REPLY, factCount: 0, facts: [] })
+    ]
+
+    expect(completedReply(events)).toBe(CHAT_REPLY)
+  })
+
+  it('没有 task_completed → null', () => {
+    expect(completedReply([event(1, 'task_started', { goal: GOAL })])).toBeNull()
+    expect(completedReply([])).toBeNull()
+  })
+
+  it('reply 缺失、空串或非字符串 → null', () => {
+    const withPayload = (payload: unknown): ExecutionEventRecord[] => [
+      event(1, 'task_completed', payload)
+    ]
+
+    expect(completedReply(withPayload({ factCount: 0 }))).toBeNull()
+    expect(completedReply(withPayload({ reply: '' }))).toBeNull()
+    expect(completedReply(withPayload({ reply: 42 }))).toBeNull()
+  })
+
+  it('多条 task_completed 取最后一条（脏数据以最终结局为准）', () => {
+    const events = [
+      event(1, 'task_completed', { reply: '旧的' }),
+      event(2, 'task_completed', { reply: '最终的' })
+    ]
+
+    expect(completedReply(events)).toBe('最终的')
+  })
+})
+
+describe('collectEvidence：零工具轮次的取证（TASK-031）', () => {
+  function seedChatTurn(deps: EvidenceDeps): void {
+    seedTask(deps, TASK_ID, '你好')
+    seedPlan(deps, CHAT_PLAN)
+    seedEvent(deps, 'task_started', { goal: '你好' })
+    seedEvent(deps, 'task_completed', { reply: CHAT_REPLY, factCount: 0, facts: [] })
+  }
+
+  it('reply 进证据包', async () => {
+    const deps = openHarness()
+    seedChatTurn(deps)
+
+    const evidence = await collectEvidence(deps, { taskId: TASK_ID, facts: [] })
+
+    expect(evidence.reply).toBe(CHAT_REPLY)
+  })
+
+  it('计划没有 extract_pdf 时，「没有成功的提取调用」不算缺口', async () => {
+    const deps = openHarness()
+    seedChatTurn(deps)
+
+    const evidence = await collectEvidence(deps, { taskId: TASK_ID, facts: [] })
+
+    // 这条 gap 会让 fail-closed 的总判定无条件拒绝——零工具轮次会被它卡死
+    expect(evidence.gaps).toEqual([])
+  })
+
+  it('计划里有 extract_pdf 但没有成功提取 → 照旧记缺口（fail-closed 不松）', async () => {
+    const deps = openHarness()
+    seedTask(deps)
+    seedPlan(deps)
+    seedEvent(deps, 'task_started', { goal: GOAL })
+    seedEvent(deps, 'task_completed', { reply: CHAT_REPLY, factCount: 0, facts: [] })
+
+    const evidence = await collectEvidence(deps, { taskId: TASK_ID, facts: FACTS })
+
+    expect(evidence.gaps.some((gap) => gap.includes('document.extract_pdf'))).toBe(true)
   })
 })

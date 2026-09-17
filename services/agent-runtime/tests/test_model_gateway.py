@@ -31,7 +31,7 @@ def test_discriminated_union_parses_tool_call():
 
 
 def test_discriminated_union_parses_summary():
-    d = adapter.validate_python({"kind": "summary", "facts": [{"text": "a"}]})
+    d = adapter.validate_python({"kind": "summary", "reply": "已完成", "facts": [{"text": "a"}]})
     assert isinstance(d, SummaryDecision)
     assert d.facts == [{"text": "a"}]
 

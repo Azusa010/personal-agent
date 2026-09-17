@@ -333,3 +333,37 @@ def test_verify_rejection_reason_is_non_empty_string():
         verify_summary([fact(page_refs=[9999])], PAGES_123)
     assert isinstance(exc.value.reason, str)
     assert exc.value.reason.strip()
+
+
+# ---- verify_summary：按计划分档（TASK-031）----
+
+
+def test_verify_allows_empty_facts_when_pages_are_not_required():
+    # 零工具轮次：计划里没有 extract_pdf，结论来自工具观察而非页面文本。
+    # 一个 fact 都没有是合法的——回答由 reply 承载，不构成证据缺口。
+    assert verify_summary([], PAGES_123, require_page_refs=False) == []
+
+
+def test_verify_still_validates_structure_when_pages_are_not_required():
+    # 分档放宽的是「页码强制」，不是结构：文本为空的 fact 在哪一档都不合格。
+    with pytest.raises(SummaryRejected):
+        verify_summary([fact(text="")], PAGES_123, require_page_refs=False)
+
+
+def test_verify_still_rejects_fabricated_refs_when_pages_are_not_required():
+    # 反编造底线两档共用：没提取过页面却给出页码，照样拒。
+    # 放宽只针对「没给页码」的 fact，不针对「编了页码」的 fact。
+    with pytest.raises(SummaryRejected):
+        verify_summary([fact(page_refs=[1])], frozenset(), require_page_refs=False)
+
+
+def test_verify_accepts_refless_facts_when_pages_are_not_required():
+    # 纯列表轮次的结论（「Downloads 里有 3 个 PDF」）不依赖页面，允许不带页码。
+    facts = verify_summary(
+        [fact(text="Downloads 里有 3 个 PDF", page_refs=[])],
+        frozenset(),
+        require_page_refs=False,
+    )
+
+    assert [f.text for f in facts] == ["Downloads 里有 3 个 PDF"]
+    assert facts[0].pageRefs == []

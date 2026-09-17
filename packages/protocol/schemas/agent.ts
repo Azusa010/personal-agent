@@ -84,10 +84,14 @@ export const SummaryFact = z.object({
   pageRefs: z.array(z.number().int().min(1)),
 });
 
-// Python 跑完一个任务的回传结果
+// Python 跑完一个任务的回传结果。
+// reply 是这一轮要说给用户的话（UI 上助手气泡的正文）；facts 是带页码引用的
+// 证据清单，零工具轮次（计划里没有 extract_pdf）允许为空。两者都进
+// task_completed 事件——事件是 Main 落库的唯一来源。
 export const RunTaskResult = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("completed"),
+    reply: z.string().min(1),
     facts: z.array(SummaryFact),
     events: z.array(RunTaskEvent),
   }),

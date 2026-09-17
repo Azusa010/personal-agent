@@ -36,6 +36,7 @@ from personal_agent.protocol.models import (
     RunTaskFailed,
 )
 from personal_agent.summary import (
+    EXTRACT_PDF_CAPABILITY,
     SummaryRejected,
     collect_extracted_pages,
     verify_summary,
@@ -139,11 +140,18 @@ class AgentEngine:
                     facts = verify_summary(
                         decision.facts,
                         collect_extracted_pages(self._context.observations),
+                        require_page_refs=self._plan_requires_grounded_summary(),
                     )
                 except SummaryRejected as e:
                     return self._fail(events, e.reason)
-                self._emit(events, EVENT_TASK_COMPLETED, {"factCount": len(facts),"facts": facts})
-                return RunTaskCompleted(status="completed", facts=facts, events=events)
+                self._emit(
+                    events,
+                    EVENT_TASK_COMPLETED,
+                    {"reply": decision.reply, "factCount": len(facts), "facts": facts},
+                )
+                return RunTaskCompleted(
+                    status="completed", reply=decision.reply, facts=facts, events=events
+                )
             self._emit(
                 events,
                 EVENT_TOOL_CALLED,
@@ -212,6 +220,16 @@ class AgentEngine:
 
     def _decide(self, goal: str, visibleCapabilities: Sequence[str]) -> ModelDecision:
         return self._model.decide(self._context.build(goal, visibleCapabilities))
+
+    def _plan_requires_grounded_summary(self) -> bool:
+        """计划里有「提取 PDF」这一步，摘要就必须可溯源到页面。
+
+        零工具或纯列表的轮次，结论来自工具观察而非页面文本——facts 允许为空、
+        页码允许缺席；但只要给了页码，仍然必须真实（见 summary.verify_summary）。
+        """
+        return any(
+            step.capability == EXTRACT_PDF_CAPABILITY for step in self._context.plan
+        )
 
     def _execute(self, decision: ToolCallDecision) -> Observation:
         """执行一次工具调用。capability 不在协议枚举内时就地造 Observation，

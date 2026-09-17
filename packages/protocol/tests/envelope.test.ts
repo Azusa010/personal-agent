@@ -394,6 +394,34 @@ describe("RunTaskParams 约束", () => {
   });
 });
 
+describe("RunTaskResult.completed 约束", () => {
+  const completedResponse = (over: object = {}) => ({
+    jsonrpc: "2.0",
+    id: "req-002",
+    result: {
+      status: "completed",
+      reply: "已把 a.pdf 移到 Reading。",
+      facts: [],
+      events: [TASK_EVENT],
+      ...over,
+    },
+  });
+
+  it("零工具轮次：facts 为空、reply 非空 通过", () => {
+    expect(() => RunTaskResponse.parse(completedResponse())).not.toThrow();
+  });
+
+  it("缺 reply 被拒", () => {
+    // reply 是 UI 上助手气泡的正文，缺了它 completed 就没有可展示的回答。
+    const { reply: _omitted, ...result } = completedResponse().result;
+    expect(() => RunTaskResponse.parse({ ...completedResponse(), result })).toThrow();
+  });
+
+  it("空 reply 被拒", () => {
+    expect(() => RunTaskResponse.parse(completedResponse({ reply: "" }))).toThrow();
+  });
+});
+
 describe("RunTaskEvent 的字段与时间戳约束", () => {
   it("字段清单钉死：不带 taskId", () => {
     // 带上 taskId 就允许 Python 把事件回传到别的任务上，
@@ -494,7 +522,12 @@ describe("SummaryFact 的页码约束", () => {
 describe("RunTaskResult 的判别联合", () => {
   it("completed 分支合法", () => {
     expect(() =>
-      RunTaskResult.parse({ status: "completed", facts: [], events: [] }),
+      RunTaskResult.parse({
+        status: "completed",
+        reply: "已完成",
+        facts: [],
+        events: [],
+      }),
     ).not.toThrow();
   });
 

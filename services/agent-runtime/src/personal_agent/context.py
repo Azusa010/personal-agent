@@ -62,6 +62,12 @@ class ContextManager:
         """只读快照。返回 tuple 而不是内部 list，调用方 append 不进去。"""
         return tuple(self._observations)
 
+    @property
+    def plan(self) -> tuple[PlanStepDto, ...]:
+        """只读快照，与 observations 同一条规矩。engine 拿它判定摘要要不要
+        强制页码（计划里有 extract_pdf 才强制）。"""
+        return tuple(self._plan)
+
     def record(self, observation: Observation) -> None:
         self._observations.append(observation)
 

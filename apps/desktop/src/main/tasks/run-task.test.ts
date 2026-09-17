@@ -75,6 +75,7 @@ const COMPLETED_FACTS = [{ text: '下载目录里有一份 a.pdf', pageRefs: [1]
 function completedResult(): unknown {
   return {
     status: 'completed',
+    reply: '已完成：下载目录里有一份 a.pdf，摘要见下。',
     facts: COMPLETED_FACTS,
     events: pythonEvents()
   }
@@ -511,7 +512,7 @@ describe('runTask：任务失败', () => {
   })
 
   it('Python 回了 completed 但 events 是空数组 → 只补校验事件，不补 task 业务事件', async () => {
-    const h = openHarness(sendReturning({ status: 'completed', facts: [], events: [] }))
+    const h = openHarness(sendReturning({ status: 'completed', reply: '已完成', facts: [], events: [] }))
     const out = await runTask(GOAL, h)
     if (!out.ok) throw new Error('预期 ok:true')
 

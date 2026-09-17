@@ -36,9 +36,14 @@ class ToolCallDecision(BaseModel):
 
 
 class SummaryDecision(BaseModel):
-    """模型给出的最终摘要"""
+    """模型给出的最终摘要。
+
+    reply 是要说给用户的话（UI 上助手气泡的正文）；facts 是带页码引用的证据
+    清单，计划里没有「提取 PDF」时允许为空。
+    """
 
     kind: Literal["summary"]
+    reply: str = Field(min_length=1)
     facts: list[dict[str, Any]] = Field(default_factory=list)
 
 
