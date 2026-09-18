@@ -17,7 +17,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { AGENT_RUN_TASK, RunTaskResponse, type AgentStreamParams } from '@personal-agent/protocol'
+import { AGENT_RUN_TASK, RunTaskResult, type AgentStreamParams } from '@personal-agent/protocol'
 
 import { executeHostTool, listReadOnlyCapabilities } from '../capabilities/host-executor'
 import { ROOT_ENV, toPosix } from '../capabilities/roots'
@@ -89,96 +89,101 @@ function buildScript(root: string): string {
   return path
 }
 
-describe.skipIf(!existsSync(VENV_PYTHON))('实时通知 E2E：Python → stdio → supervisor（TASK-033）', () => {
-  beforeEach(async () => {
-    if (!existsSync(FIXTURE_PDF)) throw new Error(`缺固定 PDF: ${FIXTURE_PDF}`)
+describe.skipIf(!existsSync(VENV_PYTHON))(
+  '实时通知 E2E：Python → stdio → supervisor（TASK-033）',
+  () => {
+    beforeEach(async () => {
+      if (!existsSync(FIXTURE_PDF)) throw new Error(`缺固定 PDF: ${FIXTURE_PDF}`)
 
-    tempDir = mkdtempSync(join(tmpdir(), 'pa-stream-'))
-    downloadsRoot = join(tempDir, 'Downloads')
-    mkdirSync(downloadsRoot, { recursive: true })
-    copyFileSync(FIXTURE_PDF, join(downloadsRoot, PDF_NAME))
+      tempDir = mkdtempSync(join(tmpdir(), 'pa-stream-'))
+      downloadsRoot = join(tempDir, 'Downloads')
+      mkdirSync(downloadsRoot, { recursive: true })
+      copyFileSync(FIXTURE_PDF, join(downloadsRoot, PDF_NAME))
 
-    savedDownloadsEnv = process.env[DOWNLOADS_ENV]
-    process.env[DOWNLOADS_ENV] = downloadsRoot
+      savedDownloadsEnv = process.env[DOWNLOADS_ENV]
+      process.env[DOWNLOADS_ENV] = downloadsRoot
 
-    supervisor = new PythonSupervisor({
-      command: VENV_PYTHON,
-      args: ['-m', 'personal_agent'],
-      cwd: RUNTIME_CWD,
-      env: { ...process.env, [SCRIPT_ENV]: buildScript(downloadsRoot) },
-      capabilities: listReadOnlyCapabilities(),
-      hostHandler: executeHostTool
-    })
-    supervisor.on('stderr', () => {})
-    supervisor.start()
-    await supervisor.initialize()
-  })
-
-  afterEach(async () => {
-    await supervisor?.stop().catch(() => {})
-    supervisor = null
-    if (savedDownloadsEnv === undefined) delete process.env[DOWNLOADS_ENV]
-    else process.env[DOWNLOADS_ENV] = savedDownloadsEnv
-    rmSync(tempDir, { recursive: true, force: true })
-  })
-
-  it('事件与思维链都实时到、顺序稳定，且回包仍是权威', async () => {
-    const sup = supervisor
-    if (sup === null) throw new Error('E2E 环境没起来')
-
-    const notices: AgentStreamParams[] = []
-    sup.on('agent.stream', (notice: AgentStreamParams) => notices.push(notice))
-
-    beginTask(TASK_ID, GOAL, PLAN)
-    let raw: unknown
-    try {
-      raw = await sup.request(AGENT_RUN_TASK, {
-        taskId: TASK_ID,
-        goal: GOAL,
-        plan: PLAN,
-        history: []
+      supervisor = new PythonSupervisor({
+        command: VENV_PYTHON,
+        args: ['-m', 'personal_agent'],
+        cwd: RUNTIME_CWD,
+        env: { ...process.env, [SCRIPT_ENV]: buildScript(downloadsRoot) },
+        capabilities: listReadOnlyCapabilities(),
+        hostHandler: executeHostTool
       })
-    } finally {
-      endTask()
-    }
+      supervisor.on('stderr', () => {})
+      supervisor.start()
+      await supervisor.initialize()
+    })
 
-    const parsed = RunTaskResponse.safeParse(raw)
-    expect(parsed.success, JSON.stringify(parsed.error?.message ?? raw)).toBe(true)
-    if (!parsed.success || parsed.data.result === undefined) return
-    const result = parsed.data.result
-    expect(result.status, JSON.stringify(result)).toBe('completed')
-    if (result.status !== 'completed') return
-    expect(result.reply).toBe(REPLY)
+    afterEach(async () => {
+      await supervisor?.stop().catch(() => {})
+      supervisor = null
+      if (savedDownloadsEnv === undefined) delete process.env[DOWNLOADS_ENV]
+      else process.env[DOWNLOADS_ENV] = savedDownloadsEnv
+      rmSync(tempDir, { recursive: true, force: true })
+    })
 
-    // 1. 通知一律挂在本次任务上：渲染层靠它认领，不靠「现在跑的是谁」的时序假设。
-    expect(new Set(notices.map((notice) => notice.taskId))).toEqual(new Set([TASK_ID]))
+    it('事件与思维链都实时到、顺序稳定，且回包仍是权威', async () => {
+      const sup = supervisor
+      if (sup === null) throw new Error('E2E 环境没起来')
 
-    // 2. 顺序：思考落在它所属的那个决策之前（ScriptedModel 在返回决策前吐完）。
-    expect(labels(notices)).toEqual([
-      'event:task_started',
-      'thinking',
-      'event:tool_called',
-      'event:tool_result',
-      'thinking',
-      'event:tool_called',
-      'event:tool_result',
-      'thinking',
-      'event:task_completed'
-    ])
+      const notices: AgentStreamParams[] = []
+      sup.on('agent.stream', (notice: AgentStreamParams) => notices.push(notice))
 
-    // 3. 增量语义的活证据：把 delta 逐字拼回来，必须与剧本里的三段完全一致。
-    const thinking = notices
-      .filter((notice) => notice.kind === 'thinking')
-      .map((notice) => (notice.kind === 'thinking' ? notice.delta : ''))
-      .join('')
-    expect(thinking).toBe(`${THINKING_LIST}${THINKING_EXTRACT}${THINKING_SUMMARY}`)
+      beginTask(TASK_ID, GOAL, PLAN)
+      let raw: unknown
+      try {
+        raw = await sup.request(AGENT_RUN_TASK, {
+          taskId: TASK_ID,
+          goal: GOAL,
+          plan: PLAN,
+          history: []
+        })
+      } finally {
+        endTask()
+      }
 
-    // 4. event 通知与回包 events 是同一批：通知只是预览，回包才是唯一事实来源。
-    //    scripted 不记账，所以这里没有 model_usage 要减（真模型下它会少一条——
-    //    见 _settle_usage：那是结算，不是过程）。
-    const streamedTypes = notices
-      .filter((notice) => notice.kind === 'event')
-      .map((notice) => (notice.kind === 'event' ? notice.event.type : ''))
-    expect(streamedTypes).toEqual(result.events.map((event) => event.type))
-  }, 60_000)
-})
+      const parsed = RunTaskResult.safeParse(raw)
+      expect(parsed.success, JSON.stringify(parsed.error?.message ?? raw)).toBe(true)
+      if (!parsed.success) return
+      const result = parsed.data
+      expect(result.status, JSON.stringify(result)).toBe('completed')
+      if (result.status !== 'completed') return
+      expect(result.reply).toBe(REPLY)
+
+      // 1. 通知一律挂在本次任务上：渲染层靠它认领，不靠「现在跑的是谁」的时序假设。
+      expect(new Set(notices.map((notice) => notice.taskId))).toEqual(new Set([TASK_ID]))
+
+      // 2. 顺序：思考落在它所属的那个决策之前（ScriptedModel 在返回决策前分块吐完）。
+      expect(labels(notices)).toEqual([
+        'event:task_started',
+        'thinking',
+        'thinking',
+        'event:tool_called',
+        'event:tool_result',
+        'thinking',
+        'thinking',
+        'event:tool_called',
+        'event:tool_result',
+        'thinking',
+        'event:task_completed'
+      ])
+
+      // 3. 增量语义的活证据：把 delta 逐字拼回来，必须与剧本里的三段完全一致。
+      const thinking = notices
+        .filter((notice) => notice.kind === 'thinking')
+        .map((notice) => (notice.kind === 'thinking' ? notice.delta : ''))
+        .join('')
+      expect(thinking).toBe(`${THINKING_LIST}${THINKING_EXTRACT}${THINKING_SUMMARY}`)
+
+      // 4. event 通知与回包 events 是同一批：通知只是预览，回包才是唯一事实来源。
+      //    scripted 不记账，所以这里没有 model_usage 要减（真模型下它会少一条——
+      //    见 _settle_usage：那是结算，不是过程）。
+      const streamedTypes = notices
+        .filter((notice) => notice.kind === 'event')
+        .map((notice) => (notice.kind === 'event' ? notice.event.type : ''))
+      expect(streamedTypes).toEqual(result.events.map((event) => event.type))
+    }, 60_000)
+  }
+)

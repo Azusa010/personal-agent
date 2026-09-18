@@ -17,7 +17,8 @@ import type {
   TaskTimeline,
   ListConversationsResult,
   GetConversationResult,
-  SendMessageIpcResult
+  SendMessageIpcResult,
+  AgentStreamNotice
 } from '../shared/ipc-contract'
 
 export type {
@@ -72,4 +73,5 @@ export type PersonalAgentApi = {
   setModelSettings(input: SetModelSettingsInput): Promise<SetModelSettingsResult>
   /** 订阅 main 推来的批准事件。返回的函数取消订阅，组件卸载时必须调 */
   onPermissionNotice(listener: (notice: PermissionNotice) => void): () => void
+  onAgentStream(listener: (notice: AgentStreamNotice) => void): () => void
 }

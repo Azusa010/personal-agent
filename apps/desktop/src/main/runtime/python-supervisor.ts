@@ -7,7 +7,9 @@ import {
   type CapabilityDescriptor,
   type HostExecuteToolParams,
   HostExecuteToolRequest,
-  ERROR_CODE
+  ERROR_CODE,
+  AgentStreamNotification,
+  AGENT_STREAM
 } from '@personal-agent/protocol'
 import { z } from 'zod'
 import { RUNTIME_ERROR_CODE } from './error-code'
@@ -252,6 +254,10 @@ export class PythonSupervisor extends EventEmitter {
       return
     }
     if (typeof msg.method === 'string') {
+      if (msg.method === 'agent.stream') {
+        void this.handleAgentStream(msg)
+        return
+      }
       void this.handleHostRequest(msg)
       return
     }
@@ -260,6 +266,17 @@ export class PythonSupervisor extends EventEmitter {
       if (msg.error) p.reject(new RuntimeError(msg.error?.code, msg.error?.message))
       else p.resolve(msg.result)
     })
+  }
+  handleAgentStream(msg: IncomingMsg): void {
+    const parsed = AgentStreamNotification.safeParse(msg)
+    if (!parsed.success) {
+      this.emit(
+        'stderr',
+        `[supervisor] ${AGENT_STREAM} 通知不合法，已丢弃: ${parsed.error.message}\n`
+      )
+      return
+    }
+    this.emit('agent.stream', parsed.data.params)
   }
 
   private async handleHostRequest(msg: IncomingMsg): Promise<void> {

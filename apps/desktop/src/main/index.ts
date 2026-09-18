@@ -25,7 +25,8 @@ import type {
   ConversationSummary,
   GetConversationResult,
   ListConversationsResult,
-  SendMessageIpcResult
+  SendMessageIpcResult,
+  AgentStreamNotice
 } from '../shared/ipc-contract'
 import { getDb, closeDb } from './db/database'
 import { upsertMany, findAll } from './db/pdf-repository'
@@ -56,6 +57,7 @@ import { SqliteMessageRepository } from './product-state/message-repository'
 import { getConversation } from './tasks/get-conversation'
 import { buildHistory } from './tasks/history'
 import { sendMessage, SendMessageInput } from './tasks/send-message'
+import { onAgentStream } from './runtime/stream-fanout'
 
 const PRELOAD_PATH = join(__dirname, '../preload/index.js')
 
@@ -69,6 +71,8 @@ const PERMISSION_NOTICE_CHANNEL = 'personal-agent:permission-notice'
 const MODEL_SETTINGS_GET_CHANNEL = 'personal-agent:get-model-settings'
 const MODEL_SETTINGS_SET_CHANNEL = 'personal-agent:set-model-settings'
 
+const AGENT_STREAM_CHANNEL = 'personal-agent:agent-stream'
+
 // null = 库没打开，批准通道不可用。
 let permissionBroker: PermissionBroker | null = null
 
@@ -76,6 +80,12 @@ let permissionBroker: PermissionBroker | null = null
 function broadcastPermissionNotice(notice: PermissionNotice): void {
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send(PERMISSION_NOTICE_CHANNEL, notice)
+  }
+}
+
+function broadcastAgentStream(notice: AgentStreamNotice): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send(AGENT_STREAM_CHANNEL, notice)
   }
 }
 
@@ -432,6 +442,8 @@ app.whenReady().then(() => {
         runtime: { restart: restartRuntime }
       })
   )
+
+  onAgentStream(broadcastAgentStream)
 
   createWindow()
 

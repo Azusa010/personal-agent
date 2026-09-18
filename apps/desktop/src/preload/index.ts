@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 
 import type {
+  AgentStreamNotice,
   PermissionDecision,
   PermissionNotice,
   SetModelSettingsInput
@@ -57,6 +58,15 @@ if (process.contextIsolated) {
         ipcRenderer.on('personal-agent:permission-notice', wrapped)
         return () => {
           ipcRenderer.removeListener('personal-agent:permission-notice', wrapped)
+        }
+      },
+      onAgentStream: (listener: (notice: AgentStreamNotice) => void) => {
+        const wrapped = (_event: IpcRendererEvent, notice: AgentStreamNotice): void => {
+          listener(notice)
+        }
+        ipcRenderer.on('personal-agent:agent-stream', wrapped)
+        return () => {
+          ipcRenderer.removeListener('personal-agent:agent-stream', wrapped)
         }
       }
     })

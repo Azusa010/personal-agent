@@ -1,4 +1,10 @@
-import type { ERROR_CODE, PdfEntry, RunTaskResult, SummaryFact } from '@personal-agent/protocol'
+import type {
+  AgentStreamParams,
+  ERROR_CODE,
+  PdfEntry,
+  RunTaskResult,
+  SummaryFact
+} from '@personal-agent/protocol'
 import type { RUNTIME_ERROR_CODE } from '../main/runtime/error-code'
 import type { SETTINGS_ERROR_CODE } from '../main/settings/error-code'
 import type {
@@ -22,6 +28,8 @@ export type { ExecutionEventRecord, PlanRecord, PlanStep, TaskRecord, TaskStatus
 export type { PermissionDecision, PermissionRecord, PermissionViewState }
 
 export type { PermissionNotice }
+
+export type AgentStreamNotice = AgentStreamParams
 
 export type RuntimeState = 'stopped' | 'starting' | 'ready' | 'crashed'
 

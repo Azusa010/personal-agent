@@ -15,6 +15,7 @@ import {
   type ModelSettingsStore,
   type SecretCodec
 } from '../settings/model-settings'
+import { publishAgentStream } from './stream-fanout'
 
 export type { RuntimeState, RuntimeStatus }
 let supervisor: PythonSupervisor | null = null
@@ -166,6 +167,8 @@ export async function startRuntime(): Promise<void> {
   supervisor.on('stderr', (chunk: string) => {
     if (is.dev) process.stderr.write(`[python] ${chunk}`)
   })
+
+  supervisor.on('agent.stream', publishAgentStream)
 
   try {
     supervisor.start()
