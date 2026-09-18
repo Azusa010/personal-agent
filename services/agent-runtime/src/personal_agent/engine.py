@@ -35,6 +35,7 @@ from personal_agent.protocol.models import (
     RunTaskEvent,
     RunTaskFailed,
 )
+from personal_agent.stream import StreamSink
 from personal_agent.summary import (
     EXTRACT_PDF_CAPABILITY,
     SummaryRejected,
@@ -96,11 +97,13 @@ class AgentEngine:
         channel: HostChannel,
         context: ContextManager,
         budget: Budget | None = None,
+        stream: StreamSink | None = None,
     ) -> None:
         self._model = model
         self._channel = channel
         self._context = context
         self._budget = budget if budget is not None else Budget()
+        self._stream = stream
 
     def run(
         self, goal: str, visibleCapabilities: Sequence[str]
@@ -211,15 +214,21 @@ class AgentEngine:
         self, events: list[RunTaskEvent], event_type: str, payload: dict[str, Any]
     ) -> None:
         """事件构造集中在这一个地方，run() 里不要直接 new RunTaskEvent。"""
-        events.append(
-            RunTaskEvent(type=event_type, payload=payload, occurredAt=now_occurred_at())
+        event = RunTaskEvent(
+            type=event_type, payload=payload, occurredAt=now_occurred_at()
         )
+        events.append(event)
+        if self._stream is not None:
+            self._stream.event(event)
 
     def _budget_exceeded(self, steps: int, toolCalls: int) -> bool:
         return steps >= self._budget.maxSteps or toolCalls >= self._budget.maxToolCalls
 
     def _decide(self, goal: str, visibleCapabilities: Sequence[str]) -> ModelDecision:
-        return self._model.decide(self._context.build(goal, visibleCapabilities))
+        context = self._context.build(goal, visibleCapabilities)
+        if self._stream is None:
+            return self._model.decide(context)
+        return self._model.decide(context, self._stream.thinking)
 
     def _plan_requires_grounded_summary(self) -> bool:
         """计划里有「提取 PDF」这一步，摘要就必须可溯源到页面。
@@ -258,4 +267,3 @@ class AgentEngine:
             ok=result.ok,
             payload=dict(result.model_extra or {}),
         )
-

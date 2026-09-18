@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "method": "agent.stream",
+  "params": {
+    "kind": "thinking",
+    "taskId": "3f6a9c1e-8b4d-4f2a-9c7e-1d5b8a2e4f60",
+    "delta": "先列出 Downloads 里有哪些 PDF，再决定提取哪一份。"
+  }
+}

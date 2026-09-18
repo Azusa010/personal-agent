@@ -23,7 +23,7 @@ from openai.types.responses import ResponseTextConfigParam
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from personal_agent.live_model import TOOL_SPECS
-from personal_agent.model_gateway import ModelCallFailed
+from personal_agent.model_gateway import ModelCallFailed, ThinkingSink
 from personal_agent.planning import PlanStep
 from personal_agent.protocol.models import Turn
 
@@ -127,6 +127,7 @@ class LivePlanner:
         goal: str,
         visibleCapabilities: Sequence[str],
         history: Sequence[Turn] = (),
+        on_thinking: ThinkingSink | None = None,
     ):
         client = self._client_or_create()
         text: ResponseTextConfigParam = {

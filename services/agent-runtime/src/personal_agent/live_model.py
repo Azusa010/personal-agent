@@ -27,6 +27,7 @@ from personal_agent.model_gateway import (
     ModelContext,
     ModelDecision,
     ModelUsage,
+    ThinkingSink,
 )
 
 log = logging.getLogger("personal_agent")
@@ -96,7 +97,7 @@ class LiveModel:
         self._output_tokens = 0
         self._calls = 0
 
-    def decide(self, context: ModelContext) -> ModelDecision:
+    def decide(self, context: ModelContext,on_thinking: ThinkingSink | None = None,) -> ModelDecision:
         client = self._client_or_create()
         try:
             response = client.responses.create(

@@ -32,6 +32,7 @@ import {
   NotificationSendResult,
 } from "../schemas/notification.js";
 import {
+  AgentStreamNotification,
   MakePlanParams,
   MakePlanRequest,
   MakePlanResponse,
@@ -252,6 +253,22 @@ const legalCases = [
     payload: null,
     field: "result",
   },
+  // agent.stream（TASK-033）：Python → TS 的单向通知，无 id。
+  // 与 services/agent-runtime/tests/test_protocol_fixtures.py 逐条对应。
+  // payload 层写 null：AgentStreamNotification.params 已经是判别联合，
+  // envelope 校验会递归到 event / delta。
+  {
+    file: "agent-stream.event.notification.json",
+    envelope: AgentStreamNotification,
+    payload: null,
+    field: "params",
+  },
+  {
+    file: "agent-stream.thinking.notification.json",
+    envelope: AgentStreamNotification,
+    payload: null,
+    field: "params",
+  },
 ];
 
 describe("协议契约：合法 Fixture 必须被接受", () => {
@@ -416,8 +433,12 @@ describe("Turn 与 history 约束（TASK-032）", () => {
   ];
 
   it("合法 turn 被接受：role 只有 user / assistant", () => {
-    expect(() => Turn.parse({ role: "user", text: "把它移到 Reading" })).not.toThrow();
-    expect(() => Turn.parse({ role: "assistant", text: "已移好" })).not.toThrow();
+    expect(() =>
+      Turn.parse({ role: "user", text: "把它移到 Reading" }),
+    ).not.toThrow();
+    expect(() =>
+      Turn.parse({ role: "assistant", text: "已移好" }),
+    ).not.toThrow();
   });
 
   it("role 出了枚举被拒", () => {
@@ -430,7 +451,9 @@ describe("Turn 与 history 约束（TASK-032）", () => {
   });
 
   it("history 可选：两个 params 都不强制（第一轮没有历史）", () => {
-    expect(() => MakePlanParams.parse({ taskId: "t-1", goal: "g" })).not.toThrow();
+    expect(() =>
+      MakePlanParams.parse({ taskId: "t-1", goal: "g" }),
+    ).not.toThrow();
     expect(() =>
       RunTaskParams.parse({ taskId: "t-1", goal: "g", plan: PLAN }),
     ).not.toThrow();
@@ -468,11 +491,15 @@ describe("RunTaskResult.completed 约束", () => {
   it("缺 reply 被拒", () => {
     // reply 是 UI 上助手气泡的正文，缺了它 completed 就没有可展示的回答。
     const { reply: _omitted, ...result } = completedResponse().result;
-    expect(() => RunTaskResponse.parse({ ...completedResponse(), result })).toThrow();
+    expect(() =>
+      RunTaskResponse.parse({ ...completedResponse(), result }),
+    ).toThrow();
   });
 
   it("空 reply 被拒", () => {
-    expect(() => RunTaskResponse.parse(completedResponse({ reply: "" }))).toThrow();
+    expect(() =>
+      RunTaskResponse.parse(completedResponse({ reply: "" })),
+    ).toThrow();
   });
 });
 
@@ -711,7 +738,11 @@ describe("InitializeParams 的能力清单约束", () => {
 
 describe("MakePlan 的约束", () => {
   it("MakePlanParams 字段清单钉死", () => {
-    expect(Object.keys(MakePlanParams.shape)).toEqual(["taskId", "goal","history"]);
+    expect(Object.keys(MakePlanParams.shape)).toEqual([
+      "taskId",
+      "goal",
+      "history",
+    ]);
   });
 
   it("PlanStepDto 字段清单钉死", () => {

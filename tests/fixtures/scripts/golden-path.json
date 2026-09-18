@@ -3,19 +3,22 @@
     "kind": "tool_call",
     "callId": "c-1",
     "capability": "filesystem.list",
-    "arguments": { "rootId": "downloads" }
+    "arguments": { "rootId": "downloads" },
+    "thinking": "先列出 Downloads 里有哪些 PDF，再决定整理哪一份。"
   },
   {
     "kind": "tool_call",
     "callId": "c-2",
     "capability": "document.extract_pdf",
-    "arguments": { "path": "{{DOWNLOADS_ROOT}}/three-page-text.pdf" }
+    "arguments": { "path": "{{DOWNLOADS_ROOT}}/three-page-text.pdf" },
+    "thinking": "挑中了 three-page-text.pdf，先把每页文本提出来——后面写摘要要用真实页码。"
   },
   {
     "kind": "tool_call",
     "callId": "c-3",
     "capability": "filesystem.create_dir",
-    "arguments": { "path": "{{DOWNLOADS_ROOT}}/Reading" }
+    "arguments": { "path": "{{DOWNLOADS_ROOT}}/Reading" },
+    "thinking": "建一个 Reading 目录当归档目标；这一步会让用户看到批准面板。"
   },
   {
     "kind": "tool_call",
@@ -24,7 +27,8 @@
     "arguments": {
       "source": "{{DOWNLOADS_ROOT}}/three-page-text.pdf",
       "target": "{{DOWNLOADS_ROOT}}/Reading/three-page-text.pdf"
-    }
+    },
+    "thinking": "把整理好的这份移进 Reading，同样要用户先批准。"
   },
   {
     "kind": "tool_call",
@@ -33,7 +37,8 @@
     "arguments": {
       "remindAt": "{{REMIND_AT}}",
       "message": "读一份刚整理好的 PDF：three-page-text.pdf"
-    }
+    },
+    "thinking": "最后建一条一次性阅读提醒，时间放在演示等得到的范围内。"
   },
   {
     "kind": "summary",
@@ -41,6 +46,7 @@
     "facts": [
       { "text": "第一页的正文是 PersonalAgent fixture page one", "pageRefs": [1] },
       { "text": "第二页与第三页分别是 page two 和 page three", "pageRefs": [2, 3] }
-    ]
+    ],
+    "thinking": "材料齐了：先说清做了什么，再把两条带页码的结论放进 facts。"
   }
 ]

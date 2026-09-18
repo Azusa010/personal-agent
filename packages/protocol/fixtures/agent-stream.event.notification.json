@@ -1,0 +1,17 @@
+{
+  "jsonrpc": "2.0",
+  "method": "agent.stream",
+  "params": {
+    "kind": "event",
+    "taskId": "3f6a9c1e-8b4d-4f2a-9c7e-1d5b8a2e4f60",
+    "event": {
+      "type": "tool_called",
+      "payload": {
+        "callId": "call-1",
+        "capability": "filesystem.list",
+        "arguments": { "rootId": "downloads" }
+      },
+      "occurredAt": "2026-09-18T09:00:00.123Z"
+    }
+  }
+}

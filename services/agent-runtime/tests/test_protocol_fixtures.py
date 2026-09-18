@@ -5,6 +5,7 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from personal_agent.protocol.models import (
+    AgentStreamNotification,
     CapabilityFailure,
     DocumentExtractPdfParams,
     DocumentExtractPdfResult,
@@ -233,6 +234,22 @@ def _pick(raw: dict, path: str):
             RunTaskResponse,
             None,
             "result",
+        ),
+        # agent.stream（TASK-033）：Python → TS 的单向通知，无 id。
+        # 与 packages/protocol/tests/envelope.test.ts 的 legalCases 逐条对应。
+        # payload 层写 None：AgentStreamNotification.params 已经是判别联合，
+        # envelope 校验会递归到 event / delta。
+        (
+            "agent-stream.event.notification.json",
+            AgentStreamNotification,
+            None,
+            "params",
+        ),
+        (
+            "agent-stream.thinking.notification.json",
+            AgentStreamNotification,
+            None,
+            "params",
         ),
     ],
 )

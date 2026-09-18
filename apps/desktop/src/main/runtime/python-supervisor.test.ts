@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { existsSync } from 'node:fs'
 import { RUNTIME_ERROR_CODE } from './error-code'
-import { ERROR_CODE } from '@personal-agent/protocol'
+import { AGENT_STREAM, ERROR_CODE, type AgentStreamParams } from '@personal-agent/protocol'
 
 // 假子进程
 function makeFakeChild(): {
@@ -564,5 +564,131 @@ describe('PythonSupervisor ~ 片 2b (host.execute_tool)', () => {
       await new Promise((r) => setTimeout(r, 350))
       expect(written).toHaveLength(2)
     })
+  })
+})
+
+describe('PythonSupervisor ~ agent.stream 通知（TASK-033）', () => {
+  /** 造一条 Python 发来的实时通知。paramsOver 用来制造非法输入。 */
+  function streamLine(
+    paramsOver: Record<string, unknown> = {},
+    over: Record<string, unknown> = {}
+  ): string {
+    return (
+      JSON.stringify({
+        jsonrpc: '2.0',
+        method: AGENT_STREAM,
+        params: {
+          kind: 'thinking',
+          taskId: 't-1',
+          delta: '先列目录',
+          ...paramsOver
+        },
+        ...over
+      }) + '\n'
+    )
+  }
+
+  function makeStreamSup(): {
+    sup: PythonSupervisor
+    written: string[]
+    stdout: PassThrough
+  } {
+    const fake = makeFakeChild()
+    const sup = new PythonSupervisor({
+      command: 'fake',
+      args: [],
+      capabilities: [],
+      spawnFn: () => fake.child,
+      defaultTimeoutMs: 5000
+    })
+    sup.start()
+    return { sup, written: fake.written, stdout: fake.stdout }
+  }
+
+  /** 收集收到的通知。返回数组本身就是断言目标。 */
+  function collect(sup: PythonSupervisor): AgentStreamParams[] {
+    const received: AgentStreamParams[] = []
+    sup.on('agent.stream', (notice: AgentStreamParams) => received.push(notice))
+    return received
+  }
+
+  async function stateOf(p: Promise<unknown>): Promise<string> {
+    return Promise.race([
+      p.then(
+        () => 'resolved',
+        () => 'rejected'
+      ),
+      new Promise<string>((r) => setTimeout(() => r('pending'), 100))
+    ])
+  }
+
+  it('thinking 通知被解析成 params 后 emit，不回包也不写 stdin', async () => {
+    const { sup, written, stdout } = makeStreamSup()
+    const received = collect(sup)
+
+    stdout.push(streamLine())
+
+    await vi.waitFor(() => expect(received).toHaveLength(1))
+    expect(received[0]).toEqual({ kind: 'thinking', taskId: 't-1', delta: '先列目录' })
+    // 通知没有 id，拿它当 host 请求回一个 error 会把 stdout 写脏，
+    // Python 主循环下一轮读到就会白跑一次。
+    expect(written).toHaveLength(0)
+  })
+
+  it('event 通知原样透传，RunTaskEvent 三个字段一个不少', async () => {
+    const { sup, stdout } = makeStreamSup()
+    const received = collect(sup)
+
+    stdout.push(
+      streamLine({
+        kind: 'event',
+        event: {
+          type: 'tool_called',
+          payload: { callId: 'call-1', capability: 'filesystem.list' },
+          occurredAt: '2026-09-18T09:00:00.123Z'
+        },
+        delta: undefined
+      })
+    )
+
+    await vi.waitFor(() => expect(received).toHaveLength(1))
+    expect(received[0]).toEqual({
+      kind: 'event',
+      taskId: 't-1',
+      event: {
+        type: 'tool_called',
+        payload: { callId: 'call-1', capability: 'filesystem.list' },
+        occurredAt: '2026-09-18T09:00:00.123Z'
+      }
+    })
+    // delta: undefined 会被 JSON.stringify 剔掉，正好构成「event 分支不带 delta」。
+    expect(JSON.stringify(received[0])).not.toContain('delta')
+  })
+
+  it('通知不会误 settle TS 自己的 pending（id 撞车也不行）', async () => {
+    // 与 host 请求那条对称：routeLine 的分支必须在 settle 之前 return。
+    const { sup, written, stdout } = makeStreamSup()
+
+    const ping = sup.request('system.ping')
+    const tsId = (JSON.parse(written[0]) as { id: string }).id
+
+    stdout.push(streamLine({}, { id: tsId }))
+
+    expect(await stateOf(ping)).toBe('pending')
+  })
+
+  it('不合法的通知只记 stderr：不抛、不 emit、不回包', async () => {
+    const { sup, written, stdout } = makeStreamSup()
+    const chunks: string[] = []
+    sup.on('stderr', (chunk: string) => chunks.push(chunk))
+    const received = collect(sup)
+
+    stdout.push(streamLine({ delta: '' })) // 空增量：契约层 min_length=1
+    stdout.push(streamLine({ kind: 'final' })) // 未知 kind
+
+    await vi.waitFor(() => expect(chunks).toHaveLength(2))
+    expect(chunks.every((chunk) => chunk.includes(AGENT_STREAM))).toBe(true)
+    expect(received).toHaveLength(0)
+    expect(written).toHaveLength(0)
   })
 })

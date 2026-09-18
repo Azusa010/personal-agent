@@ -7,7 +7,7 @@ export const AGENT_MAKE_PLAN = "agent.make_plan";
 export const Turn = z.object({
   role: z.enum(["user", "assistant"]),
   text: z.string().min(1),
-})
+});
 
 export type Turn = z.infer<typeof Turn>;
 
@@ -149,3 +149,37 @@ export const RunTaskResponse = z
 
 export type RunTaskRequest = z.infer<typeof RunTaskRequest>;
 export type RunTaskResponse = z.infer<typeof RunTaskResponse>;
+
+// ------ agent.stream -------
+export const AGENT_STREAM = "agent.stream";
+
+export const AgentStreamEvent = z.object({
+  kind: z.literal("event"),
+  taskId: z.string().min(1),
+  event: RunTaskEvent,
+});
+
+
+export const AgentStreamThinking = z.object({
+  kind: z.literal("thinking"),
+  taskId: z.string().min(1),
+  // 增量语义：这些 delta 首尾相接才是完整文本
+  delta: z.string().min(1),
+});
+
+export const AgentStreamParams = z.discriminatedUnion("kind", [
+  AgentStreamEvent,
+  AgentStreamThinking,
+]);
+
+export const AgentStreamNotification = z.object({
+  jsonrpc: z.literal("2.0"),
+  method: z.literal(AGENT_STREAM),
+  params: AgentStreamParams,
+});
+
+export type AgentStreamEvent = z.infer<typeof AgentStreamEvent>;
+export type AgentStreamThinking = z.infer<typeof AgentStreamThinking>;
+export type AgentStreamParams = z.infer<typeof AgentStreamParams>;
+export type AgentStreamNotification = z.infer<typeof AgentStreamNotification>;
+

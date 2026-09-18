@@ -29,6 +29,7 @@ from personal_agent.protocol.models import (
     ServerInfo,
 )
 from personal_agent.scripted_model import ScriptedModel, ScriptLoadError, load_script
+from personal_agent.stream import StreamEmitter
 
 SERVER_INFO = ServerInfo(name="personal-agent-runtime", version="0.1.0")
 
@@ -65,6 +66,15 @@ class RuntimeDeps:
     model_factory: Callable[[], ModelGateway] | None = None
     planner_factory: Callable[[], Planner] = DeterministicPlanner
     capabilities: list[CapabilityDescriptor] = field(default_factory=list)
+    # 出口 stdout
+    notify: Callable[[dict], None] | None = None
+
+
+def _stream_emitter(deps: RuntimeDeps | None, task_id: str) -> StreamEmitter | None:
+    """没接实时通道就返回 None——「不接线 = 一条通知都不发」。"""
+    if deps is None or deps.notify is None:
+        return None
+    return StreamEmitter(deps.notify, task_id)
 
 
 def build_error(req_id, code: str, message: str) -> dict:
@@ -141,8 +151,12 @@ def handle_make_plan(req: Request, deps: RuntimeDeps | None = None) -> dict:
 
     visible = [c.name for c in deps.capabilities] if deps is not None else []
     planner = deps.planner_factory() if deps is not None else DeterministicPlanner()
+    emitter = _stream_emitter(deps, params.taskId)
     try:
-        steps = planner.plan(params.goal, visible, params.history)
+        if emitter is None:
+            steps = planner.plan(params.goal, visible, params.history)
+        else:
+            steps = planner.plan(params.goal, visible, params.history, emitter.thinking)
     except PlanError as e:
         return build_error(req.id, PLAN_NOT_BUILDABLE, str(e))
     except ModelCallFailed as e:
@@ -171,9 +185,12 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
             req.id, RUNTIME_MODEL_NOT_CONFIGURED, "运行时未配置模型，无法执行任务"
         )
 
-    context = ContextManager(plan=params.plan,history=params.history)
+    context = ContextManager(plan=params.plan, history=params.history)
     engine = AgentEngine(
-        model=deps.model_factory(), channel=deps.channel, context=context
+        model=deps.model_factory(),
+        channel=deps.channel,
+        context=context,
+        stream=_stream_emitter(deps, params.taskId),
     )
     visible_capabilities = [c.name for c in deps.capabilities]
     try:
@@ -255,6 +272,7 @@ def run(channel: HostChannel | None = None) -> None:
         channel=ch,
         model_factory=resolve_model_factory(),
         planner_factory=resolve_planner_factory(),
+        notify=write,
     )
     log.info("runtime started")
     while True:

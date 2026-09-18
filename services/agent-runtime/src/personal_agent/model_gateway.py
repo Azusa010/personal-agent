@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import Annotated, Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
@@ -17,6 +18,9 @@ class Observation(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
+ThinkingSink = Callable[[str], None]
+
+
 class ModelContext(BaseModel):
     """模型上下文"""
 
@@ -34,6 +38,7 @@ class ToolCallDecision(BaseModel):
     callId: str = Field(min_length=1)
     capability: str = Field(min_length=1)
     arguments: dict[str, Any] = Field(default_factory=dict)
+    thinking: str | None = None
 
 
 class SummaryDecision(BaseModel):
@@ -46,6 +51,7 @@ class SummaryDecision(BaseModel):
     kind: Literal["summary"]
     reply: str = Field(min_length=1)
     facts: list[dict[str, Any]] = Field(default_factory=list)
+    thinking: str | None = None
 
 
 ModelDecision = Annotated[
@@ -90,8 +96,10 @@ class ScriptExhausted(Exception):
 class ModelGateway(Protocol):
     """模型抽象端口"""
 
-    def decide(self, context: ModelContext) -> ModelDecision:
-        pass
+    def decide(
+        self, context: ModelContext, on_thinking: ThinkingSink | None = None
+    ) -> ModelDecision:
+        """给出下一步决策。给了 on_thinking 就边想边把摘要吐给它。"""
 
 
 @runtime_checkable

@@ -374,3 +374,34 @@ class MakePlanResponse(BaseModel):
         if (self.result is None) == (self.error is None):
             raise ValueError("result and error must not be present at the same time")
         return self
+
+# ---- agent.stream：TS → Python 触发一个事件 ----
+AGENT_STREAM = "agent.stream"
+
+class AgentStreamEvent(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    kind: Literal["event"]
+    taskId: str = Field(min_length=1)
+    event: RunTaskEvent
+
+
+class AgentStreamThinking(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    kind: Literal["thinking"]
+    taskId: str = Field(min_length=1)
+    delta: str = Field(min_length=1)
+
+
+AgentStreamParams = Annotated[
+    AgentStreamEvent | AgentStreamThinking, Field(discriminator="kind")
+]
+
+
+class AgentStreamNotification(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    jsonrpc: Literal["2.0"]
+    method: Literal["agent.stream"]
+    params: AgentStreamParams
