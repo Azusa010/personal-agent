@@ -15,7 +15,13 @@ import { MessageStream } from './components/MessageStream'
 import { PermissionDialog } from './components/PermissionDialog'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
-import { formatOccurredAt, timelineToMarkdown } from './view-model'
+import {
+  applyStreamNotice,
+  createInitialStreamState,
+  formatOccurredAt,
+  type LiveStreamState,
+  timelineToMarkdown
+} from './view-model'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 function App(): React.JSX.Element {
@@ -31,6 +37,7 @@ function App(): React.JSX.Element {
   const [messagesError, setMessagesError] = useState<string | null>(null)
   const [pendingText, setPendingText] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
+  const [streamState, setStreamState] = useState<LiveStreamState | null>(null)
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null)
   const [indexedCount, setIndexedCount] = useState<number | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -103,6 +110,13 @@ function App(): React.JSX.Element {
     return unsubscribe
   }, [])
 
+  useEffect(() => {
+    const unsubscribe = window.personalAgent.onAgentStream((notice) => {
+      setStreamState((current) => applyStreamNotice(current, notice))
+    })
+    return unsubscribe
+  }, [])
+
   const handleDecide = async (decision: PermissionDecision): Promise<void> => {
     const target = pendingPermission
     if (target === null) return
@@ -143,6 +157,7 @@ function App(): React.JSX.Element {
   const handleSend = async (text: string): Promise<void> => {
     setRunning(true)
     setPendingText(text)
+    setStreamState(createInitialStreamState())
     let result: SendMessageIpcResult
     try {
       result = await window.personalAgent.sendMessage({
@@ -157,9 +172,11 @@ function App(): React.JSX.Element {
         message: err instanceof Error ? err.message : String(err),
         conversationId: selectedConversationId ?? ''
       }
+    } finally {
+      setRunning(false)
+      setPendingText(null)
+      setStreamState(null)
     }
-    setRunning(false)
-    setPendingText(null)
     queryClient.invalidateQueries({ queryKey: ['conversations'] })
     // 不管这轮成没成，会话里都留下了痕迹（user 消息 + 承载结局的 assistant 消息），重读它。
     setSelectedConversationId(result.conversationId)
@@ -242,6 +259,7 @@ function App(): React.JSX.Element {
           pendingText={pendingText}
           messagesError={messagesError}
           feedback={feedback}
+          streamState={streamState}
         />
 
         <Composer

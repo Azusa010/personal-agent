@@ -1,3 +1,4 @@
+import { RunTaskEvent } from '@personal-agent/protocol'
 import type {
   ExecutionEventRecord,
   PlanRecord,
@@ -5,7 +6,8 @@ import type {
   RunTaskIpcResult,
   SummaryFact,
   TaskStatus,
-  TaskTimeline
+  TaskTimeline,
+  AgentStreamNotice
 } from '../../shared/ipc-contract'
 
 // ---- 一、跑任务结果的三态文案 ----
@@ -408,4 +410,40 @@ export function timelineToMarkdown(timeline: TaskTimeline): string {
     lines.push('')
   }
   return lines.join('\n')
+}
+
+// 9.实时流状态与规约
+export interface LiveStreamState {
+  taskId: string | null
+  events: RunTaskEvent[]
+  thinking: string
+}
+export function createInitialStreamState(): LiveStreamState {
+  return { taskId: null, events: [], thinking: '' }
+}
+
+// 实时流状态规约
+export function applyStreamNotice(
+  state: LiveStreamState | null,
+  notice: AgentStreamNotice
+): LiveStreamState | null {
+  if (state === null) {
+    return null
+  }
+  if (state.taskId === null) {
+    return {
+      ...state,
+      taskId: notice.taskId,
+      thinking: notice.kind === 'thinking' ? notice.delta : '',
+      events: notice.kind === 'event' ? [notice.event] : []
+    }
+  } else if (state.taskId !== notice.taskId) {
+    return state
+  }
+  if (notice.kind === 'thinking') {
+    return { ...state, thinking: state.thinking + notice.delta }
+  } else if (notice.kind === 'event') {
+    return { ...state, events: [...state.events, notice.event] }
+  }
+  return state
 }

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type {
+  AgentStreamNotice,
   ExecutionEventRecord,
   PlanRecord,
   PlanStep,
@@ -12,6 +13,8 @@ import {
   EVENT_LABELS,
   PERMISSION_STATE_LABELS,
   STATUS_LABELS,
+  applyStreamNotice,
+  createInitialStreamState,
   describeEvent,
   describePlanSteps,
   describeReminderPreview,
@@ -21,7 +24,8 @@ import {
   extractReply,
   formatOccurredAt,
   formatRemaining,
-  summarizePayload
+  summarizePayload,
+  type LiveStreamState
 } from './view-model'
 
 const AT = '2026-09-07T08:00:01.000Z'
@@ -868,5 +872,167 @@ describe('extractReply', () => {
     ]
 
     expect(extractReply(events)).toBe('最终的')
+  })
+})
+
+describe('createInitialStreamState', () => {
+  it('返回空的实时流初始状态（taskId 为 null，events 为空，thinking 为空串）', () => {
+    expect(createInitialStreamState()).toEqual({
+      taskId: null,
+      events: [],
+      thinking: ''
+    })
+  })
+})
+
+describe('applyStreamNotice', () => {
+  it('state 为 null 时原样返回 null（轮次未开始或已结束，不复活实时区）', () => {
+    const notice: AgentStreamNotice = {
+      kind: 'thinking',
+      taskId: 't-1',
+      delta: '思考中'
+    }
+    expect(applyStreamNotice(null, notice)).toBeNull()
+  })
+
+  it('首个 thinking 通知确立 taskId 并追加思维增量', () => {
+    const initial = createInitialStreamState()
+    const next = applyStreamNotice(initial, {
+      kind: 'thinking',
+      taskId: 't-100',
+      delta: '先列出目录'
+    })
+
+    expect(next).toEqual({
+      taskId: 't-100',
+      events: [],
+      thinking: '先列出目录'
+    })
+  })
+
+  it('首个 event 通知确立 taskId 并追加事件', () => {
+    const initial = createInitialStreamState()
+    const event = {
+      type: 'task_started',
+      payload: { goal: '整理文件' },
+      occurredAt: '2026-09-18T10:00:00.000Z'
+    }
+    const next = applyStreamNotice(initial, {
+      kind: 'event',
+      taskId: 't-200',
+      event
+    })
+
+    expect(next).toEqual({
+      taskId: 't-200',
+      events: [event],
+      thinking: ''
+    })
+  })
+
+  it('taskId 不匹配时丢弃通知，返回原 state 引用', () => {
+    const current: LiveStreamState = {
+      taskId: 't-current',
+      events: [],
+      thinking: '已有一些思考'
+    }
+    const foreignNotice: AgentStreamNotice = {
+      kind: 'thinking',
+      taskId: 't-other',
+      delta: '不相关的思考'
+    }
+
+    const next = applyStreamNotice(current, foreignNotice)
+    expect(next).toBe(current)
+  })
+
+  it('连续 thinking delta 累加成完整文本，不影响 events', () => {
+    let state: LiveStreamState | null = createInitialStreamState()
+    state = applyStreamNotice(state, { kind: 'thinking', taskId: 't-1', delta: '先' })
+    state = applyStreamNotice(state, { kind: 'thinking', taskId: 't-1', delta: '列目录' })
+    state = applyStreamNotice(state, { kind: 'thinking', taskId: 't-1', delta: '再提取' })
+
+    expect(state).toEqual({
+      taskId: 't-1',
+      events: [],
+      thinking: '先列目录再提取'
+    })
+  })
+
+  it('连续 event 依序追加，保留完整结构，不影响 thinking', () => {
+    let state: LiveStreamState | null = createInitialStreamState()
+    const ev1 = { type: 'task_started', payload: {}, occurredAt: '2026-09-18T10:00:00.000Z' }
+    const ev2 = {
+      type: 'tool_called',
+      payload: { callId: 'c-1' },
+      occurredAt: '2026-09-18T10:00:01.000Z'
+    }
+
+    state = applyStreamNotice(state, { kind: 'event', taskId: 't-1', event: ev1 })
+    state = applyStreamNotice(state, { kind: 'event', taskId: 't-1', event: ev2 })
+
+    expect(state).toEqual({
+      taskId: 't-1',
+      events: [ev1, ev2],
+      thinking: ''
+    })
+  })
+
+  it('thinking 与 event 交替到达，各自追加互不干扰', () => {
+    let state: LiveStreamState | null = createInitialStreamState()
+    const ev1 = { type: 'task_started', payload: {}, occurredAt: '2026-09-18T10:00:00.000Z' }
+    const ev2 = {
+      type: 'tool_called',
+      payload: { callId: 'c-1' },
+      occurredAt: '2026-09-18T10:00:01.000Z'
+    }
+
+    state = applyStreamNotice(state, { kind: 'thinking', taskId: 't-1', delta: '第一步：' })
+    state = applyStreamNotice(state, { kind: 'event', taskId: 't-1', event: ev1 })
+    state = applyStreamNotice(state, { kind: 'thinking', taskId: 't-1', delta: '开始调用工具' })
+    state = applyStreamNotice(state, { kind: 'event', taskId: 't-1', event: ev2 })
+
+    expect(state).toEqual({
+      taskId: 't-1',
+      events: [ev1, ev2],
+      thinking: '第一步：开始调用工具'
+    })
+  })
+
+  it('纯函数：不修改入参 state 与原 events 数组', () => {
+    const originalEvents = [
+      { type: 'task_started', payload: {}, occurredAt: '2026-09-18T10:00:00.000Z' }
+    ]
+    const original: LiveStreamState = {
+      taskId: 't-1',
+      events: originalEvents,
+      thinking: '初始'
+    }
+
+    const next = applyStreamNotice(original, {
+      kind: 'event',
+      taskId: 't-1',
+      event: { type: 'tool_called', payload: {}, occurredAt: '2026-09-18T10:00:01.000Z' }
+    })
+
+    expect(original.events).toHaveLength(1)
+    expect(original.events).toBe(originalEvents)
+    expect(original.thinking).toBe('初始')
+    expect(next?.events).toHaveLength(2)
+  })
+
+  it('未知 kind 的通知被丢弃，返回原 state 引用', () => {
+    const current: LiveStreamState = {
+      taskId: 't-1',
+      events: [],
+      thinking: '思考'
+    }
+    const unknownNotice = {
+      kind: 'unknown_kind',
+      taskId: 't-1'
+    } as unknown as AgentStreamNotice
+
+    const next = applyStreamNotice(current, unknownNotice)
+    expect(next).toBe(current)
   })
 })
