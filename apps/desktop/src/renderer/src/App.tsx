@@ -16,7 +16,7 @@ import { PermissionDialog } from './components/PermissionDialog'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
 import { formatOccurredAt, timelineToMarkdown } from './view-model'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 function App(): React.JSX.Element {
   const { data: conversations = [] } = useQuery({
