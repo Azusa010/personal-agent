@@ -9,12 +9,20 @@ export const Turn = z.object({
   text: z.string().min(1),
 });
 
+export const ProfileDto = z.object({
+  name: z.string().min(1).max(40),
+  persona: z.string().max(2000),
+  reasoningSummary: z.boolean().optional(),
+});
+
 export type Turn = z.infer<typeof Turn>;
+export type ProfileDto = z.infer<typeof ProfileDto>;
 
 export const MakePlanParams = z.object({
   taskId: z.string().min(1),
   goal: z.string().min(1),
   history: z.array(Turn).optional(),
+  profile: ProfileDto.optional(),
 });
 
 // 计划里的一步。capability 可选：摘要那一步不经工具，由模型自己产出，
@@ -73,6 +81,7 @@ export const RunTaskParams = z.object({
   goal: z.string().min(1),
   plan: z.array(PlanStepDto).min(1),
   history: z.array(Turn).optional(),
+  profile: ProfileDto.optional(),
 });
 
 const OCCURRED_AT_PATTERN = new RegExp(

@@ -43,10 +43,42 @@ class FakeResponse:
         self.usage = usage
 
 
+class FakeStreamEvent:
+    def __init__(self, type: str, delta: str = "") -> None:
+        self.type = type
+        self.delta = delta
+
+
+class FakeStream:
+    def __init__(self, events: list[Any], final_response: Any) -> None:
+        self._events = events
+        self._final_response = final_response
+
+    def __iter__(self):
+        return iter(self._events)
+
+    def get_final_response(self) -> Any:
+        return self._final_response
+
+
+class FakeStreamManager:
+    def __init__(self, events: list[Any], final_response: Any) -> None:
+        self._events = events
+        self._final_response = final_response
+
+    def __enter__(self) -> FakeStream:
+        return FakeStream(self._events, self._final_response)
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        pass
+
+
 class FakeResponses:
-    def __init__(self, items: list[Any]):
+    def __init__(self, items: list[Any], stream_events: list[Any] | None = None):
         self._items = list(items)
         self.requests: list[dict[str, Any]] = []
+        self.stream_requests: list[dict[str, Any]] = []
+        self._stream_events = list(stream_events or [])
 
     def create(self, **kwargs: Any) -> Any:
         self.requests.append(kwargs)
@@ -55,10 +87,17 @@ class FakeResponses:
             raise item
         return item
 
+    def stream(self, **kwargs: Any) -> Any:
+        self.stream_requests.append(kwargs)
+        item = self._items.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return FakeStreamManager(self._stream_events, item)
+
 
 class FakeClient:
-    def __init__(self, items: list[Any]):
-        self.responses = FakeResponses(items)
+    def __init__(self, items: list[Any], stream_events: list[Any] | None = None):
+        self.responses = FakeResponses(items, stream_events)
 
 
 def tool_call_json(call_id="call-1", capability="filesystem.list", **arguments):
@@ -360,3 +399,66 @@ def test_model_without_a_client_builds_one_lazily(monkeypatch):
 def test_live_model_env_name_is_the_documented_one():
     # DEP-012 写死了这个变量名，TS 侧 eval 的 live 入口按它开启真模型。
     assert LIVE_MODEL_ENV == "OPENAI_MODEL"
+
+
+# ---- TASK-033 R4: responses.stream 与思维摘要 ----
+
+
+def test_decide_with_reasoning_summary_streams_thinking_deltas():
+    events = [
+        FakeStreamEvent("response.reasoning_summary_text.delta", delta="思考第1步"),
+        FakeStreamEvent("response.text.delta", delta="忽略正文增量"),
+        FakeStreamEvent("response.reasoning_summary_text.delta", delta="；思考第2步"),
+    ]
+    client = FakeClient(
+        [FakeResponse(tool_call_json(), FakeUsage(10, 5))],
+        stream_events=events,
+    )
+    model = LiveModel(model="gpt-test", client=client, reasoning_summary=True)
+
+    chunks: list[str] = []
+    decision = model.decide(context_with(), on_thinking=chunks.append)
+
+    assert isinstance(decision, ToolCallDecision)
+    assert len(client.responses.stream_requests) == 1
+    assert len(client.responses.requests) == 0
+    stream_req = client.responses.stream_requests[0]
+    assert stream_req["reasoning"] == {"summary": "auto"}
+    assert stream_req["store"] is False
+    assert chunks == ["思考第1步", "；思考第2步"]
+    assert model.usage_snapshot() is not None
+    assert model.usage_snapshot().inputTokens == 10
+    assert model.usage_snapshot().outputTokens == 5
+
+
+def test_decide_without_reasoning_summary_uses_create():
+    client = FakeClient([FakeResponse(tool_call_json())])
+    model = LiveModel(model="gpt-test", client=client, reasoning_summary=False)
+
+    decision = model.decide(context_with())
+
+    assert isinstance(decision, ToolCallDecision)
+    assert len(client.responses.requests) == 1
+    assert len(client.responses.stream_requests) == 0
+    assert "reasoning" not in client.responses.requests[0]
+
+
+def test_decide_stream_error_is_wrapped_as_model_call_failure():
+    client = FakeClient([RuntimeError("stream 400 Bad Request")])
+    model = LiveModel(model="gpt-test", client=client, reasoning_summary=True)
+
+    with pytest.raises(ModelCallFailed) as exc:
+        model.decide(context_with())
+
+    assert "stream 400 Bad Request" in exc.value.reason
+
+
+def test_decide_env_var_enables_reasoning_summary(monkeypatch):
+    monkeypatch.setenv("OPENAI_REASONING_SUMMARY", "1")
+    client = FakeClient([FakeResponse(tool_call_json())])
+    model = LiveModel(model="gpt-test", client=client)
+
+    model.decide(context_with())
+
+    assert len(client.responses.stream_requests) == 1
+    assert client.responses.stream_requests[0]["reasoning"] == {"summary": "auto"}

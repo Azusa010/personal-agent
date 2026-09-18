@@ -305,7 +305,6 @@ RunTaskResult = Annotated[
 ]
 
 
-
 class RunTaskResponse(BaseModel):
     jsonrpc: Literal["2.0"]
     id: str = Field(min_length=1)
@@ -331,10 +330,19 @@ class Turn(BaseModel):
     text: str = Field(min_length=1)
 
 
+class ProfileDto(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    name: str = Field(min_length=1, max_length=40)
+    persona: str = Field(default="", max_length=2000)
+    reasoningSummary: bool | None = None
+
+
 class MakePlanParams(BaseModel):
     taskId: str = Field(min_length=1)
     goal: str = Field(min_length=1)
     history: list[Turn] = Field(default_factory=list)
+    profile: ProfileDto | None = None
 
 
 class RunTaskParams(BaseModel):
@@ -342,6 +350,7 @@ class RunTaskParams(BaseModel):
     goal: str = Field(min_length=1)
     plan: list[PlanStepDto] = Field(min_length=1)
     history: list[Turn] = Field(default_factory=list)
+    profile: ProfileDto | None = None
 
 
 class RunTaskRequest(BaseModel):
@@ -375,8 +384,10 @@ class MakePlanResponse(BaseModel):
             raise ValueError("result and error must not be present at the same time")
         return self
 
+
 # ---- agent.stream：TS → Python 触发一个事件 ----
 AGENT_STREAM = "agent.stream"
+
 
 class AgentStreamEvent(BaseModel):
     model_config = ConfigDict(extra="allow")

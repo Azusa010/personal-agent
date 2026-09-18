@@ -38,6 +38,7 @@ import {
   MakePlanResponse,
   MakePlanResult,
   PlanStepDto,
+  ProfileDto,
   RunTaskEvent,
   RunTaskParams,
   RunTaskRequest,
@@ -225,6 +226,12 @@ const legalCases = [
     payload: MakePlanParams,
     field: "params",
   },
+  {
+    file: "agent-make-plan.profile.request.json",
+    envelope: MakePlanRequest,
+    payload: MakePlanParams,
+    field: "params",
+  },
   // result 已经是强类型的 MakePlanResult，envelope 校验会递归到 steps。
   {
     file: "agent-make-plan.response.json",
@@ -234,6 +241,12 @@ const legalCases = [
   },
   {
     file: "agent-run-task.request.json",
+    envelope: RunTaskRequest,
+    payload: RunTaskParams,
+    field: "params",
+  },
+  {
+    file: "agent-run-task.profile.request.json",
     envelope: RunTaskRequest,
     payload: RunTaskParams,
     field: "params",
@@ -409,20 +422,23 @@ describe("RunTaskParams 约束", () => {
       "goal",
       "plan",
       "history",
+      "profile",
     ]);
   });
 
-  it("字段清单钉死：history 可选（第一轮没有历史）", () => {
+  it("字段清单钉死：history 与 profile 可选（第一轮没有历史）", () => {
     expect(Object.keys(MakePlanParams.shape)).toEqual([
       "taskId",
       "goal",
       "history",
+      "profile",
     ]);
     expect(Object.keys(RunTaskParams.shape)).toEqual([
       "taskId",
       "goal",
       "plan",
       "history",
+      "profile",
     ]);
   });
 });
@@ -742,6 +758,7 @@ describe("MakePlan 的约束", () => {
       "taskId",
       "goal",
       "history",
+      "profile",
     ]);
   });
 
@@ -814,5 +831,46 @@ describe("MakePlan 的约束", () => {
     expect(() =>
       MakePlanResponse.parse({ jsonrpc: "2.0", id: "req-001" }),
     ).toThrow();
+  });
+});
+
+describe("ProfileDto 约束（TASK-034）", () => {
+  it("合法 profile 被接受", () => {
+    const valid = ProfileDto.parse({
+      name: "小助手",
+      persona: "你是一个热心的小助手",
+      reasoningSummary: true,
+    });
+    expect(valid.name).toBe("小助手");
+    expect(valid.persona).toBe("你是一个热心的小助手");
+    expect(valid.reasoningSummary).toBe(true);
+  });
+
+  it("reasoningSummary 可选", () => {
+    const valid = ProfileDto.parse({
+      name: "小助手",
+      persona: "",
+    });
+    expect(valid.reasoningSummary).toBeUndefined();
+  });
+
+  it("name 不能为空且不能超过 40 字符", () => {
+    expect(() => ProfileDto.parse({ name: "", persona: "x" })).toThrow();
+    expect(() => ProfileDto.parse({ name: "a".repeat(41), persona: "x" })).toThrow();
+    expect(() => ProfileDto.parse({ name: "a".repeat(40), persona: "x" })).not.toThrow();
+  });
+
+  it("persona 不能超过 2000 字符", () => {
+    expect(() => ProfileDto.parse({ name: "a", persona: "b".repeat(2001) })).toThrow();
+    expect(() => ProfileDto.parse({ name: "a", persona: "b".repeat(2000) })).not.toThrow();
+  });
+
+  it("MakePlanParams 与 RunTaskParams 可选携带合法 profile", () => {
+    const profile = { name: "助手", persona: "设定", reasoningSummary: false };
+    const plan = [{ description: "列出文件", capability: "filesystem.list" as const }];
+    const planParams = MakePlanParams.parse({ taskId: "t-1", goal: "g", profile });
+    expect(planParams.profile?.name).toBe("助手");
+    const runParams = RunTaskParams.parse({ taskId: "t-1", goal: "g", plan, profile });
+    expect(runParams.profile?.name).toBe("助手");
   });
 });

@@ -28,6 +28,7 @@ from personal_agent.protocol.models import (
     NotificationSendParams,
     NotificationSendResult,
     PlanStepDto,
+    ProfileDto,
     Request,
     Response,
     RunTaskEvent,
@@ -207,6 +208,12 @@ def _pick(raw: dict, path: str):
             MakePlanParams,
             "params",
         ),
+        (
+            "agent-make-plan.profile.request.json",
+            MakePlanRequest,
+            MakePlanParams,
+            "params",
+        ),
         # result 已经是强类型的 MakePlanResult，envelope 校验会递归到 steps。
         (
             "agent-make-plan.response.json",
@@ -216,6 +223,12 @@ def _pick(raw: dict, path: str):
         ),
         (
             "agent-run-task.request.json",
+            RunTaskRequest,
+            RunTaskParams,
+            "params",
+        ),
+        (
+            "agent-run-task.profile.request.json",
             RunTaskRequest,
             RunTaskParams,
             "params",
@@ -392,8 +405,14 @@ def test_run_task_params_constraints():
         )
 
     # 多出预算字段就意味着 TS 能调预算，UI 就得暴露旋钮并校验范围，而指导书
-    # 没这个需求。history 可选（TASK-032）：第一轮没有历史。
-    assert list(RunTaskParams.model_fields) == ["taskId", "goal", "plan", "history"]
+    # 没这个需求。history 与 profile 可选（TASK-032 / TASK-034）。
+    assert list(RunTaskParams.model_fields) == [
+        "taskId",
+        "goal",
+        "plan",
+        "history",
+        "profile",
+    ]
 
 
 def test_run_task_event_constraints():
@@ -518,8 +537,19 @@ def test_turn_and_history_constraints():
             }
         )
 
-    assert list(MakePlanParams.model_fields) == ["taskId", "goal", "history"]
-    assert list(RunTaskParams.model_fields) == ["taskId", "goal", "plan", "history"]
+    assert list(MakePlanParams.model_fields) == [
+        "taskId",
+        "goal",
+        "history",
+        "profile",
+    ]
+    assert list(RunTaskParams.model_fields) == [
+        "taskId",
+        "goal",
+        "plan",
+        "history",
+        "profile",
+    ]
 
 
 def test_run_task_envelope_constraints():
@@ -553,8 +583,13 @@ SUMMARY_STEP_DESCRIPTION = "基于页面内容生成带页码引用的摘要"
 
 
 def test_make_plan_constraints():
-    # history 可选（TASK-032）：第一轮没有历史；R8 只透传，R9 起规划器使用。
-    assert list(MakePlanParams.model_fields) == ["taskId", "goal", "history"]
+    # history 与 profile 可选（TASK-032 / TASK-034）。
+    assert list(MakePlanParams.model_fields) == [
+        "taskId",
+        "goal",
+        "history",
+        "profile",
+    ]
     assert list(PlanStepDto.model_fields) == ["description", "capability"]
 
     # capability 缺失合法：摘要那一步不经工具。
@@ -831,3 +866,47 @@ def test_notification_send_outcome_discriminated_union():
                 "sent": True,
             }
         )
+
+
+def test_profile_dto_constraints():
+    # 字段清单钉死：name, persona, reasoningSummary
+    assert list(ProfileDto.model_fields) == ["name", "persona", "reasoningSummary"]
+
+    p = ProfileDto.model_validate(
+        {"name": "小助手", "persona": "热情", "reasoningSummary": True}
+    )
+    assert p.name == "小助手"
+    assert p.persona == "热情"
+    assert p.reasoningSummary is True
+
+    # reasoningSummary 可选
+    p2 = ProfileDto.model_validate({"name": "小助手", "persona": ""})
+    assert p2.reasoningSummary is None
+
+    # name 不能为空且 <= 40
+    with pytest.raises(ValidationError):
+        ProfileDto.model_validate({"name": "", "persona": "x"})
+    with pytest.raises(ValidationError):
+        ProfileDto.model_validate({"name": "a" * 41, "persona": "x"})
+    ProfileDto.model_validate({"name": "a" * 40, "persona": "x"})
+
+    # persona <= 2000
+    with pytest.raises(ValidationError):
+        ProfileDto.model_validate({"name": "a", "persona": "b" * 2001})
+    ProfileDto.model_validate({"name": "a", "persona": "b" * 2000})
+
+    # MakePlanParams 与 RunTaskParams 可选带 profile
+    mp = MakePlanParams.model_validate(
+        {"taskId": "t-1", "goal": "g", "profile": {"name": "a", "persona": "b"}}
+    )
+    assert mp.profile is not None and mp.profile.name == "a"
+    rp = RunTaskParams.model_validate(
+        {
+            "taskId": "t-1",
+            "goal": "g",
+            "plan": [{"description": "d"}],
+            "profile": {"name": "a", "persona": "b"},
+        }
+    )
+    assert rp.profile is not None and rp.profile.name == "a"
+

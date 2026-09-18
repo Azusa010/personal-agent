@@ -1,6 +1,7 @@
 """live_planner.py：清洗规则、提示词渲染与失败路径。"""
 
 import json
+from typing import Any
 
 import pytest
 
@@ -28,22 +29,61 @@ class FakeResponse:
         self.output_text = text
 
 
-class FakeResponses:
-    def __init__(self, items):
-        self._items = list(items)
-        self.requests = []
+class FakeStreamEvent:
+    def __init__(self, type: str, delta: str = "") -> None:
+        self.type = type
+        self.delta = delta
 
-    def create(self, **kwargs):
+
+class FakeStream:
+    def __init__(self, events: list[Any], final_response: Any) -> None:
+        self._events = events
+        self._final_response = final_response
+
+    def __iter__(self):
+        return iter(self._events)
+
+    def get_final_response(self) -> Any:
+        return self._final_response
+
+
+class FakeStreamManager:
+    def __init__(self, events: list[Any], final_response: Any) -> None:
+        self._events = events
+        self._final_response = final_response
+
+    def __enter__(self) -> FakeStream:
+        return FakeStream(self._events, self._final_response)
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        pass
+
+
+class FakeResponses:
+    def __init__(self, items: list[Any], stream_events: list[Any] | None = None):
+        self._items = list(items)
+        self.requests: list[dict[str, Any]] = []
+        self.stream_requests: list[dict[str, Any]] = []
+        self._stream_events = list(stream_events or [])
+
+    def create(self, **kwargs: Any) -> Any:
         self.requests.append(kwargs)
         item = self._items.pop(0)
         if isinstance(item, Exception):
             raise item
         return item
 
+    def stream(self, **kwargs: Any) -> Any:
+        self.stream_requests.append(kwargs)
+        item = self._items.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return FakeStreamManager(self._stream_events, item)
+
 
 class FakeClient:
-    def __init__(self, items):
-        self.responses = FakeResponses(items)
+    def __init__(self, items: list[Any], stream_events: list[Any] | None = None):
+        self.responses = FakeResponses(items, stream_events)
 
 
 def plan_json(steps):
@@ -208,3 +248,62 @@ def test_client_errors_are_wrapped_as_model_call_failure():
     with pytest.raises(ModelCallFailed) as err:
         LivePlanner(model="gpt-test", client=client).plan("整理 PDF", VISIBLE)
     assert "boom" in err.value.reason
+
+
+# ---- TASK-033 R4: responses.stream 与思维摘要 ----
+
+
+def test_plan_with_reasoning_summary_streams_thinking_deltas():
+    events = [
+        FakeStreamEvent("response.reasoning_summary_text.delta", delta="规划中：先列出文件"),
+        FakeStreamEvent("response.reasoning_summary_text.delta", delta="，再提取文本"),
+    ]
+    client = FakeClient(
+        [FakeResponse(full_plan_json())],
+        stream_events=events,
+    )
+    planner = LivePlanner(model="gpt-test", client=client, reasoning_summary=True)
+
+    chunks: list[str] = []
+    steps = planner.plan("整理 PDF", VISIBLE, on_thinking=chunks.append)
+
+    assert len(steps) == 3
+    assert len(client.responses.stream_requests) == 1
+    assert len(client.responses.requests) == 0
+    stream_req = client.responses.stream_requests[0]
+    assert stream_req["reasoning"] == {"summary": "auto"}
+    assert stream_req["store"] is False
+    assert chunks == ["规划中：先列出文件", "，再提取文本"]
+
+
+def test_plan_without_reasoning_summary_uses_create():
+    client = FakeClient([FakeResponse(full_plan_json())])
+    planner = LivePlanner(model="gpt-test", client=client, reasoning_summary=False)
+
+    steps = planner.plan("整理 PDF", VISIBLE)
+
+    assert len(steps) == 3
+    assert len(client.responses.requests) == 1
+    assert len(client.responses.stream_requests) == 0
+    assert "reasoning" not in client.responses.requests[0]
+
+
+def test_plan_stream_error_is_wrapped_as_model_call_failure():
+    client = FakeClient([RuntimeError("stream network down")])
+    planner = LivePlanner(model="gpt-test", client=client, reasoning_summary=True)
+
+    with pytest.raises(ModelCallFailed) as exc:
+        planner.plan("整理 PDF", VISIBLE)
+
+    assert "stream network down" in exc.value.reason
+
+
+def test_plan_env_var_enables_reasoning_summary(monkeypatch):
+    monkeypatch.setenv("OPENAI_REASONING_SUMMARY", "true")
+    client = FakeClient([FakeResponse(full_plan_json())])
+    planner = LivePlanner(model="gpt-test", client=client)
+
+    planner.plan("整理 PDF", VISIBLE)
+
+    assert len(client.responses.stream_requests) == 1
+    assert client.responses.stream_requests[0]["reasoning"] == {"summary": "auto"}

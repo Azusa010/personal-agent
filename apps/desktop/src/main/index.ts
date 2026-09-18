@@ -26,7 +26,9 @@ import type {
   GetConversationResult,
   ListConversationsResult,
   SendMessageIpcResult,
-  AgentStreamNotice
+  AgentStreamNotice,
+  GetAgentProfileResult,
+  SetAgentProfileResult
 } from '../shared/ipc-contract'
 import { getDb, closeDb } from './db/database'
 import { upsertMany, findAll } from './db/pdf-repository'
@@ -58,6 +60,8 @@ import { getConversation } from './tasks/get-conversation'
 import { buildHistory } from './tasks/history'
 import { sendMessage, SendMessageInput } from './tasks/send-message'
 import { onAgentStream } from './runtime/stream-fanout'
+import { AGENT_PROFILE_FILE_NAME, createAgentProfileStore } from './settings/agent-profile'
+import { getAgentProfileView, setAgentProfile } from './settings/agent-profile-ipc'
 
 const PRELOAD_PATH = join(__dirname, '../preload/index.js')
 
@@ -72,6 +76,9 @@ const MODEL_SETTINGS_GET_CHANNEL = 'personal-agent:get-model-settings'
 const MODEL_SETTINGS_SET_CHANNEL = 'personal-agent:set-model-settings'
 
 const AGENT_STREAM_CHANNEL = 'personal-agent:agent-stream'
+
+const AGENT_PROFILE_GET_CHANNEL = 'personal-agent:get-agent-profile'
+const AGENT_PROFILE_SET_CHANNEL = 'personal-agent:set-agent-profile'
 
 // null = 库没打开，批准通道不可用。
 let permissionBroker: PermissionBroker | null = null
@@ -141,12 +148,17 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  const agentProfileStore = createAgentProfileStore({
+    filePath: join(app.getPath('userData'), AGENT_PROFILE_FILE_NAME)
+  })
+
   function runTaskDeps(store: SqliteDatabase): RunTaskDeps {
     return {
       db: store,
       tasks: new SqliteTaskRepository(store),
       plans: new SqlitePlanRepository(store),
       events: new SqliteEventRepository(store),
+      profile: () => agentProfileStore.load(),
       send: requestRuntime,
       verify: (input) =>
         verifyTaskCompletion(
@@ -441,6 +453,13 @@ app.whenReady().then(() => {
         store: modelSettingsStore,
         runtime: { restart: restartRuntime }
       })
+  )
+
+  ipcMain.handle(AGENT_PROFILE_GET_CHANNEL, (): GetAgentProfileResult =>
+    getAgentProfileView({ store: agentProfileStore })
+  )
+  ipcMain.handle(AGENT_PROFILE_SET_CHANNEL, (_e, input: unknown): Promise<SetAgentProfileResult> =>
+    setAgentProfile(input, { store: agentProfileStore })
   )
 
   onAgentStream(broadcastAgentStream)

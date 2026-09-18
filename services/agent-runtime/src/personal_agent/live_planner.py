@@ -22,7 +22,7 @@ from typing import Any
 from openai.types.responses import ResponseTextConfigParam
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from personal_agent.live_model import TOOL_SPECS
+from personal_agent.live_model import LIVE_REASONING_SUMMARY_ENV, TOOL_SPECS
 from personal_agent.model_gateway import ModelCallFailed, ThinkingSink
 from personal_agent.planning import PlanStep
 from personal_agent.protocol.models import Turn
@@ -118,9 +118,22 @@ class LivePlanner:
     这次 make_plan 失败，不是整个 runtime 起不来。
     """
 
-    def __init__(self, model: str, client: Any | None = None):
+    def __init__(
+        self,
+        model: str,
+        client: Any | None = None,
+        reasoning_summary: bool | None = None,
+    ):
         self._model = model
         self._client = client
+        if reasoning_summary is None:
+            import os
+
+            self._reasoning_summary = os.environ.get(
+                LIVE_REASONING_SUMMARY_ENV, ""
+            ).lower() in ("1", "true", "yes")
+        else:
+            self._reasoning_summary = reasoning_summary
 
     def plan(
         self,
@@ -139,13 +152,32 @@ class LivePlanner:
             }
         }
         try:
-            response = client.responses.create(
-                model=self._model,
-                instructions=PLANNER_INSTRUCTIONS,
-                input=render_plan_input(goal, visibleCapabilities, history),
-                text=text,
-                store=False,
-            )
+            if self._reasoning_summary:
+                with client.responses.stream(
+                    model=self._model,
+                    instructions=PLANNER_INSTRUCTIONS,
+                    input=render_plan_input(goal, visibleCapabilities, history),
+                    text=text,
+                    store=False,
+                    reasoning={"summary": "auto"},
+                ) as stream:
+                    for event in stream:
+                        if (
+                            getattr(event, "type", None)
+                            == "response.reasoning_summary_text.delta"
+                        ):
+                            delta = getattr(event, "delta", "")
+                            if delta and on_thinking is not None:
+                                on_thinking(delta)
+                    response = stream.get_final_response()
+            else:
+                response = client.responses.create(
+                    model=self._model,
+                    instructions=PLANNER_INSTRUCTIONS,
+                    input=render_plan_input(goal, visibleCapabilities, history),
+                    text=text,
+                    store=False,
+                )
         except ModelCallFailed:
             raise
         except Exception as e:

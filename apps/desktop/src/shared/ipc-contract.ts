@@ -135,3 +135,22 @@ export type ListConversationsResult =
 
 export type GetConversationResult =
   { ok: true; messages: MessageView[] } | { ok: false; code: IpcErrorCode; message: string }
+
+// 定义助手视图形状
+export interface AgentProfileView {
+  name: string
+  persona: string
+  reasoningSummary: boolean
+}
+
+export type GetAgentProfileResult =
+  { ok: true; profile: AgentProfileView } | { ok: false; code: IpcErrorCode; message: string }
+
+export interface SetAgentProfileInput {
+  name?: string
+  persona?: string
+  reasoningSummary?: boolean
+}
+
+export type SetAgentProfileResult =
+  { ok: true; profile: AgentProfileView } | { ok: false; code: IpcErrorCode; message: string }

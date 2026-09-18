@@ -20,6 +20,7 @@ import json
 import logging
 from typing import Any
 
+from openai import OpenAI
 from pydantic import TypeAdapter, ValidationError
 
 from personal_agent.model_gateway import (
@@ -34,6 +35,7 @@ log = logging.getLogger("personal_agent")
 
 # 与 DEP-012 同构：模型名只从这个环境变量读，默认不配。
 LIVE_MODEL_ENV = "OPENAI_MODEL"
+LIVE_REASONING_SUMMARY_ENV = "OPENAI_REASONING_SUMMARY"
 
 DECISION_ADAPTER: TypeAdapter[ModelDecision] = TypeAdapter(ModelDecision)
 
@@ -90,36 +92,71 @@ class LiveModel:
     配错了也只是这次任务失败，不是整个 runtime 起不来。
     """
 
-    def __init__(self, model: str, client: Any | None = None) -> None:
+    def __init__(
+        self,
+        model: str,
+        client: Any | None = None,
+        reasoning_summary: bool | None = None,
+    ) -> None:
         self._model = model
         self._client: Any | None = client
+        if reasoning_summary is None:
+            import os
+
+            self._reasoning_summary = os.environ.get(
+                LIVE_REASONING_SUMMARY_ENV, ""
+            ).lower() in ("1", "yes", "true")
+        else:
+            self._reasoning_summary = reasoning_summary
         self._input_tokens = 0
         self._output_tokens = 0
         self._calls = 0
 
-    def decide(self, context: ModelContext,on_thinking: ThinkingSink | None = None,) -> ModelDecision:
+    def decide(
+        self,
+        context: ModelContext,
+        on_thinking: ThinkingSink | None = None,
+    ) -> ModelDecision:
         client = self._client_or_create()
+        text_config = {
+            "format": {
+                "type": "json_schema",
+                "name": "model_decision",
+                "strict": False,
+                "schema": DECISION_SCHEMA,
+            }
+        }
         try:
-            response = client.responses.create(
-                model=self._model,
-                instructions=INSTRUCTIONS,
-                input=render_input(context),
-                text={
-                    "format": {
-                        "type": "json_schema",
-                        "name": "model_decision",
-                        "strict": False,
-                        "schema": DECISION_SCHEMA,
-                    }
-                },
-                # 本地优先：不把 PDF 内容留在服务端（REQ-001）。
-                store=False,
-            )
+            if self._reasoning_summary:
+                with client.responses.stream(
+                    model=self._model,
+                    instructions=INSTRUCTIONS,
+                    input=render_input(context),
+                    text=text_config,
+                    store=False,
+                    reasoning={"summary": "auto"},
+                ) as stream:
+                    for event in stream:
+                        if (
+                            getattr(event, "type", None)
+                            == "response.reasoning_summary_text.delta"
+                        ):
+                            delta = getattr(event, "delta", "")
+                            if delta and on_thinking is not None:
+                                on_thinking(delta)
+                    response = stream.get_final_response()
+            else:
+                response = client.responses.create(
+                    model=self._model,
+                    instructions=INSTRUCTIONS,
+                    input=render_input(context),
+                    text=text_config,
+                    store=False,
+                )
         except ModelCallFailed:
             raise
-        except Exception as e:  # SDK 的异常层级随版本变，统一收成模型侧失败
+        except Exception as e:
             raise ModelCallFailed(f"模型调用失败: {_describe(e)}") from e
-
         self._account(response)
         return self._parse(response)
 
@@ -135,7 +172,7 @@ class LiveModel:
         )
 
     # ===== 内部 =====
-    def _client_or_create(self) -> Any:
+    def _client_or_create(self) -> OpenAI | None:
         if self._client is not None:
             return self._client
         try:
@@ -181,7 +218,7 @@ def render_input(context: ModelContext) -> str:
     本轮计划告诉模型「这轮要做哪几步」，observations 告诉它「已经做到哪一步」——
     两者合起来才是决策依据，单靠任何一个都会跑偏。
     """
-    lines :list[str] = []
+    lines: list[str] = []
     if context.history:
         lines.append("之前的对话（供理解本轮目标中的指代）：")
         for turn in context.history:

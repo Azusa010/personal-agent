@@ -7,7 +7,8 @@ import {
   MakePlanParams,
   RunTaskResult,
   type SummaryFact,
-  Turn
+  Turn,
+  ProfileDto
 } from '@personal-agent/protocol'
 import type { IpcErrorCode, RunTaskIpcResult } from '../../shared/ipc-contract'
 import type { PlanStep } from '../../shared/domain'
@@ -25,6 +26,7 @@ import {
   VERIFICATION_STARTED_EVENT
 } from '../verification/verify-deliverables'
 import type { CompletionVerifier, VerificationOutcome } from '../verification/verify-task'
+import { AgentProfile } from '../settings/agent-profile'
 
 // reconcile.ts 也用这个字面量：任务的失败原因落成事件，UI 与诊断都读它。
 const TASK_FAILED_EVENT = 'task_failed'
@@ -56,6 +58,7 @@ export interface RunTaskDeps {
   events: EventRepository
   send: RuntimeSend
   verify: CompletionVerifier
+  profile?: () => AgentProfile | null
   /** 默认 new Date().toISOString()，格式与 RunTaskEvent.occurredAt 一致 */
   now?: () => string
   /** 默认 node:crypto 的 randomUUID */
@@ -100,7 +103,22 @@ export async function runTask(
 ): Promise<RunTaskIpcResult> {
   const taskId = deps.newId?.() ?? crypto.randomUUID()
   const planId = deps.newId?.() ?? crypto.randomUUID()
-  const parsedPlanParams = MakePlanParams.safeParse({ taskId, goal, history })
+
+  const currentProfile = deps.profile?.() ?? null
+  const profileDto: ProfileDto | undefined = currentProfile
+    ? {
+        name: currentProfile.name,
+        persona: currentProfile.persona,
+        reasoningSummary: currentProfile.reasoningSummary
+      }
+    : undefined
+
+  const parsedPlanParams = MakePlanParams.safeParse({
+    taskId,
+    goal,
+    history,
+    ...(profileDto ? { profile: profileDto } : {})
+  })
   if (!parsedPlanParams.success) {
     return {
       ok: false,
@@ -129,7 +147,13 @@ export async function runTask(
     }
   }
   const steps = parsedPlan.data.steps
-  const parsedParams = RunTaskParams.safeParse({ taskId, goal, plan: steps, history })
+  const parsedParams = RunTaskParams.safeParse({
+    taskId,
+    goal,
+    plan: steps,
+    history,
+    ...(profileDto ? { profile: profileDto } : {})
+  })
   if (!parsedParams.success) {
     return {
       ok: false,

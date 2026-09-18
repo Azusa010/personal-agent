@@ -299,6 +299,37 @@ describe('runTask：Golden Path', () => {
     })
   })
 
+  it('注入的 profile() 读取结果组装进两次 RPC 的入参（TASK-034 R1）', async () => {
+    const send = sendReturning(completedResult())
+    const h = openHarness(send)
+    h.profile = () => ({
+      name: '小助手',
+      persona: '你是一个热心的小助手',
+      reasoningSummary: true
+    })
+    await runTask(GOAL, h)
+
+    const taskId = sentTaskId(send)
+    const expectedProfile = {
+      name: '小助手',
+      persona: '你是一个热心的小助手',
+      reasoningSummary: true
+    }
+    expect(send.calls[0]?.params).toEqual({
+      taskId,
+      goal: GOAL,
+      history: [],
+      profile: expectedProfile
+    })
+    expect(send.calls[1]?.params).toEqual({
+      taskId,
+      goal: GOAL,
+      plan: PLAN_STEPS,
+      history: [],
+      profile: expectedProfile
+    })
+  })
+
   it('两次 RPC 各用自己的超时，不吃 supervisor 的 30 秒默认值', async () => {
     const send = sendReturning(completedResult())
     const h = openHarness(send)

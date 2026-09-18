@@ -4,6 +4,7 @@ import type {
   AgentStreamNotice,
   PermissionDecision,
   PermissionNotice,
+  SetAgentProfileInput,
   SetModelSettingsInput
 } from '../shared/ipc-contract'
 
@@ -68,6 +69,12 @@ if (process.contextIsolated) {
         return () => {
           ipcRenderer.removeListener('personal-agent:agent-stream', wrapped)
         }
+      },
+      getAgentProfile: () => {
+        return ipcRenderer.invoke('personal-agent:get-agent-profile')
+      },
+      setAgentProfile: (input: SetAgentProfileInput) => {
+        return ipcRenderer.invoke('personal-agent:set-agent-profile', input)
       }
     })
   } catch (error) {

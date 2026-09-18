@@ -1,0 +1,22 @@
+{
+  "jsonrpc": "2.0",
+  "id": "req-002-profile",
+  "method": "agent.run_task",
+  "params": {
+    "taskId": "task-001",
+    "goal": "整理下载目录里的 PDF 并给出摘要",
+    "plan": [
+      { "description": "列出 Downloads 下的 PDF", "capability": "filesystem.list" },
+      { "description": "提取目标 PDF 的每页文本", "capability": "document.extract_pdf" },
+      { "description": "在 Downloads 下创建 Reading 目录", "capability": "filesystem.create_dir" },
+      { "description": "把选中的 PDF 移到 Reading", "capability": "filesystem.move" },
+      { "description": "创建一次性阅读提醒", "capability": "scheduler.create" },
+      { "description": "基于页面内容生成带页码引用的摘要" }
+    ],
+    "profile": {
+      "name": "整理助手",
+      "persona": "你是一个高效的文件整理助手",
+      "reasoningSummary": true
+    }
+  }
+}
