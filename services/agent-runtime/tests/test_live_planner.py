@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 
+from personal_agent.live_model import compose_instructions
 from personal_agent.live_planner import (
     PLAN_OUTPUT_ADAPTER,
     PLANNER_INSTRUCTIONS,
@@ -13,7 +14,7 @@ from personal_agent.live_planner import (
     render_plan_input,
 )
 from personal_agent.model_gateway import ModelCallFailed
-from personal_agent.protocol.models import Turn
+from personal_agent.protocol.models import ProfileDto, Turn
 
 VISIBLE = [
     "filesystem.list",
@@ -306,4 +307,31 @@ def test_plan_env_var_enables_reasoning_summary(monkeypatch):
     planner.plan("整理 PDF", VISIBLE)
 
     assert len(client.responses.stream_requests) == 1
-    assert client.responses.stream_requests[0]["reasoning"] == {"summary": "auto"}
+    assert client.responses.stream_requests[0]["reasoning"] == {"summary": "auto"}
+
+
+def test_plan_uses_composed_instructions_when_profile_present():
+    profile = ProfileDto(name="规划师", persona="优先使用最小步骤")
+    client = FakeClient([FakeResponse(full_plan_json())])
+    planner = LivePlanner(model="gpt-test", client=client)
+
+    planner.plan("整理 Downloads 里的 PDF", VISIBLE, profile=profile)
+
+    request = client.responses.requests[0]
+    assert request["instructions"] == compose_instructions(
+        PLANNER_INSTRUCTIONS, profile
+    )
+    assert "优先使用最小步骤" in request["instructions"]
+
+
+def test_plan_profile_reasoning_summary_overrides_instance_config():
+    profile_stream = ProfileDto(name="规划师", persona="", reasoningSummary=True)
+    client = FakeClient([FakeResponse(full_plan_json())])
+    planner = LivePlanner(
+        model="gpt-test", client=client, reasoning_summary=False
+    )
+
+    planner.plan("整理 Downloads 里的 PDF", VISIBLE, profile=profile_stream)
+    assert len(client.responses.stream_requests) == 1
+    assert len(client.responses.requests) == 0
+

@@ -32,6 +32,13 @@ function App(): React.JSX.Element {
       return result.ok ? result.conversations : []
     }
   })
+  const { data: agentProfile } = useQuery({
+    queryKey: ['agentProfile'],
+    queryFn: async () => {
+      const result = await window.personalAgent.getAgentProfile()
+      return result.ok ? result.profile : null
+    }
+  })
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<MessageView[]>([])
   const [messagesError, setMessagesError] = useState<string | null>(null)
@@ -153,7 +160,6 @@ function App(): React.JSX.Element {
   }
 
   const queryClient = useQueryClient()
-
   const handleSend = async (text: string): Promise<void> => {
     setRunning(true)
     setPendingText(text)
@@ -260,6 +266,7 @@ function App(): React.JSX.Element {
           messagesError={messagesError}
           feedback={feedback}
           streamState={streamState}
+          agentName={agentProfile?.name}
         />
 
         <Composer
@@ -282,7 +289,10 @@ function App(): React.JSX.Element {
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
-        onSaved={() => setStatusPollKey((key) => key + 1)}
+        onSaved={() => {
+          setStatusPollKey((key) => key + 1)
+          void queryClient.invalidateQueries({ queryKey: ['agentProfile'] })
+        }}
       />
       <PermissionDialog permission={pendingPermission} onDecide={handleDecide} />
     </div>

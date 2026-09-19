@@ -10,7 +10,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from personal_agent.model_gateway import ModelContext, Observation
-from personal_agent.protocol.models import PlanStepDto, Turn
+from personal_agent.protocol.models import PlanStepDto, ProfileDto, Turn
 
 # 一页 A4 文本约 2000-4000 字符。12 页 × 2000 ≈ 24k 字符 ≈ 6k token，
 # 真实模型的窗口装得下；ScriptedModel 不读内容，CI 确定性不受影响。
@@ -51,6 +51,7 @@ class ContextManager:
         maxCharsPerString: int = DEFAULT_MAX_CHARS_PER_STRING,
         plan: Sequence[PlanStepDto] = (),
         history: Sequence[Turn] = (),
+        profile: ProfileDto | None = None,
     ) -> None:
         if maxCharsPerString < 1:
             raise ValueError(f"maxCharsPerString 必须 >= 1，收到 {maxCharsPerString}")
@@ -58,6 +59,7 @@ class ContextManager:
         self._plan: list[PlanStepDto] = list(plan)
         self._observations: list[Observation] = []
         self._history: list[Turn] = list(history)
+        self._profile= profile
 
     @property
     def observations(self) -> tuple[Observation, ...]:
@@ -105,4 +107,5 @@ class ContextManager:
             plan=plan,
             observations=observations,
             history=history,
+            profile=self._profile
         )

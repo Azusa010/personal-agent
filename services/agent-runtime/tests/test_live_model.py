@@ -17,6 +17,7 @@ from personal_agent.live_model import (
     LIVE_MODEL_ENV,
     TOOL_SPECS,
     LiveModel,
+    compose_instructions,
     render_input,
 )
 from personal_agent.model_gateway import (
@@ -26,7 +27,7 @@ from personal_agent.model_gateway import (
     SummaryDecision,
     ToolCallDecision,
 )
-from personal_agent.protocol.models import CapabilityId, PlanStepDto, Turn
+from personal_agent.protocol.models import CapabilityId, PlanStepDto, ProfileDto, Turn
 
 VISIBLE = ["filesystem.list", "document.extract_pdf"]
 
@@ -462,3 +463,82 @@ def test_decide_env_var_enables_reasoning_summary(monkeypatch):
 
     assert len(client.responses.stream_requests) == 1
     assert client.responses.stream_requests[0]["reasoning"] == {"summary": "auto"}
+
+
+def test_compose_instructions_returns_base_when_profile_is_none():
+    assert compose_instructions(INSTRUCTIONS, None) == INSTRUCTIONS
+
+
+def test_compose_instructions_returns_base_when_persona_is_empty_or_whitespace():
+    assert (
+        compose_instructions(INSTRUCTIONS, ProfileDto(name="助手", persona=""))
+        == INSTRUCTIONS
+    )
+    assert (
+        compose_instructions(
+            INSTRUCTIONS, ProfileDto(name="助手", persona="   \n\t  ")
+        )
+        == INSTRUCTIONS
+    )
+
+
+def test_compose_instructions_appends_persona_and_declares_hard_rules_priority():
+    profile = ProfileDto(
+        name="专业助理",
+        persona="保持专业严谨、多用列表回答",
+        reasoningSummary=False,
+    )
+    result = compose_instructions("base instructions", profile)
+
+    assert result.startswith("base instructions")
+    assert "保持专业严谨、多用列表回答" in result
+    assert "专业助理" in result
+    assert "角色设定" in result
+    assert "硬要求" in result or "执行规则" in result
+    assert "优先于" in result
+    assert "能力白名单" in result
+    assert "页码可溯源" in result
+    assert "不编造" in result
+
+
+def test_decide_uses_composed_instructions_when_profile_present():
+    profile = ProfileDto(name="小助手", persona="友好热情、简明扼要")
+    ctx = context_with()
+    ctx.profile = profile
+    client = FakeClient([FakeResponse(tool_call_json())])
+    model = LiveModel(model="gpt-test", client=client)
+
+    model.decide(ctx)
+
+    request = client.responses.requests[0]
+    expected_instructions = compose_instructions(INSTRUCTIONS, profile)
+    assert request["instructions"] == expected_instructions
+    assert "友好热情、简明扼要" in request["instructions"]
+
+
+def test_decide_profile_reasoning_summary_overrides_instance_config():
+    # 实例默认为 False，但 profile 显式开启 reasoningSummary
+    profile_with_stream = ProfileDto(
+        name="测试", persona="", reasoningSummary=True
+    )
+    ctx = context_with()
+    ctx.profile = profile_with_stream
+    client = FakeClient([FakeResponse(tool_call_json())])
+    model = LiveModel(model="gpt-test", client=client, reasoning_summary=False)
+
+    model.decide(ctx)
+    assert len(client.responses.stream_requests) == 1
+    assert len(client.responses.requests) == 0
+
+    # 实例默认为 True，但 profile 显式关闭 reasoningSummary
+    profile_without_stream = ProfileDto(
+        name="测试", persona="", reasoningSummary=False
+    )
+    ctx2 = context_with()
+    ctx2.profile = profile_without_stream
+    client2 = FakeClient([FakeResponse(tool_call_json())])
+    model2 = LiveModel(model="gpt-test", client=client2, reasoning_summary=True)
+
+    model2.decide(ctx2)
+    assert len(client2.responses.requests) == 1
+    assert len(client2.responses.stream_requests) == 0

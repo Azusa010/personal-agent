@@ -30,6 +30,7 @@ from personal_agent.model_gateway import (
     ModelUsage,
     ThinkingSink,
 )
+from personal_agent.protocol.models import ProfileDto
 
 log = logging.getLogger("personal_agent")
 
@@ -84,6 +85,22 @@ ok=false 与原因，按它调整（例如换个目标路径）或继续下一�
 - 已经提取过页面文本就不要再提取同一份文件，直接走后面的步骤。"""
 
 
+def compose_instructions(base: str, profile: ProfileDto | None = None) -> str:
+    if profile is None:
+        return base
+    persona = profile.persona.strip() if profile.persona else ""
+    if not persona:
+        return base
+    name = profile.name.strip() if profile.name else ""
+    name_line = f"你的称呼/名字是「{name}」。\n" if name else ""
+    return f"""{base}
+
+角色设定：
+{name_line}{persona}
+
+注意：上述执行规则与硬要求（能力白名单、页码可溯源、不编造）始终严格优先于角色设定。不得为了迎合人设而违背执行规则、调用未授权能力或编造内容。"""
+
+
 class LiveModel:
     """Responses API 上的模型网关。
 
@@ -126,11 +143,17 @@ class LiveModel:
                 "schema": DECISION_SCHEMA,
             }
         }
+        instructions = compose_instructions(INSTRUCTIONS,context.profile)
+        enable_reasoning = (
+            context.profile.reasoningSummary
+            if context.profile and context.profile.reasoningSummary is not None
+            else self._reasoning_summary
+        )
         try:
-            if self._reasoning_summary:
+            if enable_reasoning:
                 with client.responses.stream(
                     model=self._model,
-                    instructions=INSTRUCTIONS,
+                    instructions=instructions,
                     input=render_input(context),
                     text=text_config,
                     store=False,
@@ -148,7 +171,7 @@ class LiveModel:
             else:
                 response = client.responses.create(
                     model=self._model,
-                    instructions=INSTRUCTIONS,
+                    instructions=instructions,
                     input=render_input(context),
                     text=text_config,
                     store=False,

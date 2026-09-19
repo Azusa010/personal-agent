@@ -10,7 +10,7 @@ from typing import Protocol, runtime_checkable
 
 from personal_agent.model_gateway import ThinkingSink
 from personal_agent.planning import PlanStep, make_plan
-from personal_agent.protocol.models import Turn
+from personal_agent.protocol.models import ProfileDto, Turn
 
 
 @runtime_checkable
@@ -23,6 +23,7 @@ class Planner(Protocol):
         visibleCapabilities: Sequence[str],
         history: Sequence[Turn] = (),
         on_thinking: ThinkingSink | None = None,
+        profile: ProfileDto | None = None,
     ) -> list[PlanStep]:
         """按目标产出一份有序计划。
 
@@ -44,6 +45,7 @@ class DeterministicPlanner:
         visibleCapabilities: Sequence[str],
         history: Sequence[Turn] = (),
         on_thinking: ThinkingSink | None = None,
+        profile: ProfileDto | None = None,
     ) -> list[PlanStep]:
         # 固定计划不思考：接住 sink 只为端口签名统一。
         return make_plan(goal, visibleCapabilities)

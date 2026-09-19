@@ -806,3 +806,43 @@ def test_make_plan_hands_the_history_to_the_planner():
         ("user", "把最新的 PDF 整理到 Reading"),
         ("assistant", "已整理好"),
     ]
+
+
+def test_make_plan_hands_the_profile_to_the_planner():
+    class ProfileAwarePlanner:
+        def __init__(self):
+            self.received_profile = None
+
+        def plan(
+            self,
+            goal,
+            visibleCapabilities,
+            history=(),
+            on_thinking=None,
+            profile=None,
+        ):
+            self.received_profile = profile
+            return [PlanStep(description="自定义的一步", capability="filesystem.list")]
+
+    planner = ProfileAwarePlanner()
+    deps = RuntimeDeps(channel=StubChannel(), planner_factory=lambda: planner)
+    handle_line(initialize_line(), deps)
+
+    line = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": "22",
+            "method": "agent.make_plan",
+            "params": {
+                "taskId": "task-001",
+                "goal": "测试目标",
+                "profile": {"name": "小助手", "persona": "热情友好"},
+            },
+        }
+    )
+    handle_line(line, deps)
+
+    assert planner.received_profile is not None
+    assert planner.received_profile.name == "小助手"
+    assert planner.received_profile.persona == "热情友好"
+

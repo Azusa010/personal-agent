@@ -154,9 +154,25 @@ def handle_make_plan(req: Request, deps: RuntimeDeps | None = None) -> dict:
     emitter = _stream_emitter(deps, params.taskId)
     try:
         if emitter is None:
-            steps = planner.plan(params.goal, visible, params.history)
+            if params.profile is not None:
+                steps = planner.plan(
+                    params.goal, visible, params.history, profile=params.profile
+                )
+            else:
+                steps = planner.plan(params.goal, visible, params.history)
         else:
-            steps = planner.plan(params.goal, visible, params.history, emitter.thinking)
+            if params.profile is not None:
+                steps = planner.plan(
+                    params.goal,
+                    visible,
+                    params.history,
+                    emitter.thinking,
+                    profile=params.profile,
+                )
+            else:
+                steps = planner.plan(
+                    params.goal, visible, params.history, emitter.thinking
+                )
     except PlanError as e:
         return build_error(req.id, PLAN_NOT_BUILDABLE, str(e))
     except ModelCallFailed as e:
@@ -185,7 +201,9 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
             req.id, RUNTIME_MODEL_NOT_CONFIGURED, "运行时未配置模型，无法执行任务"
         )
 
-    context = ContextManager(plan=params.plan, history=params.history)
+    context = ContextManager(
+        plan=params.plan, history=params.history, profile=params.profile
+    )
     engine = AgentEngine(
         model=deps.model_factory(),
         channel=deps.channel,

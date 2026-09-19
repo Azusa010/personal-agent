@@ -22,10 +22,14 @@ from typing import Any
 from openai.types.responses import ResponseTextConfigParam
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from personal_agent.live_model import LIVE_REASONING_SUMMARY_ENV, TOOL_SPECS
+from personal_agent.live_model import (
+    LIVE_REASONING_SUMMARY_ENV,
+    TOOL_SPECS,
+    compose_instructions,
+)
 from personal_agent.model_gateway import ModelCallFailed, ThinkingSink
 from personal_agent.planning import PlanStep
-from personal_agent.protocol.models import Turn
+from personal_agent.protocol.models import ProfileDto, Turn
 
 log = logging.getLogger(__name__)
 
@@ -141,6 +145,7 @@ class LivePlanner:
         visibleCapabilities: Sequence[str],
         history: Sequence[Turn] = (),
         on_thinking: ThinkingSink | None = None,
+        profile: ProfileDto | None = None,
     ):
         client = self._client_or_create()
         text: ResponseTextConfigParam = {
@@ -151,11 +156,17 @@ class LivePlanner:
                 "schema": PLAN_OUTPUT_SCHEMA,
             }
         }
+        instructions = compose_instructions(PLANNER_INSTRUCTIONS, profile)
+        enable_reasoning = (
+            profile.reasoningSummary
+            if profile and profile.reasoningSummary is not None
+            else self._reasoning_summary
+        )
         try:
-            if self._reasoning_summary:
+            if enable_reasoning:
                 with client.responses.stream(
                     model=self._model,
-                    instructions=PLANNER_INSTRUCTIONS,
+                    instructions=instructions,
                     input=render_plan_input(goal, visibleCapabilities, history),
                     text=text,
                     store=False,
@@ -173,7 +184,7 @@ class LivePlanner:
             else:
                 response = client.responses.create(
                     model=self._model,
-                    instructions=PLANNER_INSTRUCTIONS,
+                    instructions=instructions,
                     input=render_plan_input(goal, visibleCapabilities, history),
                     text=text,
                     store=False,
