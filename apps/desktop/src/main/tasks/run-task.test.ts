@@ -958,4 +958,40 @@ describe('runTask：任务槽位（ActionAlignment 的比对基准）', () => {
     const task = h.tasks.findById('id-1')
     expect(task?.status).toBe('completed')
   })
+
+  it('重规划事件 replan_completed 会在 plans 表自动追加递增版本', async () => {
+    const newPlanSteps = [
+      { description: '重新查找解压文件', capability: 'filesystem.list' },
+      { description: '直接总结' }
+    ]
+    const replanResult = {
+      status: 'completed',
+      reply: '已按重规划完成任务',
+      facts: [],
+      events: [
+        { type: 'task_started', payload: { goal: GOAL }, occurredAt: AT },
+        {
+          type: 'replan_completed',
+          payload: {
+            reason: '原文件已损坏，需要换源',
+            newPlan: newPlanSteps,
+            version: 2
+          },
+          occurredAt: AT
+        },
+        { type: 'task_completed', payload: { factCount: 0 }, occurredAt: AT }
+      ]
+    }
+
+    const h = openHarness(sendReturning(replanResult, planResult([{ description: '纯思考' }])))
+
+    const out = await runTask(GOAL, h)
+
+    expect(out.ok).toBe(true)
+    const allPlans = h.plans.findAllVersions('id-1')
+    expect(allPlans).toHaveLength(2)
+    expect(allPlans[0].version).toBe(1)
+    expect(allPlans[1].version).toBe(2)
+    expect(allPlans[1].steps).toEqual(newPlanSteps)
+  })
 })

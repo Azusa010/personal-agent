@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import {
   AGENT_MAKE_PLAN,
   AGENT_RUN_TASK,
@@ -12,11 +13,12 @@ import {
 } from '@personal-agent/protocol'
 import type { IpcErrorCode, RunTaskIpcResult } from '../../shared/ipc-contract'
 import type { PlanStep } from '../../shared/domain'
-import { beginTask, endTask, TaskBusyError } from '../policy/task-context'
+import { beginTask, endTask, TaskBusyError, updateActiveTaskPlan } from '../policy/task-context'
 import type { SqliteDatabase } from '../product-state/database'
 import type { EventRepository } from '../product-state/event-repository'
 import type { PlanRepository } from '../product-state/plan-repository'
 import type { TaskRepository } from '../product-state/task-repository'
+import { onAgentStream } from '../runtime/stream-fanout'
 import { RuntimeError } from '../runtime/python-supervisor'
 import { RUNTIME_ERROR_CODE } from '../runtime/error-code'
 import { RUN_TASK_TIMEOUT_MS } from '../runtime/timeouts'
@@ -214,11 +216,36 @@ async function runAgentPhase(
   }
 
   let rawResult: unknown
+  const unsubscribeStream = onAgentStream((notice) => {
+    if (
+      notice.taskId === taskId &&
+      notice.kind === 'event' &&
+      notice.event.type === 'replan_completed'
+    ) {
+      const payload = notice.event.payload as { newPlan?: PlanStep[] } | null
+      if (payload && Array.isArray(payload.newPlan)) {
+        updateActiveTaskPlan(payload.newPlan)
+        try {
+          deps.plans.append({
+            id: deps.newId?.() ?? randomUUID(),
+            taskId,
+            steps: payload.newPlan,
+            createdAt: notice.event.occurredAt
+          })
+        } catch {
+          // 容错：不影响主执行流
+        }
+      }
+    }
+  })
+
   try {
     rawResult = await deps.send(AGENT_RUN_TASK, request, { timeoutMs: RUN_TASK_TIMEOUT_MS })
   } catch (e) {
     const code = e instanceof RuntimeError ? e.code : RUNTIME_ERROR_CODE.CRASHED
     return persistRuntimeFailure(deps, taskId, code, e instanceof Error ? e.message : String(e))
+  } finally {
+    unsubscribeStream()
   }
 
   // 事务 B:
@@ -234,6 +261,9 @@ async function runAgentPhase(
   const result = parsedResult.data
   const { events } = result
   const stamp = deps.now?.() ?? new Date().toISOString()
+
+  // 补录/兜底：确保重规划产生的计划版本落库
+  syncReplanPlans(deps, taskId, events)
 
   // failed 不经判定：没有交付物可验，Python 给的原因就是终态原因。
   if (result.status === 'failed') {
@@ -373,4 +403,30 @@ async function verifyCompletion(
 
 function verificationReason(outcome: VerificationOutcome): string {
   return `交付物校验未通过: ${outcome.report.reason ?? '（判定表没给原因）'}`
+}
+
+function syncReplanPlans(
+  deps: RunTaskDeps,
+  taskId: string,
+  events: readonly { type: string; payload: unknown; occurredAt: string }[]
+): void {
+  for (const ev of events) {
+    if (ev.type === 'replan_completed' && typeof ev.payload === 'object' && ev.payload !== null) {
+      const payload = ev.payload as { newPlan?: PlanStep[]; version?: number }
+      if (Array.isArray(payload.newPlan)) {
+        const currentCount = deps.plans.findAllVersions(taskId).length
+        const targetVersion =
+          typeof payload.version === 'number' ? payload.version : currentCount + 1
+        if (targetVersion > currentCount) {
+          deps.plans.append({
+            id: deps.newId?.() ?? randomUUID(),
+            taskId,
+            steps: payload.newPlan,
+            createdAt: ev.occurredAt
+          })
+          updateActiveTaskPlan(payload.newPlan)
+        }
+      }
+    }
+  }
 }

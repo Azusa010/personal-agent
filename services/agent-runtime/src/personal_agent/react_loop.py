@@ -51,13 +51,15 @@ log = logging.getLogger("personal_agent")
 
 EVENT_STEP_STARTED = "step_started"
 EVENT_STEP_COMPLETED = "step_completed"
+EVENT_REPLAN_REQUESTED = "replan_requested"
+EVENT_REPLAN_COMPLETED = "replan_completed"
 
 
 @dataclass
 class ReActOutcome:
     """ReAct 循环的退出结果。不上协议，纯 Python 内部类型。"""
 
-    kind: Literal["completed", "step_done", "budget_exhausted", "failed"]
+    kind: Literal["completed", "step_done", "replan", "budget_exhausted", "failed"]
     reply: str | None = None
     facts: list[dict[str, Any]] | None = None
     reason: str | None = None
@@ -215,11 +217,12 @@ class ReActLoop:
                 )
 
             elif isinstance(decision, ReplanDecision):
-                return self._fail(
-                    events,
-                    f"模型请求重新规划: {decision.reason}",
-                    steps_used,
-                    tool_calls_used,
+                return ReActOutcome(
+                    kind="replan",
+                    reason=decision.reason,
+                    steps_used=steps_used,
+                    tool_calls_used=tool_calls_used,
+                    events=events,
                 )
 
             else:

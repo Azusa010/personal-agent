@@ -16,6 +16,7 @@ from personal_agent.model_gateway import (
     ModelUsage,  # noqa: F401
     UsageReporting,
 )
+from personal_agent.planner import Planner
 from personal_agent.protocol.models import (
     PlanStepDto,
     ProfileDto,
@@ -25,6 +26,8 @@ from personal_agent.protocol.models import (
     Turn,
 )
 from personal_agent.react_loop import (
+    EVENT_REPLAN_COMPLETED,
+    EVENT_REPLAN_REQUESTED,
     EVENT_STEP_COMPLETED,  # noqa: F401
     EVENT_STEP_STARTED,  # noqa: F401
     ReActLoop,
@@ -54,6 +57,7 @@ class AgentStrategy(Protocol):
         profile: ProfileDto | None,
         budget: Budget,
         stream: StreamSink | None,
+        planner: Planner | None = None,
     ) -> RunTaskCompleted | RunTaskFailed: ...
 
 
@@ -71,6 +75,7 @@ class ClassicStrategy:
         profile: ProfileDto | None,
         budget: Budget,
         stream: StreamSink | None,
+        planner: Planner | None = None,
     ) -> RunTaskCompleted | RunTaskFailed:
         context = ContextManager(plan=plan, history=history, profile=profile)
         engine = AgentEngine(
@@ -113,6 +118,7 @@ class ReActStrategy:
         profile: ProfileDto | None,
         budget: Budget,
         stream: StreamSink | None,
+        planner: Planner | None = None,
     ) -> RunTaskCompleted | RunTaskFailed:
         context = ContextManager(plan=plan, history=history, profile=profile)
         loop = ReActLoop(
@@ -144,7 +150,7 @@ class ReActStrategy:
 
 
 class PlanAndExecuteStrategy:
-    """逐步遍历计划，每步启动一个 ReAct 循环。"""
+    """逐步遍历计划，每步启动一个 ReAct 循环。支持动态 Re-planning。"""
 
     def execute(
         self,
@@ -157,6 +163,7 @@ class PlanAndExecuteStrategy:
         profile: ProfileDto | None,
         budget: Budget,
         stream: StreamSink | None,
+        planner: Planner | None = None,
     ) -> RunTaskCompleted | RunTaskFailed:
         context = ContextManager(plan=plan, history=history, profile=profile)
         total_steps = 0
@@ -165,11 +172,20 @@ class PlanAndExecuteStrategy:
         last_reply = ""
         last_facts: list[dict[str, Any]] = []
 
-        for idx, step in enumerate(plan):
+        completed_steps: list[PlanStepDto] = []
+        remaining_steps: list[PlanStepDto] = list(plan)
+        replan_count = 0
+        max_replans = 2
+
+        while remaining_steps:
+            step = remaining_steps.pop(0)
             context.set_current_step(step)
-            remaining_steps = max(budget.maxSteps - total_steps, 1)
-            remaining_tools = max(budget.maxToolCalls - total_tools, 1)
-            step_budget = Budget(maxSteps=remaining_steps, maxToolCalls=remaining_tools)
+
+            remaining_steps_budget = max(budget.maxSteps - total_steps, 1)
+            remaining_tools_budget = max(budget.maxToolCalls - total_tools, 1)
+            step_budget = Budget(
+                maxSteps=remaining_steps_budget, maxToolCalls=remaining_tools_budget
+            )
 
             loop = ReActLoop(
                 model=model,
@@ -179,7 +195,7 @@ class PlanAndExecuteStrategy:
                 stream=stream,
             )
 
-            is_last = (idx == len(plan) - 1)
+            is_last = len(remaining_steps) == 0
             step_goal = f"当前步骤目标：{step.description}\n总任务目标：{goal}"
             outcome = loop.run(
                 step_goal,
@@ -192,17 +208,107 @@ class PlanAndExecuteStrategy:
             all_events.extend(outcome.events)
 
             if outcome.kind == "completed":
+                completed_steps.append(step)
                 last_reply = outcome.reply or ""
                 last_facts = outcome.facts or []
                 break
 
             if outcome.kind == "step_done":
+                completed_steps.append(step)
                 last_reply = outcome.reply or ""
                 continue
 
+            if outcome.kind == "replan":
+                if replan_count >= max_replans:
+                    failed_res = RunTaskFailed(
+                        status="failed",
+                        reason=f"达到最大重规划次数上限 ({max_replans})，终止任务: {outcome.reason}",
+                        events=all_events,
+                    )
+                    _settle_usage(model, failed_res.events)
+                    return failed_res
+
+                if planner is None:
+                    failed_res = RunTaskFailed(
+                        status="failed",
+                        reason=f"模型请求重规划但未提供 Planner: {outcome.reason}",
+                        events=all_events,
+                    )
+                    _settle_usage(model, failed_res.events)
+                    return failed_res
+
+                replan_count += 1
+                req_event = RunTaskEvent(
+                    type=EVENT_REPLAN_REQUESTED,
+                    payload={
+                        "reason": outcome.reason,
+                        "stepIndex": len(completed_steps),
+                        "replanCount": replan_count,
+                    },
+                    occurredAt=now_occurred_at(),
+                )
+                all_events.append(req_event)
+                if stream is not None:
+                    stream.event(req_event)
+
+                completed_summary = "; ".join(
+                    f"步骤 {i+1} ({s.description}) 已完成"
+                    for i, s in enumerate(completed_steps)
+                )
+                replan_prompt = (
+                    f"原任务目标：{goal}\n"
+                    f"已完成进度：{completed_summary or '尚未完成任何步骤'}\n"
+                    f"重规划原因：{outcome.reason}\n"
+                    f"请根据当前状态规划完成目标的后续步骤。"
+                )
+                try:
+                    new_steps_raw = planner.plan(
+                        goal=replan_prompt,
+                        visibleCapabilities=visible_capabilities,
+                        history=history,
+                        profile=profile,
+                    )
+                except Exception as e:  # noqa: BLE001
+                    failed_res = RunTaskFailed(
+                        status="failed",
+                        reason=f"执行重新规划失败: {e}",
+                        events=all_events,
+                    )
+                    _settle_usage(model, failed_res.events)
+                    return failed_res
+
+                new_remaining = [
+                    PlanStepDto(description=s.description, capability=s.capability)
+                    for s in new_steps_raw
+                ]
+                full_plan = list(completed_steps) + new_remaining
+                context.update_plan(full_plan)
+
+                comp_event = RunTaskEvent(
+                    type=EVENT_REPLAN_COMPLETED,
+                    payload={
+                        "reason": outcome.reason,
+                        "newPlan": [
+                            s.model_dump(exclude_none=True) for s in full_plan
+                        ],
+                        "remainingSteps": [
+                            s.model_dump(exclude_none=True) for s in new_remaining
+                        ],
+                        "version": replan_count + 1,
+                    },
+                    occurredAt=now_occurred_at(),
+                )
+                all_events.append(comp_event)
+                if stream is not None:
+                    stream.event(comp_event)
+
+                remaining_steps = new_remaining
+                continue
+
+            # outcome.kind in ("failed", "budget_exhausted")
             failed_res = RunTaskFailed(
                 status="failed",
-                reason=outcome.reason or f"步骤 {idx + 1} 执行失败",
+                reason=outcome.reason or f"步骤 {len(completed_steps) + 1} 执行失败",
                 events=all_events,
             )
             _settle_usage(model, failed_res.events)

@@ -93,6 +93,10 @@ class ContextManager:
         self._current_step = step
         self._step_observations = []
 
+    def update_plan(self, plan: Sequence[PlanStepDto]) -> None:
+        """重规划（Re-planning）后替换计划。保留已有的 observations。"""
+        self._plan = list(plan)
+
     def record(self, observation: Observation) -> None:
         self._observations.append(observation)
         self._step_observations.append(observation)

@@ -48,3 +48,10 @@ export function recordExecutedCall(): number {
   current.executedCalls += 1
   return current.executedCalls
 }
+
+/** 动态重规划（Re-planning）后更新内存中活动任务的 plan。 */
+export function updateActiveTaskPlan(plan: readonly PlanStep[]): void {
+  if (current !== null) {
+    current = { ...current, plan }
+  }
+}

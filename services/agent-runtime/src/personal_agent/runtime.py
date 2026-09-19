@@ -219,6 +219,7 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
             profile=params.profile,
             budget=Budget(),
             stream=emitter,
+            planner=deps.planner_factory(),
         )
     except Exception:
         log.exception("agent.run_task 未预期异常 (id=%s)", req.id)
