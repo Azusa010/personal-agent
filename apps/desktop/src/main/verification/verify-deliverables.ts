@@ -50,7 +50,10 @@ import {
 const EXTRACT_PDF_CAPABILITY = CapabilityId.enum['document.extract_pdf']
 const MOVE_CAPABILITY = CapabilityId.enum['filesystem.move']
 const SCHEDULER_CREATE_CAPABILITY = CapabilityId.enum['scheduler.create']
-
+export type VerificationMode = 'strict' | 'lenient'
+export interface VerifyDeliverablesOptions {
+  readonly mode?: VerificationMode
+}
 /** 单项检查的结论。detail 必须非空：UI 与排障都靠它解释「凭什么」。 */
 interface CheckResult {
   ok: boolean
@@ -268,17 +271,40 @@ const CHECKS: CheckSpec[] = [
   }
 ]
 
-export function verifyDeliverables(evidence: CollectedEvidence): VerificationReport {
-  const checks: VerificationCheck[] = CHECKS.map((spec) =>
-    spec.required(evidence)
+export function verifyDeliverables(
+  evidence: CollectedEvidence,
+  options?: VerifyDeliverablesOptions
+): VerificationReport {
+  const mode = options?.mode ?? 'strict'
+
+  const checks: VerificationCheck[] = CHECKS.map((spec) => {
+    if (mode === 'lenient') {
+      if (
+        spec.id === 'summary_present' ||
+        spec.id === 'page_refs_grounded' ||
+        spec.id === 'plan_steps_completed' ||
+        spec.id === 'timeline_evidence'
+      )
+        return {
+          id: spec.id,
+          ok: true,
+          detail: '轻量模式：豁免物理交付物检查与步骤严格对齐'
+        }
+    }
+    return spec.required(evidence)
       ? { id: spec.id, ...spec.run(evidence) }
       : { id: spec.id, ok: true, detail: spec.notApplicable }
-  )
+  })
 
   const reasons = checks.filter((check) => !check.ok).map((check) => `${check.id}: ${check.detail}`)
+
+  const relevantGaps =
+    mode === 'lenient'
+      ? evidence.gaps.filter((g) => !g.includes('PDF') && !g.includes('真实 PDF'))
+      : evidence.gaps
   // 取证缺口是总判定里的兜底：即使某项检查没覆盖到它，也必须拒绝（fail-closed 底线）
-  if (evidence.gaps.length > 0) {
-    reasons.push(`取证缺口: ${evidence.gaps.join('；')}`)
+  if (relevantGaps.length > 0) {
+    reasons.push(`取证缺口: ${relevantGaps.join('；')}`)
   }
 
   return {

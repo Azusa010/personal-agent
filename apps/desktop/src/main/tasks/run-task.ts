@@ -25,7 +25,8 @@ import { RUN_TASK_TIMEOUT_MS } from '../runtime/timeouts'
 import {
   VERIFICATION_FAILED_EVENT,
   VERIFICATION_PASSED_EVENT,
-  VERIFICATION_STARTED_EVENT
+  VERIFICATION_STARTED_EVENT,
+  type VerificationMode
 } from '../verification/verify-deliverables'
 import type { CompletionVerifier, VerificationOutcome } from '../verification/verify-task'
 import { AgentProfile } from '../settings/agent-profile'
@@ -387,8 +388,13 @@ async function verifyCompletion(
   taskId: string,
   facts: SummaryFact[]
 ): Promise<VerificationOutcome> {
+  const modeEnv = process.env.PERSONAL_AGENT_VERIFICATION?.toLowerCase()
+  const input: { taskId: string; facts: SummaryFact[]; mode?: VerificationMode } = { taskId, facts }
+  if (modeEnv === 'lenient' || modeEnv === 'strict') {
+    input.mode = modeEnv
+  }
   try {
-    return await deps.verify({ taskId, facts })
+    return await deps.verify(input)
   } catch (e) {
     return {
       report: {

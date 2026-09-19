@@ -6,7 +6,7 @@ import {
   type EvidenceDeps,
   type VerificationReport
 } from './evidence-bundle'
-import { verifyDeliverables } from './verify-deliverables'
+import { verifyDeliverables, type VerificationMode } from './verify-deliverables'
 
 /**
  * 完成校验的编排：取证 → 判定 → 交出可留档的 Evidence Bundle。
@@ -20,6 +20,7 @@ export interface VerificationInput {
   taskId: string
   /** Python 的完成声明。取证侧只当声明看 */
   facts: SummaryFact[]
+  mode?: VerificationMode
 }
 
 export interface VerificationOutcome {
@@ -38,6 +39,6 @@ export async function verifyTaskCompletion(
   input: VerificationInput
 ): Promise<VerificationOutcome> {
   const collected = await collectEvidence(deps, input)
-  const report = verifyDeliverables(collected)
+  const report = verifyDeliverables(collected, { mode: input.mode })
   return { report, evidence: { ...collected, verificationReport: report } }
 }

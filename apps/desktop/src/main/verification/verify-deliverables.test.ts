@@ -494,3 +494,62 @@ describe('零工具轮次与 reply（TASK-031）', () => {
     expect(checkOf(report, 'summary_present').ok).toBe(false)
   })
 })
+
+describe('轻量化交付物核查 (mode: "lenient") (Phase 3.2)', () => {
+  it('轻量模式下，即使缺 PDF 页码/摘要，有有效 reply 仍可通过', () => {
+    const input = evidence({ summary: [], pageReferences: [] })
+    const report = verifyDeliverables(input, { mode: 'lenient' })
+
+    expect(report.ok).toBe(true)
+    expect(checkOf(report, 'summary_present').detail).toContain('轻量模式')
+    expect(checkOf(report, 'reply_present').ok).toBe(true)
+  })
+
+  it('轻量模式下，计划未完全执行（例如 ReAct 动态优化跳步）不卡死任务', () => {
+    const input = evidence({
+      toolResults: [{ callId: 'c-list', capability: 'filesystem.list', ok: true, hasResult: true }]
+    })
+    const report = verifyDeliverables(input, { mode: 'lenient' })
+
+    expect(report.ok).toBe(true)
+    expect(checkOf(report, 'plan_steps_completed').detail).toContain('轻量模式')
+  })
+
+  it('轻量模式仍严格坚守核心安全底线：被拒绝的操作产生副作用 → 必拒', () => {
+    const input = evidence({
+      permissions: [
+        { toolCallId: 'c-move', capability: 'filesystem.move', status: 'denied', argsHash: 'h-bad' }
+      ],
+      executions: [
+        {
+          idempotencyKey: 'filesystem.move:h-bad',
+          capability: 'filesystem.move',
+          argsHash: 'h-bad',
+          status: 'succeeded',
+          sourcePaths: [PDF],
+          targetPath: READING
+        }
+      ]
+    })
+    const report = verifyDeliverables(input, { mode: 'lenient' })
+
+    expect(report.ok).toBe(false)
+    expect(checkOf(report, 'denied_no_side_effect').ok).toBe(false)
+  })
+
+  it('轻量模式仍严格坚守回复底线：reply 为空 → 必拒', () => {
+    const input = evidence({ reply: null })
+    const report = verifyDeliverables(input, { mode: 'lenient' })
+
+    expect(report.ok).toBe(false)
+    expect(checkOf(report, 'reply_present').ok).toBe(false)
+  })
+
+  it('默认模式（未传 options 或 mode: strict）维持原有的严格审查', () => {
+    const input = evidence({ summary: [], pageReferences: [] })
+    const report = verifyDeliverables(input)
+
+    expect(report.ok).toBe(false)
+    expect(checkOf(report, 'summary_present').ok).toBe(false)
+  })
+})
