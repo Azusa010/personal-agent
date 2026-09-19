@@ -212,3 +212,73 @@ def test_replan_without_planner_fails():
     assert isinstance(result, RunTaskFailed)
     assert result.status == "failed"
     assert "未提供 Planner" in result.reason
+
+
+def test_replan_triggered_by_permission_denial_feedback():
+    """场景：用户在写操作弹窗中拒绝并给出理由（如改存到 temp），模型识别后触发 replan，生成符合要求的新计划。"""
+    strategy = PlanAndExecuteStrategy()
+    initial_plan = [
+        PlanStepDto(description="创建归档目录", capability="filesystem.create_dir"),
+        PlanStepDto(description="移动文件到归档目录", capability="filesystem.move"),
+    ]
+
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId="c-1",
+            capability="filesystem.create_dir",
+            arguments={"path": "D:/downloads/archive"},
+        ),
+        ReplanDecision(
+            kind="replan",
+            reason="用户拒绝创建 archive 目录，指示改存到 temp 目录",
+        ),
+        ToolCallDecision(
+            kind="tool_call",
+            callId="c-2",
+            capability="filesystem.create_dir",
+            arguments={"path": "D:/downloads/temp"},
+        ),
+        StepCompleteDecision(
+            kind="step_complete",
+            result="已创建 temp 目录",
+        ),
+        SummaryDecision(
+            kind="summary",
+            reply="已按用户要求改存到 temp 目录并完成处理",
+            facts=[],
+        ),
+    ]
+    model = ScriptedModel(decisions)
+    channel = FakeChannel([
+        {
+            "ok": False,
+            "code": "PERMISSION_DENIED",
+            "reason": "用户拒绝了 filesystem.create_dir：不要创建 archive，请改存到 temp",
+        },
+        {"ok": True},
+    ])
+
+    new_plan_steps = [
+        PlanStep(description="创建临时目录", capability="filesystem.create_dir"),
+        PlanStep(description="完成任务总结"),
+    ]
+    planner = FakePlanner([new_plan_steps])
+
+    result = strategy.execute(
+        model=model,
+        channel=channel,
+        goal="归档报告文件",
+        visible_capabilities=["filesystem.create_dir", "filesystem.move"],
+        plan=initial_plan,
+        history=(),
+        profile=None,
+        budget=Budget(maxSteps=10, maxToolCalls=10),
+        stream=None,
+        planner=planner,
+    )
+
+    assert isinstance(result, RunTaskCompleted)
+    assert result.reply == "已按用户要求改存到 temp 目录并完成处理"
+    assert "用户拒绝创建 archive 目录" in planner.calls[0]["goal"]
+

@@ -417,7 +417,7 @@ app.whenReady().then(() => {
   // 批准面板的「批准 / 拒绝」。respondToPermission 永不抛，入参收窄与错误码映射都在里面。
   ipcMain.handle(
     PERMISSION_RESPOND_CHANNEL,
-    (_e, permissionId: unknown, decision: unknown): PermissionRespondResult => {
+    (_e, permissionId: unknown, decision: unknown, reason?: unknown): PermissionRespondResult => {
       if (permissionBroker === null) {
         return {
           ok: false,
@@ -425,7 +425,7 @@ app.whenReady().then(() => {
           message: '批准通道未就绪：product-state 库没打开'
         }
       }
-      return respondToPermission({ permissionId, decision }, { broker: permissionBroker })
+      return respondToPermission({ permissionId, decision, reason }, { broker: permissionBroker })
     }
   )
 

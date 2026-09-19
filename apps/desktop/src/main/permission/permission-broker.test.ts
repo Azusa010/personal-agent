@@ -314,6 +314,24 @@ describe('respond', () => {
     expect(stored()[0].status).toBe('denied')
   })
 
+  it('拒绝并附带原因：唤醒时带自定义反馈原因，并写入决策事件', async () => {
+    const waiting = broker!.request(moveInput())
+    await Promise.resolve()
+
+    broker!.respond('perm-1', 'denied', '请改存到 D:/downloads/temp')
+
+    const outcome = await waiting
+    expect(outcome.approved).toBe(false)
+    if (!outcome.approved) {
+      expect(outcome.code).toBe(ERROR_CODE.PERMISSION_DENIED)
+      expect(outcome.reason).toContain('请改存到 D:/downloads/temp')
+    }
+    expect(events().at(-1)?.payload).toMatchObject({
+      decision: 'denied',
+      reason: expect.stringContaining('请改存到 D:/downloads/temp')
+    })
+  })
+
   it('同结论重复响应无副作用：不再写事件、不再推送、repeated=true', async () => {
     const waiting = broker!.request(moveInput())
     await Promise.resolve()

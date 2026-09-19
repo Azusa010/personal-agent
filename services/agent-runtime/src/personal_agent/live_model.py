@@ -83,12 +83,14 @@ INSTRUCTIONS = """你是 Personal Agent 的执行器：按「本轮计划」替�
   文本的结论放进 facts 并带页码。
 
 写操作会让用户看到批准面板：调用会挂起，直到用户批准或拒绝。被拒绝时你会拿到
-ok=false 与原因，按它调整（例如换个目标路径）或继续下一步。
+ok=false 与原因。如果用户在原因中给出了修改意图或指示（如换路径、不要执行某些操作），
+且当前步骤无法直接满足，应立即发出 {"kind": "replan", "reason": "<用户反馈原因>"} 请求重新规划剩余步骤。
 
 完成本轮的硬要求：
 - 页码只能来自你真的提取过的页面，不许推测或编造；没有提取过页面就不要给页码；
 - 结论要来自工具拿到的真实内容，不要复述任务目标；
-- 已经提取过页面文本就不要再提取同一份文件，直接走后面的步骤。"""
+- 已经提取过页面文本就不要再提取同一份文件，直接走后面的步骤。
+"""
 
 
 def compose_instructions(base: str, profile: ProfileDto | None = None) -> str:
@@ -149,7 +151,7 @@ class LiveModel:
                 "schema": DECISION_SCHEMA,
             }
         }
-        instructions = compose_instructions(INSTRUCTIONS,context.profile)
+        instructions = compose_instructions(INSTRUCTIONS, context.profile)
         enable_reasoning = (
             context.profile.reasoningSummary
             if context.profile and context.profile.reasoningSummary is not None

@@ -101,7 +101,26 @@ describe('respondToPermission: broker 结论透传', () => {
     const result = respondToPermission({ permissionId: 'perm-1', decision: 'approved' }, { broker })
 
     expect(result).toEqual({ ok: true, permission: decided, repeated: false })
-    expect(broker.respond).toHaveBeenCalledWith('perm-1', 'approved')
+    expect(broker.respond).toHaveBeenCalledWith('perm-1', 'approved', undefined)
+  })
+
+  it('传入非空 reason 时正确透传给 broker.respond', () => {
+    const decided: PermissionRecord = {
+      ...RECORD,
+      status: 'denied',
+      decidedAt: '2026-09-07T08:01:00.000Z'
+    }
+    const broker = fakeBroker({
+      respond: vi.fn((): RespondResult => ({ ok: true, permission: decided, repeated: false }))
+    })
+
+    const result = respondToPermission(
+      { permissionId: 'perm-1', decision: 'denied', reason: '改存到其他目录' },
+      { broker }
+    )
+
+    expect(result).toEqual({ ok: true, permission: decided, repeated: false })
+    expect(broker.respond).toHaveBeenCalledWith('perm-1', 'denied', '改存到其他目录')
   })
 
   it('repeated=true 不被吞掉：UI 要靠它区分「新结论」与「早就决定过」', () => {

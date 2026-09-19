@@ -62,7 +62,7 @@ export interface PermissionBroker {
   /** 建 Permission、落库、推事件，然后挂起到有结论或过期 */
   request(input: PermissionRequestInput): Promise<PermissionOutcome>
   /** UI 的批准/拒绝。同结论重复调用无副作用 */
-  respond(permissionId: string, decision: PermissionDecision): RespondResult
+  respond(permissionId: string, decision: PermissionDecision, reason?: string): RespondResult
   /** 执行前的六步验证。委托给 verifyPermission。
    *  按 (taskId, toolCallId) 取记录：callId 只在任务内有意义，只按它查会命中别的任务那条。 */
   verify(input: PermissionVerifyLookup): Promise<PermissionVerifyResult>
@@ -180,7 +180,7 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
       })
     },
 
-    respond(permissionId, decision) {
+    respond(permissionId, decision, reason: string = '') {
       const decidedAt = now()
       const before = deps.permissions.findById(permissionId)
       if (before === null) {
@@ -211,10 +211,21 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
       }
 
       const decided = deps.permissions.decide(permissionId, decision, decidedAt)
+      // 拒绝原因
+      const rejectReason =
+        typeof reason === 'string' && reason.trim().length > 0
+          ? `用户拒绝了 ${decided.capability}：${reason.trim()}`
+          : `用户拒绝了 ${decided.capability}`
+
       deps.events.append({
         taskId: decided.taskId,
         type: PERMISSION_EVENT.DECISION,
-        payload: { permissionId, decision, decidedAt },
+        payload: {
+          permissionId,
+          decision,
+          decidedAt,
+          ...(decision === 'denied' ? { reason: rejectReason } : {})
+        },
         occurredAt: decidedAt
       })
       deps.notify?.({ kind: 'resolved', permissionId, state: decision })
@@ -226,7 +237,7 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
           : {
               approved: false,
               code: ERROR_CODE.PERMISSION_DENIED,
-              reason: `用户拒绝了 ${decided.capability}`
+              reason: rejectReason
             }
       )
 

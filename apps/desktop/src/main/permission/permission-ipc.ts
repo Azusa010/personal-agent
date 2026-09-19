@@ -38,6 +38,7 @@ function describe(e: unknown): string {
 export interface PermissionRespondInput {
   readonly permissionId?: unknown
   readonly decision?: unknown
+  readonly reason?: unknown
 }
 
 /** 批准面板的「批准 / 拒绝」。入参来自 renderer，一律不可信，先收窄再交给 broker。 */
@@ -56,8 +57,13 @@ export function respondToPermission(
     return invalid(`decision 必须是 ${PERMISSION_DECISIONS.join(' | ')}，收到: ${String(decision)}`)
   }
 
+  const cleanReason =
+    typeof input.reason === 'string' && input.reason.trim().length > 0
+      ? input.reason.trim()
+      : undefined
+
   try {
-    const outcome = deps.broker.respond(permissionId, decision as PermissionDecision)
+    const outcome = deps.broker.respond(permissionId, decision as PermissionDecision, cleanReason)
     if (!outcome.ok) {
       return { ok: false, code: toIpcCode(outcome.code), message: outcome.reason }
     }
