@@ -55,8 +55,25 @@ class SummaryDecision(BaseModel):
     thinking: str | None = None
 
 
+class StepCompleteDecision(BaseModel):
+    """模型认为当前步骤已完成，请推进到下一步。PlanAndExecute 策略专用，纯 ReAct 和 ClassicStrategy 不会产出这种决策。"""
+
+    kind: Literal["step_complete"]
+    result: str = Field(min_length=1)  # 步骤成果的简短描述
+    thinking: str | None = None
+
+
+class ReplanDecision(BaseModel):
+    """模型请求重新规划剩余步骤。Phase 2 激活，Phase 1 定义但不使用。"""
+
+    kind: Literal["replan"]
+    reason: str = Field(min_length=1)  # 为什么需要重新规划
+    thinking: str | None = None
+
+
 ModelDecision = Annotated[
-    ToolCallDecision | SummaryDecision, Field(discriminator="kind")
+    ToolCallDecision | SummaryDecision | StepCompleteDecision | ReplanDecision,
+    Field(discriminator="kind"),
 ]
 
 

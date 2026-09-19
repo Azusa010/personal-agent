@@ -251,6 +251,23 @@ async function runAgentPhase(
     return { ok: true, taskId, status: 'failed', reason: result.reason }
   }
 
+  // 交付物验证可选化：无工具步骤的纯问答或纯摘要任务无需独立硬件/文件系统交付物校验
+  const needsVerification = steps.some((step) => step.capability !== undefined)
+  if (!needsVerification) {
+    try {
+      const runComplete = deps.db.transaction(() => {
+        for (const ev of events) {
+          deps.events.append({ taskId, ...ev })
+        }
+        deps.tasks.updateStatus(taskId, 'completed', stamp)
+      })
+      runComplete()
+    } catch (e) {
+      return dbFailed(e)
+    }
+    return { ok: true, taskId, status: 'completed', reply: result.reply, facts: result.facts }
+  }
+
   // 事务 B1：Python 的事件落库 + 校验开始标记。状态**留在 running**——
   // completed 只能由判定表翻转（REQ-009 / PAT-003），Python 的 task_completed
   // 事件只是 Agent 侧的完成声明。

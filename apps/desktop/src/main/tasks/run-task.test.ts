@@ -936,4 +936,26 @@ describe('runTask：任务槽位（ActionAlignment 的比对基准）', () => {
     expect((await first).ok).toBe(true)
     expect(currentTask()).toBeNull()
   })
+
+  it('计划无工具步骤时无需调用独立校验器即可完成', async () => {
+    let verifierCalled = false
+    const h = openHarness(
+      sendReturning(completedResult(), planResult([{ description: '纯思考和总结' }])),
+      async () => {
+        verifierCalled = true
+        return { report: { ok: true, checks: [], reason: null }, evidence: null }
+      }
+    )
+
+    const out = await runTask('回答一个问题', h)
+
+    expect(out.ok).toBe(true)
+    if (out.ok && out.status === 'completed') {
+      expect(out.status).toBe('completed')
+      expect(out.reply).toContain('已完成')
+    }
+    expect(verifierCalled).toBe(false)
+    const task = h.tasks.findById('id-1')
+    expect(task?.status).toBe('completed')
+  })
 })

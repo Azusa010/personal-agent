@@ -60,6 +60,8 @@ class ContextManager:
         self._observations: list[Observation] = []
         self._history: list[Turn] = list(history)
         self._profile= profile
+        self._current_step: PlanStepDto | None = None
+        self._step_observations: list[Observation] = []
 
     @property
     def observations(self) -> tuple[Observation, ...]:
@@ -72,8 +74,28 @@ class ContextManager:
         强制页码（计划里有 extract_pdf 才强制）。"""
         return tuple(self._plan)
 
+    @property
+    def step_observations(self) -> tuple[Observation, ...]:
+        """当前步骤的观察快照。PlanAndExecute 用它构建步骤级上下文。"""
+        return tuple(self._step_observations)
+
+    @property
+    def current_step(self) -> PlanStepDto | None:
+        """当前步骤。None 表示不在 PlanAndExecute 模式。"""
+        return self._current_step
+
+    def set_current_step(self, step: PlanStepDto | None) -> None:
+        """PlanAndExecute 策略每推进一步就调一次。
+        
+        重置步骤级观察，同时保留全局观察（_observations 不清）。
+        纯 ReAct 和 Classic 不调这个方法，_current_step 始终为 None。
+        """
+        self._current_step = step
+        self._step_observations = []
+
     def record(self, observation: Observation) -> None:
         self._observations.append(observation)
+        self._step_observations.append(observation)
 
     def build(self, taskGoal: str, visibleCapabilities: Sequence[str]) -> ModelContext:
         observations = []

@@ -7,8 +7,7 @@ from dataclasses import dataclass, field
 
 from pydantic import ValidationError
 
-from personal_agent.context import ContextManager
-from personal_agent.engine import AgentEngine
+from personal_agent.engine import Budget
 from personal_agent.host_channel import HostChannel
 from personal_agent.live_model import LIVE_MODEL_ENV, LiveModel
 from personal_agent.live_planner import LivePlanner
@@ -29,6 +28,11 @@ from personal_agent.protocol.models import (
     ServerInfo,
 )
 from personal_agent.scripted_model import ScriptedModel, ScriptLoadError, load_script
+from personal_agent.strategy import (
+    AgentStrategy,
+    ClassicStrategy,
+    PlanAndExecuteStrategy,
+)
 from personal_agent.stream import StreamEmitter
 
 SERVER_INFO = ServerInfo(name="personal-agent-runtime", version="0.1.0")
@@ -65,6 +69,7 @@ class RuntimeDeps:
     channel: HostChannel
     model_factory: Callable[[], ModelGateway] | None = None
     planner_factory: Callable[[], Planner] = DeterministicPlanner
+    strategy: AgentStrategy = field(default_factory=ClassicStrategy)
     capabilities: list[CapabilityDescriptor] = field(default_factory=list)
     # 出口 stdout
     notify: Callable[[dict], None] | None = None
@@ -201,18 +206,20 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
             req.id, RUNTIME_MODEL_NOT_CONFIGURED, "运行时未配置模型，无法执行任务"
         )
 
-    context = ContextManager(
-        plan=params.plan, history=params.history, profile=params.profile
-    )
-    engine = AgentEngine(
-        model=deps.model_factory(),
-        channel=deps.channel,
-        context=context,
-        stream=_stream_emitter(deps, params.taskId),
-    )
     visible_capabilities = [c.name for c in deps.capabilities]
+    emitter = _stream_emitter(deps, params.taskId)
     try:
-        outcome = engine.run(params.goal, visible_capabilities)
+        outcome = deps.strategy.execute(
+            model=deps.model_factory(),
+            channel=deps.channel,
+            goal=params.goal,
+            visible_capabilities=visible_capabilities,
+            plan=params.plan,
+            history=params.history or [],
+            profile=params.profile,
+            budget=Budget(),
+            stream=emitter,
+        )
     except Exception:
         log.exception("agent.run_task 未预期异常 (id=%s)", req.id)
         return build_error(req.id, "RUNTIME_INTERNAL", "运行时内部错误")
@@ -280,6 +287,31 @@ def resolve_planner_factory() -> Callable[[], Planner]:
     return DeterministicPlanner
 
 
+# 策略环境变量。不配时默认 plan_execute（Live 模式）。
+STRATEGY_ENV = "PERSONAL_AGENT_STRATEGY"
+
+
+def resolve_strategy() -> AgentStrategy:
+    """按环境变量决定策略。
+
+    优先级：
+    - PERSONAL_AGENT_SCRIPT → ClassicStrategy（保持现有确定性行为）
+    - OPENAI_MODEL + PERSONAL_AGENT_STRATEGY=react → ReActStrategy
+    - OPENAI_MODEL + PERSONAL_AGENT_STRATEGY=plan_execute → PlanAndExecuteStrategy
+    - OPENAI_MODEL（默认）→ PlanAndExecuteStrategy
+    """
+    # 剧本模式一律走 Classic：确定性行为由 engine.py 保证
+    if os.environ.get(SCRIPT_ENV):
+        return ClassicStrategy()
+
+    strategy_name = os.environ.get(STRATEGY_ENV, "plan_execute").strip().lower()
+    if strategy_name == "react":
+        from personal_agent.strategy import ReActStrategy
+        return ReActStrategy()
+    # 默认 plan_execute
+    return PlanAndExecuteStrategy()
+
+
 def run(channel: HostChannel | None = None) -> None:
     ch = (
         channel
@@ -290,6 +322,7 @@ def run(channel: HostChannel | None = None) -> None:
         channel=ch,
         model_factory=resolve_model_factory(),
         planner_factory=resolve_planner_factory(),
+        strategy=resolve_strategy(),
         notify=write,
     )
     log.info("runtime started")

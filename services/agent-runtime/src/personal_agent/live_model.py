@@ -56,7 +56,7 @@ TOOL_SPECS: dict[str, str] = {
 
 INSTRUCTIONS = """你是 Personal Agent 的执行器：按「本轮计划」替用户完成任务。
 
-每一步只输出一个决策，两种之一：
+每一步只输出一个决策，四种之一：
 
 1. 调用工具：
    {"kind": "tool_call", "callId": "call-1", "capability": "<能力名>", "arguments": {...}}
@@ -66,6 +66,12 @@ INSTRUCTIONS = """你是 Personal Agent 的执行器：按「本轮计划」替�
    {"kind": "summary", "reply": "<要说给用户的话>", "facts": [{"text": "<一条结论>", "pageRefs": [<页码>]}]}
    reply 永远必填：它是用户在界面上看到的回复。计划里没有「提取 PDF」的步骤时
    facts 可以是空数组（结论来自工具观察，不引用页面）。
+
+3. 步骤完成（Plan-and-Execute 单步循环时使用）：
+   {"kind": "step_complete", "result": "<本步骤完成结果简述>"}
+
+4. 请求重估计划：
+   {"kind": "replan", "reason": "<为什么需要重新规划剩余步骤>"}
 
 执行规则：
 

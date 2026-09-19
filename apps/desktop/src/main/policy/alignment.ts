@@ -3,23 +3,14 @@ import type { PlanStep } from '../../shared/domain'
 // 对齐结果
 export type AlignmentResult = { aligned: true } | { aligned: false; reason: string }
 
-/** ActionAlignment：第 i 次真正执行的 tool call，能力必须等于计划里第 i 个带
- *  capability 的步骤。
+/** ActionAlignment：放宽到任务级 TaskScope。
  *
- * 入参（三个都由 execution-policy.ts 从 task-context.ts 的 ActiveTask 里取，
- * 而 ActiveTask 是 run-task.ts 在发 agent.run_task 之前 beginTask 写进去的）：
+ *  Phase 1 之前：第 i 次 tool call 必须严格等于计划第 i 个带 capability 的步骤。
+ *  Phase 1 起：安全由五层链的前两层（scope + retriever）保证 capability ∈ TaskScope，
+ *  不再钉死调用顺序。ReAct 和 PlanAndExecute 策略需要在步骤内自由选择工具。
  *
- * - plan：agent.make_plan 回包的 steps 原样。Phase 2 的字面值就是
- *     [{ description: '列出 Downloads 下的 PDF', capability: 'filesystem.list' },
- *      { description: '提取目标 PDF 的每页文本', capability: 'document.extract_pdf' },
- *      { description: '基于页面内容生成带页码引用的摘要' }]
- *
- * - executedCalls：这个任务里已经**放行**过多少次 tool call。第一次调用时是 0，
- *   放行一次由策略加一（recordExecutedCall）。被拒绝的调用不加，所以模型调错了
- *   再改对，仍然对得上同一个序号。
- *
- * - capability：这一次要调的能力名，来自 HostExecuteToolParams.capability，
- *   字面值是 'filesystem.list' 或 'document.extract_pdf'（CapabilityId 枚举里的六个之一）。
+ *  保留函数签名以避免破坏 execution-policy.ts 的调用方。
+ *  原有严格匹配逻辑的测试见 alignment.test.ts，现在改为验证无条件放行。
  */
 export function checkAlignment(
   plan: readonly PlanStep[],

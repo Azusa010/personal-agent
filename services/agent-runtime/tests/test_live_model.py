@@ -24,6 +24,8 @@ from personal_agent.model_gateway import (
     ModelCallFailed,
     ModelContext,
     Observation,
+    ReplanDecision,
+    StepCompleteDecision,
     SummaryDecision,
     ToolCallDecision,
 )
@@ -143,9 +145,14 @@ def test_tool_specs_only_names_registered_capabilities():
 
 
 def test_decision_schema_is_derived_from_the_contract():
-    # schema 从 ModelDecision 派生（不手抄）：判别键与两个分支都要在。
+    # schema 从 ModelDecision 派生（不手抄）：判别键与四个分支都要在。
     assert DECISION_SCHEMA["discriminator"]["propertyName"] == "kind"
-    assert set(DECISION_SCHEMA["discriminator"]["mapping"]) == {"tool_call", "summary"}
+    assert set(DECISION_SCHEMA["discriminator"]["mapping"]) == {
+        "tool_call",
+        "summary",
+        "step_complete",
+        "replan",
+    }
 
 
 def test_render_input_lists_goal_capabilities_and_observations():
@@ -273,6 +280,30 @@ def test_decide_returns_a_summary_decision():
 
     assert isinstance(decision, SummaryDecision)
     assert decision.facts == [{"text": "第一页讲了 A", "pageRefs": [1, 2]}]
+
+
+def test_decide_returns_step_complete_decision():
+    client = FakeClient(
+        [FakeResponse(json.dumps({"kind": "step_complete", "result": "第一步已提取完成"}))]
+    )
+    model = LiveModel(model="gpt-test", client=client)
+
+    decision = model.decide(context_with())
+
+    assert isinstance(decision, StepCompleteDecision)
+    assert decision.result == "第一步已提取完成"
+
+
+def test_decide_returns_replan_decision():
+    client = FakeClient(
+        [FakeResponse(json.dumps({"kind": "replan", "reason": "文件已加密无法读取"}))]
+    )
+    model = LiveModel(model="gpt-test", client=client)
+
+    decision = model.decide(context_with())
+
+    assert isinstance(decision, ReplanDecision)
+    assert decision.reason == "文件已加密无法读取"
 
 
 def test_decide_survives_a_response_without_usage():
