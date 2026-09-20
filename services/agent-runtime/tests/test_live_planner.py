@@ -251,7 +251,17 @@ def test_client_errors_are_wrapped_as_model_call_failure():
     assert "boom" in err.value.reason
 
 
+def test_plan_defaults_to_direct_answer_step_when_model_returns_empty_steps():
+    # 容错兜底：当模型面对打招呼等无工具诉求吐出空 steps 时，自动兜底为单步直接回答
+    client = FakeClient([FakeResponse(json.dumps({"steps": []}))])
+    steps = LivePlanner(model="gpt-test", client=client).plan("你好", VISIBLE)
+    assert len(steps) == 1
+    assert steps[0].description == "直接回答用户"
+    assert steps[0].capability is None
+
+
 # ---- TASK-033 R4: responses.stream 与思维摘要 ----
+
 
 
 def test_plan_with_reasoning_summary_streams_thinking_deltas():

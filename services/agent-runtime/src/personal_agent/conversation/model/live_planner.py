@@ -182,9 +182,11 @@ class LivePlanner:
             raise ModelCallFailed(f"规划调用失败: {type(e).__name__}: {e}") from e
 
         output = self._parse(response)
-        return clean_plan(
-            [step.model_dump() for step in output.steps], visibleCapabilities
-        )
+        raw_steps = [step.model_dump(exclude_none=True) for step in output.steps]
+        if not raw_steps:
+            # 容错兜底：当模型面对打招呼等无工具诉求吐出空 steps 时，自动兜底为单步直接回答
+            raw_steps = [{"description": "直接回答用户"}]
+        return clean_plan(raw_steps, visibleCapabilities)
 
     def _client_or_create(self):
         if self._client is not None:
