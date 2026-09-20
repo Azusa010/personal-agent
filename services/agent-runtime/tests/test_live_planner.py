@@ -344,4 +344,23 @@ def test_plan_profile_reasoning_summary_overrides_instance_config():
     planner.plan("整理 Downloads 里的 PDF", VISIBLE, profile=profile_stream)
     assert len(client.responses.stream_requests) == 1
     assert len(client.responses.requests) == 0
+
+
+def test_plan_without_summary_events_streams_plan_steps_fallback():
+    # 模拟 DeepSeek 等非 OpenAI o1/o3 模型：无 reasoning_summary 增量
+    events = [
+        FakeStreamEvent("response.text.delta", delta="{}"),
+    ]
+    client = FakeClient(
+        [FakeResponse(full_plan_json())],
+        stream_events=events,
+    )
+    planner = LivePlanner(model="gpt-test", client=client, reasoning_summary=True)
+
+    chunks: list[str] = []
+    steps = planner.plan("整理 PDF", VISIBLE, on_thinking=chunks.append)
+
+    assert len(steps) == 3
+    assert "制定执行策略（共 3 步）：" in "".join(chunks)
+
 

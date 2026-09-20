@@ -34,6 +34,7 @@ from personal_agent.conversation.model.gateway import (
     ModelUsage,
     ThinkingSink,
 )
+from personal_agent.shared import emit_thinking_chunks
 
 log = logging.getLogger("personal_agent")
 
@@ -110,6 +111,7 @@ class LiveModel:
             if context.profile and context.profile.reasoningSummary is not None
             else self._reasoning_summary
         )
+        streamed_chunks = 0
         try:
             if enable_reasoning:
                 with client.responses.stream(
@@ -121,13 +123,16 @@ class LiveModel:
                     reasoning={"summary": "auto"},
                 ) as stream:
                     for event in stream:
-                        if (
-                            getattr(event, "type", None)
-                            == "response.reasoning_summary_text.delta"
+                        ev_type = getattr(event, "type", None)
+                        if ev_type in (
+                            "response.reasoning_summary_text.delta",
+                            "response.reasoning_text.delta",
+                            "response.reasoning.delta",
                         ):
                             delta = getattr(event, "delta", "")
                             if delta and on_thinking is not None:
                                 on_thinking(delta)
+                                streamed_chunks += 1
                     response = stream.get_final_response()
             else:
                 response = client.responses.create(
@@ -142,7 +147,14 @@ class LiveModel:
         except Exception as e:
             raise ModelCallFailed(f"模型调用失败: {_describe(e)}") from e
         self._account(response)
-        return self._parse(response)
+        decision = self._parse(response)
+        if (
+            streamed_chunks == 0
+            and on_thinking is not None
+            and getattr(decision, "thinking", None)
+        ):
+            emit_thinking_chunks(decision.thinking, on_thinking, 0.02)
+        return decision
 
     def usage_snapshot(self) -> ModelUsage | None:
         """还没调过模型就返回 None：没花 token 的任务不该凭空多一条零用量事件。"""

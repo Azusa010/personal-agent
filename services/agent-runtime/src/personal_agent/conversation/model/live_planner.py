@@ -30,6 +30,7 @@ from personal_agent.conversation.model.live_model import (
 )
 from personal_agent.planning import PlanStep
 from personal_agent.protocol.models import ProfileDto, Turn
+from personal_agent.shared import emit_thinking_chunks
 
 log = logging.getLogger(__name__)
 
@@ -149,6 +150,7 @@ class LivePlanner:
             if profile and profile.reasoningSummary is not None
             else self._reasoning_summary
         )
+        streamed_chunks = 0
         try:
             if enable_reasoning:
                 with client.responses.stream(
@@ -160,13 +162,16 @@ class LivePlanner:
                     reasoning={"summary": "auto"},
                 ) as stream:
                     for event in stream:
-                        if (
-                            getattr(event, "type", None)
-                            == "response.reasoning_summary_text.delta"
+                        ev_type = getattr(event, "type", None)
+                        if ev_type in (
+                            "response.reasoning_summary_text.delta",
+                            "response.reasoning_text.delta",
+                            "response.reasoning.delta",
                         ):
                             delta = getattr(event, "delta", "")
                             if delta and on_thinking is not None:
                                 on_thinking(delta)
+                                streamed_chunks += 1
                     response = stream.get_final_response()
             else:
                 response = client.responses.create(
@@ -186,7 +191,14 @@ class LivePlanner:
         if not raw_steps:
             # 容错兜底：当模型面对打招呼等无工具诉求吐出空 steps 时，自动兜底为单步直接回答
             raw_steps = [{"description": "直接回答用户"}]
-        return clean_plan(raw_steps, visibleCapabilities)
+        steps = clean_plan(raw_steps, visibleCapabilities)
+        if streamed_chunks == 0 and on_thinking is not None and steps:
+            plan_text = "制定执行策略（共 " + str(len(steps)) + " 步）：\n" + "\n".join(
+                f"{i+1}. {s.description}" + (f" ({s.capability})" if s.capability else "")
+                for i, s in enumerate(steps)
+            )
+            emit_thinking_chunks(plan_text, on_thinking, 0.02)
+        return steps
 
     def _client_or_create(self):
         if self._client is not None:

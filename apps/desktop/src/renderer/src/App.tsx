@@ -119,9 +119,17 @@ function App(): React.JSX.Element {
     return unsubscribe
   }, [])
 
+  const [thinkingByTaskId, setThinkingByTaskId] = useState<Record<string, string>>({})
+
   useEffect(() => {
     const unsubscribe = window.personalAgent.onAgentStream((notice) => {
       setStreamState((current) => applyStreamNotice(current, notice))
+      if (notice.kind === 'thinking') {
+        setThinkingByTaskId((prev) => ({
+          ...prev,
+          [notice.taskId]: (prev[notice.taskId] ?? '') + notice.delta
+        }))
+      }
     })
     return unsubscribe
   }, [])
@@ -274,6 +282,7 @@ function App(): React.JSX.Element {
             feedback={feedback}
             streamState={streamState}
             agentName={agentProfile?.name}
+            thinkingByTaskId={thinkingByTaskId}
           />
 
           <Composer

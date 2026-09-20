@@ -573,3 +573,30 @@ def test_decide_profile_reasoning_summary_overrides_instance_config():
     model2.decide(ctx2)
     assert len(client2.responses.requests) == 1
     assert len(client2.responses.stream_requests) == 0
+
+
+def test_decide_without_summary_events_streams_decision_thinking_fallback():
+    # 模拟 DeepSeek 等非 OpenAI o1/o3 模型：流里只有正文增量，没有 reasoning_summary
+    events = [
+        FakeStreamEvent("response.text.delta", delta="{}"),
+    ]
+    resp = json.dumps(
+        {
+            "kind": "tool_call",
+            "callId": "c-1",
+            "capability": "filesystem.list",
+            "arguments": {"rootId": "downloads"},
+            "thinking": "先检索下载目录的文件清单",
+        }
+    )
+    client = FakeClient(
+        [FakeResponse(resp, FakeUsage(10, 5))],
+        stream_events=events,
+    )
+    model = LiveModel(model="gpt-test", client=client, reasoning_summary=True)
+
+    chunks: list[str] = []
+    decision = model.decide(context_with(), on_thinking=chunks.append)
+
+    assert isinstance(decision, ToolCallDecision)
+    assert "".join(chunks) == "先检索下载目录的文件清单"
