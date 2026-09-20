@@ -15,6 +15,7 @@ import { MessageStream } from './components/MessageStream'
 import { PermissionDialog } from './components/PermissionDialog'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
+import { WorkflowCenter } from './components/WorkflowCenter'
 import {
   applyStreamNotice,
   createInitialStreamState,
@@ -39,6 +40,7 @@ function App(): React.JSX.Element {
       return result.ok ? result.profile : null
     }
   })
+  const [activeView, setActiveView] = useState<'chat' | 'workflows'>('chat')
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<MessageView[]>([])
   const [messagesError, setMessagesError] = useState<string | null>(null)
@@ -148,11 +150,13 @@ function App(): React.JSX.Element {
   }
 
   const handleSelectConversation = (conversationId: string): void => {
+    setActiveView('chat')
     setSelectedConversationId(conversationId)
     void loadConversation(conversationId)
   }
 
   const handleNewChat = (): void => {
+    setActiveView('chat')
     setSelectedConversationId(null)
     setMessages([])
     setMessagesError(null)
@@ -231,6 +235,8 @@ function App(): React.JSX.Element {
         selectedConversationId={selectedConversationId}
         runtimeStatus={runtimeStatus}
         indexedCount={indexedCount}
+        activeView={activeView}
+        onSelectView={setActiveView}
         onSelectConversation={handleSelectConversation}
         onNewChat={handleNewChat}
         onOpenIndex={() => setIndexOpen(true)}
@@ -238,47 +244,51 @@ function App(): React.JSX.Element {
         onSettings={() => setSettingsOpen(true)}
       />
 
-      <section className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-[70px] shrink-0 items-center justify-between border-b border-border px-6">
-          <div className="min-w-0">
-            <h2 className="m-0 truncate text-[15px] font-semibold">
-              {selected === null ? '新对话' : selected.title}
-            </h2>
-            <p className="m-0 mt-1 truncate text-[11px] text-muted-foreground">
-              {selected === null
-                ? '本地优先的个人助理'
-                : `最近活动 ${formatOccurredAt(selected.updatedAt)}`}
-            </p>
-          </div>
-          <button
-            type="button"
-            aria-label="更多操作"
-            onClick={() => showFeedback('更多会话操作暂未实现。')}
-            className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
-          >
-            <Ellipsis size={18} />
-          </button>
-        </header>
+      {activeView === 'chat' ? (
+        <section className="flex min-w-0 flex-1 flex-col">
+          <header className="flex h-[70px] shrink-0 items-center justify-between border-b border-border px-6">
+            <div className="min-w-0">
+              <h2 className="m-0 truncate text-[15px] font-semibold">
+                {selected === null ? '新对话' : selected.title}
+              </h2>
+              <p className="m-0 mt-1 truncate text-[11px] text-muted-foreground">
+                {selected === null
+                  ? '本地优先的个人助理'
+                  : `最近活动 ${formatOccurredAt(selected.updatedAt)}`}
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="更多操作"
+              onClick={() => showFeedback('更多会话操作暂未实现。')}
+              className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
+            >
+              <Ellipsis size={18} />
+            </button>
+          </header>
 
-        <MessageStream
-          messages={messages}
-          pendingText={pendingText}
-          messagesError={messagesError}
-          feedback={feedback}
-          streamState={streamState}
-          agentName={agentProfile?.name}
-        />
+          <MessageStream
+            messages={messages}
+            pendingText={pendingText}
+            messagesError={messagesError}
+            feedback={feedback}
+            streamState={streamState}
+            agentName={agentProfile?.name}
+          />
 
-        <Composer
-          running={running}
-          inputRef={inputRef}
-          onSend={(text) => void handleSend(text)}
-          onScan={() => void handleScan()}
-          onOpenIndex={() => setIndexOpen(true)}
-          onOpenDiagnostics={() => setDiagnosticsOpen(true)}
-          onExport={() => void handleExport()}
-        />
-      </section>
+          <Composer
+            running={running}
+            inputRef={inputRef}
+            onSend={(text) => void handleSend(text)}
+            onScan={() => void handleScan()}
+            onOpenIndex={() => setIndexOpen(true)}
+            onOpenDiagnostics={() => setDiagnosticsOpen(true)}
+            onExport={() => void handleExport()}
+          />
+        </section>
+      ) : (
+        <WorkflowCenter onCompleted={() => void loadIndexedCount()} />
+      )}
 
       <IndexDialog open={indexOpen} onOpenChange={setIndexOpen} />
       <DiagnosticsDialog
