@@ -20,7 +20,8 @@ import type {
   SendMessageIpcResult,
   AgentStreamNotice,
   GetAgentProfileResult,
-  SetAgentProfileInput
+  SetAgentProfileInput,
+  RunWorkflowIpcResult
 } from '../shared/ipc-contract'
 
 export type {
@@ -78,4 +79,6 @@ export type PersonalAgentApi = {
   onAgentStream(listener: (notice: AgentStreamNotice) => void): () => void
   getAgentProfile(): Promise<GetAgentProfileResult>
   setAgentProfile(input: SetAgentProfileInput): Promise<SetModelSettingsResult>
+  /** 执行确定性业务工作流 */
+  runWorkflow(workflowId: string, inputs?: Record<string, unknown>): Promise<RunWorkflowIpcResult>
 }

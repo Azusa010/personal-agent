@@ -28,7 +28,9 @@ import type {
   SendMessageIpcResult,
   AgentStreamNotice,
   GetAgentProfileResult,
-  SetAgentProfileResult
+  SetAgentProfileResult,
+  RunWorkflowInput,
+  RunWorkflowIpcResult
 } from '../shared/ipc-contract'
 import { getDb, closeDb } from './db/database'
 import { upsertMany, findAll } from './db/pdf-repository'
@@ -43,6 +45,7 @@ import { createPermissionBroker, type PermissionBroker } from './permission/perm
 import { listTaskPermissions, respondToPermission } from './permission/permission-ipc'
 import { getModelSettingsView, setModelSettings } from './settings/settings-ipc'
 import { runTask, RunTaskDeps } from './tasks/run-task'
+import { runWorkflow, RunWorkflowDeps } from './tasks/run-workflow'
 import { getTimeline } from './tasks/get-timeline'
 import { reconcileOrphanTasks } from './tasks/reconcile'
 import { realVerificationPorts } from './verification/ports'
@@ -173,6 +176,16 @@ app.whenReady().then(() => {
           },
           input
         )
+    }
+  }
+
+  function runWorkflowDeps(store: SqliteDatabase): RunWorkflowDeps {
+    return {
+      db: store,
+      tasks: new SqliteTaskRepository(store),
+      plans: new SqlitePlanRepository(store),
+      events: new SqliteEventRepository(store),
+      send: requestRuntime
     }
   }
 
@@ -392,6 +405,23 @@ app.whenReady().then(() => {
         buildHistory,
         runTask: (goal, history) => runTask(goal, runTaskDeps(store), history)
       })
+    }
+  )
+
+  ipcMain.handle(
+    'personal-agent:run-workflow',
+    async (_e, input: unknown): Promise<RunWorkflowIpcResult> => {
+      let store: SqliteDatabase
+      try {
+        store = getStore()
+      } catch (err) {
+        return {
+          ok: false,
+          code: RUNTIME_ERROR_CODE.DB_FAILED,
+          message: err instanceof Error ? err.message : String(err)
+        }
+      }
+      return runWorkflow(input as RunWorkflowInput, runWorkflowDeps(store))
     }
   )
   // 只读通道：不写库，因此不需要事务。

@@ -73,6 +73,13 @@ export type RunTaskIpcResult =
 
 export type SendMessageIpcResult = RunTaskIpcResult & { conversationId: string }
 
+export interface RunWorkflowInput {
+  workflowId: string
+  inputs?: Record<string, unknown>
+}
+
+export type RunWorkflowIpcResult = RunTaskIpcResult
+
 export type TimelineIpcResult =
   { ok: true; timeline: TaskTimeline | null } | { ok: false; code: IpcErrorCode; message: string }
 

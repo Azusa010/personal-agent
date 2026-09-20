@@ -75,6 +75,9 @@ if (process.contextIsolated) {
       },
       setAgentProfile: (input: SetAgentProfileInput) => {
         return ipcRenderer.invoke('personal-agent:set-agent-profile', input)
+      },
+      runWorkflow: (workflowId: string, inputs?: Record<string, unknown>) => {
+        return ipcRenderer.invoke('personal-agent:run-workflow', { workflowId, inputs })
       }
     })
   } catch (error) {
