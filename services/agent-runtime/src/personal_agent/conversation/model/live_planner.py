@@ -33,25 +33,7 @@ from personal_agent.protocol.models import ProfileDto, Turn
 
 log = logging.getLogger(__name__)
 
-PLANNER_INSTRUCTIONS = """你是个人助理的规划器：只看目标，产出这一轮要做哪几步。
-
-硬要求：
-
-1. 只能用「可用能力」里列出的能力。不在名单里的能力一律不许出现在计划中，
-   也不要发明新的能力名。
-2. 计划要覆盖达成目标所必需的步骤，不多不少。只需要回一句话就能答复的目标
-   （打招呼、问一件你已经知道的事），就给一步不带 capability 的计划：直接回答。
-3. 要读写文件先用 filesystem.list 拿到真实路径——路径只能从它那里来，不许凭
-   目标文本推测。
-4. 写操作会让用户看到批准面板，可能被拒绝。计划里照常保留这一步，但不要为它
-   编造替代方案。
-5. 每一步的 description 用中文写清「这一步做什么」。
-
-输出 JSON：
-
-{"steps": [{"description": "<这一步做什么>", "capability": "<能力名>"}, ...]}
-
-不需要工具的那一步（最后直接回答用户）**省略 capability 键**，不要写成 null。"""
+from personal_agent.conversation.instructions import PLANNER_INSTRUCTIONS
 
 
 class PlannedStep(BaseModel):
@@ -82,8 +64,13 @@ def render_plan_input(
             lines.append(f"[{turn.role}] {turn.text}")
         lines.append("")
     lines.extend([f"目标：{goal}", "", "可用能力："])
-    for name in visibleCapabilities:
-        lines.append(f"- {name}: {TOOL_SPECS.get(name, '（参数见能力契约）')}")
+    visible = [c for c in visibleCapabilities if c in TOOL_SPECS]
+    if visible:
+        lines.append("<available_capabilities>")
+        lines.append("可用能力：")
+        for c in visible:
+            lines.append(f"- {c}: {TOOL_SPECS[c]}")
+        lines.append("</available_capabilities>")
     return "\n".join(lines)
 
 

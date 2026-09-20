@@ -23,6 +23,10 @@ from typing import Any
 from openai import OpenAI
 from pydantic import TypeAdapter, ValidationError
 
+from personal_agent.conversation.instructions import (
+    INSTRUCTIONS,
+    compose_instructions,
+)
 from personal_agent.conversation.model.gateway import (
     ModelCallFailed,
     ModelContext,
@@ -30,7 +34,6 @@ from personal_agent.conversation.model.gateway import (
     ModelUsage,
     ThinkingSink,
 )
-from personal_agent.protocol.models import ProfileDto
 
 log = logging.getLogger("personal_agent")
 
@@ -46,71 +49,17 @@ DECISION_ADAPTER: TypeAdapter[ModelDecision] = TypeAdapter(ModelDecision)
 # 模型传错了会被拒。表里只列参数名与含义，改了不校验的名字只是让提示语失真，
 # 不会让错误参数过关。key 必须落在协议 CapabilityId 内，test_live_model 钉着。
 TOOL_SPECS: dict[str, str] = {
-    "filesystem.list": '列出授权根下的 PDF。参数 {"rootId": "downloads"}',
-    "document.extract_pdf": '提取一份 PDF 的每页文本。参数 {"path": "<filesystem.list 返回的绝对路径>"}',
-    "filesystem.create_dir": '在授权根下创建目录。参数 {"path": "<绝对路径>"}',
-    "filesystem.move": '在授权根内移动文件。参数 {"source": "<源绝对路径>", "target": "<目标绝对路径>"}',
-    "scheduler.create": '创建一次性提醒。参数 {"remindAt": "<ISO-8601 未来时刻>", "message": "<通知正文>"}',
-    "notification.send": '发送某条已落库 Reminder 的通知。参数 {"reminderId": "<reminder id>"}',
+    "filesystem.list": '列出指定授权根目录下的文件与子目录条目。参数 {"rootId": "<授权根标识，如 downloads>"}',
+    "document.extract_pdf": '解析并提取 PDF 文件的逐页文本与页码。参数 {"path": "<目标 PDF 文件的绝对路径>"}',
+    "filesystem.create_dir": '在授权根目录下创建新目录。参数 {"path": "<目标目录绝对路径>"}',
+    "filesystem.move": '在授权根内移动或重命名文件/目录。参数 {"source": "<源绝对路径>", "target": "<目标绝对路径>"}',
+    "scheduler.create": '创建定时提醒任务。参数 {"remindAt": "<ISO-8601 UTC 时间>", "message": "<提醒内容>"}',
+    "notification.send": '向宿主桌面发送即时通知。参数 {"reminderId": "<提醒记录ID>"}',
     "terminal.execute": (
-        '在安全工作目录下执行终端命令行。参数 {"command": "<命令行文本>", '
+        '在安全受限环境下执行终端命令行。参数 {"command": "<命令行文本>", '
         '"cwd": "<可选工作目录>", "timeoutMs": <可选超时毫秒>}'
     ),
 }
-
-INSTRUCTIONS = """你是 Personal Agent 的执行器：按「本轮计划」替用户完成任务。
-
-每一步只输出一个决策，四种之一：
-
-1. 调用工具：
-   {"kind": "tool_call", "callId": "call-1", "capability": "<能力名>", "arguments": {...}}
-   callId 每次递增（call-1、call-2……），capability 只能取「可用能力」里列出的名字。
-
-2. 完成本轮：
-   {"kind": "summary", "reply": "<要说给用户的话>", "facts": [{"text": "<一条结论>", "pageRefs": [<页码>]}]}
-   reply 永远必填：它是用户在界面上看到的回复。计划里没有「提取 PDF」的步骤时
-   facts 可以是空数组（结论来自工具观察，不引用页面）。
-
-3. 步骤完成（Plan-and-Execute 单步循环时使用）：
-   {"kind": "step_complete", "result": "<本步骤完成结果简述>"}
-
-4. 请求重估计划：
-   {"kind": "replan", "reason": "<为什么需要重新规划剩余步骤>"}
-
-执行规则：
-
-- 严格按「本轮计划」的顺序走，不跳步、不加步。计划里没有的能力不要调用：
-  调用会被对齐闸口拒绝，ok=false 会回到你这里。
-- 工具失败（ok=false）时按返回的原因修正参数重试，或继续计划里能走的下一步；
-  不要为绕过失败发明计划外的调用。
-- 计划里标注「不经工具」的最后一步就是完成本轮：把结果整理成 reply，依据页面
-  文本的结论放进 facts 并带页码。
-
-写操作会让用户看到批准面板：调用会挂起，直到用户批准或拒绝。被拒绝时你会拿到
-ok=false 与原因。如果用户在原因中给出了修改意图或指示（如换路径、不要执行某些操作），
-且当前步骤无法直接满足，应立即发出 {"kind": "replan", "reason": "<用户反馈原因>"} 请求重新规划剩余步骤。
-
-完成本轮的硬要求：
-- 页码只能来自你真的提取过的页面，不许推测或编造；没有提取过页面就不要给页码；
-- 结论要来自工具拿到的真实内容，不要复述任务目标；
-- 已经提取过页面文本就不要再提取同一份文件，直接走后面的步骤。
-"""
-
-
-def compose_instructions(base: str, profile: ProfileDto | None = None) -> str:
-    if profile is None:
-        return base
-    persona = profile.persona.strip() if profile.persona else ""
-    if not persona:
-        return base
-    name = profile.name.strip() if profile.name else ""
-    name_line = f"你的称呼/名字是「{name}」。\n" if name else ""
-    return f"""{base}
-
-角色设定：
-{name_line}{persona}
-
-注意：上述执行规则与硬要求（能力白名单、页码可溯源、不编造）始终严格优先于角色设定。不得为了迎合人设而违背执行规则、调用未授权能力或编造内容。"""
 
 
 class LiveModel:
@@ -270,8 +219,13 @@ def render_input(context: ModelContext) -> str:
         else:
             lines.append(f"{index}. {step.description}（{step.capability}）")
     lines.extend(["", "可用能力："])
-    for name in context.visibleCapabilities:
-        lines.append(f"- {name}: {TOOL_SPECS.get(name, '（参数见能力契约）')}")
+    visible = [c for c in context.visibleCapabilities if c in TOOL_SPECS]
+    if visible:
+        lines.append("<available_capabilities>")
+        lines.append("本轮可用能力：")
+        for c in visible:
+            lines.append(f"- {c}: {TOOL_SPECS[c]}")
+        lines.append("</available_capabilities>")
     lines.extend(["", "已发生的工具调用："])
     if not context.observations:
         lines.append("（还没有调用过任何工具）")
