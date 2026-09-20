@@ -79,3 +79,10 @@ def test_rules_strictly_constrain_inviolable_safety_guardrails():
     assert "白名单" in EXECUTOR_INSTRUCTIONS or "能力受限" in EXECUTOR_INSTRUCTIONS
     assert "真实路径" in EXECUTOR_INSTRUCTIONS or "绝对路径" in EXECUTOR_INSTRUCTIONS
     assert "溯源" in EXECUTOR_INSTRUCTIONS or "不编造" in EXECUTOR_INSTRUCTIONS
+
+
+def test_rules_forbid_mechanically_repeating_capabilities():
+    # 验证规则中包含对机械报菜单/背诵能力列表的强约束
+    assert "严禁主动复述" in EXECUTOR_INSTRUCTIONS or "报菜单" in EXECUTOR_INSTRUCTIONS
+
+
