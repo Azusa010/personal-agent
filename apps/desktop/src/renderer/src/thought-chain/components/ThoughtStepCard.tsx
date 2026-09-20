@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
-import { Brain, Check, ChevronDown, ChevronRight, Code, Loader2 } from 'lucide-react'
+import { ChevronRight, Code } from 'lucide-react'
 import type { ThoughtStepView } from '../types'
+import { TextShimmer } from './TextShimmer'
 
 export interface ThoughtStepCardProps {
   step: ThoughtStepView
@@ -20,19 +21,29 @@ export const ThoughtStepCard: React.FC<ThoughtStepCardProps> = ({
     defaultExpanded !== undefined ? defaultExpanded : isRunning
   )
 
+  const formattedDuration =
+    step.durationMs !== undefined
+      ? step.durationMs >= 1000
+        ? `${(step.durationMs / 1000).toFixed(1)}s`
+        : `${step.durationMs}ms`
+      : null
+
+  const label = isRunning ? (
+    <TextShimmer duration={1.2} className="text-xs font-[450]">
+      {step.title.includes('思考') || step.title.includes('Thinking') ? step.title : 'Thinking'}
+    </TextShimmer>
+  ) : (
+    <span className="text-xs font-[450]">
+      Thought {formattedDuration ? `· ${formattedDuration}` : ''}
+    </span>
+  )
+
   return (
-    <div
-      className={`rounded-lg border transition-colors ${
-        isRunning
-          ? 'border-indigo-200/80 bg-indigo-50/40 dark:border-indigo-900/50 dark:bg-indigo-950/20'
-          : 'border-border/60 bg-card/60'
-      }`}
-      role="region"
-      aria-label={step.title}
-    >
+    <div className="flex flex-col gap-1 w-full my-0.5" role="region" aria-label={step.title}>
+      {/* 官方 agent-elements 风格的 ToolRowBase / Thinking 行 */}
       <div
         onClick={() => setExpanded(!expanded)}
-        className="flex cursor-pointer select-none items-center justify-between px-3 py-2 text-xs hover:bg-accent/40 rounded-lg transition-colors"
+        className="flex items-center gap-1.5 max-w-full select-none cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors py-0.5 group"
         tabIndex={0}
         role="button"
         aria-expanded={expanded}
@@ -43,78 +54,65 @@ export const ThoughtStepCard: React.FC<ThoughtStepCardProps> = ({
           }
         }}
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-muted-foreground">
-            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          </span>
-          <Brain
-            size={14}
-            className={
-              isRunning
-                ? 'animate-pulse text-indigo-500 dark:text-indigo-400'
-                : 'text-muted-foreground'
-            }
-          />
-          <span className="font-medium truncate">{step.title}</span>
-        </div>
+        {label}
 
-        <div className="flex items-center gap-2 text-[11px] font-mono text-muted-foreground">
-          {isRunning ? (
-            <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
-              <Loader2 size={11} className="animate-spin" /> 推理中
-            </span>
-          ) : (
-            <span className="text-muted-foreground">已整理</span>
-          )}
+        <ChevronRight
+          size={12}
+          className={`shrink-0 text-muted-foreground transition-transform duration-150 ease-out ${
+            expanded ? 'rotate-90' : 'rotate-0'
+          }`}
+        />
 
-          {onInspectRaw && (
-            <button
-              type="button"
-              aria-label="查看原始数据"
-              onClick={(e) => {
-                e.stopPropagation()
-                onInspectRaw(step)
-              }}
-              className="rounded p-1 hover:bg-secondary hover:text-foreground text-muted-foreground"
-            >
-              <Code size={13} />
-            </button>
-          )}
-        </div>
+        {onInspectRaw && (
+          <button
+            type="button"
+            aria-label="查看原始数据"
+            onClick={(e) => {
+              e.stopPropagation()
+              onInspectRaw(step)
+            }}
+            className="ml-auto opacity-0 group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-foreground transition-opacity"
+          >
+            <Code size={12} />
+          </button>
+        )}
       </div>
 
+      {/* 官方展开样式：无厚重方框，仅左侧细线与轻微缩进 */}
       {expanded && (
-        <div className="border-t border-border/40 px-3.5 py-2.5 text-xs text-muted-foreground space-y-2.5">
+        <div className="pl-3.5 ml-1 border-l border-border/50 py-1 max-h-[220px] overflow-y-auto space-y-2">
           {step.thinkingText && (
-            <div className="rounded border border-border/50 bg-background/80 p-2.5 font-mono text-[11px] leading-relaxed text-foreground whitespace-pre-wrap">
+            <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed m-0 font-sans select-text">
               {step.thinkingText}
               {isRunning && isStreaming && (
-                <span className="inline-block h-3.5 w-1 ml-0.5 bg-indigo-500 animate-pulse align-middle" />
+                <span className="inline-block h-3 w-0.5 ml-0.5 bg-foreground/60 animate-pulse align-middle" />
               )}
-            </div>
+            </p>
           )}
 
           {step.planSteps && step.planSteps.length > 0 && (
-            <div className="space-y-1.5 pt-1">
-              <div className="text-[11px] font-medium text-foreground">计划步骤：</div>
+            <div className="space-y-1 pt-1">
+              <div className="text-[11px] font-medium text-foreground/80">计划步骤：</div>
               <ol className="space-y-1 pl-1">
                 {step.planSteps.map((item) => (
-                  <li key={item.index} className="flex items-center gap-2 text-[12px]">
+                  <li key={item.index} className="flex items-center gap-1.5 text-[11px]">
                     <span
-                      className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded text-[9px] ${
-                        item.done
-                          ? 'bg-emerald-500 text-white'
-                          : 'border border-border text-muted-foreground'
-                      }`}
+                      className={
+                        item.done ? 'text-emerald-500 font-bold' : 'text-muted-foreground/50'
+                      }
                     >
-                      {item.done && <Check size={10} />}
+                      {item.done ? '✓' : '○'}
                     </span>
-                    <span className={item.done ? 'text-muted-foreground' : 'text-foreground'}>
+                    <span
+                      className={
+                        item.done ? 'text-muted-foreground/70 line-through' : 'text-foreground/90'
+                      }
+                    >
                       {item.index}. {item.description}
                     </span>
                     {item.capability && (
-                      <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                        {item.capability}
+                      <span className="text-[10px] text-muted-foreground/60 font-mono">
+                        ({item.capability})
                       </span>
                     )}
                   </li>

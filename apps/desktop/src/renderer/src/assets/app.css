@@ -133,3 +133,34 @@
     user-select: text;
   }
 }
+
+/* agent-elements TextShimmer animation */
+@keyframes an-shimmer {
+  from {
+    background-position: 100% center;
+  }
+  to {
+    background-position: 0% center;
+  }
+}
+
+.an-text-shimmer {
+  display: inline-block;
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--color-muted-foreground, #737373) 0%,
+    var(--color-muted-foreground, #737373) 40%,
+    var(--color-foreground, #1a1a1a) 50%,
+    var(--color-muted-foreground, #737373) 60%,
+    var(--color-muted-foreground, #737373) 100%
+  );
+  background-repeat: no-repeat;
+}
+
+.an-text-shimmer--active {
+  animation: an-shimmer var(--an-shimmer-duration, 2s) linear infinite;
+}

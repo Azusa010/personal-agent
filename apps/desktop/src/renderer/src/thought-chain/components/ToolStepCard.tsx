@@ -1,19 +1,8 @@
 import React, { useState } from 'react'
-import {
-  AlertCircle,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
-  Code,
-  Copy,
-  Eye,
-  EyeOff,
-  Loader2,
-  Wrench
-} from 'lucide-react'
+import { AlertCircle, Check, ChevronRight, Code, Copy, Eye, EyeOff, Wrench } from 'lucide-react'
 import { redactSensitiveData } from '../redact'
 import type { ToolStepView } from '../types'
+import { TextShimmer } from './TextShimmer'
 
 export interface ToolStepCardProps {
   step: ToolStepView
@@ -32,9 +21,8 @@ export const ToolStepCard: React.FC<ToolStepCardProps> = ({
   const isFailed = step.status === 'failed'
   const isRunning = step.status === 'running'
 
-  // 失败时强制展开，否则默认折叠（可通过 defaultExpanded 覆盖）
   const [expanded, setExpanded] = useState<boolean>(
-    defaultExpanded !== undefined ? defaultExpanded : isFailed || isRunning
+    defaultExpanded !== undefined ? defaultExpanded : isFailed
   )
   const [showRedacted, setShowRedacted] = useState(true)
   const [copied, setCopied] = useState(false)
@@ -63,20 +51,23 @@ export const ToolStepCard: React.FC<ToolStepCardProps> = ({
     }
   }
 
+  const formattedDuration =
+    step.durationMs !== undefined
+      ? step.durationMs >= 1000
+        ? `${(step.durationMs / 1000).toFixed(1)}s`
+        : `${step.durationMs}ms`
+      : null
+
   return (
     <div
-      className={`rounded-lg border transition-all ${
-        isFailed
-          ? 'border-destructive/40 bg-destructive/5'
-          : 'border-border/60 bg-card/60 hover:border-border'
-      }`}
+      className="flex flex-col gap-1 w-full my-0.5 group"
       role="region"
       aria-label={`工具调用: ${step.capability}`}
     >
-      {/* 摘要 Header */}
+      {/* 官方 agent-elements 风格的 ToolRowBase 行 */}
       <div
         onClick={() => setExpanded(!expanded)}
-        className="flex cursor-pointer select-none items-center justify-between px-3 py-2 text-xs rounded-lg hover:bg-accent/40 transition-colors"
+        className="flex items-center gap-1.5 max-w-full select-none cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors py-0.5"
         tabIndex={0}
         role="button"
         aria-expanded={expanded}
@@ -87,120 +78,106 @@ export const ToolStepCard: React.FC<ToolStepCardProps> = ({
           }
         }}
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-muted-foreground">
-            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        <span className="flex items-center justify-center size-3 shrink-0 text-muted-foreground">
+          <Wrench size={11} />
+        </span>
+
+        <span className="font-[450] whitespace-nowrap shrink-0">
+          {isRunning ? (
+            <TextShimmer duration={1.2} className="text-xs">
+              {step.capability}
+            </TextShimmer>
+          ) : (
+            <span>{step.capability}</span>
+          )}
+        </span>
+
+        {!expanded && (
+          <span className="truncate min-w-0 flex-1 text-[11px] text-muted-foreground/60 font-mono">
+            {JSON.stringify(displayArgs).slice(0, 40)}
           </span>
+        )}
 
-          <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-secondary text-foreground">
-            <Wrench size={12} />
-          </div>
-
-          <span className="font-mono text-xs font-semibold text-foreground truncate">
-            {step.capability}
-          </span>
-
-          {!expanded && (
-            <span className="hidden sm:inline font-mono text-[11px] text-muted-foreground truncate max-w-[240px]">
-              {JSON.stringify(displayArgs).slice(0, 50)}...
-            </span>
-          )}
-        </div>
-
-        {/* 状态与统计 */}
-        <div className="flex items-center gap-2 text-xs font-mono">
-          {step.durationMs !== undefined && (
-            <span className="text-muted-foreground">
-              {step.durationMs > 1000
-                ? `${(step.durationMs / 1000).toFixed(1)}s`
-                : `${step.durationMs}ms`}
-            </span>
-          )}
-
-          {isRunning && (
-            <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded text-[11px]">
-              <Loader2 size={11} className="animate-spin" /> 执行中
-            </span>
-          )}
-
-          {step.status === 'success' && (
-            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded text-[11px]">
-              <CheckCircle2 size={11} /> 成功
-            </span>
-          )}
+        <div className="flex items-center gap-1 ml-auto shrink-0 text-[11px] font-mono text-muted-foreground/70">
+          {formattedDuration && <span>{formattedDuration}</span>}
 
           {isFailed && (
-            <span className="flex items-center gap-1 text-destructive bg-destructive/10 px-1.5 py-0.5 rounded text-[11px] font-medium">
+            <span className="flex items-center gap-0.5 text-destructive font-medium">
               <AlertCircle size={11} /> 失败
             </span>
           )}
 
-          {/* 快捷操作 */}
-          <div className="flex items-center ml-1 border-l border-border pl-1.5 gap-0.5">
+          <button
+            type="button"
+            onClick={handleCopy}
+            title="复制"
+            aria-label="复制参数与结果"
+            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-foreground transition-opacity"
+          >
+            {copied ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+          </button>
+
+          {onInspectRaw && (
             <button
               type="button"
-              onClick={handleCopy}
-              title="复制参数与结果"
-              aria-label="复制参数与结果"
-              className="p-1 rounded text-muted-foreground hover:bg-secondary hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation()
+                onInspectRaw(step)
+              }}
+              title="原始数据"
+              aria-label="查看原始 Span JSON"
+              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-foreground transition-opacity"
             >
-              {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+              <Code size={11} />
             </button>
-            {onInspectRaw && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onInspectRaw(step)
-                }}
-                title="查看原始 Span JSON"
-                aria-label="查看原始 Span JSON"
-                className="p-1 rounded text-muted-foreground hover:bg-secondary hover:text-foreground"
-              >
-                <Code size={12} />
-              </button>
-            )}
-          </div>
+          )}
+
+          <ChevronRight
+            size={12}
+            className={`shrink-0 text-muted-foreground transition-transform duration-150 ease-out ${
+              expanded ? 'rotate-90' : 'rotate-0'
+            }`}
+          />
         </div>
       </div>
 
-      {/* 展开详情 */}
+      {/* 官方展开面板：左侧细线与简洁缩进 */}
       {expanded && (
-        <div className="border-t border-border/40 px-3.5 py-2.5 text-xs space-y-2.5">
+        <div className="pl-3.5 ml-1 border-l border-border/50 py-1 space-y-2 text-xs">
           {/* 参数 */}
           <div>
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium mb-1">
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-0.5">
               <span>调用参数</span>
               <button
                 type="button"
                 onClick={() => setShowRedacted(!showRedacted)}
-                className="flex items-center gap-1 text-[10px] text-primary hover:underline"
+                className="flex items-center gap-1 text-[10px] text-primary/80 hover:underline"
               >
-                {showRedacted ? <Eye size={11} /> : <EyeOff size={11} />}
-                {showRedacted ? '显示完整内容' : '恢复隐私脱敏'}
+                {showRedacted ? <Eye size={10} /> : <EyeOff size={10} />}
+                {showRedacted ? '显示完整' : '恢复脱敏'}
               </button>
             </div>
-            <pre className="rounded border border-border/50 bg-background/80 p-2 font-mono text-[11px] text-foreground overflow-x-auto max-h-36 overflow-y-auto">
+            <pre className="rounded border border-border/30 bg-muted/20 p-2 font-mono text-[11px] text-foreground/80 overflow-x-auto max-h-32 overflow-y-auto">
               {JSON.stringify(displayArgs, null, 2)}
             </pre>
           </div>
 
-          {/* 观察结果 */}
+          {/* 结果 */}
           {displayObs !== undefined && (
             <div>
-              <div className="text-[11px] text-muted-foreground font-medium mb-1">执行结果</div>
-              <pre className="rounded border border-border/50 bg-background/80 p-2 font-mono text-[11px] text-foreground overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap break-all">
+              <div className="text-[11px] text-muted-foreground mb-0.5">执行结果</div>
+              <pre className="rounded border border-border/30 bg-muted/20 p-2 font-mono text-[11px] text-foreground/80 overflow-x-auto max-h-40 overflow-y-auto whitespace-pre-wrap break-all">
                 {typeof displayObs === 'string' ? displayObs : JSON.stringify(displayObs, null, 2)}
               </pre>
             </div>
           )}
 
-          {/* 错误诊断 */}
+          {/* 失败重试 */}
           {step.error && (
-            <div className="rounded border border-destructive/30 bg-destructive/10 p-2.5 text-destructive text-xs space-y-1.5">
+            <div className="rounded border border-destructive/20 bg-destructive/5 p-2 text-destructive text-xs space-y-1">
               <div className="flex items-center justify-between font-medium">
-                <span className="flex items-center gap-1">
-                  <AlertCircle size={13} />
+                <span className="flex items-center gap-1 text-[11px]">
+                  <AlertCircle size={12} />
                   {step.error.code ? `[${step.error.code}] ` : ''}
                   {step.error.message}
                 </span>
@@ -208,17 +185,12 @@ export const ToolStepCard: React.FC<ToolStepCardProps> = ({
                   <button
                     type="button"
                     onClick={() => onRetry(step)}
-                    className="rounded bg-destructive px-2 py-0.5 text-[11px] font-medium text-white hover:bg-destructive/90 transition-colors"
+                    className="rounded bg-destructive px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-destructive/90"
                   >
                     重试
                   </button>
                 )}
               </div>
-              {step.error.stack && (
-                <pre className="font-mono text-[10px] text-destructive/80 overflow-x-auto max-h-20">
-                  {step.error.stack}
-                </pre>
-              )}
             </div>
           )}
         </div>

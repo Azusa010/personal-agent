@@ -21,7 +21,7 @@ export const NoticeStepCard: React.FC<NoticeStepCardProps> = ({ step }) => {
   }
 
   return (
-    <div className="flex items-center justify-between rounded-md border border-border/50 bg-secondary/30 px-3 py-1.5 text-xs text-muted-foreground">
+    <div className="flex items-center justify-between rounded-lg border border-border/40 bg-muted/20 px-3 py-1.5 text-xs text-muted-foreground">
       <div className="flex items-center gap-2">
         <span className="shrink-0">{getIcon()}</span>
         <span className="font-medium text-foreground">{step.title}</span>
