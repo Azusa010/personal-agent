@@ -7,7 +7,8 @@ import type {
   PlanRecord,
   PlanStep,
   RunTaskIpcResult,
-  SummaryFact
+  SummaryFact,
+  TaskTimeline
 } from '../../shared/ipc-contract'
 import {
   EVENT_LABELS,
@@ -24,6 +25,7 @@ import {
   extractReply,
   formatOccurredAt,
   formatRemaining,
+  getTimelineStepCount,
   summarizePayload,
   type LiveStreamState
 } from './view-model'
@@ -599,6 +601,39 @@ describe('describePlanSteps', () => {
 
   it('steps 是空数组时返回空数组，UI 据此显示「计划里没有步骤」', () => {
     expect(describePlanSteps(plan([]))).toEqual([])
+  })
+})
+
+describe('getTimelineStepCount', () => {
+  function plan(steps: PlanStep[], version = 1): PlanRecord {
+    return { id: 'p-1', taskId: 't-1', version, steps, createdAt: AT }
+  }
+
+  it('timeline 为 null 返回 0', () => {
+    expect(getTimelineStepCount(null)).toBe(0)
+  })
+
+  it('优先返回计划中的步骤数，而非事件数', () => {
+    const timeline: TaskTimeline = {
+      task: { id: 't-1', goal: '打招呼', status: 'completed', createdAt: AT, updatedAt: AT },
+      plan: plan([{ description: '直接回答用户' }]),
+      events: [
+        ev('step_started', { stepIndex: 0 }),
+        ev('step_completed', { stepIndex: 0 }),
+        ev('task_completed', { factCount: 0 })
+      ]
+    }
+    // 关键断言：即使流里记录了 3 条事件，UI 步骤数依然严格等于计划中的 1 个步骤
+    expect(getTimelineStepCount(timeline)).toBe(1)
+  })
+
+  it('无计划时降级为事件数', () => {
+    const timeline: TaskTimeline = {
+      task: { id: 't-2', goal: '孤儿任务', status: 'failed', createdAt: AT, updatedAt: AT },
+      plan: null,
+      events: [ev('step_started', { stepIndex: 0 }), ev('step_completed', { stepIndex: 0 })]
+    }
+    expect(getTimelineStepCount(timeline)).toBe(2)
   })
 })
 

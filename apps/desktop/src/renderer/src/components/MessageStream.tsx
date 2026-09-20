@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bot, ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react'
 import type { MessageView, TaskTimeline } from '../../../shared/ipc-contract'
-import { describeEvent, describePlanSteps, extractFacts, type LiveStreamState } from '../view-model'
+import {
+  describeEvent,
+  describePlanSteps,
+  extractFacts,
+  getTimelineStepCount,
+  type LiveStreamState
+} from '../view-model'
 
 export interface MessageStreamProps {
   messages: MessageView[]
@@ -23,10 +29,12 @@ function durationSeconds(timeline: TaskTimeline): string | null {
 }
 
 /** assistant 气泡：正文 + （该轮有任务时）facts 页码与折叠步骤。展开状态每条自带。 */
+/** assistant 气泡：正文 + （该轮有任务时）facts 页码与折叠步骤。展开状态每条自带。 */
 function AssistantMessage({ message }: { message: MessageView }): React.JSX.Element {
   const [stepsOpen, setStepsOpen] = useState(false)
   const timeline = message.timeline
   const facts = timeline === null ? [] : extractFacts(timeline.events)
+  const stepsCount = getTimelineStepCount(timeline)
 
   return (
     <div className="max-w-[82%] text-[13px] leading-5">
@@ -51,7 +59,7 @@ function AssistantMessage({ message }: { message: MessageView }): React.JSX.Elem
           </ul>
         </>
       )}
-      {timeline !== null && timeline.events.length > 0 && (
+      {timeline !== null && stepsCount > 0 && (
         <>
           <button
             type="button"
@@ -60,7 +68,7 @@ function AssistantMessage({ message }: { message: MessageView }): React.JSX.Elem
           >
             <span className="flex items-center gap-2">
               {stepsOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-              已执行 {timeline.events.length} 个步骤
+              已执行 {stepsCount} 个步骤
               {durationSeconds(timeline) !== null && (
                 <span className="text-foreground">{durationSeconds(timeline)}s</span>
               )}
@@ -90,7 +98,6 @@ function AssistantMessage({ message }: { message: MessageView }): React.JSX.Elem
     </div>
   )
 }
-
 export function MessageStream({
   messages,
   pendingText,

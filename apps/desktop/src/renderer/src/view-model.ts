@@ -319,6 +319,17 @@ export function describePlanSteps(plan: PlanRecord | null): PlanStepView[] {
   }))
 }
 
+/**
+ * 计算时间线在界面上展示的步骤总数：
+ * - 优先取计划（Plan）中的实际步骤数（plan.steps.length）；
+ * - 若该任务没有计划记录（如孤儿任务），再降级使用事件数（events.length）。
+ */
+export function getTimelineStepCount(timeline: TaskTimeline | null): number {
+  if (timeline === null) return 0
+  if (timeline.plan !== null) return timeline.plan.steps.length
+  return timeline.events.length
+}
+
 // ---- 七、从事件流里挖摘要 ----
 
 /**
