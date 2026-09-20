@@ -84,6 +84,7 @@ CapabilityId = Literal[
     "filesystem.move",
     "scheduler.create",
     "notification.send",
+    "terminal.execute",
 ]
 
 
@@ -241,6 +242,29 @@ class NotificationSendResult(BaseModel):
 
 NotificationSendOutcome = Annotated[
     NotificationSendResult | CapabilityFailure, Field(discriminator="ok")
+]
+
+
+# ---- terminal.execute ----
+class TerminalExecuteParams(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    command: str = Field(min_length=1)
+    cwd: str | None = None
+    timeoutMs: int | None = Field(default=None, gt=0)
+
+
+class TerminalExecuteResult(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True]
+    exitCode: int
+    stdout: str
+    stderr: str
+
+
+TerminalExecuteOutcome = Annotated[
+    TerminalExecuteResult | CapabilityFailure, Field(discriminator="ok")
 ]
 
 

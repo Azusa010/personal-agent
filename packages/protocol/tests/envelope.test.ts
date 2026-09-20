@@ -32,6 +32,10 @@ import {
   NotificationSendResult,
 } from "../schemas/notification.js";
 import {
+  TerminalExecuteParams,
+  TerminalExecuteResult,
+} from "../schemas/terminal.js";
+import {
   AgentStreamNotification,
   MakePlanParams,
   MakePlanRequest,
@@ -205,6 +209,25 @@ const legalCases = [
     file: "host-notification-send.response.json",
     envelope: HostExecuteToolResponse,
     payload: NotificationSendResult,
+    field: "result",
+  },
+  // terminal.execute
+  {
+    file: "host-terminal-execute.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-terminal-execute.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: TerminalExecuteParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-terminal-execute.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: TerminalExecuteResult,
     field: "result",
   },
   {
@@ -856,21 +879,40 @@ describe("ProfileDto 约束（TASK-034）", () => {
 
   it("name 不能为空且不能超过 40 字符", () => {
     expect(() => ProfileDto.parse({ name: "", persona: "x" })).toThrow();
-    expect(() => ProfileDto.parse({ name: "a".repeat(41), persona: "x" })).toThrow();
-    expect(() => ProfileDto.parse({ name: "a".repeat(40), persona: "x" })).not.toThrow();
+    expect(() =>
+      ProfileDto.parse({ name: "a".repeat(41), persona: "x" }),
+    ).toThrow();
+    expect(() =>
+      ProfileDto.parse({ name: "a".repeat(40), persona: "x" }),
+    ).not.toThrow();
   });
 
   it("persona 不能超过 2000 字符", () => {
-    expect(() => ProfileDto.parse({ name: "a", persona: "b".repeat(2001) })).toThrow();
-    expect(() => ProfileDto.parse({ name: "a", persona: "b".repeat(2000) })).not.toThrow();
+    expect(() =>
+      ProfileDto.parse({ name: "a", persona: "b".repeat(2001) }),
+    ).toThrow();
+    expect(() =>
+      ProfileDto.parse({ name: "a", persona: "b".repeat(2000) }),
+    ).not.toThrow();
   });
 
   it("MakePlanParams 与 RunTaskParams 可选携带合法 profile", () => {
     const profile = { name: "助手", persona: "设定", reasoningSummary: false };
-    const plan = [{ description: "列出文件", capability: "filesystem.list" as const }];
-    const planParams = MakePlanParams.parse({ taskId: "t-1", goal: "g", profile });
+    const plan = [
+      { description: "列出文件", capability: "filesystem.list" as const },
+    ];
+    const planParams = MakePlanParams.parse({
+      taskId: "t-1",
+      goal: "g",
+      profile,
+    });
     expect(planParams.profile?.name).toBe("助手");
-    const runParams = RunTaskParams.parse({ taskId: "t-1", goal: "g", plan, profile });
+    const runParams = RunTaskParams.parse({
+      taskId: "t-1",
+      goal: "g",
+      plan,
+      profile,
+    });
     expect(runParams.profile?.name).toBe("助手");
   });
 });

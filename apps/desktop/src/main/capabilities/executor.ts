@@ -1,3 +1,4 @@
+import { exec } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 
@@ -135,6 +136,8 @@ async function runCapability(
       return runSchedulerCreate(call, scheduler)
     case 'notification.send':
       return runNotificationSend(call, scheduler)
+    case 'terminal.execute':
+      return runTerminalExecute(call)
     default:
       // BINDERS 与这个 switch 是两张必须同步的表。加了 binder 忘了执行体，
       // 会走到这里而不是崩掉——这是故意留的兜底。
@@ -314,6 +317,57 @@ async function runNotificationSend(
     case 'rejected':
       return fail(outcome.code, outcome.reason)
   }
+}
+
+/**
+ * 执行终端命令行并捕获结果
+ */
+async function runTerminalExecute(call: AuthorizedCall): Promise<CapabilityOutcome> {
+  const command = String(call.bound.args['command'])
+  const cwd = call.bound.paths['cwd'] ?? resolveRoot('downloads')
+  const timeoutMs =
+    typeof call.bound.args['timeoutMs'] === 'number' ? call.bound.args['timeoutMs'] : 30_000
+
+  return new Promise<CapabilityOutcome>((resolve) => {
+    exec(
+      command,
+      {
+        cwd,
+        timeout: timeoutMs,
+        maxBuffer: 1024 * 1024,
+        windowsHide: true
+      },
+      (error, stdout, stderr) => {
+        const outStr = String(stdout ?? '')
+        const errStr = String(stderr ?? '')
+
+        if (error) {
+          if (error.killed || error.signal === 'SIGTERM') {
+            resolve(fail(ERROR_CODE.TERMINAL_TIMEOUT, `命令执行超时 (${timeoutMs}ms)`))
+            return
+          }
+          if (typeof error.code === 'number') {
+            resolve({
+              ok: true,
+              exitCode: error.code,
+              stdout: outStr,
+              stderr: errStr
+            })
+            return
+          }
+          resolve(fail(ERROR_CODE.TERMINAL_EXECUTE_FAILED, `命令执行异常: ${describe(error)}`))
+          return
+        }
+
+        resolve({
+          ok: true,
+          exitCode: 0,
+          stdout: outStr,
+          stderr: errStr
+        })
+      }
+    )
+  })
 }
 
 function describe(e: unknown): string {

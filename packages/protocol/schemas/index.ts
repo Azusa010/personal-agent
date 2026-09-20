@@ -7,3 +7,4 @@ export * from "./document";
 export * from "./agent";
 export * from "./scheduler";
 export * from "./notification";
+export * from "./terminal";

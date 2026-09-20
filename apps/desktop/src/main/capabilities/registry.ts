@@ -36,6 +36,11 @@ export const CAPABILITIES = [
     name: 'notification.send',
     kind: 'WRITE',
     description: '发送系统通知'
+  },
+  {
+    name: 'terminal.execute',
+    kind: 'WRITE',
+    description: '在安全工作目录下执行终端命令行'
   }
 ] as const satisfies readonly CapabilityDescriptor[]
 

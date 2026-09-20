@@ -524,6 +524,9 @@ describe('bindArguments：没有绑定器的能力', () => {
       ['scheduler.create', { remindAt: '1999-01-01T00:00:00.000Z', message: 'x' }],
       ['notification.send', { reminderId: 'r-1' }],
       ['notification.send', { reminderId: '' }],
+      ['terminal.execute', { command: 'echo hi' }],
+      ['terminal.execute', { command: '' }],
+      ['terminal.execute', { command: 'dir', cwd: '../escape' }],
       ['nope.nope', {}]
     ]
 
@@ -531,6 +534,72 @@ describe('bindArguments：没有绑定器的能力', () => {
       const out = await bindArguments(name, args)
       expect(typeof out.ok, name).toBe('boolean')
       if (!out.ok) expect(typeof out.code, name).toBe('string')
+    }
+  })
+})
+
+describe('bindArguments：terminal.execute', () => {
+  it('合法 command，缺省 cwd -> args 原样带过，paths.cwd 默认为 root 真实路径', async () => {
+    const out = await bindArguments('terminal.execute', { command: 'echo hello' })
+    expect(out).toEqual({
+      ok: true,
+      bound: {
+        args: { command: 'echo hello' },
+        paths: { cwd: realRoot }
+      }
+    })
+  })
+
+  it('合法 command 与有效 cwd 相对路径 -> paths.cwd 规范化为真实路径', async () => {
+    await mkdir(join(dir, 'subfolder'), { recursive: true })
+    const out = await bindArguments('terminal.execute', {
+      command: 'dir',
+      cwd: 'subfolder',
+      timeoutMs: 5000
+    })
+    expect(out.ok).toBe(true)
+    if (out.ok) {
+      expect(out.bound.args).toEqual({
+        command: 'dir',
+        cwd: 'subfolder',
+        timeoutMs: 5000
+      })
+      expect(out.bound.paths['cwd']).toBe(toPosix(join(realRoot, 'subfolder')))
+    }
+  })
+
+  it('cwd 逃逸授权根 -> PATH_OUT_OF_ROOT', async () => {
+    const out = await bindArguments('terminal.execute', {
+      command: 'whoami',
+      cwd: '../../outside'
+    })
+    expect(out.ok).toBe(false)
+    if (!out.ok) {
+      expect(out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+    }
+  })
+
+  it('缺 command 或 command 为空 -> INVALID_ARGUMENT', async () => {
+    for (const bad of [{}, { command: '' }, { command: 123 }]) {
+      const out = await bindArguments('terminal.execute', bad)
+      expect(out.ok, JSON.stringify(bad)).toBe(false)
+      if (!out.ok) {
+        expect(out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
+      }
+    }
+  })
+
+  it('非法 timeoutMs（负数或非整数） -> INVALID_ARGUMENT', async () => {
+    for (const bad of [
+      { command: 'echo', timeoutMs: -1 },
+      { command: 'echo', timeoutMs: 0 },
+      { command: 'echo', timeoutMs: '1000' }
+    ]) {
+      const out = await bindArguments('terminal.execute', bad)
+      expect(out.ok, JSON.stringify(bad)).toBe(false)
+      if (!out.ok) {
+        expect(out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
+      }
     }
   })
 })

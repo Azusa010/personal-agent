@@ -40,6 +40,8 @@ from personal_agent.protocol.models import (
     SchedulerCreateParams,
     SchedulerCreateResult,
     SummaryFact,
+    TerminalExecuteParams,
+    TerminalExecuteResult,
     Turn,
 )
 
@@ -187,6 +189,25 @@ def _pick(raw: dict, path: str):
             "host-notification-send.response.json",
             HostExecuteToolResponse,
             NotificationSendResult,
+            "result",
+        ),
+        # terminal.execute
+        (
+            "host-terminal-execute.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-terminal-execute.request.json",
+            HostExecuteToolRequest,
+            TerminalExecuteParams,
+            "params.arguments",
+        ),
+        (
+            "host-terminal-execute.response.json",
+            HostExecuteToolResponse,
+            TerminalExecuteResult,
             "result",
         ),
         (

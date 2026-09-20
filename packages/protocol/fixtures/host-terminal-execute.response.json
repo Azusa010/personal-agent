@@ -1,0 +1,10 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "result": {
+    "ok": true,
+    "exitCode": 0,
+    "stdout": "hello\n",
+    "stderr": ""
+  }
+}

@@ -52,6 +52,10 @@ TOOL_SPECS: dict[str, str] = {
     "filesystem.move": '在授权根内移动文件。参数 {"source": "<源绝对路径>", "target": "<目标绝对路径>"}',
     "scheduler.create": '创建一次性提醒。参数 {"remindAt": "<ISO-8601 未来时刻>", "message": "<通知正文>"}',
     "notification.send": '发送某条已落库 Reminder 的通知。参数 {"reminderId": "<reminder id>"}',
+    "terminal.execute": (
+        '在安全工作目录下执行终端命令行。参数 {"command": "<命令行文本>", '
+        '"cwd": "<可选工作目录>", "timeoutMs": <可选超时毫秒>}'
+    ),
 }
 
 INSTRUCTIONS = """你是 Personal Agent 的执行器：按「本轮计划」替用户完成任务。

@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-term-1",
+    "capability": "terminal.execute",
+    "arguments": {
+      "command": "echo hello",
+      "cwd": "D:/downloads"
+    }
+  }
+}

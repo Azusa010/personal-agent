@@ -11,8 +11,11 @@ export const CapabilityId = z.enum([
   "filesystem.move",
   "scheduler.create",
   "notification.send",
+  "terminal.execute",
 ]);
-export const EXTRACT_PDF_CAPABILITY = CapabilityId.enum['document.extract_pdf']
+export const EXTRACT_PDF_CAPABILITY = CapabilityId.enum["document.extract_pdf"];
+export const TERMINAL_EXECUTE_CAPABILITY =
+  CapabilityId.enum["terminal.execute"];
 
 export type CapabilityId = z.infer<typeof CapabilityId>;
 

@@ -6,11 +6,14 @@ import {
   FilesystemMoveParams,
   NotificationSendParams,
   SchedulerCreateParams,
+  TerminalExecuteParams,
   type CapabilityId
 } from '@personal-agent/protocol'
 
+import { resolve } from 'node:path'
+
 import { resolveWithinRootReal } from '../capabilities/path-guard'
-import { resolveRoot } from '../capabilities/roots'
+import { resolveRoot, toPosix } from '../capabilities/roots'
 
 /** 契约校验 + 路径规范化之后的一次调用参数。 */
 export interface BoundArgs {
@@ -147,6 +150,38 @@ const bindNotificationSend: Binder = async (args) => {
   return { ok: true, bound: { args: { reminderId: parsed.data.reminderId }, paths: {} } }
 }
 
+// 终端命令执行前参数校验与工作目录约束
+const bindTerminalExecute: Binder = async (args) => {
+  const parsed = TerminalExecuteParams.safeParse(args)
+  if (!parsed.success) return invalid('terminal.execute', parsed.error.message)
+
+  const root = resolveRoot('downloads')
+  const paths: Record<string, string> = {}
+
+  if (parsed.data.cwd !== undefined) {
+    const targetCwd = resolve(root, parsed.data.cwd)
+    const guarded = await resolveWithinRootReal(root, targetCwd)
+    if (!guarded.ok) {
+      return { ok: false, code: guarded.code, reason: guarded.reason }
+    }
+    paths['cwd'] = guarded.path
+  } else {
+    paths['cwd'] = toPosix(root)
+  }
+
+  return {
+    ok: true,
+    bound: {
+      args: {
+        command: parsed.data.command,
+        ...(parsed.data.cwd !== undefined ? { cwd: parsed.data.cwd } : {}),
+        ...(parsed.data.timeoutMs !== undefined ? { timeoutMs: parsed.data.timeoutMs } : {})
+      },
+      paths
+    }
+  }
+}
+
 /** 每个能力的参数绑定器。没有登记的能力回 NOT_IMPLEMENTED：
  */
 const BINDERS: Partial<Record<CapabilityId, Binder>> = {
@@ -155,7 +190,8 @@ const BINDERS: Partial<Record<CapabilityId, Binder>> = {
   'filesystem.create_dir': bindCreateDir,
   'filesystem.move': bindMove,
   'scheduler.create': bindSchedulerCreate,
-  'notification.send': bindNotificationSend
+  'notification.send': bindNotificationSend,
+  'terminal.execute': bindTerminalExecute
 }
 
 export async function bindArguments(

@@ -10,24 +10,25 @@ import { readOnlyScope, isInScope } from './scope'
 import { CapabilityId } from '@personal-agent/protocol'
 
 /**
- * REQ-006 的正面清单。
- * 钉死「恰好这六个」，于是 SEC-007 的禁止项（Shell、代码执行、删除、覆盖、任意网络）
+ * 完整正面清单：REQ-006 的六个能力 + Phase 3 的 terminal.execute。
+ * SEC-007 的禁止项（Shell、代码执行、删除、覆盖、任意网络）
  * 自动被排除，不需要另写负面清单。
  */
-const REQ_006_NAMES = [
+const ALL_CAPABILITY_NAMES = [
   'filesystem.list',
   'document.extract_pdf',
   'filesystem.create_dir',
   'filesystem.move',
   'scheduler.create',
-  'notification.send'
+  'notification.send',
+  'terminal.execute'
 ]
 
 describe('CapabilityRegistry', () => {
-  it('恰好注册 REQ-006 的六个能力，不多不少', () => {
+  it('恰好注册 7 个能力，不多不少', () => {
     const names = listCapabilities().map((c) => c.name)
-    expect([...names].sort()).toEqual([...REQ_006_NAMES].sort())
-    expect(CAPABILITIES).toHaveLength(6)
+    expect([...names].sort()).toEqual([...ALL_CAPABILITY_NAMES].sort())
+    expect(CAPABILITIES).toHaveLength(7)
 
     // SEC-007 的禁止类名字必须查不到
     for (const forbidden of ['shell.exec', 'process.spawn', 'filesystem.delete', 'http.fetch']) {
@@ -35,7 +36,7 @@ describe('CapabilityRegistry', () => {
     }
   })
 
-  it('分类为 2 READ + 4 WRITE，READ 恰好是 Phase 1 那两个', () => {
+  it('分类为 2 READ + 5 WRITE，READ 恰好是 Phase 1 那两个', () => {
     expect(listByKind('READ').map((c) => c.name)).toEqual([
       'filesystem.list',
       'document.extract_pdf'
@@ -44,7 +45,8 @@ describe('CapabilityRegistry', () => {
       'filesystem.create_dir',
       'filesystem.move',
       'scheduler.create',
-      'notification.send'
+      'notification.send',
+      'terminal.execute'
     ])
     // 两类不重不漏
     expect(listByKind('READ').length + listByKind('WRITE').length).toBe(CAPABILITIES.length)
@@ -99,7 +101,7 @@ describe('契约层与 registry 的能力清单一致', () => {
    */
   it('CapabilityId enum 与 CAPABILITIES 名字集合相同', () => {
     const fromContract = [...CapabilityId.options].sort()
-    expect(fromContract).toEqual([...REQ_006_NAMES].sort())
+    expect(fromContract).toEqual([...ALL_CAPABILITY_NAMES].sort())
     expect(fromContract).toEqual(
       listCapabilities()
         .map((c) => c.name)
