@@ -2,10 +2,11 @@ import json
 import logging
 import os
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from typing import Any
 
-from pydantic import ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from personal_agent.engine import Budget
 from personal_agent.host_channel import HostChannel
@@ -34,6 +35,12 @@ from personal_agent.strategy import (
     PlanAndExecuteStrategy,
 )
 from personal_agent.stream import StreamEmitter
+from personal_agent.workflow.definition import WorkflowDefinition
+from personal_agent.workflow.executor import WorkflowExecutor
+from personal_agent.workflow.golden_path import (
+    WorkflowPlanError,
+    build_golden_path_workflow,
+)
 
 SERVER_INFO = ServerInfo(name="personal-agent-runtime", version="0.1.0")
 
@@ -53,6 +60,20 @@ PLAN_NOT_BUILDABLE = "PLAN_NOT_BUILDABLE"
 SCRIPT_ENV = "PERSONAL_AGENT_SCRIPT"
 
 PLAN_MODEL_FAILED = "PLAN_MODEL_FAILED"
+
+AGENT_RUN_WORKFLOW = "agent.run_workflow"
+WORKFLOW_NOT_FOUND = "WORKFLOW_NOT_FOUND"
+
+
+class RunWorkflowParams(BaseModel):
+    taskId: str = Field(min_length=1)
+    workflowId: str = Field(min_length=1)
+    inputs: dict[str, Any] = Field(default_factory=dict)
+
+
+WORKFLOW_REGISTRY: dict[str, Callable[[Sequence[str]], WorkflowDefinition]] = {
+    "golden_path": build_golden_path_workflow,
+}
 
 
 @dataclass
@@ -107,6 +128,9 @@ def dispatch(raw, deps: RuntimeDeps | None = None) -> dict:
 
     if req.method == AGENT_RUN_TASK:
         return handle_run_task(req, deps)
+
+    if req.method == AGENT_RUN_WORKFLOW:
+        return handle_run_workflow(req, deps)
 
     return build_error(
         req_id=req.id, code="METHOD_NOT_FOUND", message=f"未知方法:{req.method}"
@@ -229,6 +253,47 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
         exclude_none=True
     )
 
+def handle_run_workflow(req: Request, deps: RuntimeDeps | None = None) -> dict:
+    """执行确定性业务工作流。"""
+    try:
+        params = RunWorkflowParams.model_validate(req.params)
+    except ValidationError:
+        return build_error(
+            req.id, "PROTOCOL_INVALID_REQUEST", "run_workflow 参数不符合契约"
+        )
+
+    builder = WORKFLOW_REGISTRY.get(params.workflowId)
+    if builder is None:
+        return build_error(
+            req.id, WORKFLOW_NOT_FOUND, f"未知工作流: {params.workflowId}"
+        )
+
+    if deps is None or deps.channel is None:
+        return build_error(
+            req.id, "RUNTIME_INTERNAL", "运行时未配置通道，无法执行工作流"
+        )
+
+    visible_capabilities = [c.name for c in deps.capabilities]
+    try:
+        workflow = builder(visible_capabilities)
+    except WorkflowPlanError as e:
+        return build_error(req.id, PLAN_NOT_BUILDABLE, str(e))
+
+    emitter = _stream_emitter(deps, params.taskId)
+    executor = WorkflowExecutor(
+        channel=deps.channel,
+        stream=emitter,
+    )
+
+    try:
+        outcome = executor.execute(workflow, inputs=params.inputs)
+    except Exception:
+        log.exception("agent.run_workflow 未预期异常 (id=%s)", req.id)
+        return build_error(req.id, "RUNTIME_INTERNAL", "运行时内部错误")
+
+    return Response(
+        jsonrpc="2.0", id=req.id, result=outcome.model_dump(exclude_none=True)
+    ).model_dump(exclude_none=True)
 
 # ====== I/O 层 ========
 def write(msg: dict) -> None:
@@ -308,6 +373,7 @@ def resolve_strategy() -> AgentStrategy:
     strategy_name = os.environ.get(STRATEGY_ENV, "plan_execute").strip().lower()
     if strategy_name == "react":
         from personal_agent.strategy import ReActStrategy
+
         return ReActStrategy()
     # 默认 plan_execute
     return PlanAndExecuteStrategy()
