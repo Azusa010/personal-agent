@@ -36,6 +36,9 @@ from personal_agent.protocol.models import (
     RunTaskRequest,
     RunTaskResponse,
     RunTaskResult,
+    RunWorkflowParams,
+    RunWorkflowRequest,
+    RunWorkflowResponse,
     SchedulerCreateOutcome,
     SchedulerCreateParams,
     SchedulerCreateResult,
@@ -284,6 +287,19 @@ def _pick(raw: dict, path: str):
             AgentStreamNotification,
             None,
             "params",
+        ),
+        # agent.run_workflow：确定性工作流契约
+        (
+            "agent-run-workflow.request.json",
+            RunWorkflowRequest,
+            RunWorkflowParams,
+            "params",
+        ),
+        (
+            "agent-run-workflow.response.json",
+            RunWorkflowResponse,
+            None,
+            "result",
         ),
     ],
 )

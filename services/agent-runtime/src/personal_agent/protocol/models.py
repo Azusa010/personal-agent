@@ -440,3 +440,35 @@ class AgentStreamNotification(BaseModel):
     jsonrpc: Literal["2.0"]
     method: Literal["agent.stream"]
     params: AgentStreamParams
+
+
+# ---- agent.run_workflow：TS → Python 触发一个确定性工作流 ----
+AGENT_RUN_WORKFLOW = "agent.run_workflow"
+
+
+class RunWorkflowParams(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    taskId: str = Field(min_length=1)
+    workflowId: str = Field(min_length=1)
+    inputs: dict[str, Any] = Field(default_factory=dict)
+
+
+class RunWorkflowRequest(BaseModel):
+    jsonrpc: Literal["2.0"]
+    id: str = Field(min_length=1)
+    method: Literal["agent.run_workflow"]
+    params: RunWorkflowParams
+
+
+class RunWorkflowResponse(BaseModel):
+    jsonrpc: Literal["2.0"]
+    id: str = Field(min_length=1)
+    result: RunTaskResult | None = None
+    error: JsonRpcError | None = None
+
+    @model_validator(mode="after")
+    def check_exactly_one(self) -> Self:
+        if (self.result is None) == (self.error is None):
+            raise ValueError("result and error must not be present at the same time")
+        return self

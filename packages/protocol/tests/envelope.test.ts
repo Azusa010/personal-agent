@@ -51,6 +51,11 @@ import {
   SummaryFact,
   Turn,
 } from "../schemas/agent.js";
+import {
+  RunWorkflowParams,
+  RunWorkflowRequest,
+  RunWorkflowResponse,
+} from "../schemas/workflow.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, "../fixtures");
@@ -304,6 +309,19 @@ const legalCases = [
     envelope: AgentStreamNotification,
     payload: null,
     field: "params",
+  },
+  // agent.run_workflow：确定性工作流契约
+  {
+    file: "agent-run-workflow.request.json",
+    envelope: RunWorkflowRequest,
+    payload: RunWorkflowParams,
+    field: "params",
+  },
+  {
+    file: "agent-run-workflow.response.json",
+    envelope: RunWorkflowResponse,
+    payload: null,
+    field: "result",
   },
 ];
 

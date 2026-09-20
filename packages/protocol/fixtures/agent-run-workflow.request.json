@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": "wf-req-001",
+  "method": "agent.run_workflow",
+  "params": {
+    "taskId": "task-wf-1001",
+    "workflowId": "golden_path",
+    "inputs": {
+      "rootId": "downloads"
+    }
+  }
+}

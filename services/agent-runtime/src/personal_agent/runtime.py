@@ -4,9 +4,8 @@ import os
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import ValidationError
 
 from personal_agent.engine import Budget
 from personal_agent.host_channel import HostChannel
@@ -18,6 +17,7 @@ from personal_agent.planning import PlanError
 from personal_agent.protocol.models import (
     AGENT_MAKE_PLAN,
     AGENT_RUN_TASK,
+    AGENT_RUN_WORKFLOW,
     CapabilityDescriptor,
     InitializeParams,
     InitializeResult,
@@ -26,6 +26,7 @@ from personal_agent.protocol.models import (
     Request,
     Response,
     RunTaskParams,
+    RunWorkflowParams,
     ServerInfo,
 )
 from personal_agent.scripted_model import ScriptedModel, ScriptLoadError, load_script
@@ -61,14 +62,7 @@ SCRIPT_ENV = "PERSONAL_AGENT_SCRIPT"
 
 PLAN_MODEL_FAILED = "PLAN_MODEL_FAILED"
 
-AGENT_RUN_WORKFLOW = "agent.run_workflow"
 WORKFLOW_NOT_FOUND = "WORKFLOW_NOT_FOUND"
-
-
-class RunWorkflowParams(BaseModel):
-    taskId: str = Field(min_length=1)
-    workflowId: str = Field(min_length=1)
-    inputs: dict[str, Any] = Field(default_factory=dict)
 
 
 WORKFLOW_REGISTRY: dict[str, Callable[[Sequence[str]], WorkflowDefinition]] = {

@@ -1,0 +1,38 @@
+{
+  "jsonrpc": "2.0",
+  "id": "wf-req-001",
+  "result": {
+    "status": "completed",
+    "reply": "已把 sample.pdf 移到 Reading，并建了一条到点的一次性阅读提醒。摘要：共 1 页已处理完成。",
+    "facts": [
+      {
+        "text": "第一页要点",
+        "pageRefs": [1]
+      }
+    ],
+    "events": [
+      {
+        "type": "task_started",
+        "payload": {
+          "workflowId": "golden_path",
+          "goal": "整理 Downloads 里的 PDF"
+        },
+        "occurredAt": "2026-09-20T10:00:00.000Z"
+      },
+      {
+        "type": "task_completed",
+        "payload": {
+          "reply": "已把 sample.pdf 移到 Reading，并建了一条到点的一次性阅读提醒。摘要：共 1 页已处理完成。",
+          "factCount": 1,
+          "facts": [
+            {
+              "text": "第一页要点",
+              "pageRefs": [1]
+            }
+          ]
+        },
+        "occurredAt": "2026-09-20T10:00:02.000Z"
+      }
+    ]
+  }
+}
