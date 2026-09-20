@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -18,6 +18,15 @@ const SUPERVISOR_DEFAULT_TIMEOUT_MS = 30_000
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = join(here, '..', '..', '..', '..', '..')
 const enginePy = join(repoRoot, 'services', 'agent-runtime', 'src', 'personal_agent', 'engine.py')
+const budgetPy = join(
+  repoRoot,
+  'services',
+  'agent-runtime',
+  'src',
+  'personal_agent',
+  'shared',
+  'budget.py'
+)
 
 describe('三层超时链', () => {
   it('批准窗口先于传输层超时结束：HOST_TOOL_TIMEOUT_MS > PERMISSION_TTL_MS', () => {
@@ -37,16 +46,13 @@ describe('三层超时链', () => {
   })
 
   it('RUN_TASK_TIMEOUT_MS 是推导出来的，不是各自硬编码', () => {
-    // 两个值分开写的话，改了批准有效期就会静默破坏
-    // 「TS 的等待时间 > Python 的最坏执行时间」这个不等式。
     expect(RUN_TASK_TIMEOUT_MS).toBe(PYTHON_MAX_TOOL_CALLS * HOST_TOOL_TIMEOUT_MS + MODEL_SLACK_MS)
   })
 
   it('必须大于 Python 侧最坏执行时间，否则 TS 先超时而 Python 还在跑', () => {
-    // 这条不等式一旦破了，engine 会在 TS 已经 reject 之后继续写 stdout，
-    // 那些响应找不到 pending 记录，被 supervisor 当垃圾丢掉。
-    expect(RUN_TASK_TIMEOUT_MS).toBeGreaterThan(PYTHON_MAX_TOOL_CALLS * HOST_TOOL_TIMEOUT_MS)
-    // 余量留给真实模型的决策时间（Phase 3）：ScriptedModel 决策耗时约 0，
+    // 8 次工具调满（全要用户批准 + 走到 300s 截止前一秒）+ 每步等模型 10 秒
+    const worstCaseExecutionMs = 8 * 300_000 + 8 * 10_000
+    expect(RUN_TASK_TIMEOUT_MS).toBeGreaterThan(worstCaseExecutionMs)
     // 接进来之后每步 2-10 秒 × maxSteps。
     expect(MODEL_SLACK_MS).toBeGreaterThanOrEqual(120_000)
   })
@@ -58,9 +64,10 @@ describe('三层超时链', () => {
 
 describe('与 Python 侧 Budget 的一致性', () => {
   function readDefault(name: string): number {
-    const source = readFileSync(enginePy, 'utf8')
+    const targetFile = existsSync(budgetPy) ? budgetPy : enginePy
+    const source = readFileSync(targetFile, 'utf8')
     const matched = new RegExp(`${name}\\s*=\\s*(\\d+)`).exec(source)
-    expect(matched, `engine.py 里找不到 ${name}`).not.toBeNull()
+    expect(matched, `Python 侧找不到 ${name}`).not.toBeNull()
     return Number(matched?.[1])
   }
 

@@ -22,12 +22,12 @@ from typing import Any
 from openai.types.responses import ResponseTextConfigParam
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from personal_agent.live_model import (
+from personal_agent.conversation.model.gateway import ModelCallFailed, ThinkingSink
+from personal_agent.conversation.model.live_model import (
     LIVE_REASONING_SUMMARY_ENV,
     TOOL_SPECS,
     compose_instructions,
 )
-from personal_agent.model_gateway import ModelCallFailed, ThinkingSink
 from personal_agent.planning import PlanStep
 from personal_agent.protocol.models import ProfileDto, Turn
 

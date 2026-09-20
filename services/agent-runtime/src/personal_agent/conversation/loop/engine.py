@@ -1,0 +1,252 @@
+"""AgentEngine —— 最小 Agent Loop 与预算控制。
+
+一个 engine 只跑一个任务：ContextManager 持有 observations，跨任务复用会把
+上一个任务的观察串进来。
+run() 是同步阻塞的：engine 跑的时候 runtime 主循环停在 handle_line 里，
+stdin 由 HostChannel.call_host 独占读，非匹配行塞 inbox。
+"""
+
+import logging
+from collections.abc import Sequence
+from typing import Any
+
+from pydantic import ValidationError
+
+from personal_agent.conversation.context import ContextManager
+from personal_agent.conversation.model.gateway import (
+    ModelCallFailed,
+    ModelDecision,
+    ModelGateway,
+    Observation,
+    ScriptExhausted,
+    SummaryDecision,
+    ToolCallDecision,
+    UsageReporting,
+)
+from personal_agent.conversation.verification.summary import (
+    EXTRACT_PDF_CAPABILITY,
+    SummaryRejected,
+    collect_extracted_pages,
+    verify_summary,
+)
+from personal_agent.protocol.models import (
+    HostExecuteToolParams,
+    RunTaskCompleted,
+    RunTaskEvent,
+    RunTaskFailed,
+)
+from personal_agent.shared import (
+    HostChannel,
+    HostChannelClosed,
+    HostRequestFailed,
+    StreamSink,
+)
+
+log = logging.getLogger("personal_agent")
+
+# 完整 Golden Path（TASK-028）要 5 次工具调用（list / extract / create_dir / move /
+# scheduler.create）加最后一次摘要决策，而预算是在每次决策**之前**判的：
+# `toolCalls >= maxToolCalls` 一到就停，所以 maxToolCalls 必须大于调用数本身，
+# 否则模型做完第五步就再也没有机会给摘要（TASK-016 那版的 5 只够两步的只读路径）。
+# 给到 8 / 12 是留出重试余量：WRITE 被拒或工具失败时模型要能改口重试，
+# 但仍然有界——预算是这个循环唯一的刹车。
+DEFAULT_MAX_STEPS = 12
+DEFAULT_MAX_TOOL_CALLS = 8
+
+
+from personal_agent.shared import (
+    EVENT_BUDGET_EXHAUSTED,
+    EVENT_MODEL_USAGE,
+    EVENT_TASK_COMPLETED,
+    EVENT_TASK_FAILED,
+    EVENT_TASK_STARTED,
+    EVENT_TOOL_CALLED,
+    EVENT_TOOL_RESULT,
+    Budget,
+    now_occurred_at,
+)
+
+CAPABILITY_NOT_REGISTERED = "CAPABILITY_NOT_REGISTERED"
+
+# 模型侧失败的 reason 前缀。与 RUNTIME_MODEL_NOT_CONFIGURED 分开：
+# 那个是「进程压根没配模型」，这个是「配了但这次调用没成」。
+MODEL_CALL_FAILED = "MODEL_CALL_FAILED"
+
+
+class AgentEngine:
+    def __init__(
+        self,
+        model: ModelGateway,
+        channel: HostChannel,
+        context: ContextManager,
+        budget: Budget | None = None,
+        stream: StreamSink | None = None,
+    ) -> None:
+        self._model = model
+        self._channel = channel
+        self._context = context
+        self._budget = budget if budget is not None else Budget()
+        self._stream = stream
+
+    def run(
+        self, goal: str, visibleCapabilities: Sequence[str]
+    ) -> RunTaskCompleted | RunTaskFailed:
+        outcome = self._drive(goal, visibleCapabilities)
+        self._settle_usage(outcome)
+        return outcome
+
+    def _drive(
+        self, goal: str, visibleCapabilities: Sequence[str]
+    ) -> RunTaskCompleted | RunTaskFailed:
+        events: list[RunTaskEvent] = []
+        self._emit(events, EVENT_TASK_STARTED, {"goal": goal})
+        steps: int = 0
+        toolCalls: int = 0
+        while True:
+            if self._budget_exceeded(steps, toolCalls):
+                self._emit(
+                    events,
+                    EVENT_BUDGET_EXHAUSTED,
+                    {"steps": steps, "toolCalls": toolCalls},
+                )
+                return self._fail(
+                    events, f"预算耗尽：已用 {steps} 步 / {toolCalls} 次工具调用"
+                )
+            try:
+                decision = self._decide(goal, visibleCapabilities)
+            except ScriptExhausted as e:
+                return self._fail(events, str(e))
+            except ModelCallFailed as e:
+                # 模型这一侧的问题（网络、鉴权、结构化输出不合契约）是任务的失败原因，
+                # 不是运行时内部错误：带上前缀回传，任务记录里直接看得出是哪一侧。
+                return self._fail(events, f"{MODEL_CALL_FAILED}: {e.reason}")
+            steps += 1
+            if isinstance(decision, SummaryDecision):
+                try:
+                    facts = verify_summary(
+                        decision.facts,
+                        collect_extracted_pages(self._context.observations),
+                        require_page_refs=self._plan_requires_grounded_summary(),
+                    )
+                except SummaryRejected as e:
+                    return self._fail(events, e.reason)
+                self._emit(
+                    events,
+                    EVENT_TASK_COMPLETED,
+                    {"reply": decision.reply, "factCount": len(facts), "facts": facts},
+                )
+                return RunTaskCompleted(
+                    status="completed", reply=decision.reply, facts=facts, events=events
+                )
+            self._emit(
+                events,
+                EVENT_TOOL_CALLED,
+                {
+                    "callId": decision.callId,
+                    "capability": decision.capability,
+                    "arguments": decision.arguments,
+                },
+            )
+            try:
+                observation = self._execute(decision)
+            except HostRequestFailed as e:
+                return self._fail(events, str(e))
+            except HostChannelClosed as e:
+                return self._fail(events, f"RUNTIME_CHANNEL_CLOSED: {e}")
+            self._emit(
+                events,
+                EVENT_TOOL_RESULT,
+                {
+                    "callId": observation.callId,
+                    "capability": observation.capability,
+                    "ok": observation.ok,
+                },
+            )
+            self._context.record(observation)
+            toolCalls += 1
+
+    def _fail(self, events: list[RunTaskEvent], reason: str) -> RunTaskFailed:
+        """失败路径统一走这里，保证 events 一定跟着回传。"""
+        self._emit(events, EVENT_TASK_FAILED, {"reason": reason})
+        return RunTaskFailed(status="failed", reason=reason, events=events)
+
+    def _settle_usage(self, outcome: RunTaskCompleted | RunTaskFailed) -> None:
+        """收尾结算：向会记账的网关要一次用量，插成终态事件前的一条 model_usage。
+
+        插在倒数第一条之前而不是直接追加：时间线上先有「这次花了多少」，
+        再由 task_completed / task_failed 宣布结局，倒过来读着像结算发生在结局之后。
+        失败的任务也结算——账要按次数记，跑崩的那次同样花了 token。
+        ScriptedModel 不实现 UsageReporting，这里一条都不加，
+        Golden Path E2E 钉的事件类型序列因此不受影响。
+        """
+        if not isinstance(self._model, UsageReporting):
+            return
+        usage = self._model.usage_snapshot()
+        if usage is None:
+            return
+        outcome.events.insert(
+            max(len(outcome.events) - 1, 0),
+            RunTaskEvent(
+                type=EVENT_MODEL_USAGE,
+                payload=usage.model_dump(),
+                occurredAt=now_occurred_at(),
+            ),
+        )
+
+    def _emit(
+        self, events: list[RunTaskEvent], event_type: str, payload: dict[str, Any]
+    ) -> None:
+        """事件构造集中在这一个地方，run() 里不要直接 new RunTaskEvent。"""
+        event = RunTaskEvent(
+            type=event_type, payload=payload, occurredAt=now_occurred_at()
+        )
+        events.append(event)
+        if self._stream is not None:
+            self._stream.event(event)
+
+    def _budget_exceeded(self, steps: int, toolCalls: int) -> bool:
+        return steps >= self._budget.maxSteps or toolCalls >= self._budget.maxToolCalls
+
+    def _decide(self, goal: str, visibleCapabilities: Sequence[str]) -> ModelDecision:
+        context = self._context.build(goal, visibleCapabilities)
+        if self._stream is None:
+            return self._model.decide(context)
+        return self._model.decide(context, self._stream.thinking)
+
+    def _plan_requires_grounded_summary(self) -> bool:
+        """计划里有「提取 PDF」这一步，摘要就必须可溯源到页面。
+
+        零工具或纯列表的轮次，结论来自工具观察而非页面文本——facts 允许为空、
+        页码允许缺席；但只要给了页码，仍然必须真实（见 summary.verify_summary）。
+        """
+        return any(
+            step.capability == EXTRACT_PDF_CAPABILITY for step in self._context.plan
+        )
+
+    def _execute(self, decision: ToolCallDecision) -> Observation:
+        """执行一次工具调用。capability 不在协议枚举内时就地造 Observation，
+        其余情况一律透传 host 的 ok 与 model_extra。"""
+        try:
+            params = HostExecuteToolParams(
+                callId=decision.callId,
+                capability=decision.capability,
+                arguments=decision.arguments,
+            )
+        except ValidationError:
+            log.warning("模型请求了协议枚举外的 capability: %s", decision.capability)
+            return Observation(
+                callId=decision.callId,
+                capability=decision.capability,
+                ok=False,
+                payload={
+                    "code": CAPABILITY_NOT_REGISTERED,
+                    "reason": f"capability {decision.capability} 不在协议枚举内",
+                },
+            )
+        result = self._channel.call_host(params)
+        return Observation(
+            callId=decision.callId,
+            capability=decision.capability,
+            ok=result.ok,
+            payload=dict(result.model_extra or {}),
+        )

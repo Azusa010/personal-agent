@@ -23,7 +23,7 @@ from typing import Any
 from openai import OpenAI
 from pydantic import TypeAdapter, ValidationError
 
-from personal_agent.model_gateway import (
+from personal_agent.conversation.model.gateway import (
     ModelCallFailed,
     ModelContext,
     ModelDecision,
