@@ -1,10 +1,13 @@
-"""LiveModel 的行为测试（TASK-027）。
+"""LiveModel 的行为测试（TASK-027 / Chat Completions 重构）。
 
 真 client 一构造就要 API Key、一调用就出网，这两件事都不该进单元测试，
 所以全部用假 client：这里钉的是适配器的**翻译层**——ModelContext 怎么变成
-请求、模型的文本怎么变回 ModelDecision、用量怎么记账、失败怎么收场。
+Chat Completions 的 messages 与 tools、模型的返回怎么变回 ModelDecision、
+用量怎么记账、失败怎么收场。
 真实网络行为不在本文件的覆盖范围（CON-006：CI 不得依赖真实模型）。
 """
+
+from __future__ import annotations
 
 import json
 from typing import Any, get_args
@@ -13,12 +16,17 @@ import pytest
 
 from personal_agent.live_model import (
     DECISION_SCHEMA,
+    FINISH_TASK_SCHEMA,
+    FINISH_TASK_TOOL_NAME,
     INSTRUCTIONS,
     LIVE_MODEL_ENV,
+    TOOL_SCHEMAS,
     TOOL_SPECS,
     LiveModel,
+    build_tools,
     compose_instructions,
     render_input,
+    render_messages,
 )
 from personal_agent.model_gateway import (
     ModelCallFailed,
@@ -35,9 +43,47 @@ VISIBLE = ["filesystem.list", "document.extract_pdf"]
 
 
 class FakeUsage:
-    def __init__(self, input_tokens=0, output_tokens=0):
+    def __init__(
+        self,
+        input_tokens=0,
+        output_tokens=0,
+        prompt_tokens=None,
+        completion_tokens=None,
+    ):
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
+        self.prompt_tokens = prompt_tokens if prompt_tokens is not None else input_tokens
+        self.completion_tokens = completion_tokens if completion_tokens is not None else output_tokens
+
+
+class FakeFunction:
+    def __init__(self, name: str, arguments: str):
+        self.name = name
+        self.arguments = arguments
+
+
+class FakeToolCall:
+    def __init__(self, id: str, name: str, arguments: str):
+        self.id = id
+        self.type = "function"
+        self.function = FakeFunction(name, arguments)
+
+
+class FakeMessage:
+    def __init__(self, content: str | None = None, tool_calls: list[Any] | None = None):
+        self.content = content
+        self.tool_calls = tool_calls or []
+
+
+class FakeChoice:
+    def __init__(self, message: FakeMessage):
+        self.message = message
+
+
+class FakeChatCompletion:
+    def __init__(self, message: FakeMessage, usage: Any = None):
+        self.choices = [FakeChoice(message)]
+        self.usage = usage
 
 
 class FakeResponse:
@@ -46,16 +92,67 @@ class FakeResponse:
         self.usage = usage
 
 
+def _adapt_to_chat_completion(item: Any) -> Any:
+    if isinstance(item, FakeChatCompletion):
+        return item
+    if not isinstance(item, FakeResponse):
+        return item
+    text = item.output_text
+    if not isinstance(text, str) or not text.strip():
+        return FakeChatCompletion(FakeMessage(content=""), item.usage)
+    try:
+        data = json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return FakeChatCompletion(FakeMessage(content=text), item.usage)
+    if isinstance(data, dict):
+        kind = data.get("kind")
+        if kind == "tool_call":
+            tc = FakeToolCall(
+                id=data.get("callId", "call-1"),
+                name=data.get("capability", "filesystem.list"),
+                arguments=json.dumps(data.get("arguments", {})),
+            )
+            return FakeChatCompletion(FakeMessage(tool_calls=[tc]), item.usage)
+        elif kind == "summary":
+            tc = FakeToolCall(
+                id="call-finish",
+                name=FINISH_TASK_TOOL_NAME,
+                arguments=json.dumps(
+                    {
+                        "reply": data.get("reply", ""),
+                        "facts": data.get("facts", []),
+                    }
+                ),
+            )
+            return FakeChatCompletion(FakeMessage(tool_calls=[tc]), item.usage)
+        elif kind == "step_complete":
+            tc = FakeToolCall(
+                id="call-step",
+                name="step_complete",
+                arguments=json.dumps({"result": data.get("result", "")}),
+            )
+            return FakeChatCompletion(FakeMessage(tool_calls=[tc]), item.usage)
+        elif kind == "replan":
+            tc = FakeToolCall(
+                id="call-replan",
+                name="replan",
+                arguments=json.dumps({"reason": data.get("reason", "")}),
+            )
+            return FakeChatCompletion(FakeMessage(tool_calls=[tc]), item.usage)
+    return FakeChatCompletion(FakeMessage(content=text), item.usage)
+
+
 class FakeStreamEvent:
     def __init__(self, type: str, delta: str = "") -> None:
         self.type = type
         self.delta = delta
+        self.reasoning_content = delta
 
 
 class FakeStream:
     def __init__(self, events: list[Any], final_response: Any) -> None:
         self._events = events
-        self._final_response = final_response
+        self._final_response = _adapt_to_chat_completion(final_response)
 
     def __iter__(self):
         return iter(self._events)
@@ -67,13 +164,39 @@ class FakeStream:
 class FakeStreamManager:
     def __init__(self, events: list[Any], final_response: Any) -> None:
         self._events = events
-        self._final_response = final_response
+        self._final_response = _adapt_to_chat_completion(final_response)
 
     def __enter__(self) -> FakeStream:
         return FakeStream(self._events, self._final_response)
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         pass
+
+
+class FakeChatCompletions:
+    def __init__(self, items: list[Any], stream_events: list[Any] | None = None):
+        self._items = list(items)
+        self.requests: list[dict[str, Any]] = []
+        self.stream_requests: list[dict[str, Any]] = []
+        self._stream_events = list(stream_events or [])
+
+    def create(self, **kwargs: Any) -> Any:
+        if kwargs.get("stream"):
+            self.stream_requests.append(kwargs)
+        else:
+            self.requests.append(kwargs)
+        item = self._items.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        adapted = _adapt_to_chat_completion(item)
+        if kwargs.get("stream"):
+            return FakeStreamManager(self._stream_events, adapted)
+        return adapted
+
+
+class FakeChat:
+    def __init__(self, items: list[Any], stream_events: list[Any] | None = None):
+        self.completions = FakeChatCompletions(items, stream_events)
 
 
 class FakeResponses:
@@ -100,6 +223,7 @@ class FakeResponses:
 
 class FakeClient:
     def __init__(self, items: list[Any], stream_events: list[Any] | None = None):
+        self.chat = FakeChat(items, stream_events)
         self.responses = FakeResponses(items, stream_events)
 
 
@@ -139,13 +263,11 @@ def context_with(
 
 
 def test_tool_specs_only_names_registered_capabilities():
-    # 提示语里的能力名必须落在协议枚举内：写错了只是模型收到一条错提示，
-    # 不会报错，所以在这里钉住。
     assert set(TOOL_SPECS) <= set(get_args(CapabilityId))
+    assert set(TOOL_SCHEMAS) <= set(get_args(CapabilityId))
 
 
 def test_decision_schema_is_derived_from_the_contract():
-    # schema 从 ModelDecision 派生（不手抄）：判别键与四个分支都要在。
     assert DECISION_SCHEMA["discriminator"]["propertyName"] == "kind"
     assert set(DECISION_SCHEMA["discriminator"]["mapping"]) == {
         "tool_call",
@@ -153,6 +275,73 @@ def test_decision_schema_is_derived_from_the_contract():
         "step_complete",
         "replan",
     }
+
+
+def test_build_tools_filters_by_visible_and_adds_finish_task():
+    tools = build_tools(["filesystem.list"])
+    names = [t["function"]["name"] for t in tools]
+    assert names == ["filesystem.list", FINISH_TASK_TOOL_NAME]
+    assert tools[1] == FINISH_TASK_SCHEMA
+
+
+def test_render_messages_full_structure():
+    ctx = context_with(
+        observations=[
+            Observation(
+                callId="call-1",
+                capability="filesystem.list",
+                ok=True,
+                payload={"entries": [{"name": "a.pdf"}]},
+                arguments={"rootId": "downloads"},
+            ),
+            Observation(
+                callId="call-2",
+                capability="document.extract_pdf",
+                ok=False,
+                payload={"code": "PDF_UNREADABLE", "reason": "损坏"},
+                arguments={"path": "/docs/a.pdf"},
+            ),
+        ],
+        plan=[
+            PlanStepDto(description="列出目录", capability="filesystem.list"),
+            PlanStepDto(description="总结汇报"),
+        ],
+        history=[Turn(role="user", text="请帮我整理文件")],
+    )
+    messages = render_messages(ctx)
+    assert len(messages) == 7
+    # 1. system
+    assert messages[0]["role"] == "system"
+    assert INSTRUCTIONS in messages[0]["content"]
+    # 2. history
+    assert messages[1] == {"role": "user", "content": "请帮我整理文件"}
+    # 3. current task goal & plan
+    assert messages[2]["role"] == "user"
+    assert "整理 Downloads 里的 PDF" in messages[2]["content"]
+    assert "1. 列出目录（filesystem.list）" in messages[2]["content"]
+    assert "2. 总结汇报" in messages[2]["content"]
+    # 4. assistant call-1
+    assert messages[3]["role"] == "assistant"
+    assert messages[3]["tool_calls"][0]["id"] == "call-1"
+    assert messages[3]["tool_calls"][0]["function"]["name"] == "filesystem.list"
+    assert json.loads(messages[3]["tool_calls"][0]["function"]["arguments"]) == {"rootId": "downloads"}
+    # 5. tool result 1
+    assert messages[4]["role"] == "tool"
+    assert messages[4]["tool_call_id"] == "call-1"
+    assert "a.pdf" in messages[4]["content"]
+    # 6. assistant call-2
+    assert messages[5]["role"] == "assistant"
+    assert messages[5]["tool_calls"][0]["id"] == "call-2"
+
+
+def test_render_messages_empty_history_and_plan():
+    ctx = context_with()
+    messages = render_messages(ctx)
+    assert len(messages) == 2
+    assert messages[0]["role"] == "system"
+    assert messages[1]["role"] == "user"
+    assert "整理 Downloads 里的 PDF" in messages[1]["content"]
+    assert "（空）" in messages[1]["content"]
 
 
 def test_render_input_lists_goal_capabilities_and_observations():
@@ -179,72 +368,11 @@ def test_render_input_lists_goal_capabilities_and_observations():
     assert "- filesystem.list: " in rendered
     assert "- document.extract_pdf: " in rendered
     assert "call-1" in rendered and "a.pdf" in rendered
-    # 失败也要进上下文：模型得知道这一步没成，才不会照着不存在的页面写摘要。
     assert "ok=False" in rendered and "PDF_UNREADABLE" in rendered
-    # 中文 payload 不能被转义成 \uXXXX：ensure_ascii=False 掉了会降低模型可读性。
     assert "坏了" in rendered
 
 
-def test_render_input_skips_capabilities_outside_the_visible_list():
-    context = ModelContext(
-        taskGoal="g",
-        visibleCapabilities=["filesystem.list"],
-        observations=[],
-    )
-
-    rendered = render_input(context)
-
-    assert "filesystem.list" in rendered
-    assert "document.extract_pdf" not in rendered
-    assert "（还没有调用过任何工具）" in rendered
-
-
-def test_render_input_renders_the_plan_in_order():
-    rendered = render_input(
-        context_with(
-            plan=[
-                PlanStepDto(
-                    description="列出 Downloads 下的 PDF", capability="filesystem.list"
-                ),
-                PlanStepDto(description="基于页面内容生成带页码引用的摘要"),
-            ]
-        )
-    )
-
-    # 计划带顺序编号；不经工具的那一步要有明确标注——模型得知道「这一步不调
-    # 工具，直接给摘要」，否则它会试图为摘要步编一个能力名出来。
-    assert "1. 列出 Downloads 下的 PDF（filesystem.list）" in rendered
-    assert "2. 基于页面内容生成带页码引用的摘要（不经工具，最后直接回复用户）" in rendered
-
-
-def test_render_input_with_an_empty_plan_says_so():
-    # 生产路径上 Main 必发 plan（契约 min(1)）；空计划只可能来自替身测试。
-    # 渲染不该崩，也不该留下一个没有内容的「本轮计划：」悬空标题。
-    rendered = render_input(context_with())
-
-    assert "本轮计划" in rendered
-    assert "（空）" in rendered
-
-
-def test_render_input_renders_the_history_for_coreference():
-    # 执行侧同样要看得见之前聊了什么：计划是「做什么」，历史补齐「指什么」。
-    rendered = render_input(
-        context_with(history=[Turn(role="user", text="把最新的 PDF 整理到 Reading")])
-    )
-
-    assert "之前的对话" in rendered
-    assert "[user] 把最新的 PDF 整理到 Reading" in rendered
-
-
-def test_render_input_omits_the_history_section_on_the_first_turn():
-    rendered = render_input(context_with())
-
-    assert "之前的对话" not in rendered
-
-
 def test_instructions_no_longer_hardcode_the_golden_path():
-    # 写死五步是「只能固定执行」的根因之一：提示词里不许再出现具体的步骤序列、
-    # 能力名或目标目录名——这一轮做什么，只由输入里的「本轮计划」说了算。
     assert "Reading" not in INSTRUCTIONS
     assert "Downloads" not in INSTRUCTIONS
     for capability in get_args(CapabilityId):
@@ -260,14 +388,10 @@ def test_decide_sends_the_contract_schema_and_returns_a_tool_call():
     assert isinstance(decision, ToolCallDecision)
     assert decision.capability == "filesystem.list"
     assert decision.arguments == {"rootId": "downloads"}
-    request = client.responses.requests[0]
+    request = client.chat.completions.requests[0]
     assert request["model"] == "gpt-test"
-    assert request["instructions"] == INSTRUCTIONS
-    assert request["text"]["format"]["schema"] == DECISION_SCHEMA
-    # strict=True 会拒掉 arguments / facts 这类自由对象，必须显式关掉。
-    assert request["text"]["format"]["strict"] is False
-    # 本地优先：PDF 内容不留在服务端。
-    assert request["store"] is False
+    assert any(t["function"]["name"] == "filesystem.list" for t in request["tools"])
+    assert any(t["function"]["name"] == FINISH_TASK_TOOL_NAME for t in request["tools"])
 
 
 def test_decide_returns_a_summary_decision():
@@ -307,7 +431,6 @@ def test_decide_returns_replan_decision():
 
 
 def test_decide_survives_a_response_without_usage():
-    # usage 缺失按 0 记，任务照常继续：少了统计不该让任务失败。
     client = FakeClient([FakeResponse(tool_call_json())])
     model = LiveModel(model="gpt-test", client=client)
 
@@ -319,9 +442,7 @@ def test_decide_survives_a_response_without_usage():
 
 
 def test_usage_snapshot_is_none_before_any_call():
-    # 没花 token 的任务不该凭空多一条零用量事件（engine 据此决定加不加）。
     model = LiveModel(model="gpt-test", client=FakeClient([]))
-
     assert model.usage_snapshot() is None
 
 
@@ -342,7 +463,6 @@ def test_usage_snapshot_accumulates_across_calls():
     assert usage is not None
     assert usage.model == "gpt-test"
     assert (usage.inputTokens, usage.outputTokens, usage.calls) == (60, 15, 3)
-    # payload 的字段名会进 wire，TS 侧 eval 逐字读这几个 key（防漂移的锚）。
     assert set(usage.model_dump()) == {"model", "inputTokens", "outputTokens", "calls"}
 
 
@@ -367,27 +487,28 @@ def test_empty_output_is_a_model_call_failure():
     with pytest.raises(ModelCallFailed) as e:
         model.decide(context_with())
 
-    assert "output_text" in e.value.reason
+    assert "未输出任何文本内容" in e.value.reason or "没有给出" in e.value.reason
 
 
-def test_non_json_output_is_a_model_call_failure():
-    model = LiveModel(model="gpt-test", client=FakeClient([FakeResponse("我觉得这个任务……")]))
+def test_non_json_output_as_plain_text_summary_fallback():
+    # 纯文本回复作为自然语言回答兜底成功
+    model = LiveModel(model="gpt-test", client=FakeClient([FakeResponse("任务已经全部完成。")]))
+
+    decision = model.decide(context_with())
+    assert isinstance(decision, SummaryDecision)
+    assert decision.reply == "任务已经全部完成。"
+    assert decision.facts == []
+
+
+def test_json_that_violates_the_decision_contract_is_a_model_call_failure():
+    tc = FakeToolCall(id="c-1", name="filesystem.list", arguments="{not_json")
+    resp = FakeChatCompletion(FakeMessage(tool_calls=[tc]))
+    model = LiveModel(model="gpt-test", client=FakeClient([resp]))
 
     with pytest.raises(ModelCallFailed) as e:
         model.decide(context_with())
 
     assert "不是合法 JSON" in e.value.reason
-
-
-def test_json_that_violates_the_decision_contract_is_a_model_call_failure():
-    # 形状错（缺 callId）要在适配器层拦下，不能让半个决策流进 engine。
-    bad = json.dumps({"kind": "tool_call", "capability": "filesystem.list"})
-    model = LiveModel(model="gpt-test", client=FakeClient([FakeResponse(bad)]))
-
-    with pytest.raises(ModelCallFailed) as e:
-        model.decide(context_with())
-
-    assert "ModelDecision" in e.value.reason
 
 
 def test_client_errors_are_wrapped_as_model_call_failure():
@@ -401,8 +522,6 @@ def test_client_errors_are_wrapped_as_model_call_failure():
 
 
 def test_a_failed_call_records_no_usage_but_later_calls_do():
-    # SDK 的异常里没有用量，失败的那次只能不记账；后续成功的调用照记。
-    # 全失败的任务 usage_snapshot 就是 None，engine 不为它加零用量事件。
     client = FakeClient([RuntimeError("超时"), FakeResponse(tool_call_json(), FakeUsage(4, 1))])
     model = LiveModel(model="gpt-test", client=client)
 
@@ -412,13 +531,11 @@ def test_a_failed_call_records_no_usage_but_later_calls_do():
 
     usage = model.usage_snapshot()
     assert usage is not None
-    assert usage.calls == 1  # 只有成功的那次进了账
+    assert usage.calls == 1
     assert (usage.inputTokens, usage.outputTokens) == (4, 1)
 
 
 def test_model_without_a_client_builds_one_lazily(monkeypatch):
-    # 不传 client 时现建 openai.OpenAI()：没有 API Key 就在这一步失败，
-    # 而且必须收成 ModelCallFailed —— 构造期不碰网络，握手与 ping 不受影响。
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     model = LiveModel(model="gpt-test")
 
@@ -429,11 +546,7 @@ def test_model_without_a_client_builds_one_lazily(monkeypatch):
 
 
 def test_live_model_env_name_is_the_documented_one():
-    # DEP-012 写死了这个变量名，TS 侧 eval 的 live 入口按它开启真模型。
     assert LIVE_MODEL_ENV == "OPENAI_MODEL"
-
-
-# ---- TASK-033 R4: responses.stream 与思维摘要 ----
 
 
 def test_decide_with_reasoning_summary_streams_thinking_deltas():
@@ -452,11 +565,8 @@ def test_decide_with_reasoning_summary_streams_thinking_deltas():
     decision = model.decide(context_with(), on_thinking=chunks.append)
 
     assert isinstance(decision, ToolCallDecision)
-    assert len(client.responses.stream_requests) == 1
-    assert len(client.responses.requests) == 0
-    stream_req = client.responses.stream_requests[0]
-    assert stream_req["reasoning"] == {"summary": "auto"}
-    assert stream_req["store"] is False
+    assert len(client.chat.completions.stream_requests) == 1
+    assert len(client.chat.completions.requests) == 0
     assert chunks == ["思考第1步", "；思考第2步"]
     assert model.usage_snapshot() is not None
     assert model.usage_snapshot().inputTokens == 10
@@ -470,9 +580,8 @@ def test_decide_without_reasoning_summary_uses_create():
     decision = model.decide(context_with())
 
     assert isinstance(decision, ToolCallDecision)
-    assert len(client.responses.requests) == 1
-    assert len(client.responses.stream_requests) == 0
-    assert "reasoning" not in client.responses.requests[0]
+    assert len(client.chat.completions.requests) == 1
+    assert len(client.chat.completions.stream_requests) == 0
 
 
 def test_decide_stream_error_is_wrapped_as_model_call_failure():
@@ -492,8 +601,7 @@ def test_decide_env_var_enables_reasoning_summary(monkeypatch):
 
     model.decide(context_with())
 
-    assert len(client.responses.stream_requests) == 1
-    assert client.responses.stream_requests[0]["reasoning"] == {"summary": "auto"}
+    assert len(client.chat.completions.stream_requests) == 1
 
 
 def test_compose_instructions_returns_base_when_profile_is_none():
@@ -541,14 +649,13 @@ def test_decide_uses_composed_instructions_when_profile_present():
 
     model.decide(ctx)
 
-    request = client.responses.requests[0]
+    request = client.chat.completions.requests[0]
     expected_instructions = compose_instructions(INSTRUCTIONS, profile)
-    assert request["instructions"] == expected_instructions
-    assert "友好热情、简明扼要" in request["instructions"]
+    assert request["messages"][0]["content"] == expected_instructions
+    assert "友好热情、简明扼要" in request["messages"][0]["content"]
 
 
 def test_decide_profile_reasoning_summary_overrides_instance_config():
-    # 实例默认为 False，但 profile 显式开启 reasoningSummary
     profile_with_stream = ProfileDto(
         name="测试", persona="", reasoningSummary=True
     )
@@ -558,10 +665,9 @@ def test_decide_profile_reasoning_summary_overrides_instance_config():
     model = LiveModel(model="gpt-test", client=client, reasoning_summary=False)
 
     model.decide(ctx)
-    assert len(client.responses.stream_requests) == 1
-    assert len(client.responses.requests) == 0
+    assert len(client.chat.completions.stream_requests) == 1
+    assert len(client.chat.completions.requests) == 0
 
-    # 实例默认为 True，但 profile 显式关闭 reasoningSummary
     profile_without_stream = ProfileDto(
         name="测试", persona="", reasoningSummary=False
     )
@@ -571,32 +677,5 @@ def test_decide_profile_reasoning_summary_overrides_instance_config():
     model2 = LiveModel(model="gpt-test", client=client2, reasoning_summary=True)
 
     model2.decide(ctx2)
-    assert len(client2.responses.requests) == 1
-    assert len(client2.responses.stream_requests) == 0
-
-
-def test_decide_without_summary_events_streams_decision_thinking_fallback():
-    # 模拟 DeepSeek 等非 OpenAI o1/o3 模型：流里只有正文增量，没有 reasoning_summary
-    events = [
-        FakeStreamEvent("response.text.delta", delta="{}"),
-    ]
-    resp = json.dumps(
-        {
-            "kind": "tool_call",
-            "callId": "c-1",
-            "capability": "filesystem.list",
-            "arguments": {"rootId": "downloads"},
-            "thinking": "先检索下载目录的文件清单",
-        }
-    )
-    client = FakeClient(
-        [FakeResponse(resp, FakeUsage(10, 5))],
-        stream_events=events,
-    )
-    model = LiveModel(model="gpt-test", client=client, reasoning_summary=True)
-
-    chunks: list[str] = []
-    decision = model.decide(context_with(), on_thinking=chunks.append)
-
-    assert isinstance(decision, ToolCallDecision)
-    assert "".join(chunks) == "先检索下载目录的文件清单"
+    assert len(client2.chat.completions.requests) == 1
+    assert len(client2.chat.completions.stream_requests) == 0

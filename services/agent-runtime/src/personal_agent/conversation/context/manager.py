@@ -105,12 +105,14 @@ class ContextManager:
         observations = []
         for observation in self._observations:
             value = truncate_strings(observation.payload, self._maxCharsPerString)
+            args_val = truncate_strings(observation.arguments, self._maxCharsPerString)
             observations.append(
                 Observation(
                     callId=observation.callId,
                     capability=observation.capability,
                     ok=observation.ok,
                     payload=value,
+                    arguments=args_val if isinstance(args_val, dict) else observation.arguments,
                 )
             )
         plan = [

@@ -16,6 +16,7 @@ class Observation(BaseModel):
     capability: str = Field(min_length=1)
     ok: bool
     payload: dict[str, Any] = Field(default_factory=dict)
+    arguments: dict[str, Any] = Field(default_factory=dict)
 
 
 ThinkingSink = Callable[[str], None]

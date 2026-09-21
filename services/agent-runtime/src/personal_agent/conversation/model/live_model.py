@@ -1,15 +1,13 @@
-"""LiveModel —— 的真实模型适配器（OpenAI Responses API）。
+"""LiveModel —— 真实模型适配器（OpenAI Chat Completions API）。
 
 与 ScriptedModel 的分工：ScriptedModel 是 CI 默认实现（CON-006：CI 不得依赖
 真实随机模型或付费 API），LiveModel 只在显式配了 OPENAI_MODEL 时才挂上。
 两者都实现 ModelGateway，engine 分不出差别；差别在记账——LiveModel 额外实现
 UsageReporting，收尾时会往事件流里落一条 model_usage。
 
-结构化输出用 responses.create + 手写 json_schema，而不是 SDK 的 responses.parse：
-parse 的 text_format 只收 BaseModel / dataclass，判别联合（ModelDecision 是
-Annotated union）进不去；且它固定 strict=True，而 strict 模式不收 arguments /
-facts 这类自由对象。手写 schema 用 TypeAdapter(ModelDecision).json_schema() 生成，
-合同的单一事实来源仍是 model_gateway 里的那两个模型。
+交互协议：
+标准多轮会话流 [system, user, assistant, tool]，原生 Function Calling 工具调用。
+当模型执行任务时调用工具；当模型完成任务时调用 finish_task 提交总结与页码引用事实。
 
 API Key 只由 openai SDK 自己从环境变量读，这里不碰、不打印、不进日志。
 """
@@ -18,10 +16,11 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Sequence
 from typing import Any
 
 from openai import OpenAI
-from pydantic import TypeAdapter, ValidationError
+from pydantic import TypeAdapter
 
 from personal_agent.conversation.instructions import (
     INSTRUCTIONS,
@@ -32,23 +31,23 @@ from personal_agent.conversation.model.gateway import (
     ModelContext,
     ModelDecision,
     ModelUsage,
+    ReplanDecision,
+    StepCompleteDecision,
+    SummaryDecision,
     ThinkingSink,
+    ToolCallDecision,
 )
 from personal_agent.shared import emit_thinking_chunks
 
 log = logging.getLogger("personal_agent")
 
-# 与 DEP-012 同构：模型名只从这个环境变量读，默认不配。
 LIVE_MODEL_ENV = "OPENAI_MODEL"
 LIVE_REASONING_SUMMARY_ENV = "OPENAI_REASONING_SUMMARY"
 
 DECISION_ADAPTER: TypeAdapter[ModelDecision] = TypeAdapter(ModelDecision)
+DECISION_SCHEMA: dict[str, Any] = DECISION_ADAPTER.json_schema()
 
-# 工具目录：模型能看见的能力 → 参数提示。
-# 这份表是「模型这一侧」的说明书，不是能力契约的第二事实来源：真正的参数校验
-# 在 host 侧的 argument-binders（Zod）与 HostExecuteToolParams（Python）里，
-# 模型传错了会被拒。表里只列参数名与含义，改了不校验的名字只是让提示语失真，
-# 不会让错误参数过关。key 必须落在协议 CapabilityId 内，test_live_model 钉着。
+# 向后兼容说明书（供文字提示与既有测试使用）
 TOOL_SPECS: dict[str, str] = {
     "filesystem.list": '列出指定授权根目录下的文件与子目录条目。参数 {"rootId": "<授权根标识，如 downloads>"}',
     "document.extract_pdf": '解析并提取 PDF 文件的逐页文本与页码。参数 {"path": "<目标 PDF 文件的绝对路径>"}',
@@ -62,9 +61,216 @@ TOOL_SPECS: dict[str, str] = {
     ),
 }
 
+# 标准 OpenAI Function Calling 工具参数定义
+TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
+    "filesystem.list": {
+        "type": "function",
+        "function": {
+            "name": "filesystem.list",
+            "description": "列出指定授权根目录下的文件与子目录条目",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "rootId": {
+                        "type": "string",
+                        "description": "授权根标识，如 downloads",
+                    }
+                },
+                "required": ["rootId"],
+            },
+        },
+    },
+    "document.extract_pdf": {
+        "type": "function",
+        "function": {
+            "name": "document.extract_pdf",
+            "description": "解析并提取 PDF 文件的逐页文本与页码",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "目标 PDF 文件的绝对路径"}
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    "filesystem.create_dir": {
+        "type": "function",
+        "function": {
+            "name": "filesystem.create_dir",
+            "description": "在授权根目录下创建新目录",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "目标目录绝对路径"}
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    "filesystem.move": {
+        "type": "function",
+        "function": {
+            "name": "filesystem.move",
+            "description": "在授权根内移动或重命名文件/目录",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "source": {"type": "string", "description": "源绝对路径"},
+                    "target": {"type": "string", "description": "目标绝对路径"},
+                },
+                "required": ["source", "target"],
+            },
+        },
+    },
+    "scheduler.create": {
+        "type": "function",
+        "function": {
+            "name": "scheduler.create",
+            "description": "创建定时提醒任务",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "remindAt": {"type": "string", "description": "ISO-8601 UTC 时间"},
+                    "message": {"type": "string", "description": "提醒内容"},
+                },
+                "required": ["remindAt", "message"],
+            },
+        },
+    },
+    "notification.send": {
+        "type": "function",
+        "function": {
+            "name": "notification.send",
+            "description": "向宿主桌面发送即时通知",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reminderId": {"type": "string", "description": "提醒记录ID"}
+                },
+                "required": ["reminderId"],
+            },
+        },
+    },
+    "terminal.execute": {
+        "type": "function",
+        "function": {
+            "name": "terminal.execute",
+            "description": "在安全受限环境下执行终端命令行",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "命令行文本"},
+                    "cwd": {"type": "string", "description": "可选工作目录"},
+                    "timeoutMs": {"type": "integer", "description": "可选超时毫秒"},
+                },
+                "required": ["command"],
+            },
+        },
+    },
+}
+
+FINISH_TASK_TOOL_NAME = "finish_task"
+
+FINISH_TASK_SCHEMA: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": FINISH_TASK_TOOL_NAME,
+        "description": "当已完成用户任务的所有必要步骤后调用此工具，提交最终回复给用户，并附带引用事实清单（如有）。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "reply": {
+                    "type": "string",
+                    "description": "最终回复用户的自然语言文本内容",
+                },
+                "facts": {
+                    "type": "array",
+                    "description": "引用事实列表（若任务涉及文档提取，必须提供引用的事实与页码；否则可为空）",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "text": {
+                                "type": "string",
+                                "description": "提取的事实内容陈述",
+                            },
+                            "pageRefs": {
+                                "type": "array",
+                                "items": {"type": "integer"},
+                                "description": "引用的页码列表，页码从1开始计数",
+                            },
+                        },
+                        "required": ["text"],
+                    },
+                },
+            },
+            "required": ["reply"],
+        },
+    },
+}
+
+
+def build_tools(visible_capabilities: Sequence[str]) -> list[dict[str, Any]]:
+    """根据可见能力列表构造 tools 参数，并注入收尾工具 finish_task。"""
+    tools = [TOOL_SCHEMAS[c] for c in visible_capabilities if c in TOOL_SCHEMAS]
+    tools.append(FINISH_TASK_SCHEMA)
+    return tools
+
+
+def render_messages(context: ModelContext) -> list[dict[str, Any]]:
+    """把 ModelContext 投影为标准 Chat Completions 的 [system, user, assistant, tool] 消息列表。"""
+    messages: list[dict[str, Any]] = []
+    # 1. 系统消息
+    system_content = compose_instructions(INSTRUCTIONS, context.profile)
+    messages.append({"role": "system", "content": system_content})
+    # 2. 历史对话消息
+    for turn in context.history:
+        messages.append({"role": turn.role, "content": turn.text})
+    # 3. 本轮信息
+    user_lines = [
+        f"任务目标：{context.taskGoal}",
+        "",
+        "本轮计划（按顺序执行，不跳步、不加步）：",
+    ]
+    if not context.plan:
+        user_lines.append("（空）")
+    else:
+        for index, step in enumerate(context.plan, start=1):
+            if step.capability is None:
+                user_lines.append(
+                    f"{index}. {step.description}（不经工具，最后直接回复用户）"
+                )
+            else:
+                user_lines.append(f"{index}. {step.description}（{step.capability}）")
+    messages.append({"role": "user", "content": "\n".join(user_lines)})
+    for obs in context.observations:
+        messages.append(
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": obs.callId,
+                        "type": "function",
+                        "function": {
+                            "name": obs.capability,
+                            "arguments": json.dumps(obs.arguments, ensure_ascii=False),
+                        },
+                    }
+                ],
+            }
+        )
+        messages.append(
+            {
+                "role": "tool",
+                "tool_call_id": obs.callId,
+                "content": json.dumps(obs.payload, ensure_ascii=False),
+            }
+        )
+    return messages
+
 
 class LiveModel:
-    """Responses API 上的模型网关。
+    """Chat Completions API 上的模型网关。
 
     client 不传就在第一次 decide 时现建（openai.OpenAI() 自己读 OPENAI_API_KEY）：
     构造期不碰网络与密钥，进程启动、握手、ping 都不受模型配置影响，
@@ -97,15 +303,8 @@ class LiveModel:
         on_thinking: ThinkingSink | None = None,
     ) -> ModelDecision:
         client = self._client_or_create()
-        text_config = {
-            "format": {
-                "type": "json_schema",
-                "name": "model_decision",
-                "strict": False,
-                "schema": DECISION_SCHEMA,
-            }
-        }
-        instructions = compose_instructions(INSTRUCTIONS, context.profile)
+        messages = render_messages(context)
+        tools = build_tools(context.visibleCapabilities)
         enable_reasoning = (
             context.profile.reasoningSummary
             if context.profile and context.profile.reasoningSummary is not None
@@ -114,33 +313,26 @@ class LiveModel:
         streamed_chunks = 0
         try:
             if enable_reasoning:
-                with client.responses.stream(
+                stream_res = client.chat.completions.create(
                     model=self._model,
-                    instructions=instructions,
-                    input=render_input(context),
-                    text=text_config,
-                    store=False,
-                    reasoning={"summary": "auto"},
-                ) as stream:
-                    for event in stream:
-                        ev_type = getattr(event, "type", None)
-                        if ev_type in (
-                            "response.reasoning_summary_text.delta",
-                            "response.reasoning_text.delta",
-                            "response.reasoning.delta",
-                        ):
-                            delta = getattr(event, "delta", "")
-                            if delta and on_thinking is not None:
-                                on_thinking(delta)
-                                streamed_chunks += 1
-                    response = stream.get_final_response()
+                    messages=messages,
+                    tools=tools,
+                    stream=True,
+                )
+                if hasattr(stream_res, "__enter__"):
+                    with stream_res as stream:
+                        response, streamed_chunks = self._consume_stream(
+                            stream, on_thinking
+                        )
+                else:
+                    response, streamed_chunks = self._consume_stream(
+                        stream_res, on_thinking
+                    )
             else:
-                response = client.responses.create(
+                response = client.chat.completions.create(
                     model=self._model,
-                    instructions=instructions,
-                    input=render_input(context),
-                    text=text_config,
-                    store=False,
+                    messages=messages,
+                    tools=tools,
                 )
         except ModelCallFailed:
             raise
@@ -181,39 +373,131 @@ class LiveModel:
             raise ModelCallFailed(f"模型客户端建不起来: {_describe(e)}") from e
         return self._client
 
+    def _consume_stream(
+        self, stream: Any, on_thinking: ThinkingSink | None
+    ) -> tuple[Any, int]:
+        """消费流式响应，抽取思维链，并聚合组装出最终响应。"""
+        if hasattr(stream, "get_final_response"):
+            final_response = stream.get_final_response()
+            count = 0
+            for event in stream:
+                ev_type = getattr(event, "type", "")
+                if ev_type in (
+                    "response.reasoning_summary_text.delta",
+                    "response.reasoning_text.delta",
+                    "response.reasoning.delta",
+                ):
+                    delta = getattr(event, "delta", "")
+                    if delta and on_thinking is not None:
+                        on_thinking(delta)
+                        count += 1
+                elif not ev_type:
+                    delta = getattr(event, "reasoning_content", None) or getattr(event, "reasoning", None)
+                    if delta and on_thinking is not None:
+                        on_thinking(delta)
+                        count += 1
+            return final_response, count
+
+        count = 0
+        for chunk in stream:
+            choices = getattr(chunk, "choices", [])
+            if not choices:
+                continue
+            delta = getattr(choices[0], "delta", None)
+            if delta is None:
+                continue
+            reasoning_delta = (
+                getattr(delta, "reasoning_content", None)
+                or getattr(delta, "reasoning", None)
+                or getattr(delta, "reasoning_summary_text", None)
+            )
+            if reasoning_delta and on_thinking is not None:
+                on_thinking(reasoning_delta)
+                count += 1
+        return stream, count
+
     def _account(self, response: Any) -> None:
-        """记账。usage 缺字段按 0 记，不抛：少了统计不该让任务失败。"""
+        """记账。兼容 Responses API 与 Chat Completions。"""
         usage = getattr(response, "usage", None)
         self._calls += 1
         if usage is None:
             return
-        self._input_tokens += _as_int(getattr(usage, "input_tokens", 0))
-        self._output_tokens += _as_int(getattr(usage, "output_tokens", 0))
+        prompt_tokens = getattr(usage, "prompt_tokens", None)
+        if prompt_tokens is None:
+            prompt_tokens = getattr(usage, "input_tokens", 0)
+        completion_tokens = getattr(usage, "completion_tokens", None)
+        if completion_tokens is None:
+            completion_tokens = getattr(usage, "output_tokens", 0)
+        self._input_tokens += _as_int(prompt_tokens)
+        self._output_tokens += _as_int(completion_tokens)
 
     def _parse(self, response: Any) -> ModelDecision:
-        text = getattr(response, "output_text", None)
-        if not isinstance(text, str) or not text.strip():
-            raise ModelCallFailed("模型没有给出文本输出（output_text 为空）")
-        try:
-            raw = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise ModelCallFailed(f"模型输出不是合法 JSON: {e}") from e
-        try:
-            return DECISION_ADAPTER.validate_python(raw)
-        except ValidationError as e:
-            raise ModelCallFailed(f"模型输出不符合 ModelDecision 契约: {e}") from e
+        """
+        从 Chat Completions response 中分流解析出 ModelDecision。
+        """
+        choices = getattr(response, "choices", None)
+        if not choices or not isinstance(choices, list):
+            raise ModelCallFailed("模型响应中缺少 choices 列表")
+        message = getattr(choices[0], "message", None)
+        if message is None:
+            raise ModelCallFailed("模型响应 choices[0] 中缺少 message")
 
+        tool_calls = getattr(message, "tool_calls", None)
+        if tool_calls and len(tool_calls) > 0:
+            tc = tool_calls[0]
+            func = getattr(tc, "function", None)
+            func_name = getattr(func, "name", "")
+            func_args_raw = getattr(func, "arguments", {})
+            try:
+                args = (
+                    json.loads(func_args_raw)
+                    if isinstance(func_args_raw, str)
+                    else dict(func_args_raw)
+                )
+            except Exception as e:
+                raise ModelCallFailed(f"工具调用入参不是合法 JSON: {e}") from e
+            if func_name == FINISH_TASK_TOOL_NAME:
+                reply = args.get("reply")
+                if not isinstance(reply, str) or not reply.strip():
+                    raise ModelCallFailed("finish_task 调用的 reply 字段不能为空")
+                facts = args.get("facts", [])
+                if not isinstance(facts, list):
+                    facts = []
+                return SummaryDecision(
+                    kind="summary",
+                    reply=reply,
+                    facts=facts,
+                )
+            elif func_name == "step_complete":
+                return StepCompleteDecision(
+                    kind="step_complete",
+                    result=args.get("result", ""),
+                )
+            elif func_name == "replan":
+                return ReplanDecision(
+                    kind="replan",
+                    reason=args.get("reason", ""),
+                )
 
-DECISION_SCHEMA: dict[str, Any] = DECISION_ADAPTER.json_schema()
+            call_id = getattr(tc, "id", None) or "call-1"
+            return ToolCallDecision(
+                kind="tool_call",
+                callId=call_id,
+                capability=func_name,
+                arguments=args,
+            )
+        content = getattr(message, "content", None)
+        if isinstance(content, str) and content.strip():
+            return SummaryDecision(
+                kind="summary",
+                reply=content.strip(),
+                facts=[],
+            )
+        raise ModelCallFailed("模型既未调用工具，也未输出任何文本内容")
 
 
 def render_input(context: ModelContext) -> str:
-    """把 ModelContext 渲染成一次请求的输入文本。
-
-    只列 context.visibleCapabilities 里的能力（Scope 外的能力不下发给模型）。
-    本轮计划告诉模型「这轮要做哪几步」，observations 告诉它「已经做到哪一步」——
-    两者合起来才是决策依据，单靠任何一个都会跑偏。
-    """
+    """向后兼容：保留对旧版单段 Prompt 渲染的支持。"""
     lines: list[str] = []
     if context.history:
         lines.append("之前的对话（供理解本轮目标中的指代）：")

@@ -242,6 +242,7 @@ class AgentEngine:
                     "code": CAPABILITY_NOT_REGISTERED,
                     "reason": f"capability {decision.capability} 不在协议枚举内",
                 },
+                arguments=decision.arguments,
             )
         result = self._channel.call_host(params)
         return Observation(
@@ -249,4 +250,5 @@ class AgentEngine:
             capability=decision.capability,
             ok=result.ok,
             payload=dict(result.model_extra or {}),
+            arguments=decision.arguments,
         )

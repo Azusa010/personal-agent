@@ -2,7 +2,11 @@
 
 from typing import get_args
 
-from personal_agent.conversation.model.live_model import TOOL_SPECS, render_input
+from personal_agent.conversation.model.live_model import (
+    TOOL_SCHEMAS,
+    TOOL_SPECS,
+    render_input,
+)
 from personal_agent.conversation.model.live_planner import render_plan_input
 from personal_agent.model_gateway import ModelContext
 from personal_agent.protocol.models import CapabilityId
@@ -12,6 +16,16 @@ def test_tool_specs_covers_all_registered_capabilities():
     # TOOL_SPECS 应当覆盖协议中定义的全部能力枚举，不多不少
     all_capabilities = set(get_args(CapabilityId))
     assert set(TOOL_SPECS) == all_capabilities
+
+
+def test_tool_schemas_covers_all_registered_capabilities():
+    # TOOL_SCHEMAS 应当覆盖协议中定义的全部能力枚举，并且符合 OpenAI function 格式
+    all_capabilities = set(get_args(CapabilityId))
+    assert set(TOOL_SCHEMAS) == all_capabilities
+    for name, schema in TOOL_SCHEMAS.items():
+        assert schema["type"] == "function"
+        assert schema["function"]["name"] == name
+        assert "parameters" in schema["function"]
 
 
 def test_tool_specs_filesystem_list_is_generic_not_pdf_specific():
