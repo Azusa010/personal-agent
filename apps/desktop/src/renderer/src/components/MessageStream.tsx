@@ -3,6 +3,7 @@ import { Bot, LoaderCircle } from 'lucide-react'
 import type { MessageView } from '../../../shared/ipc-contract'
 import { ScrollPinButton, TextShimmer, ThoughtChainViewer, useScrollAnchor } from '../thought-chain'
 import { extractFacts, getTimelineStepCount, type LiveStreamState } from '../view-model'
+import { MarkdownContent } from './MarkdownContent'
 
 export interface MessageStreamProps {
   messages: MessageView[]
@@ -46,7 +47,7 @@ function AssistantMessage({
 
       {/* 2. 下层：最后的正文 */}
       <div className="pt-0.5">
-        <p className="m-0 whitespace-pre-wrap">{message.text}</p>
+        <MarkdownContent content={message.text} />
         {facts.length > 0 && (
           <>
             <p className="m-0 mt-2 text-muted-foreground">依据本地文件核对，结论如下：</p>
