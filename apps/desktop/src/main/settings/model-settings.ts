@@ -3,6 +3,8 @@ import { dirname } from 'node:path'
 
 import { SETTINGS_ERROR_CODE } from './error-code'
 
+export const API_PROTOCOL_ENV_KEY = 'OPENAI_API_PROTOCOL'
+
 /** 用户级模型配置的内存形状。apiKey 是解密后的明文，只允许活在主进程
  *  字段可变：设置面板是「读出现状 → 改了哪几个字段 → 整体回写」，
  *  与 shared/domain.ts 的 TaskRecord / PermissionRecord 同一种写法。 */
@@ -10,6 +12,7 @@ export interface ModelSettings {
   model: string | null
   baseUrl: string | null
   apiKey: string | null
+  apiProtocol: 'responses' | 'chat_completions' | null
 }
 
 /** settings 文件在 userData 下的文件名。 */
@@ -34,6 +37,7 @@ interface StoredSettings {
   model: string | null
   baseUrl: string | null
   apiKeyEncrypted: string | null
+  apiProtocol: 'responses' | 'chat_completions' | null
 }
 
 /** 系统密钥库的薄封装。生产接线是 Electron safeStorage（Windows 走 DPAPI，密文
@@ -133,7 +137,14 @@ export function loadModelSettings(deps: ModelSettingsStoreDeps): ModelSettings |
     }
   }
 
-  return { model, baseUrl, apiKey }
+  let apiProtocol: 'responses' | 'chat_completions' | null = null
+  if (record.apiProtocol === 'responses' || record.apiProtocol === 'chat_completions') {
+    apiProtocol = record.apiProtocol
+  } else if (record.apiProtocol !== null && record.apiProtocol !== undefined) {
+    return null
+  }
+
+  return { model, baseUrl, apiKey, apiProtocol }
 }
 
 /**
@@ -162,7 +173,8 @@ export function saveModelSettings(settings: ModelSettings, deps: ModelSettingsSt
     version: SETTINGS_VERSION,
     model: normalize(settings.model),
     baseUrl: normalize(settings.baseUrl),
-    apiKeyEncrypted
+    apiKeyEncrypted,
+    apiProtocol: settings.apiProtocol
   }
 
   try {
@@ -218,6 +230,9 @@ export function buildRuntimeEnv(
   }
   if (settings.apiKey?.trim()) {
     env.OPENAI_API_KEY = settings.apiKey
+  }
+  if (settings.apiProtocol !== null) {
+    env.OPENAI_API_PROTOCOL = settings.apiProtocol
   }
 
   return env

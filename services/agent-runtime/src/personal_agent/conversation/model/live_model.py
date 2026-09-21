@@ -17,10 +17,11 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Sequence
+from types import SimpleNamespace
 from typing import Any
 
 from openai import OpenAI
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 
 from personal_agent.conversation.instructions import (
     INSTRUCTIONS,
@@ -43,6 +44,7 @@ log = logging.getLogger("personal_agent")
 
 LIVE_MODEL_ENV = "OPENAI_MODEL"
 LIVE_REASONING_SUMMARY_ENV = "OPENAI_REASONING_SUMMARY"
+LIVE_API_PROTOCOL_ENV = "OPENAI_API_PROTOCOL"
 
 DECISION_ADAPTER: TypeAdapter[ModelDecision] = TypeAdapter(ModelDecision)
 DECISION_SCHEMA: dict[str, Any] = DECISION_ADAPTER.json_schema()
@@ -276,7 +278,7 @@ def render_messages(context: ModelContext) -> list[dict[str, Any]]:
 
 
 class LiveModel:
-    """Chat Completions API 上的模型网关。
+    """双协议模型网关（支持 OpenAI Responses API 与 Chat Completions API）。
 
     client 不传就在第一次 decide 时现建（openai.OpenAI() 自己读 OPENAI_API_KEY）：
     构造期不碰网络与密钥，进程启动、握手、ping 都不受模型配置影响，
@@ -288,17 +290,26 @@ class LiveModel:
         model: str,
         client: Any | None = None,
         reasoning_summary: bool | None = None,
+        api_protocol: str | None = None,
     ) -> None:
         self._model = model
         self._client: Any | None = client
-        if reasoning_summary is None:
-            import os
+        import os
 
+        if reasoning_summary is None:
             self._reasoning_summary = os.environ.get(
                 LIVE_REASONING_SUMMARY_ENV, ""
             ).lower() in ("1", "yes", "true")
         else:
             self._reasoning_summary = reasoning_summary
+
+        if api_protocol is None:
+            self._api_protocol = (
+                os.environ.get(LIVE_API_PROTOCOL_ENV, "responses").strip().lower()
+            )
+        else:
+            self._api_protocol = api_protocol.strip().lower()
+
         self._input_tokens = 0
         self._output_tokens = 0
         self._calls = 0
@@ -309,6 +320,81 @@ class LiveModel:
         on_thinking: ThinkingSink | None = None,
     ) -> ModelDecision:
         client = self._client_or_create()
+        if self._api_protocol == "chat_completions":
+            return self._decide_chat_completions(client, context, on_thinking)
+        return self._decide_responses(client, context, on_thinking)
+
+    def _decide_responses(
+        self,
+        client: Any,
+        context: ModelContext,
+        on_thinking: ThinkingSink | None = None,
+    ) -> ModelDecision:
+        text_config = {
+            "format": {
+                "type": "json_schema",
+                "name": "model_decision",
+                "strict": False,
+                "schema": DECISION_SCHEMA,
+            }
+        }
+        instructions = compose_instructions(INSTRUCTIONS, context.profile)
+        enable_reasoning = (
+            context.profile.reasoningSummary
+            if context.profile and context.profile.reasoningSummary is not None
+            else self._reasoning_summary
+        )
+        streamed_chunks = 0
+        try:
+            if enable_reasoning:
+                with client.responses.stream(
+                    model=self._model,
+                    instructions=instructions,
+                    input=render_input(context),
+                    text=text_config,
+                    store=False,
+                    reasoning={"summary": "auto"},
+                ) as stream:
+                    for event in stream:
+                        ev_type = getattr(event, "type", None)
+                        if ev_type in (
+                            "response.reasoning_summary_text.delta",
+                            "response.reasoning_text.delta",
+                            "response.reasoning.delta",
+                        ):
+                            delta = getattr(event, "delta", "")
+                            if delta and on_thinking is not None:
+                                on_thinking(delta)
+                                streamed_chunks += 1
+                    response = stream.get_final_response()
+            else:
+                response = client.responses.create(
+                    model=self._model,
+                    instructions=instructions,
+                    input=render_input(context),
+                    text=text_config,
+                    store=False,
+                )
+        except ModelCallFailed:
+            raise
+        except Exception as e:
+            raise ModelCallFailed(f"模型调用失败: {_describe(e)}") from e
+        self._account(response)
+        decision = self._parse_responses(response)
+        if (
+            streamed_chunks == 0
+            and on_thinking is not None
+            and getattr(decision, "thinking", None)
+        ):
+            emit_thinking_chunks(decision.thinking, on_thinking, 0.02)
+        return decision
+
+    def _decide_chat_completions(
+        self,
+        client: Any,
+        context: ModelContext,
+        on_thinking: ThinkingSink | None = None,
+    ) -> ModelDecision:
         messages = render_messages(context)
         tools = build_tools(context.visibleCapabilities)
         enable_reasoning = (
@@ -345,7 +431,7 @@ class LiveModel:
         except Exception as e:
             raise ModelCallFailed(f"模型调用失败: {_describe(e)}") from e
         self._account(response)
-        decision = self._parse(response)
+        decision = self._parse_chat_completions(response)
         if (
             streamed_chunks == 0
             and on_thinking is not None
@@ -398,17 +484,24 @@ class LiveModel:
                         on_thinking(delta)
                         count += 1
                 elif not ev_type:
-                    delta = getattr(event, "reasoning_content", None) or getattr(event, "reasoning", None)
+                    delta = getattr(event, "reasoning_content", None) or getattr(
+                        event, "reasoning", None
+                    )
                     if delta and on_thinking is not None:
                         on_thinking(delta)
                         count += 1
             return final_response, count
-
         count = 0
+        accumulated_content = []
+        accumulated_tool_calls: dict[int, dict[str, str]] = {}
+        finish_reason = "stop"
         for chunk in stream:
             choices = getattr(chunk, "choices", [])
             if not choices:
                 continue
+            choice = choices[0]
+            if getattr(choice, "finish_reason", None):
+                finish_reason = choice.finish_reason
             delta = getattr(choices[0], "delta", None)
             if delta is None:
                 continue
@@ -420,7 +513,49 @@ class LiveModel:
             if reasoning_delta and on_thinking is not None:
                 on_thinking(reasoning_delta)
                 count += 1
-        return stream, count
+
+            # 2. 累加正文文本
+            if getattr(delta, "content", None):
+                accumulated_content.append(delta.content)
+            if getattr(delta, "tool_calls", None):
+                for tc in delta.tool_calls:
+                    idx = getattr(tc, "index", 0)
+                    if idx not in accumulated_tool_calls:
+                        accumulated_tool_calls[idx] = {
+                            "id": getattr(tc, "id", None) or f"call-{idx + 1}",
+                            "name": "",
+                            "arguments": "",
+                        }
+                    func = getattr(tc, "function", None)
+                    if func:
+                        if getattr(func, "name", None):
+                            accumulated_tool_calls[idx]["name"] += func.name
+                        if getattr(func, "arguments", None):
+                            accumulated_tool_calls[idx]["arguments"] += func.arguments
+        tool_calls_list = []
+        for idx in sorted(accumulated_tool_calls.keys()):
+            tc_data = accumulated_tool_calls[idx]
+            tool_calls_list.append(
+                SimpleNamespace(
+                    id=tc_data["id"],
+                    type="function",
+                    function=SimpleNamespace(
+                        name=tc_data["name"],
+                        arguments=tc_data["arguments"],
+                    ),
+                )
+            )
+        complete_message = SimpleNamespace(
+            role="assistant",
+            content="".join(accumulated_content) if accumulated_content else None,
+            tool_calls=tool_calls_list if tool_calls_list else None,
+        )
+        final_completion = SimpleNamespace(
+            choices=[
+                SimpleNamespace(message=complete_message, finish_reason=finish_reason)
+            ]
+        )
+        return final_completion, count
 
     def _account(self, response: Any) -> None:
         """记账。兼容 Responses API 与 Chat Completions。"""
@@ -438,9 +573,33 @@ class LiveModel:
         self._output_tokens += _as_int(completion_tokens)
 
     def _parse(self, response: Any) -> ModelDecision:
-        """
-        从 Chat Completions response 中分流解析出 ModelDecision。
-        """
+        """根据响应结构自动分流解析为 ModelDecision。"""
+        if hasattr(response, "output_text") or (
+            isinstance(response, dict) and "output_text" in response
+        ):
+            return self._parse_responses(response)
+        return self._parse_chat_completions(response)
+
+    def _parse_responses(self, response: Any) -> ModelDecision:
+        """从 Responses API response 中解析并验证 ModelDecision。"""
+        text = (
+            response.get("output_text")
+            if isinstance(response, dict)
+            else getattr(response, "output_text", None)
+        )
+        if not isinstance(text, str) or not text.strip():
+            raise ModelCallFailed("模型没有给出文本输出（output_text 为空）")
+        try:
+            raw = json.loads(text)
+        except json.JSONDecodeError as e:
+            raise ModelCallFailed(f"模型输出不是合法 JSON: {e}") from e
+        try:
+            return DECISION_ADAPTER.validate_python(raw)
+        except ValidationError as e:
+            raise ModelCallFailed(f"模型输出不符合 ModelDecision 契约: {e}") from e
+
+    def _parse_chat_completions(self, response: Any) -> ModelDecision:
+        """从 Chat Completions response 中分流解析出 ModelDecision。"""
         if isinstance(response, dict):
             choices = response.get("choices", None)
         else:
@@ -497,12 +656,29 @@ class LiveModel:
             )
         content = getattr(message, "content", None)
         if isinstance(content, str) and content.strip():
-            return SummaryDecision(
-                kind="summary",
-                reply=content.strip(),
-                facts=[],
-            )
-        raise ModelCallFailed("模型既未调用工具，也未输出任何文本内容")
+            text = content.strip()
+            if text.startswith("```"):
+                lines = text.splitlines()
+                if (
+                    len(lines) > -2
+                    and lines[0].startswith("```")
+                    and lines[-1].startswith("```")
+                ):
+                    text = "\n".join(lines[1:-1]).strip()
+
+            # 将 JSON 解包为 ModelDecision
+            if text.startswith("{") and text.endswith("}"):
+                try:
+                    raw = json.loads(text)
+                    if isinstance(raw, dict) and "kind" in raw:
+                        return DECISION_ADAPTER.validate_python(raw)
+                except Exception:  # noqa: BLE001, S110
+                    pass
+        return SummaryDecision(
+            kind="summary",
+            reply=text,
+            facts=[],
+        )
 
 
 def render_input(context: ModelContext) -> str:

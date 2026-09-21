@@ -100,6 +100,7 @@ export interface ModelSettingsView {
   apiKeySet: boolean
   model: string | null
   baseUrl: string | null
+  apiProtocol: 'responses' | 'chat_completions' | null
 }
 
 export type GetModelSettingsResult =
@@ -112,6 +113,7 @@ export interface SetModelSettingsInput {
   baseUrl?: string | null
   apiKey?: string
   clearApiKey?: boolean
+  apiProtocol?: 'responses' | 'chat_completions' | null
 }
 
 /** applied 区分「已经重启生效」与「有任务在跑、留到下次启动」——两种都算保存成功，

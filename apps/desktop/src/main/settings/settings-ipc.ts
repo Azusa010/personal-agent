@@ -33,10 +33,16 @@ const SetSettingsInput = z.object({
   baseUrl: z.string().nullable().optional(),
   // 不把收到的值写进错误消息：这是密钥，出错信息会进日志（SEC-008）
   apiKey: z.string('apiKey 必须是字符串').optional(),
-  clearApiKey: z.boolean('clearApiKey 必须是布尔值').optional()
+  clearApiKey: z.boolean('clearApiKey 必须是布尔值').optional(),
+  apiProtocol: z.enum(['responses', 'chat_completions']).nullable().optional()
 })
 
-const EMPTY_SETTINGS: ModelSettings = { model: null, baseUrl: null, apiKey: null }
+const EMPTY_SETTINGS: ModelSettings = {
+  model: null,
+  baseUrl: null,
+  apiKey: null,
+  apiProtocol: null
+}
 
 function invalid(message: string): { ok: false; code: IpcErrorCode; message: string } {
   return { ok: false, code: ERROR_CODE.PROTOCOL_INVALID_REQUEST, message }
@@ -65,7 +71,8 @@ export function getModelSettingsView(deps: SettingsIpcDeps): GetModelSettingsRes
     settings: {
       apiKeySet: settings !== null && settings.apiKey !== null,
       model: settings?.model ?? null,
-      baseUrl: settings?.baseUrl ?? null
+      baseUrl: settings?.baseUrl ?? null,
+      apiProtocol: settings?.apiProtocol ?? null
     }
   }
 }
@@ -100,6 +107,9 @@ export async function setModelSettings(
     next.apiKey = null
   } else if (patch.apiKey !== undefined && patch.apiKey.trim() !== '') {
     next.apiKey = patch.apiKey
+  }
+  if (patch.apiProtocol !== undefined) {
+    next.apiProtocol = patch.apiProtocol
   }
 
   try {

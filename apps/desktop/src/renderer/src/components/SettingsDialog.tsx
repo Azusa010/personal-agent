@@ -29,6 +29,7 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
   const [model, setModel] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
+  const [apiProtocol, setApiProtocol] = useState<'responses' | 'chat_completions'>('responses')
 
   // 人设配置
   const [name, setName] = useState('')
@@ -48,6 +49,7 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
       setModel(modelRes.settings.model ?? '')
       setBaseUrl(modelRes.settings.baseUrl ?? '')
       setApiKey('')
+      setApiProtocol(modelRes.settings.apiProtocol ?? 'responses')
     } else {
       setLoadError(`[${modelRes.code}] ${modelRes.message}`)
     }
@@ -141,7 +143,8 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
       {
         model: model.trim() === '' ? null : model.trim(),
         baseUrl: baseUrl.trim() === '' ? null : baseUrl.trim(),
-        apiKey: apiKey.trim() === '' ? undefined : apiKey.trim()
+        apiKey: apiKey.trim() === '' ? undefined : apiKey.trim(),
+        apiProtocol
       },
       {
         name: name.trim() || 'PersonalAgent',
@@ -268,6 +271,50 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
             placeholder="留空用官方地址；用中转站时填它的 /v1 地址"
             spellCheck={false}
           />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>接口协议 / 格式</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <label
+              className={`flex cursor-pointer items-center justify-center rounded border p-2 text-xs transition-colors ${
+                apiProtocol === 'responses'
+                  ? 'border-primary bg-primary/10 font-medium text-primary'
+                  : 'border-border text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              <input
+                type="radio"
+                name="apiProtocol"
+                value="responses"
+                checked={apiProtocol === 'responses'}
+                onChange={() => setApiProtocol('responses')}
+                className="sr-only"
+              />
+              Responses API (推荐)
+            </label>
+            <label
+              className={`flex cursor-pointer items-center justify-center rounded border p-2 text-xs transition-colors ${
+                apiProtocol === 'chat_completions'
+                  ? 'border-primary bg-primary/10 font-medium text-primary'
+                  : 'border-border text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              <input
+                type="radio"
+                name="apiProtocol"
+                value="chat_completions"
+                checked={apiProtocol === 'chat_completions'}
+                onChange={() => setApiProtocol('chat_completions')}
+                className="sr-only"
+              />
+              Chat Completions API
+            </label>
+          </div>
+          <p className="m-0 text-[11px] text-muted-foreground">
+            Responses API 支持原生结构化决策与思考流（适合官方模型）；Chat Completions API 走
+            Function Calling（适合第三方中转站）。
+          </p>
         </div>
       </div>
 

@@ -22,7 +22,8 @@ const SECRET = 'sk-secret-key-0123456789'
 const SAVED: ModelSettings = {
   model: 'gpt-4o-mini',
   baseUrl: 'https://relay.example.com/v1',
-  apiKey: SECRET
+  apiKey: SECRET,
+  apiProtocol: 'responses'
 }
 
 interface FakeOptions {
@@ -57,16 +58,16 @@ function fakeDeps(options: FakeOptions = {}): {
 }
 
 describe('getModelSettingsView', () => {
-  it('没配过 → 三个字段都空，apiKeySet 为 false', () => {
+  it('没配过 → 四个字段都空，apiKeySet 为 false', () => {
     const { deps } = fakeDeps({ current: null })
 
     expect(getModelSettingsView(deps)).toEqual({
       ok: true,
-      settings: { apiKeySet: false, model: null, baseUrl: null }
+      settings: { apiKeySet: false, model: null, baseUrl: null, apiProtocol: null }
     })
   })
 
-  it('配置过 → model / baseUrl 回给面板，apiKey 只回「配没配」', () => {
+  it('配置过 → model / baseUrl / apiProtocol 回给面板，apiKey 只回「配没配」', () => {
     const { deps } = fakeDeps({ current: SAVED })
 
     const result = getModelSettingsView(deps)
@@ -76,7 +77,8 @@ describe('getModelSettingsView', () => {
     expect(result.settings).toEqual({
       apiKeySet: true,
       model: 'gpt-4o-mini',
-      baseUrl: 'https://relay.example.com/v1'
+      baseUrl: 'https://relay.example.com/v1',
+      apiProtocol: 'responses'
     })
   })
 
@@ -90,7 +92,9 @@ describe('getModelSettingsView', () => {
   })
 
   it('只存了 model、没存 Key → apiKeySet 为 false', () => {
-    const { deps } = fakeDeps({ current: { model: 'm', baseUrl: null, apiKey: null } })
+    const { deps } = fakeDeps({
+      current: { model: 'm', baseUrl: null, apiKey: null, apiProtocol: null }
+    })
 
     const result = getModelSettingsView(deps)
 
@@ -146,7 +150,7 @@ describe('setModelSettings: 入参收窄', () => {
 })
 
 describe('setModelSettings: 合并语义', () => {
-  it('只给 model：另外两个字段保持原值（面板留空 = 没改）', async () => {
+  it('只给 model：另外三个字段保持原值（面板留空 = 没改）', async () => {
     const { deps, store } = fakeDeps({ current: SAVED })
 
     await setModelSettings({ model: 'gpt-4.1-mini' }, deps)
@@ -154,7 +158,8 @@ describe('setModelSettings: 合并语义', () => {
     expect(store.save).toHaveBeenCalledWith({
       model: 'gpt-4.1-mini',
       baseUrl: 'https://relay.example.com/v1',
-      apiKey: SECRET
+      apiKey: SECRET,
+      apiProtocol: 'responses'
     })
   })
 
@@ -190,12 +195,27 @@ describe('setModelSettings: 合并语义', () => {
     expect(store.save).toHaveBeenCalledWith({ ...SAVED, model: null })
   })
 
+  it('apiProtocol 可以切换为 chat_completions 或清空为 null', async () => {
+    const { deps, store } = fakeDeps({ current: SAVED })
+
+    await setModelSettings({ apiProtocol: 'chat_completions' }, deps)
+    expect(store.save).toHaveBeenCalledWith({ ...SAVED, apiProtocol: 'chat_completions' })
+
+    await setModelSettings({ apiProtocol: null }, deps)
+    expect(store.save).toHaveBeenCalledWith({ ...SAVED, apiProtocol: null })
+  })
+
   it('从没配过时保存：空基线 + 本次给的字段', async () => {
     const { deps, store } = fakeDeps({ current: null })
 
     await setModelSettings({ model: 'gpt-4o-mini', apiKey: SECRET }, deps)
 
-    expect(store.save).toHaveBeenCalledWith({ model: 'gpt-4o-mini', baseUrl: null, apiKey: SECRET })
+    expect(store.save).toHaveBeenCalledWith({
+      model: 'gpt-4o-mini',
+      baseUrl: null,
+      apiKey: SECRET,
+      apiProtocol: null
+    })
   })
 })
 

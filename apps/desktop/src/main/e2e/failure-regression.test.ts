@@ -450,7 +450,10 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
     const result = await runTask(GOAL, makeDeps(world))
     expect(result.ok && result.status).toBe('completed')
 
-    const fired = await waitFor(() => world.repos.reminders.findAll()[0]?.status === 'failed', 15_000)
+    const fired = await waitFor(
+      () => world.repos.reminders.findAll()[0]?.status === 'failed',
+      15_000
+    )
     expect(fired, '通知失败没有被记下来').toBe(true)
     // 到点之后再读一次：失败原因是在那个事务里写的。
     const reminder = world.repos.reminders.findAll()[0]

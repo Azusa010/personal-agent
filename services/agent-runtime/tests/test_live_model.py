@@ -153,7 +153,7 @@ class FakeStreamEvent:
 class FakeStream:
     def __init__(self, events: list[Any], final_response: Any) -> None:
         self._events = events
-        self._final_response = _adapt_to_chat_completion(final_response)
+        self._final_response = final_response
 
     def __iter__(self):
         return iter(self._events)
@@ -165,7 +165,7 @@ class FakeStream:
 class FakeStreamManager:
     def __init__(self, events: list[Any], final_response: Any) -> None:
         self._events = events
-        self._final_response = _adapt_to_chat_completion(final_response)
+        self._final_response = final_response
 
     def __enter__(self) -> FakeStream:
         return FakeStream(self._events, self._final_response)
@@ -380,7 +380,7 @@ def test_instructions_no_longer_hardcode_the_golden_path():
         assert capability not in INSTRUCTIONS
 
 
-def test_decide_sends_the_contract_schema_and_returns_a_tool_call():
+def test_decide_responses_sends_the_contract_schema_and_returns_a_tool_call():
     client = FakeClient([FakeResponse(tool_call_json(), FakeUsage(11, 3))])
     model = LiveModel(model="gpt-test", client=client)
 
@@ -389,6 +389,23 @@ def test_decide_sends_the_contract_schema_and_returns_a_tool_call():
     assert isinstance(decision, ToolCallDecision)
     assert decision.capability == "filesystem_list"
     assert decision.arguments == {"rootId": "downloads"}
+    assert len(client.responses.requests) == 1
+    request = client.responses.requests[0]
+    assert request["model"] == "gpt-test"
+    assert request["text"]["format"]["type"] == "json_schema"
+    assert request["text"]["format"]["name"] == "model_decision"
+
+
+def test_decide_chat_completions_sends_tools_and_returns_a_tool_call():
+    client = FakeClient([FakeResponse(tool_call_json(), FakeUsage(11, 3))])
+    model = LiveModel(model="gpt-test", client=client, api_protocol="chat_completions")
+
+    decision = model.decide(context_with())
+
+    assert isinstance(decision, ToolCallDecision)
+    assert decision.capability == "filesystem_list"
+    assert decision.arguments == {"rootId": "downloads"}
+    assert len(client.chat.completions.requests) == 1
     request = client.chat.completions.requests[0]
     assert request["model"] == "gpt-test"
     assert any(t["function"]["name"] == "filesystem_list" for t in request["tools"])
@@ -491,9 +508,22 @@ def test_empty_output_is_a_model_call_failure():
     assert "未输出任何文本内容" in e.value.reason or "没有给出" in e.value.reason
 
 
-def test_non_json_output_as_plain_text_summary_fallback():
-    # 纯文本回复作为自然语言回答兜底成功
-    model = LiveModel(model="gpt-test", client=FakeClient([FakeResponse("任务已经全部完成。")]))
+def test_non_json_output_is_a_model_call_failure_in_responses_mode():
+    model = LiveModel(model="gpt-test", client=FakeClient([FakeResponse("我觉得这个任务……")]))
+
+    with pytest.raises(ModelCallFailed) as e:
+        model.decide(context_with())
+
+    assert "不是合法 JSON" in e.value.reason
+
+
+def test_non_json_output_as_plain_text_summary_fallback_in_chat_completions_mode():
+    # Chat Completions 模式下：纯文本回复作为自然语言回答兜底成功
+    model = LiveModel(
+        model="gpt-test",
+        client=FakeClient([FakeResponse("任务已经全部完成。")]),
+        api_protocol="chat_completions",
+    )
 
     decision = model.decide(context_with())
     assert isinstance(decision, SummaryDecision)
@@ -502,9 +532,23 @@ def test_non_json_output_as_plain_text_summary_fallback():
 
 
 def test_json_that_violates_the_decision_contract_is_a_model_call_failure():
+    bad = json.dumps({"kind": "tool_call", "capability": "filesystem_list"})
+    model = LiveModel(model="gpt-test", client=FakeClient([FakeResponse(bad)]))
+
+    with pytest.raises(ModelCallFailed) as e:
+        model.decide(context_with())
+
+    assert "ModelDecision" in e.value.reason
+
+
+def test_chat_completions_bad_arguments_json_is_a_model_call_failure():
     tc = FakeToolCall(id="c-1", name="filesystem_list", arguments="{not_json")
     resp = FakeChatCompletion(FakeMessage(tool_calls=[tc]))
-    model = LiveModel(model="gpt-test", client=FakeClient([resp]))
+    model = LiveModel(
+        model="gpt-test",
+        client=FakeClient([resp]),
+        api_protocol="chat_completions",
+    )
 
     with pytest.raises(ModelCallFailed) as e:
         model.decide(context_with())
@@ -550,7 +594,9 @@ def test_live_model_env_name_is_the_documented_one():
     assert LIVE_MODEL_ENV == "OPENAI_MODEL"
 
 
-def test_decide_with_reasoning_summary_streams_thinking_deltas():
+# ---- Responses API 流式思维与调用 ----
+
+def test_decide_responses_with_reasoning_summary_streams_thinking_deltas():
     events = [
         FakeStreamEvent("response.reasoning_summary_text.delta", delta="思考第1步"),
         FakeStreamEvent("response.text.delta", delta="忽略正文增量"),
@@ -566,17 +612,61 @@ def test_decide_with_reasoning_summary_streams_thinking_deltas():
     decision = model.decide(context_with(), on_thinking=chunks.append)
 
     assert isinstance(decision, ToolCallDecision)
-    assert len(client.chat.completions.stream_requests) == 1
-    assert len(client.chat.completions.requests) == 0
+    assert len(client.responses.stream_requests) == 1
+    assert len(client.responses.requests) == 0
     assert chunks == ["思考第1步", "；思考第2步"]
     assert model.usage_snapshot() is not None
     assert model.usage_snapshot().inputTokens == 10
     assert model.usage_snapshot().outputTokens == 5
 
 
-def test_decide_without_reasoning_summary_uses_create():
+def test_decide_responses_without_reasoning_summary_uses_create():
     client = FakeClient([FakeResponse(tool_call_json())])
     model = LiveModel(model="gpt-test", client=client, reasoning_summary=False)
+
+    decision = model.decide(context_with())
+
+    assert isinstance(decision, ToolCallDecision)
+    assert len(client.responses.requests) == 1
+    assert len(client.responses.stream_requests) == 0
+
+
+# ---- Chat Completions API 流式思维与调用 ----
+
+def test_decide_chat_completions_with_reasoning_summary_streams_thinking_deltas():
+    events = [
+        FakeStreamEvent("response.reasoning_summary_text.delta", delta="思考第1步"),
+        FakeStreamEvent("response.text.delta", delta="忽略正文增量"),
+        FakeStreamEvent("response.reasoning_summary_text.delta", delta="；思考第2步"),
+    ]
+    client = FakeClient(
+        [FakeResponse(tool_call_json(), FakeUsage(10, 5))],
+        stream_events=events,
+    )
+    model = LiveModel(
+        model="gpt-test",
+        client=client,
+        reasoning_summary=True,
+        api_protocol="chat_completions",
+    )
+
+    chunks: list[str] = []
+    decision = model.decide(context_with(), on_thinking=chunks.append)
+
+    assert isinstance(decision, ToolCallDecision)
+    assert len(client.chat.completions.stream_requests) == 1
+    assert len(client.chat.completions.requests) == 0
+    assert chunks == ["思考第1步", "；思考第2步"]
+
+
+def test_decide_chat_completions_without_reasoning_summary_uses_create():
+    client = FakeClient([FakeResponse(tool_call_json())])
+    model = LiveModel(
+        model="gpt-test",
+        client=client,
+        reasoning_summary=False,
+        api_protocol="chat_completions",
+    )
 
     decision = model.decide(context_with())
 
@@ -602,7 +692,18 @@ def test_decide_env_var_enables_reasoning_summary(monkeypatch):
 
     model.decide(context_with())
 
-    assert len(client.chat.completions.stream_requests) == 1
+    assert len(client.responses.stream_requests) == 1
+
+
+def test_decide_env_var_switches_to_chat_completions_protocol(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_PROTOCOL", "chat_completions")
+    client = FakeClient([FakeResponse(tool_call_json())])
+    model = LiveModel(model="gpt-test", client=client)
+
+    model.decide(context_with())
+
+    assert len(client.chat.completions.requests) == 1
+    assert len(client.responses.requests) == 0
 
 
 def test_compose_instructions_returns_base_when_profile_is_none():
@@ -650,10 +751,10 @@ def test_decide_uses_composed_instructions_when_profile_present():
 
     model.decide(ctx)
 
-    request = client.chat.completions.requests[0]
+    request = client.responses.requests[0]
     expected_instructions = compose_instructions(INSTRUCTIONS, profile)
-    assert request["messages"][0]["content"] == expected_instructions
-    assert "友好热情、简明扼要" in request["messages"][0]["content"]
+    assert request["instructions"] == expected_instructions
+    assert "友好热情、简明扼要" in request["instructions"]
 
 
 def test_decide_profile_reasoning_summary_overrides_instance_config():
@@ -666,8 +767,8 @@ def test_decide_profile_reasoning_summary_overrides_instance_config():
     model = LiveModel(model="gpt-test", client=client, reasoning_summary=False)
 
     model.decide(ctx)
-    assert len(client.chat.completions.stream_requests) == 1
-    assert len(client.chat.completions.requests) == 0
+    assert len(client.responses.stream_requests) == 1
+    assert len(client.responses.requests) == 0
 
     profile_without_stream = ProfileDto(
         name="测试", persona="", reasoningSummary=False
@@ -678,5 +779,5 @@ def test_decide_profile_reasoning_summary_overrides_instance_config():
     model2 = LiveModel(model="gpt-test", client=client2, reasoning_summary=True)
 
     model2.decide(ctx2)
-    assert len(client2.chat.completions.requests) == 1
-    assert len(client2.chat.completions.stream_requests) == 0
+    assert len(client2.responses.requests) == 1
+    assert len(client2.responses.stream_requests) == 0

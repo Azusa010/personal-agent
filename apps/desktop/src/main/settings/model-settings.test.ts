@@ -15,6 +15,7 @@ import { join } from 'node:path'
 import { SETTINGS_ERROR_CODE } from './error-code'
 import {
   API_KEY_ENV_KEY,
+  API_PROTOCOL_ENV_KEY,
   BASE_URL_ENV_KEY,
   MODEL_ENV_KEY,
   SCRIPT_ENV_KEY,
@@ -63,11 +64,12 @@ afterEach(() => {
 })
 
 describe('model-settings: 读写往返', () => {
-  it('三个字段存下去、读回来完全一致', () => {
+  it('四个字段存下去、读回来完全一致', () => {
     const settings: ModelSettings = {
       model: 'gpt-4o-mini',
       baseUrl: 'https://relay.example.com/v1',
-      apiKey: SECRET
+      apiKey: SECRET,
+      apiProtocol: 'responses'
     }
 
     saveModelSettings(settings, { filePath, codec: fakeCodec() })
@@ -77,7 +79,7 @@ describe('model-settings: 读写往返', () => {
 
   it('Key 只以密文落盘：文件里搜不到明文（SEC-008）', () => {
     saveModelSettings(
-      { model: null, baseUrl: null, apiKey: SECRET },
+      { model: null, baseUrl: null, apiKey: SECRET, apiProtocol: null },
       { filePath, codec: fakeCodec() }
     )
 
@@ -85,17 +87,42 @@ describe('model-settings: 读写往返', () => {
     expect(raw).not.toContain(SECRET)
     expect(JSON.parse(raw)).toMatchObject({
       version: SETTINGS_VERSION,
-      apiKeyEncrypted: `enc:${Buffer.from(SECRET, 'utf8').toString('base64')}`
+      apiKeyEncrypted: `enc:${Buffer.from(SECRET, 'utf8').toString('base64')}`,
+      apiProtocol: null
     })
   })
 
   it('空串与纯空白字段归一化成 null 落盘', () => {
-    saveModelSettings({ model: '  ', baseUrl: '', apiKey: '   ' }, { filePath, codec: fakeCodec() })
+    saveModelSettings(
+      { model: '  ', baseUrl: '', apiKey: '   ', apiProtocol: null },
+      { filePath, codec: fakeCodec() }
+    )
 
     expect(loadModelSettings({ filePath, codec: fakeCodec() })).toEqual({
       model: null,
       baseUrl: null,
-      apiKey: null
+      apiKey: null,
+      apiProtocol: null
+    })
+  })
+
+  it('未配置 apiProtocol 的旧配置文件平滑兼容为 null', () => {
+    writeFileSync(
+      filePath,
+      JSON.stringify({
+        version: 1,
+        model: 'gpt-4o-mini',
+        baseUrl: null,
+        apiKeyEncrypted: null
+      }),
+      'utf8'
+    )
+
+    expect(loadModelSettings({ filePath, codec: fakeCodec() })).toEqual({
+      model: 'gpt-4o-mini',
+      baseUrl: null,
+      apiKey: null,
+      apiProtocol: null
     })
   })
 
@@ -138,7 +165,7 @@ describe('model-settings: 读写往返', () => {
   it('密钥库不可用时保存 Key → ENCRYPTION_UNAVAILABLE，且文件不出现在盘上', () => {
     const error = catchError(() =>
       saveModelSettings(
-        { model: 'gpt-4o-mini', baseUrl: null, apiKey: SECRET },
+        { model: 'gpt-4o-mini', baseUrl: null, apiKey: SECRET, apiProtocol: null },
         { filePath, codec: fakeCodec(false) }
       )
     )
@@ -151,14 +178,15 @@ describe('model-settings: 读写往返', () => {
 
   it('密钥库不可用但没填 Key → 照常保存 model / baseUrl', () => {
     saveModelSettings(
-      { model: 'gpt-4o-mini', baseUrl: null, apiKey: null },
+      { model: 'gpt-4o-mini', baseUrl: null, apiKey: null, apiProtocol: null },
       { filePath, codec: fakeCodec(false) }
     )
 
     expect(loadModelSettings({ filePath, codec: fakeCodec() })).toEqual({
       model: 'gpt-4o-mini',
       baseUrl: null,
-      apiKey: null
+      apiKey: null,
+      apiProtocol: null
     })
   })
 
@@ -166,14 +194,15 @@ describe('model-settings: 读写往返', () => {
     const nested = join(dir, 'a', 'b', 'model-settings.json')
 
     saveModelSettings(
-      { model: 'm', baseUrl: null, apiKey: null },
+      { model: 'm', baseUrl: null, apiKey: null, apiProtocol: null },
       { filePath: nested, codec: fakeCodec() }
     )
 
     expect(loadModelSettings({ filePath: nested, codec: fakeCodec() })).toEqual({
       model: 'm',
       baseUrl: null,
-      apiKey: null
+      apiKey: null,
+      apiProtocol: null
     })
   })
 })
@@ -188,7 +217,8 @@ describe('buildRuntimeEnv（陪练点）', () => {
   const SAVED: ModelSettings = {
     model: 'gpt-4o-mini',
     baseUrl: 'https://relay.example.com/v1',
-    apiKey: SECRET
+    apiKey: SECRET,
+    apiProtocol: 'responses'
   }
 
   it('settings 为 null：整份拷贝继承环境，且是新对象', () => {
@@ -206,35 +236,44 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(INHERITED[API_KEY_ENV_KEY]).toBeUndefined()
   })
 
-  it('三个字段齐备：逐字段覆盖，继承里的同名值被换掉', () => {
+  it('四个字段齐备：逐字段覆盖，继承里的同名值被换掉', () => {
     const env = buildRuntimeEnv(INHERITED, SAVED)
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o-mini')
     expect(env[BASE_URL_ENV_KEY]).toBe('https://relay.example.com/v1')
     expect(env[API_KEY_ENV_KEY]).toBe(SECRET)
+    expect(env[API_PROTOCOL_ENV_KEY]).toBe('responses')
   })
 
   it('设置的 null 字段不注入：继承值原样保留（开发态 shell 的 export 照旧可用）', () => {
-    const env = buildRuntimeEnv(INHERITED, { model: null, baseUrl: null, apiKey: null })
+    const env = buildRuntimeEnv(INHERITED, {
+      model: null,
+      baseUrl: null,
+      apiKey: null,
+      apiProtocol: null
+    })
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o')
     expect(env[BASE_URL_ENV_KEY]).toBeUndefined()
     expect(env[API_KEY_ENV_KEY]).toBeUndefined()
+    expect(env[API_PROTOCOL_ENV_KEY]).toBeUndefined()
   })
 
   it('部分设置：只覆盖填了的字段，其余保留继承值', () => {
     const env = buildRuntimeEnv(INHERITED, {
       model: null,
       baseUrl: 'https://relay/v1',
-      apiKey: SECRET
+      apiKey: SECRET,
+      apiProtocol: 'chat_completions'
     })
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o')
     expect(env[BASE_URL_ENV_KEY]).toBe('https://relay/v1')
     expect(env[API_KEY_ENV_KEY]).toBe(SECRET)
+    expect(env[API_PROTOCOL_ENV_KEY]).toBe('chat_completions')
   })
 
-  it('继承环境里有 PERSONAL_AGENT_SCRIPT：三个 OPENAI_* 一个都不动（剧本压过设置）', () => {
+  it('继承环境里有 PERSONAL_AGENT_SCRIPT：四个 OPENAI_* 一个都不动（剧本压过设置）', () => {
     const inherited: NodeJS.ProcessEnv = {
       ...INHERITED,
       [SCRIPT_ENV_KEY]: 'C:\\demo\\script.json'
@@ -245,6 +284,7 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o')
     expect(env[BASE_URL_ENV_KEY]).toBeUndefined()
     expect(env[API_KEY_ENV_KEY]).toBeUndefined()
+    expect(env[API_PROTOCOL_ENV_KEY]).toBeUndefined()
     expect(env[SCRIPT_ENV_KEY]).toBe('C:\\demo\\script.json')
   })
 
@@ -253,14 +293,21 @@ describe('buildRuntimeEnv（陪练点）', () => {
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o-mini')
     expect(env[API_KEY_ENV_KEY]).toBe(SECRET)
+    expect(env[API_PROTOCOL_ENV_KEY]).toBe('responses')
   })
 
   it('设置里的空串字段不注入，也不产生空串的 OPENAI_*', () => {
-    const env = buildRuntimeEnv(INHERITED, { model: '  ', baseUrl: '', apiKey: '' })
+    const env = buildRuntimeEnv(INHERITED, {
+      model: '  ',
+      baseUrl: '',
+      apiKey: '',
+      apiProtocol: null
+    })
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o')
     expect(env[BASE_URL_ENV_KEY]).toBeUndefined()
     expect(env[API_KEY_ENV_KEY]).toBeUndefined()
+    expect(env[API_PROTOCOL_ENV_KEY]).toBeUndefined()
   })
 
   it('任何分支都带上继承环境里的非 OPENAI 变量（spawn 的 env 是整份替换）', () => {
