@@ -40,7 +40,7 @@ function invalid(capability: string, message: string): BindResult {
 // 收窄只能在这里做。
 const bindFilesystemList: Binder = async (args) => {
   const parsed = FilesystemListParams.safeParse(args)
-  if (!parsed.success) return invalid('filesystem.list', parsed.error.message)
+  if (!parsed.success) return invalid('filesystem_list', parsed.error.message)
   // rootId 是白名单枚举里的一项，不是用户给的路径，所以不进 paths：
   // 授权根由 resolveRoot 从环境变量取，执行体自己会再取一次同一个值。
   return { ok: true, bound: { args: { rootId: parsed.data.rootId }, paths: {} } }
@@ -48,7 +48,7 @@ const bindFilesystemList: Binder = async (args) => {
 
 const bindExtractPdf: Binder = async (args) => {
   const parsed = DocumentExtractPdfParams.safeParse(args)
-  if (!parsed.success) return invalid('document.extract_pdf', parsed.error.message)
+  if (!parsed.success) return invalid('document_extract_pdf', parsed.error.message)
 
   const root = resolveRoot('downloads')
   const guarded = await resolveWithinRootReal(root, parsed.data.path)
@@ -66,7 +66,7 @@ const bindExtractPdf: Binder = async (args) => {
 // 「已存在」也不在这拦——那要么由执行体幂等处理，要么就是一次无害的重建。
 const bindCreateDir: Binder = async (args) => {
   const parsed = FilesystemCreateDirParams.safeParse(args)
-  if (!parsed.success) return invalid('filesystem.create_dir', parsed.error.message)
+  if (!parsed.success) return invalid('filesystem_create_dir', parsed.error.message)
 
   const root = resolveRoot('downloads')
   const guarded = await resolveWithinRootReal(root, parsed.data.path)
@@ -81,7 +81,7 @@ const bindCreateDir: Binder = async (args) => {
 
 const bindMove: Binder = async (args) => {
   const parsed = FilesystemMoveParams.safeParse(args)
-  if (!parsed.success) return invalid('filesystem.move', parsed.error.message)
+  if (!parsed.success) return invalid('filesystem_move', parsed.error.message)
 
   const root = resolveRoot('downloads')
 
@@ -91,7 +91,7 @@ const bindMove: Binder = async (args) => {
     return {
       ok: false,
       code: source.code,
-      reason: `${source.reason}（filesystem.move 的 source 参数）`
+      reason: `${source.reason}（filesystem_move 的 source 参数）`
     }
   }
 
@@ -101,7 +101,7 @@ const bindMove: Binder = async (args) => {
     return {
       ok: false,
       code: target.code,
-      reason: `${target.reason}（filesystem.move 的 target 参数）`
+      reason: `${target.reason}（filesystem_move 的 target 参数）`
     }
   }
 
@@ -117,14 +117,14 @@ const bindMove: Binder = async (args) => {
 // 创建定时提醒前参数检验
 const bindSchedulerCreate: Binder = async (args) => {
   const parsed = SchedulerCreateParams.safeParse(args)
-  if (!parsed.success) return invalid('scheduler.create', parsed.error.message)
+  if (!parsed.success) return invalid('scheduler_create', parsed.error.message)
 
   const remindAt = new Date(parsed.data.remindAt)
   if (Number.isNaN(remindAt.getTime())) {
     return {
       ok: false,
       code: ERROR_CODE.INVALID_ARGUMENT,
-      reason: `scheduler.create 的 remindAt 无法解析为时间: ${parsed.data.remindAt}`
+      reason: `scheduler_create 的 remindAt 无法解析为时间: ${parsed.data.remindAt}`
     }
   }
   const remindAtIso = remindAt.toISOString()
@@ -146,14 +146,14 @@ const bindSchedulerCreate: Binder = async (args) => {
 // 发送通知前参数检验
 const bindNotificationSend: Binder = async (args) => {
   const parsed = NotificationSendParams.safeParse(args)
-  if (!parsed.success) return invalid('notification.send', parsed.error.message)
+  if (!parsed.success) return invalid('notification_send', parsed.error.message)
   return { ok: true, bound: { args: { reminderId: parsed.data.reminderId }, paths: {} } }
 }
 
 // 终端命令执行前参数校验与工作目录约束
 const bindTerminalExecute: Binder = async (args) => {
   const parsed = TerminalExecuteParams.safeParse(args)
-  if (!parsed.success) return invalid('terminal.execute', parsed.error.message)
+  if (!parsed.success) return invalid('terminal_execute', parsed.error.message)
 
   const root = resolveRoot('downloads')
   const paths: Record<string, string> = {}
@@ -185,13 +185,13 @@ const bindTerminalExecute: Binder = async (args) => {
 /** 每个能力的参数绑定器。没有登记的能力回 NOT_IMPLEMENTED：
  */
 const BINDERS: Partial<Record<CapabilityId, Binder>> = {
-  'filesystem.list': bindFilesystemList,
-  'document.extract_pdf': bindExtractPdf,
-  'filesystem.create_dir': bindCreateDir,
-  'filesystem.move': bindMove,
-  'scheduler.create': bindSchedulerCreate,
-  'notification.send': bindNotificationSend,
-  'terminal.execute': bindTerminalExecute
+  filesystem_list: bindFilesystemList,
+  document_extract_pdf: bindExtractPdf,
+  filesystem_create_dir: bindCreateDir,
+  filesystem_move: bindMove,
+  scheduler_create: bindSchedulerCreate,
+  notification_send: bindNotificationSend,
+  terminal_execute: bindTerminalExecute
 }
 
 export async function bindArguments(

@@ -118,18 +118,18 @@ export const REMINDER_STATUSES = ['scheduled', 'firing', 'fired', 'failed'] as c
 export type ReminderStatus = (typeof REMINDER_STATUSES)[number]
 
 /** 一次性阅读提醒。一个 Task 至多一条（reminders.task_id UNIQUE），
- *  重复的 scheduler.create 要么幂等命中（同 idempotencyKey），要么被拒。
+ *  重复的 scheduler_create 要么幂等命中（同 idempotencyKey），要么被拒。
  */
 export interface ReminderRecord {
   id: string
   taskId: string
-  /** 创建它的 scheduler.create callId。重试后会是新值，只作诊断，不参与幂等判定 */
+  /** 创建它的 scheduler_create callId。重试后会是新值，只作诊断，不参与幂等判定 */
   toolCallId: string
   /** binder 规范化后的 UTC ISO 触发时间（毫秒三位 + Z）。批准面板展示的就是这个串 */
   remindAt: string
   /** 到期通知的正文（PRD 4.8 Reminder 的「通知内容」） */
   message: string
-  /** scheduler.create:{argsHash}，与 tool_executions 的 key 同构。重试时比对它决定幂等返回还是拒绝 */
+  /** scheduler_create:{argsHash}，与 tool_executions 的 key 同构。重试时比对它决定幂等返回还是拒绝 */
   idempotencyKey: string
   status: ReminderStatus
   createdAt: string

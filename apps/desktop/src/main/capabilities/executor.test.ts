@@ -85,13 +85,13 @@ describe('executor：authorize 是唯一关口（TEST-005）', () => {
     // 四个 WRITE 能力在 registry 里都有描述符但都没有执行体。
     // 若 authorize 不在分发之前，这里会落到 default 分支返回 NOT_IMPLEMENTED。
     // 用码的区别证明顺序，比 spy 更直接。
-    const out = await run(params('filesystem.move', { from: 'a', to: 'b' }))
+    const out = await run(params('filesystem_move', { from: 'a', to: 'b' }))
     expect(out['code']).toBe(ERROR_CODE.CAPABILITY_OUT_OF_SCOPE)
   })
 
   it('readOnlyScope 放行两个 READ 能力', async () => {
-    // 空目录，filesystem.list 成功返回空 entries。
-    const out = await run(params('filesystem.list', { rootId: 'downloads' }))
+    // 空目录，filesystem_list 成功返回空 entries。
+    const out = await run(params('filesystem_list', { rootId: 'downloads' }))
     expect(out['ok']).toBe(true)
   })
 
@@ -104,7 +104,7 @@ describe('executor：authorize 是唯一关口（TEST-005）', () => {
       UI_ORIGIN,
       denyRetriever('CAPABILITY_OUT_OF_SCOPE')
     )
-    const out = await denied(params('filesystem.list', { rootId: 'downloads' }))
+    const out = await denied(params('filesystem_list', { rootId: 'downloads' }))
     expect(out['code']).toBe(ERROR_CODE.CAPABILITY_OUT_OF_SCOPE)
   })
 
@@ -117,7 +117,7 @@ describe('executor：authorize 是唯一关口（TEST-005）', () => {
       UI_ORIGIN,
       denyRetriever('CAPABILITY_NOT_REGISTERED')
     )
-    const out = await denied(params('filesystem.list', { rootId: 'downloads' }))
+    const out = await denied(params('filesystem_list', { rootId: 'downloads' }))
     expect(out['code']).toBe(ERROR_CODE.CAPABILITY_NOT_REGISTERED)
   })
 })
@@ -126,28 +126,28 @@ describe('executor：arguments 二次校验', () => {
   it('rootId 不在白名单 -> INVALID_ARGUMENT', async () => {
     // envelope 层的 arguments 是 z.record(z.string(), z.unknown())，
     // 什么都能过。收窄只能在这里做。
-    const out = await run(params('filesystem.list', { rootId: 'system32' }))
+    const out = await run(params('filesystem_list', { rootId: 'system32' }))
     expect(out['ok']).toBe(false)
     expect(out['code']).toBe(ERROR_CODE.INVALID_ARGUMENT)
   })
 
   it('缺 rootId -> INVALID_ARGUMENT', async () => {
-    const out = await run(params('filesystem.list', {}))
+    const out = await run(params('filesystem_list', {}))
     expect(out['code']).toBe(ERROR_CODE.INVALID_ARGUMENT)
   })
 
   it('rootId 类型错 -> INVALID_ARGUMENT', async () => {
-    const out = await run(params('filesystem.list', { rootId: 123 }))
+    const out = await run(params('filesystem_list', { rootId: 123 }))
     expect(out['code']).toBe(ERROR_CODE.INVALID_ARGUMENT)
   })
 
   it('path 为空 -> INVALID_ARGUMENT', async () => {
-    const out = await run(params('document.extract_pdf', { path: '' }))
+    const out = await run(params('document_extract_pdf', { path: '' }))
     expect(out['code']).toBe(ERROR_CODE.INVALID_ARGUMENT)
   })
 
   it('缺 path -> INVALID_ARGUMENT', async () => {
-    const out = await run(params('document.extract_pdf', {}))
+    const out = await run(params('document_extract_pdf', {}))
     expect(out['code']).toBe(ERROR_CODE.INVALID_ARGUMENT)
   })
 
@@ -159,10 +159,10 @@ describe('executor：arguments 二次校验', () => {
   })
 })
 
-describe('executor：filesystem.list', () => {
+describe('executor：filesystem_list', () => {
   it('成功时 ok 是 boolean true', async () => {
     await writeFile(join(dir, 'a.pdf'), 'A')
-    const out = await run(params('filesystem.list', { rootId: 'downloads' }))
+    const out = await run(params('filesystem_list', { rootId: 'downloads' }))
 
     // toBe 是严格相等：ok 写成字符串 'true' 的话这里就红。
     // 契约里 HostExecuteToolResult 钉的是 z.boolean()。
@@ -172,7 +172,7 @@ describe('executor：filesystem.list', () => {
 
   it('成功输出同时过 envelope 层与 payload 层契约', async () => {
     await writeFile(join(dir, 'a.pdf'), 'A')
-    const out = await run(params('filesystem.list', { rootId: 'downloads' }))
+    const out = await run(params('filesystem_list', { rootId: 'downloads' }))
 
     // 两层各管一件事：HostExecuteToolResult 钉 ok 是 boolean，
     // FilesystemListResult 钉 entries 形状。只过其中一层证明不了 wire 合法
@@ -183,7 +183,7 @@ describe('executor：filesystem.list', () => {
 
   it('根目录不存在 -> FILESYSTEM_ROOT_UNAVAILABLE', async () => {
     vi.stubEnv(ENV_NAME, join(dir, 'nope'))
-    const out = await run(params('filesystem.list', { rootId: 'downloads' }))
+    const out = await run(params('filesystem_list', { rootId: 'downloads' }))
     expect(out['ok']).toBe(false)
     expect(out['code']).toBe(ERROR_CODE.FILESYSTEM_ROOT_UNAVAILABLE)
     // reason 里要带原始 errno，否则"目录不存在"和"没权限"分不开。
@@ -194,24 +194,24 @@ describe('executor：filesystem.list', () => {
     const filePath = join(dir, 'not-a-dir')
     await writeFile(filePath, 'x')
     vi.stubEnv(ENV_NAME, filePath)
-    const out = await run(params('filesystem.list', { rootId: 'downloads' }))
+    const out = await run(params('filesystem_list', { rootId: 'downloads' }))
     expect(out['code']).toBe(ERROR_CODE.FILESYSTEM_ROOT_UNAVAILABLE)
     expect(String(out['reason'])).toContain('ENOTDIR')
   })
 
   it('失败输出过 CapabilityFailure 契约', async () => {
     vi.stubEnv(ENV_NAME, join(dir, 'nope'))
-    const out = await run(params('filesystem.list', { rootId: 'downloads' }))
+    const out = await run(params('filesystem_list', { rootId: 'downloads' }))
     expect(() => CapabilityFailure.parse(out)).not.toThrow()
   })
 })
 
-describe('executor：document.extract_pdf', () => {
+describe('executor：document_extract_pdf', () => {
   it('真 PDF 返回 pages 且过判别联合契约', async () => {
     const pdfPath = join(dir, 'report.pdf')
     await writeFile(pdfPath, buildPdf(['page one text', 'page two text']))
 
-    const out = await run(params('document.extract_pdf', { path: pdfPath }))
+    const out = await run(params('document_extract_pdf', { path: pdfPath }))
     expect(out['ok']).toBe(true)
     expect(() => DocumentExtractPdfOutcome.parse(out)).not.toThrow()
 
@@ -228,7 +228,7 @@ describe('executor：document.extract_pdf', () => {
     const outside = join(tmpdir(), 'pa-outside-secret.pdf')
     await writeFile(outside, buildPdf(['secret']))
     try {
-      const out = await run(params('document.extract_pdf', { path: outside }))
+      const out = await run(params('document_extract_pdf', { path: outside }))
       expect(out['ok']).toBe(false)
       expect(out['code']).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
     } finally {
@@ -240,7 +240,7 @@ describe('executor：document.extract_pdf', () => {
     // 模型给出的路径不可信（SEC-006）。resolve 会吃掉 '..'，
     // 所以先 resolve 再前缀比较才挡得住。
     const out = await run(
-      params('document.extract_pdf', { path: join(dir, '..', '..', 'secret.pdf') })
+      params('document_extract_pdf', { path: join(dir, '..', '..', 'secret.pdf') })
     )
     expect(out['code']).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
   })
@@ -252,7 +252,7 @@ describe('executor：document.extract_pdf', () => {
     await mkdir(evilDir, { recursive: true })
     await writeFile(join(evilDir, 'x.pdf'), buildPdf(['x']))
     try {
-      const out = await run(params('document.extract_pdf', { path: join(evilDir, 'x.pdf') }))
+      const out = await run(params('document_extract_pdf', { path: join(evilDir, 'x.pdf') }))
       expect(out['code']).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
     } finally {
       await rm(evilDir, { recursive: true, force: true })
@@ -260,7 +260,7 @@ describe('executor：document.extract_pdf', () => {
   })
 
   it('根内不存在的文件 -> FILE_UNREADABLE', async () => {
-    const out = await run(params('document.extract_pdf', { path: join(dir, 'ghost.pdf') }))
+    const out = await run(params('document_extract_pdf', { path: join(dir, 'ghost.pdf') }))
     expect(out['ok']).toBe(false)
     expect(out['code']).toBe(ERROR_CODE.FILE_UNREADABLE)
     expect(String(out['reason'])).toContain('ENOENT')
@@ -269,7 +269,7 @@ describe('executor：document.extract_pdf', () => {
   it('拿根目录当文件 -> FILE_UNREADABLE', async () => {
     // path-guard 放行 candidate === root（不算越界），
     // readFile 抛 EISDIR，必须被接住而不是冒泡成 HOST_HANDLER_FAILED。
-    const out = await run(params('document.extract_pdf', { path: dir }))
+    const out = await run(params('document_extract_pdf', { path: dir }))
     expect(out['code']).toBe(ERROR_CODE.FILE_UNREADABLE)
     expect(String(out['reason'])).toContain('EISDIR')
   })
@@ -286,7 +286,7 @@ describe('executor：document.extract_pdf', () => {
     for (const c of cases) {
       const full = join(dir, c.name)
       await writeFile(full, c.bytes)
-      const out = await run(params('document.extract_pdf', { path: full }))
+      const out = await run(params('document_extract_pdf', { path: full }))
       expect(out['ok'], c.name).toBe(false)
       expect(out['code'], c.name).toBe(c.code)
       expect(() => CapabilityFailure.parse(out), c.name).not.toThrow()
@@ -300,15 +300,15 @@ describe('executor：永不 throw', () => {
     // 精确码全丢。这里直接 await：抛了测试就红。
     vi.stubEnv(ENV_NAME, join(dir, 'nope'))
     const inputs: HostExecuteToolParams[] = [
-      params('filesystem.list', { rootId: 'downloads' }),
-      params('filesystem.list', { rootId: 'nope' }),
-      params('filesystem.list', {}),
-      params('document.extract_pdf', { path: '' }),
-      params('document.extract_pdf', { path: 'C:/Windows/win.ini' }),
-      params('document.extract_pdf', { path: join(dir, 'ghost.pdf') }),
-      params('filesystem.move', { from: 'a', to: 'b' }),
-      params('scheduler.create', {}),
-      params('notification.send', {})
+      params('filesystem_list', { rootId: 'downloads' }),
+      params('filesystem_list', { rootId: 'nope' }),
+      params('filesystem_list', {}),
+      params('document_extract_pdf', { path: '' }),
+      params('document_extract_pdf', { path: 'C:/Windows/win.ini' }),
+      params('document_extract_pdf', { path: join(dir, 'ghost.pdf') }),
+      params('filesystem_move', { from: 'a', to: 'b' }),
+      params('scheduler_create', {}),
+      params('notification_send', {})
     ]
     for (const input of inputs) {
       const out = await run(input)
@@ -325,17 +325,17 @@ describe('executor：永不 throw', () => {
     // 用假 retriever 放行一切，kind 写 READ 是为了把「没接线」与「需要批准」
     // 隔开：WRITE 在接上批准通道之后会先挂起等 permission.respond，这条测试
     // 就再也不会以 NOT_IMPLEMENTED 结束，而是卡在没人响应的 promise 上。
-    // 参数必须合法（notification.send 在 TASK-024 有了绑定器，空参数会先撞
+    // 参数必须合法（notification_send 在 TASK-024 有了绑定器，空参数会先撞
     // INVALID_ARGUMENT），才能走到执行体看到「没有接线通知端口」。
     const allowAll: ToolRetriever = {
       listVisible: () => [],
       authorize: () => ({
         allowed: true,
-        capability: { name: 'notification.send', kind: 'READ', description: 'test' }
+        capability: { name: 'notification_send', kind: 'READ', description: 'test' }
       })
     }
     const permissive = createExecutor(readOnlyScope('task-1'), UI_ORIGIN, allowAll)
-    const out = await permissive(params('notification.send', { reminderId: 'r-1' }))
+    const out = await permissive(params('notification_send', { reminderId: 'r-1' }))
     expect(out['code']).toBe(ERROR_CODE.NOT_IMPLEMENTED)
   })
 })
@@ -344,7 +344,7 @@ describe('executor：WRITE 能力经批准后执行（TASK-020 接线）', () =>
   // readOnlyScope 不放 WRITE，这里自定义一个只含两个目标能力的 scope。
   const writeScope: TaskScope = {
     taskId: 'task-1',
-    capabilities: ['filesystem.create_dir', 'filesystem.move']
+    capabilities: ['filesystem_create_dir', 'filesystem_move']
   }
   // 自动批准的 gate：request 直接 approved，verify 直接 ok。
   // 真实批准流程在 execution-policy.test.ts / permission-broker.test.ts。
@@ -378,7 +378,7 @@ describe('executor：WRITE 能力经批准后执行（TASK-020 接线）', () =>
 
   it('create_dir：批准后走执行体，path 是 bound.paths 的 realpath（正斜杠）', async () => {
     const reading = toPosix(join(dir, 'Reading'))
-    const out = await writeRun()(params('filesystem.create_dir', { path: join(dir, 'Reading') }))
+    const out = await writeRun()(params('filesystem_create_dir', { path: join(dir, 'Reading') }))
 
     // 未实现占位返回 CREATE_DIR_FAILED；填完 createDir 后应为 ok:true created:true。
     // path 必须是 realpath 后的正斜杠形式，证明接线传的是 bound.paths 而非原始 arguments。
@@ -394,7 +394,7 @@ describe('executor：WRITE 能力经批准后执行（TASK-020 接线）', () =>
     await mkdir(join(dir, 'Reading'))
     const target = join(dir, 'Reading', 'report.pdf')
 
-    const out = await writeRun()(params('filesystem.move', { source, target }))
+    const out = await writeRun()(params('filesystem_move', { source, target }))
     expect(out['ok']).toBe(true)
     expect(out['source']).toBe(toPosix(source))
     expect(out['target']).toBe(toPosix(target))
@@ -416,7 +416,7 @@ describe('executor：WRITE 能力经批准后执行（TASK-020 接线）', () =>
       gate: denyGate
     })
     const reading = join(dir, 'Reading')
-    const out = await denyRun(params('filesystem.create_dir', { path: reading }))
+    const out = await denyRun(params('filesystem_create_dir', { path: reading }))
 
     expect(out['ok']).toBe(false)
     expect(out['code']).toBe(ERROR_CODE.PERMISSION_DENIED)
@@ -425,7 +425,7 @@ describe('executor：WRITE 能力经批准后执行（TASK-020 接线）', () =>
   })
 })
 
-describe('executor：notification.send（TASK-024 接线）', () => {
+describe('executor：notification_send（TASK-024 接线）', () => {
   const T0 = '2026-09-15T09:00:00.000Z'
   /** 注入给 wiring 的「现在」。fireReminder 的到点判定、stamp 全用它。 */
   const NOW = '2026-09-15T20:00:00.500Z'
@@ -454,7 +454,7 @@ describe('executor：notification.send（TASK-024 接线）', () => {
   }
   const notifyScope: TaskScope = {
     taskId: 'task-1',
-    capabilities: ['scheduler.create', 'notification.send']
+    capabilities: ['scheduler_create', 'notification_send']
   }
 
   beforeEach(() => {
@@ -506,7 +506,7 @@ describe('executor：notification.send（TASK-024 接线）', () => {
       toolCallId: 'tc-1',
       remindAt: DUE,
       message: '该阅读 report-2026.pdf 的摘要了',
-      idempotencyKey: 'scheduler.create:hash-r1',
+      idempotencyKey: 'scheduler_create:hash-r1',
       status: 'scheduled',
       createdAt: T0,
       updatedAt: T0,
@@ -524,17 +524,17 @@ describe('executor：notification.send（TASK-024 接线）', () => {
     const noScheduler = createExecutor(notifyScope, UI_ORIGIN, new RuleBasedToolRetriever(), {
       gate: approveGate
     })
-    const out1 = await noScheduler(params('notification.send', { reminderId: 'r-1' }))
+    const out1 = await noScheduler(params('notification_send', { reminderId: 'r-1' }))
     expect(out1['code']).toBe(ERROR_CODE.NOT_IMPLEMENTED)
 
     const noPort = makeRun({ notifications: undefined })
-    const out2 = await noPort(params('notification.send', { reminderId: 'r-1' }))
+    const out2 = await noPort(params('notification_send', { reminderId: 'r-1' }))
     expect(out2['code']).toBe(ERROR_CODE.NOT_IMPLEMENTED)
     expect(portCalls).toBe(0)
   })
 
   it('查无 Reminder 回 REMINDER_NOT_FOUND', async () => {
-    const out = await makeRun()(params('notification.send', { reminderId: 'ghost' }))
+    const out = await makeRun()(params('notification_send', { reminderId: 'ghost' }))
     expect(out['ok']).toBe(false)
     expect(out['code']).toBe(ERROR_CODE.REMINDER_NOT_FOUND)
     expect(portCalls).toBe(0)
@@ -544,7 +544,7 @@ describe('executor：notification.send（TASK-024 接线）', () => {
     // task-1 的调用引用 task-2 的 Reminder：必须按 REMINDER_NOT_FOUND 拒绝。
     // 实现落地前此用例红（占位实现回 NOT_IMPLEMENTED）。
     seedReminder({ id: 'r-2', taskId: 'task-2' })
-    const out = await makeRun()(params('notification.send', { reminderId: 'r-2' }))
+    const out = await makeRun()(params('notification_send', { reminderId: 'r-2' }))
     expect(out['ok']).toBe(false)
     expect(out['code']).toBe(ERROR_CODE.REMINDER_NOT_FOUND)
     expect(portCalls).toBe(0)
@@ -553,7 +553,7 @@ describe('executor：notification.send（TASK-024 接线）', () => {
   it('到点 → 发送一次并记录结果：fired + firedAt + notification_sent 事件', async () => {
     // TASK-024 验收本体（executor 入口）；实现落地前红。
     seedReminder()
-    const out = await makeRun()(params('notification.send', { reminderId: 'r-1' }))
+    const out = await makeRun()(params('notification_send', { reminderId: 'r-1' }))
 
     // wire 形状与 NotificationSendResult 逐字段一致
     expect(() => NotificationSendResult.parse(out)).not.toThrow()
@@ -584,7 +584,7 @@ describe('executor：notification.send（TASK-024 接线）', () => {
     // 「同一 Reminder 最多通知一次」：fired 是终态，重复调用不算失败，
     // 但端口一次都不能再碰。
     seedReminder({ status: 'fired', firedAt: DUE })
-    const out = await makeRun()(params('notification.send', { reminderId: 'r-1' }))
+    const out = await makeRun()(params('notification_send', { reminderId: 'r-1' }))
     expect(out['ok']).toBe(true)
     expect(out['sent']).toBe(false)
     expect(out['sentAt']).toBe(DUE)
@@ -594,7 +594,7 @@ describe('executor：notification.send（TASK-024 接线）', () => {
   it('未到点 → REMINDER_NOT_DUE，不碰通知端口', async () => {
     // 到点发送是 timer 的职责；提前调用必须拿稳定错误码而不是静默发送。
     seedReminder({ remindAt: FUTURE })
-    const out = await makeRun()(params('notification.send', { reminderId: 'r-1' }))
+    const out = await makeRun()(params('notification_send', { reminderId: 'r-1' }))
     expect(out['ok']).toBe(false)
     expect(out['code']).toBe(ERROR_CODE.REMINDER_NOT_DUE)
     expect(portCalls).toBe(0)
@@ -604,7 +604,7 @@ describe('executor：notification.send（TASK-024 接线）', () => {
   it('发送失败 → NOTIFICATION_SEND_FAILED，落 failed + failure_reason，不伪造成功', async () => {
     portOutcome = { ok: false, reason: 'Windows 通知通道不可用' }
     seedReminder()
-    const out = await makeRun()(params('notification.send', { reminderId: 'r-1' }))
+    const out = await makeRun()(params('notification_send', { reminderId: 'r-1' }))
     expect(out['ok']).toBe(false)
     expect(out['code']).toBe(ERROR_CODE.NOTIFICATION_SEND_FAILED)
     expect(String(out['reason'])).toContain('Windows 通知通道不可用')
@@ -619,7 +619,7 @@ describe('executor：notification.send（TASK-024 接线）', () => {
   })
 })
 
-describe('scheduler.create → timer → 到时发送一次（TASK-024 验收链路）', () => {
+describe('scheduler_create → timer → 到时发送一次（TASK-024 验收链路）', () => {
   // 真 fireReminder + 真 ReminderTimerService + 假通知端口 + 注入时钟。
   // 这组在 fireReminder / schedule 落地前红——它就是验收
   // 「到时发送一次并记录结果」的端到端表达。
@@ -703,7 +703,7 @@ describe('scheduler.create → timer → 到时发送一次（TASK-024 验收链
       clearTimer
     })
     run2 = createExecutor(
-      { taskId: 'task-1', capabilities: ['scheduler.create', 'notification.send'] },
+      { taskId: 'task-1', capabilities: ['scheduler_create', 'notification_send'] },
       UI_ORIGIN,
       new RuleBasedToolRetriever(),
       { gate: approveGate },
@@ -730,7 +730,7 @@ describe('scheduler.create → timer → 到时发送一次（TASK-024 验收链
     // 注入时钟起点就是真实 now，所以 binder 也能过。
     const remindAt = new Date(start + 60_000).toISOString()
     const created = await run2(
-      params('scheduler.create', { remindAt, message: '该阅读 report-2026.pdf 的摘要了' })
+      params('scheduler_create', { remindAt, message: '该阅读 report-2026.pdf 的摘要了' })
     )
     expect(created['ok']).toBe(true)
     expect(created['created']).toBe(true)
@@ -786,7 +786,7 @@ describe('scheduler.create → timer → 到时发送一次（TASK-024 验收链
       toolCallId: 'tc-fail',
       remindAt: new Date(clockMs + 1_000).toISOString(),
       message: '会失败的通知',
-      idempotencyKey: 'scheduler.create:hash-fail',
+      idempotencyKey: 'scheduler_create:hash-fail',
       status: 'scheduled',
       createdAt: T0,
       updatedAt: T0,

@@ -40,11 +40,11 @@ export const WORKFLOW_DEFINITIONS: Record<string, WorkflowDefinition> = {
     goal: 'workflow:golden_path',
     description: '扫描、提取、归档并创建阅读提醒的标准确定性工作流',
     steps: [
-      { description: '列出 Downloads 下的 PDF', capability: 'filesystem.list' },
-      { description: '提取目标 PDF 的每页文本', capability: 'document.extract_pdf' },
-      { description: '在 Downloads 下创建 Reading 目录', capability: 'filesystem.create_dir' },
-      { description: '把选中的 PDF 移到 Reading', capability: 'filesystem.move' },
-      { description: '创建一次性阅读提醒', capability: 'scheduler.create' }
+      { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },
+      { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
+      { description: '在 Downloads 下创建 Reading 目录', capability: 'filesystem_create_dir' },
+      { description: '把选中的 PDF 移到 Reading', capability: 'filesystem_move' },
+      { description: '创建一次性阅读提醒', capability: 'scheduler_create' }
     ]
   }
 }

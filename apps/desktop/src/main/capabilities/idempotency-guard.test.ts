@@ -74,7 +74,7 @@ async function exists(path: string): Promise<boolean> {
 }
 
 const MOVE_DESCRIPTOR: CapabilityDescriptor = {
-  name: 'filesystem.move',
+  name: 'filesystem_move',
   kind: 'WRITE',
   description: '移动文件'
 }
@@ -91,7 +91,7 @@ function moveCall(source: string, target: string, callId = 'call-1'): Authorized
 }
 
 function moveKey(source: string, target: string): string {
-  return idempotencyKey('t-1', 'filesystem.move', moveCall(source, target).bound)
+  return idempotencyKey('t-1', 'filesystem_move', moveCall(source, target).bound)
 }
 
 /** 往 store 里塞一条已登记的执行记录，key 与 moveCall 算出的一致（beginAttempt 才命中得了）。
@@ -107,7 +107,7 @@ function seedExecution(
     idempotencyKey: moveKey(source, target),
     taskId: 't-1',
     toolCallId: 'call-crash',
-    capability: 'filesystem.move',
+    capability: 'filesystem_move',
     argsHash: fingerprintArguments(moveCall(source, target).bound).hash,
     sourcePaths: [toPosix(source)],
     targetPath: toPosix(target),
@@ -239,7 +239,7 @@ describe('afterExecute：执行后翻转状态', () => {
 describe('executor 崩溃恢复：模拟崩溃后不重复移动（TASK-021 Validation）', () => {
   const writeScope: TaskScope = {
     taskId: 't-1',
-    capabilities: ['filesystem.create_dir', 'filesystem.move']
+    capabilities: ['filesystem_create_dir', 'filesystem_move']
   }
   const approveGate: PermissionGate = {
     request: async () => ({ approved: true }),
@@ -257,7 +257,7 @@ describe('executor 崩溃恢复：模拟崩溃后不重复移动（TASK-021 Vali
   }
 
   function moveParams(source: string, target: string): HostExecuteToolParams {
-    return { callId: 'tc-recover', capability: 'filesystem.move', arguments: { source, target } }
+    return { callId: 'tc-recover', capability: 'filesystem_move', arguments: { source, target } }
   }
 
   it('时刻①崩在登记前（store 无记录）→ 全新执行，正常移动，落 succeeded', async () => {

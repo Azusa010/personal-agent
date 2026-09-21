@@ -36,7 +36,7 @@ export interface FireReminderDeps {
   readonly now?: () => string
 }
 
-/** 触发一条 Reminder：发送一次并把结果落库。timer 到点与 notification.send
+/** 触发一条 Reminder：发送一次并把结果落库。timer 到点与 notification_send
  *  执行体两条入口都收敛到这里，共用同一个状态机保证「至多一次」。
  *
  *  永不 throw：所有失败收进 FireOutcome */

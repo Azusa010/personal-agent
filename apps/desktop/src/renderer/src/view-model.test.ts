@@ -249,22 +249,22 @@ describe('summarizePayload', () => {
   it('tool_called 的摘要里能看到 capability', () => {
     const line = summarizePayload('tool_called', {
       callId: 'call-1',
-      capability: 'filesystem.list',
+      capability: 'filesystem_list',
       arguments: { rootId: 'downloads' }
     })
 
-    expect(line).toContain('filesystem.list')
+    expect(line).toContain('filesystem_list')
   })
 
   it('tool_result 成功与失败给出不同的两行', () => {
     const ok = summarizePayload('tool_result', {
       callId: 'call-1',
-      capability: 'filesystem.list',
+      capability: 'filesystem_list',
       ok: true
     })
     const bad = summarizePayload('tool_result', {
       callId: 'call-1',
-      capability: 'filesystem.list',
+      capability: 'filesystem_list',
       ok: false
     })
 
@@ -304,13 +304,13 @@ describe('summarizePayload', () => {
     // create_dir 只有 targetPath，sourcePaths 是空数组。
     const line = summarizePayload('permission_requested', {
       permissionId: 'p-1',
-      capability: 'filesystem.create_dir',
+      capability: 'filesystem_create_dir',
       sourcePaths: [],
       targetPath: 'D:/downloads/reports',
       expiresAt: '2026-09-07T08:05:00.000Z'
     })
 
-    expect(line).toContain('filesystem.create_dir')
+    expect(line).toContain('filesystem_create_dir')
     expect(line).toContain('D:/downloads/reports')
   })
 
@@ -318,7 +318,7 @@ describe('summarizePayload', () => {
     // move 两个都写。摘要只有一行，完整的两个路径在批准 Dialog 里看。
     const line = summarizePayload('permission_requested', {
       permissionId: 'p-2',
-      capability: 'filesystem.move',
+      capability: 'filesystem_move',
       sourcePaths: ['D:/downloads/a.pdf'],
       targetPath: 'D:/downloads/reports/a.pdf',
       expiresAt: '2026-09-07T08:05:00.000Z'
@@ -329,7 +329,7 @@ describe('summarizePayload', () => {
 
   it('permission_requested 只有 sourcePaths 时把它们都列出来', () => {
     const line = summarizePayload('permission_requested', {
-      capability: 'filesystem.move',
+      capability: 'filesystem_move',
       sourcePaths: ['D:/a.pdf', 'D:/b.pdf'],
       targetPath: null
     })
@@ -340,7 +340,7 @@ describe('summarizePayload', () => {
 
   it('permission_requested 的 sourcePaths 里混进非字符串时丢掉那一项，不丢整个列表', () => {
     const line = summarizePayload('permission_requested', {
-      capability: 'filesystem.move',
+      capability: 'filesystem_move',
       sourcePaths: ['D:/a.pdf', 42, ''],
       targetPath: null
     })
@@ -350,10 +350,10 @@ describe('summarizePayload', () => {
   })
 
   it('permission_requested 路径全空时退回原始 payload，不给空行', () => {
-    // scheduler.create 这类能力两个路径都没有。「批准什么」是这条事件唯一有用的信息，
+    // scheduler_create 这类能力两个路径都没有。「批准什么」是这条事件唯一有用的信息，
     // 拿不到就显示原始 JSON，总比一行空白强。
     const line = summarizePayload('permission_requested', {
-      capability: 'scheduler.create',
+      capability: 'scheduler_create',
       sourcePaths: [],
       targetPath: null
     })
@@ -366,7 +366,7 @@ describe('summarizePayload', () => {
     // JSON TEXT：历史事件与脏数据都可能整个字段缺失。`as string[]` 只是编译期的断言，
     // 运行时 undefined.length 会抛 TypeError——describeEvent 在 MessageStream 里是逐条
     // map 的，一条抛异常整列时间线都渲染不出来。
-    const line = summarizePayload('permission_requested', { capability: 'scheduler.create' })
+    const line = summarizePayload('permission_requested', { capability: 'scheduler_create' })
 
     expect(line.trim().length).toBeGreaterThan(0)
     expect(line).not.toContain('undefined')
@@ -376,7 +376,7 @@ describe('summarizePayload', () => {
     // `as unknown[] | null` 只拦住了 undefined，拦不住「字段在但类型不对」。
     // 字符串也有 .length，会走进 else-if 分支，而字符串没有 .filter。
     const line = summarizePayload('permission_requested', {
-      capability: 'filesystem.move',
+      capability: 'filesystem_move',
       sourcePaths: 'D:/downloads/a.pdf',
       targetPath: null
     })
@@ -497,7 +497,7 @@ describe('summarizePayload', () => {
       ['task_failed', { code: 'C', message: 'm1\nm2' }],
       [
         'permission_requested',
-        { capability: 'filesystem.move', sourcePaths: ['a\nb'], targetPath: 'c\nd' }
+        { capability: 'filesystem_move', sourcePaths: ['a\nb'], targetPath: 'c\nd' }
       ],
       ['permission_decision', { decision: ' approved\ndenied ' }]
     ]
@@ -512,7 +512,7 @@ describe('summarizePayload', () => {
     const huge = 'A'.repeat(10_000)
     const line = summarizePayload('tool_called', {
       callId: 'call-1',
-      capability: 'document.extract_pdf',
+      capability: 'document_extract_pdf',
       arguments: { absolutePath: huge }
     })
 
@@ -536,8 +536,8 @@ describe('describeEvent', () => {
 
   it.each([
     ['task_started', { goal: '整理 Downloads 里的 PDF' }],
-    ['tool_called', { callId: 'call-1', capability: 'filesystem.list', arguments: {} }],
-    ['tool_result', { callId: 'call-1', capability: 'filesystem.list', ok: true }],
+    ['tool_called', { callId: 'call-1', capability: 'filesystem_list', arguments: {} }],
+    ['tool_result', { callId: 'call-1', capability: 'filesystem_list', ok: true }],
     ['budget_exhausted', { steps: 8, toolCalls: 5 }],
     ['task_completed', { factCount: 3 }],
     ['task_failed', { reason: '摘要缺页码引用' }]
@@ -576,19 +576,19 @@ describe('describePlanSteps', () => {
   it('序号 1-based，capability 原样，没有 capability 的一步给中文说明', () => {
     const steps = describePlanSteps(
       plan([
-        { description: '列出 Downloads 下的 PDF', capability: 'filesystem.list' },
-        { description: '提取目标 PDF 的每页文本', capability: 'document.extract_pdf' },
+        { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },
+        { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
         { description: '基于页面内容生成带页码引用的摘要' }
       ])
     )
 
     expect(steps.map((s) => s.index)).toEqual([1, 2, 3])
     expect(steps.map((s) => s.capability)).toEqual([
-      'filesystem.list',
-      'document.extract_pdf',
+      'filesystem_list',
+      'document_extract_pdf',
       null
     ])
-    expect(steps[0]?.capabilityLabel).toBe('filesystem.list')
+    expect(steps[0]?.capabilityLabel).toBe('filesystem_list')
     expect(steps[2]?.capabilityLabel).toBe('模型产出，不经工具')
   })
 
@@ -842,23 +842,23 @@ describe('describeReminderPreview', () => {
     message: '该读书了'
   })
 
-  it('scheduler.create + 合法 argsCanonical → 时间与内容', () => {
+  it('scheduler_create + 合法 argsCanonical → 时间与内容', () => {
     expect(
-      describeReminderPreview({ capability: 'scheduler.create', argsCanonical: canonical })
+      describeReminderPreview({ capability: 'scheduler_create', argsCanonical: canonical })
     ).toEqual({ remindAt: '2099-01-01T00:00:00.000Z', message: '该读书了' })
   })
 
   it('缺 message → remindAt 照常给，message 为 null：时间预览不陪葬', () => {
     const noMessage = JSON.stringify({ remindAt: '2099-01-01T00:00:00.000Z' })
     expect(
-      describeReminderPreview({ capability: 'scheduler.create', argsCanonical: noMessage })
+      describeReminderPreview({ capability: 'scheduler_create', argsCanonical: noMessage })
     ).toEqual({ remindAt: '2099-01-01T00:00:00.000Z', message: null })
   })
 
-  it('非 scheduler.create 一律 null：文件类能力的展示不受影响', () => {
+  it('非 scheduler_create 一律 null：文件类能力的展示不受影响', () => {
     expect(
       describeReminderPreview({
-        capability: 'filesystem.move',
+        capability: 'filesystem_move',
         argsCanonical: JSON.stringify({ source: 'D:/a.pdf', target: 'D:/Reading/a.pdf' })
       })
     ).toBeNull()
@@ -866,17 +866,17 @@ describe('describeReminderPreview', () => {
 
   it('argsCanonical 是脏数据时返回 null 不抛：Dialog 退回通用展示', () => {
     expect(
-      describeReminderPreview({ capability: 'scheduler.create', argsCanonical: 'not json' })
+      describeReminderPreview({ capability: 'scheduler_create', argsCanonical: 'not json' })
     ).toBeNull()
     expect(
       describeReminderPreview({
-        capability: 'scheduler.create',
+        capability: 'scheduler_create',
         argsCanonical: JSON.stringify({ message: 'x' })
       })
     ).toBeNull()
     expect(
       describeReminderPreview({
-        capability: 'scheduler.create',
+        capability: 'scheduler_create',
         argsCanonical: JSON.stringify({ remindAt: 42 })
       })
     ).toBeNull()

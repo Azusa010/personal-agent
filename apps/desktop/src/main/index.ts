@@ -276,7 +276,7 @@ app.whenReady().then(() => {
         }
       }
 
-      const outcome = await executeCapability('filesystem.list', { rootId: params.data.rootId })
+      const outcome = await executeCapability('filesystem_list', { rootId: params.data.rootId })
       if (outcome['ok'] !== true) {
         return {
           ok: false,

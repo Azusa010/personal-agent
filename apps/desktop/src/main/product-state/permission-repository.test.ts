@@ -34,7 +34,7 @@ function permission(id: string, overrides: Partial<PermissionRecord> = {}): Perm
     id,
     taskId: 't-1',
     toolCallId: `call-${id}`,
-    capability: 'filesystem.move',
+    capability: 'filesystem_move',
     argsCanonical: '{"source":"D:/downloads/a.pdf","target":"D:/downloads/Reading/a.pdf"}',
     argsHash: `hash-${id}`,
     status: 'pending',
@@ -84,7 +84,7 @@ describe('SqlitePermissionRepository', () => {
 
   it('targetPath 为 null 也能往返', () => {
     const repo = makeRepo()
-    repo.insert(permission('p-1', { capability: 'filesystem.create_dir', targetPath: null }))
+    repo.insert(permission('p-1', { capability: 'filesystem_create_dir', targetPath: null }))
     expect(repo.findById('p-1')?.targetPath).toBeNull()
   })
 

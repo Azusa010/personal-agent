@@ -28,8 +28,8 @@ const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
 const TASK_ID = 'task-policy'
 
 const PLAN: readonly PlanStep[] = [
-  { description: '列出 Downloads 下的 PDF', capability: 'filesystem.list' },
-  { description: '提取目标 PDF 的每页文本', capability: 'document.extract_pdf' },
+  { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },
+  { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
   { description: '基于页面内容生成带页码引用的摘要' }
 ]
 
@@ -66,7 +66,7 @@ function agentPolicy(retriever?: ToolRetriever): ExecutionPolicy {
 
 const STAMP = '2026-09-14T09:00:00.000Z'
 
-const MOVE_PLAN: readonly PlanStep[] = [{ description: '移动文件', capability: 'filesystem.move' }]
+const MOVE_PLAN: readonly PlanStep[] = [{ description: '移动文件', capability: 'filesystem_move' }]
 
 /** source 与 target 都在根内。target 还不存在，绑定器靠
  *  resolveWithinRootReal 对「不存在」的处理放行（只对最近的存在祖先做 realpath）。 */
@@ -138,7 +138,7 @@ function policyWithGate(
     scope: opts.scope ?? readOnlyScope(TASK_ID),
     // WRITE 能力在 readOnlyScope 的第②关就会被拦，用放行一切的 retriever 把
     // 那一关单独摘掉，才能看清后面挂起与复查的顺序。
-    retriever: opts.retriever ?? allowRetriever('filesystem.move'),
+    retriever: opts.retriever ?? allowRetriever('filesystem_move'),
     origin: opts.origin ?? AGENT_ORIGIN,
     permissions: gate,
     tasks: opts.tasks,
@@ -173,7 +173,7 @@ describe('execution-policy：注册与 Scope（TEST-005）', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const out = await agentPolicy(deny).evaluate(
-      params('tc-1', 'filesystem.list', { rootId: 'downloads' })
+      params('tc-1', 'filesystem_list', { rootId: 'downloads' })
     )
 
     expect(out.allowed).toBe(false)
@@ -184,7 +184,7 @@ describe('execution-policy：注册与 Scope（TEST-005）', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const out = await agentPolicy().evaluate(
-      params('tc-2', 'filesystem.move', { from: 'a', to: 'b' })
+      params('tc-2', 'filesystem_move', { from: 'a', to: 'b' })
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.CAPABILITY_OUT_OF_SCOPE)
@@ -195,7 +195,7 @@ describe('execution-policy：注册与 Scope（TEST-005）', () => {
     // 反过来排的话，同一次越权调用会在有无任务两种情况下报两个不同的码，
     // RISK-005 的「越权」在日志里就统计不稳。
     const out = await agentPolicy().evaluate(
-      params('tc-3', 'filesystem.move', { from: 'a', to: 'b' })
+      params('tc-3', 'filesystem_move', { from: 'a', to: 'b' })
     )
 
     expect(currentTask()).toBeNull()
@@ -209,7 +209,7 @@ describe('execution-policy：注册与 Scope（TEST-005）', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const out = await agentPolicy().evaluate(
-      params('tc-4', 'filesystem.move', { from: 'a', to: 'b' })
+      params('tc-4', 'filesystem_move', { from: 'a', to: 'b' })
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.CAPABILITY_OUT_OF_SCOPE)
@@ -219,19 +219,19 @@ describe('execution-policy：注册与 Scope（TEST-005）', () => {
 describe('execution-policy：agent 必须有当前任务', () => {
   it('没有当前任务 -> NO_ACTIVE_TASK', async () => {
     const out = await agentPolicy().evaluate(
-      params('tc-5', 'filesystem.list', { rootId: 'downloads' })
+      params('tc-5', 'filesystem_list', { rootId: 'downloads' })
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.NO_ACTIVE_TASK)
     // reason 里要带能力名，否则日志上看不出是哪次调用没任务。
-    expect(!out.allowed && out.reason).toContain('filesystem.list')
+    expect(!out.allowed && out.reason).toContain('filesystem_list')
   })
 
   it('任务检查排在风险检查之前', async () => {
     // 没有比对基准时，连「这次调用该不该授权」都不该判：
     // 先判风险会让一次身份不明的调用进 Permission 流程。
-    const out = await agentPolicy(allowRetriever('scheduler.create')).evaluate(
-      params('tc-6', 'scheduler.create', {})
+    const out = await agentPolicy(allowRetriever('scheduler_create')).evaluate(
+      params('tc-6', 'scheduler_create', {})
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.NO_ACTIVE_TASK)
@@ -241,7 +241,7 @@ describe('execution-policy：agent 必须有当前任务', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const out = await agentPolicy().evaluate(
-      params('tc-7', 'filesystem.list', { rootId: 'downloads' })
+      params('tc-7', 'filesystem_list', { rootId: 'downloads' })
     )
 
     expect(out.allowed).toBe(true)
@@ -251,7 +251,7 @@ describe('execution-policy：agent 必须有当前任务', () => {
     // renderer 的 IPC 服务「打开窗口就看见文件列表」，它没有计划可比。
     // 把 ui 也要求有任务，等于把 UI 打死；把 agent 放宽，Phase 2 就白做了。
     const out = await policy(UI_ORIGIN).evaluate(
-      params('tc-8', 'filesystem.list', { rootId: 'downloads' })
+      params('tc-8', 'filesystem_list', { rootId: 'downloads' })
     )
 
     expect(currentTask()).toBeNull()
@@ -260,10 +260,10 @@ describe('execution-policy：agent 必须有当前任务', () => {
 
   it('ui origin 一样要过风险关', async () => {
     // 分岭只在「有没有任务、对不对齐」两关，其余几关两条路都走。
-    // 用 filesystem.move：参数合法能一路走到风险关。TASK-024 之后六个能力
+    // 用 filesystem_move：参数合法能一路走到风险关。TASK-024 之后六个能力
     // 都有绑定器了，但要测「风险关」仍得喂得过 binder 的参数，move 最合适。
-    const out = await policy(UI_ORIGIN, allowRetriever('filesystem.move')).evaluate(
-      params('tc-9', 'filesystem.move', moveArgs())
+    const out = await policy(UI_ORIGIN, allowRetriever('filesystem_move')).evaluate(
+      params('tc-9', 'filesystem_move', moveArgs())
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.PERMISSION_REQUIRED)
@@ -275,7 +275,7 @@ describe('execution-policy：ActionAlignment', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const out = await agentPolicy().evaluate(
-      params('tc-10', 'filesystem.list', { rootId: 'downloads' })
+      params('tc-10', 'filesystem_list', { rootId: 'downloads' })
     )
 
     expect(out.allowed).toBe(true)
@@ -286,12 +286,12 @@ describe('execution-policy：ActionAlignment', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const out = await agentPolicy().evaluate(
-      params('tc-11', 'document.extract_pdf', { path: join(dir, 'a.pdf') })
+      params('tc-11', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.ACTION_NOT_ALIGNED)
     expect(!out.allowed && out.reason).toBe(
-      '第 1 次 tool call 期望 filesystem.list，实际是 document.extract_pdf'
+      '第 1 次 tool call 期望 filesystem_list，实际是 document_extract_pdf'
     )
   })
 
@@ -299,13 +299,13 @@ describe('execution-policy：ActionAlignment', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const wrong = await agentPolicy().evaluate(
-      params('tc-12', 'document.extract_pdf', { path: join(dir, 'a.pdf') })
+      params('tc-12', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
     )
     expect(wrong.allowed).toBe(false)
     expect(currentTask()?.executedCalls).toBe(0)
 
     const right = await agentPolicy().evaluate(
-      params('tc-13', 'filesystem.list', { rootId: 'downloads' })
+      params('tc-13', 'filesystem_list', { rootId: 'downloads' })
     )
     expect(right.allowed).toBe(true)
     expect(currentTask()?.executedCalls).toBe(1)
@@ -313,13 +313,13 @@ describe('execution-policy：ActionAlignment', () => {
 
   it('计划里的能力用完之后再来一次 -> ACTION_NOT_ALIGNED', async () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
-    await agentPolicy().evaluate(params('tc-14', 'filesystem.list', { rootId: 'downloads' }))
+    await agentPolicy().evaluate(params('tc-14', 'filesystem_list', { rootId: 'downloads' }))
     await agentPolicy().evaluate(
-      params('tc-15', 'document.extract_pdf', { path: join(dir, 'a.pdf') })
+      params('tc-15', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
     )
 
     const extra = await agentPolicy().evaluate(
-      params('tc-16', 'filesystem.list', { rootId: 'downloads' })
+      params('tc-16', 'filesystem_list', { rootId: 'downloads' })
     )
 
     expect(currentTask()?.executedCalls).toBe(2)
@@ -333,7 +333,7 @@ describe('execution-policy：ActionAlignment', () => {
 
     // 顺序上 ui 的第一次调用与计划第 1 步无关，所以哪怕能力不同也放行。
     const out = await policy(UI_ORIGIN).evaluate(
-      params('tc-17', 'document.extract_pdf', { path: join(dir, 'a.pdf') })
+      params('tc-17', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
     )
 
     expect(out.allowed).toBe(true)
@@ -347,12 +347,12 @@ describe('execution-policy：风险', () => {
     // 有通道时走挂起，见下一组。
     beginTask(TASK_ID, '整理 PDF', MOVE_PLAN)
 
-    const out = await agentPolicy(allowRetriever('filesystem.move')).evaluate(
-      params('tc-18', 'filesystem.move', moveArgs())
+    const out = await agentPolicy(allowRetriever('filesystem_move')).evaluate(
+      params('tc-18', 'filesystem_move', moveArgs())
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.PERMISSION_REQUIRED)
-    expect(!out.allowed && out.reason).toContain('filesystem.move')
+    expect(!out.allowed && out.reason).toContain('filesystem_move')
     expect(currentTask()?.executedCalls).toBe(0)
   })
 
@@ -363,7 +363,7 @@ describe('execution-policy：风险', () => {
     const gate = makeGate({ approved: true })
 
     const out = await policyWithGate(gate.gate).evaluate(
-      params('tc-19', 'filesystem.move', { from: '../../etc', to: '\\\\server\\share' })
+      params('tc-19', 'filesystem_move', { from: '../../etc', to: '\\\\server\\share' })
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
@@ -375,7 +375,7 @@ describe('execution-policy：风险', () => {
     const gate = makeGate({ approved: true })
 
     const out = await policyWithGate(gate.gate).evaluate(
-      params('tc-19b', 'filesystem.move', {
+      params('tc-19b', 'filesystem_move', {
         source: `${realRoot}/a.pdf`,
         target: 'C:/Windows/Temp/evil.pdf'
       })
@@ -390,12 +390,12 @@ describe('execution-policy：风险', () => {
     // 能力名到达（执行体里留着它是防「加了 binder 忘了执行体」的漂移）。
     // 本用例钉的不变量不变：参数契约关在批准关之前——参数不合法的调用
     // 不消耗一次批准请求，用户不会看到一条没法执行的批准面板。
-    beginTask(TASK_ID, '整理 PDF', [{ description: '发通知', capability: 'notification.send' }])
+    beginTask(TASK_ID, '整理 PDF', [{ description: '发通知', capability: 'notification_send' }])
     const gate = makeGate({ approved: true })
 
     const out = await policyWithGate(gate.gate, {
-      retriever: allowRetriever('notification.send')
-    }).evaluate(params('tc-19c', 'notification.send', {}))
+      retriever: allowRetriever('notification_send')
+    }).evaluate(params('tc-19c', 'notification_send', {}))
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
     expect(gate.inputs).toEqual([])
@@ -408,7 +408,7 @@ describe('execution-policy：挂起等批准', () => {
     const gate = makeGate({ approved: true })
 
     const out = await policyWithGate(gate.gate).evaluate(
-      params('tc-40', 'filesystem.move', moveArgs())
+      params('tc-40', 'filesystem_move', moveArgs())
     )
 
     expect(out.allowed).toBe(true)
@@ -416,7 +416,7 @@ describe('execution-policy：挂起等批准', () => {
     expect(gate.inputs[0]).toEqual({
       taskId: TASK_ID,
       toolCallId: 'tc-40',
-      capability: 'filesystem.move',
+      capability: 'filesystem_move',
       bound: {
         args: moveArgs(),
         paths: { source: `${realRoot}/a.pdf`, target: `${realRoot}/Reading/a.pdf` }
@@ -430,7 +430,7 @@ describe('execution-policy：挂起等批准', () => {
     const gate = makeGate({ approved: true })
 
     const out = await policyWithGate(gate.gate).evaluate(
-      params('tc-41', 'filesystem.move', moveArgs())
+      params('tc-41', 'filesystem_move', moveArgs())
     )
 
     expect(out.allowed).toBe(true)
@@ -448,7 +448,7 @@ describe('execution-policy：挂起等批准', () => {
     )
 
     const out = await policyWithGate(gate.gate).evaluate(
-      params('tc-42', 'filesystem.move', moveArgs())
+      params('tc-42', 'filesystem_move', moveArgs())
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.PERMISSION_TAMPERED)
@@ -462,7 +462,7 @@ describe('execution-policy：挂起等批准', () => {
     const tasks = taskPort()
 
     const evaluating = policyWithGate(gate.gate, { tasks: tasks.port }).evaluate(
-      params('tc-43', 'filesystem.move', moveArgs())
+      params('tc-43', 'filesystem_move', moveArgs())
     )
 
     // 先改状态再挂起。反过来的话会有一段时间任务已经在等批准、
@@ -483,12 +483,12 @@ describe('execution-policy：挂起等批准', () => {
     const gate = makeGate({
       approved: false,
       code: ERROR_CODE.PERMISSION_DENIED,
-      reason: '用户拒绝了 filesystem.move'
+      reason: '用户拒绝了 filesystem_move'
     })
     const tasks = taskPort()
 
     const out = await policyWithGate(gate.gate, { tasks: tasks.port }).evaluate(
-      params('tc-44', 'filesystem.move', moveArgs())
+      params('tc-44', 'filesystem_move', moveArgs())
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.PERMISSION_DENIED)
@@ -508,7 +508,7 @@ describe('execution-policy：挂起等批准', () => {
     const tasks = taskPort()
 
     const out = await policyWithGate(gate.gate, { tasks: tasks.port }).evaluate(
-      params('tc-45', 'filesystem.move', moveArgs())
+      params('tc-45', 'filesystem_move', moveArgs())
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.PERMISSION_EXPIRED)
@@ -527,7 +527,7 @@ describe('execution-policy：挂起等批准', () => {
 
     await expect(
       policyWithGate(throwing, { tasks: tasks.port }).evaluate(
-        params('tc-46', 'filesystem.move', moveArgs())
+        params('tc-46', 'filesystem_move', moveArgs())
       )
     ).rejects.toThrow('模拟库写失败')
     expect(tasks.calls.map((c) => c[1])).toEqual(['waiting_permission', 'running'])
@@ -543,7 +543,7 @@ describe('execution-policy：挂起等批准', () => {
       origin: UI_ORIGIN,
       scope: readOnlyScope('bootstrap'),
       tasks: tasks.port
-    }).evaluate(params('tc-47', 'filesystem.move', moveArgs()))
+    }).evaluate(params('tc-47', 'filesystem_move', moveArgs()))
 
     expect(out.allowed).toBe(true)
     expect(tasks.calls).toEqual([])
@@ -554,7 +554,7 @@ describe('execution-policy：挂起等批准', () => {
     const gate = makeGate({ approved: true })
 
     const out = await policyWithGate(gate.gate).evaluate(
-      params('tc-48', 'filesystem.move', moveArgs())
+      params('tc-48', 'filesystem_move', moveArgs())
     )
 
     expect(out.allowed).toBe(true)
@@ -568,7 +568,7 @@ describe('execution-policy：挂起等批准', () => {
 
     const out = await policyWithGate(gate.gate, {
       retriever: new RuleBasedToolRetriever()
-    }).evaluate(params('tc-49', 'filesystem.list', { rootId: 'downloads' }))
+    }).evaluate(params('tc-49', 'filesystem_list', { rootId: 'downloads' }))
 
     expect(out.allowed).toBe(true)
     expect(gate.inputs).toEqual([])
@@ -581,19 +581,19 @@ describe('execution-policy：参数契约与路径', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const out = await agentPolicy().evaluate(
-      params('tc-20', 'filesystem.list', { rootId: 'system32' })
+      params('tc-20', 'filesystem_list', { rootId: 'system32' })
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
-    expect(!out.allowed && out.reason).toContain('filesystem.list')
+    expect(!out.allowed && out.reason).toContain('filesystem_list')
     expect(currentTask()?.executedCalls).toBe(0)
   })
 
   it('根外路径 -> PATH_OUT_OF_ROOT', async () => {
-    beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'document.extract_pdf' }])
+    beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'document_extract_pdf' }])
 
     const out = await agentPolicy().evaluate(
-      params('tc-21', 'document.extract_pdf', { path: 'C:/Windows/win.ini' })
+      params('tc-21', 'document_extract_pdf', { path: 'C:/Windows/win.ini' })
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
@@ -604,10 +604,10 @@ describe('execution-policy：参数契约与路径', () => {
     try {
       await writeFile(join(outside, 'secret.pdf'), 'S')
       await symlink(outside, join(dir, 'escape'), 'junction')
-      beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'document.extract_pdf' }])
+      beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'document_extract_pdf' }])
 
       const out = await agentPolicy().evaluate(
-        params('tc-22', 'document.extract_pdf', { path: join(dir, 'escape', 'secret.pdf') })
+        params('tc-22', 'document_extract_pdf', { path: join(dir, 'escape', 'secret.pdf') })
       )
 
       expect(!out.allowed && out.code).toBe(ERROR_CODE.PATH_ESCAPES_ROOT_VIA_LINK)
@@ -618,10 +618,10 @@ describe('execution-policy：参数契约与路径', () => {
   })
 
   it('UNC -> PATH_UNC_NOT_ALLOWED', async () => {
-    beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'document.extract_pdf' }])
+    beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'document_extract_pdf' }])
 
     const out = await agentPolicy().evaluate(
-      params('tc-23', 'document.extract_pdf', { path: '\\\\evil-server\\share\\x.pdf' })
+      params('tc-23', 'document_extract_pdf', { path: '\\\\evil-server\\share\\x.pdf' })
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.PATH_UNC_NOT_ALLOWED)
@@ -631,17 +631,17 @@ describe('execution-policy：参数契约与路径', () => {
 describe('execution-policy：放行产物', () => {
   it('AuthorizedCall 带 callId、descriptor、绑定后的参数与 taskId', async () => {
     await writeFile(join(dir, 'a.pdf'), 'A')
-    beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'document.extract_pdf' }])
+    beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'document_extract_pdf' }])
 
     const out = await agentPolicy().evaluate(
-      params('tc-24', 'document.extract_pdf', { path: join(dir, 'a.pdf') })
+      params('tc-24', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
     )
 
     if (!out.allowed) throw new Error('期望放行')
     expect(out.call.callId).toBe('tc-24')
     expect(out.call.taskId).toBe(TASK_ID)
     // descriptor 取自 registry，不是模型给的字符串拼出来的。
-    expect(out.call.capability).toEqual(findCapability('document.extract_pdf'))
+    expect(out.call.capability).toEqual(findCapability('document_extract_pdf'))
     expect(out.call.bound.paths['path']).toBe(`${realRoot}/a.pdf`)
   })
 
@@ -651,17 +651,17 @@ describe('execution-policy：放行产物', () => {
     beginTask('task-other', '整理 PDF', PLAN)
 
     const out = await agentPolicy().evaluate(
-      params('tc-25', 'filesystem.list', { rootId: 'downloads' })
+      params('tc-25', 'filesystem_list', { rootId: 'downloads' })
     )
 
     expect(out.allowed && out.call.taskId).toBe(TASK_ID)
   })
 
-  it('filesystem.list 的 bound.paths 为空：rootId 不是路径', async () => {
+  it('filesystem_list 的 bound.paths 为空：rootId 不是路径', async () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const out = await agentPolicy().evaluate(
-      params('tc-26', 'filesystem.list', { rootId: 'downloads' })
+      params('tc-26', 'filesystem_list', { rootId: 'downloads' })
     )
 
     expect(out.allowed && out.call.bound.args).toEqual({ rootId: 'downloads' })
@@ -673,10 +673,10 @@ describe('execution-policy：放行产物', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const first = await agentPolicy().evaluate(
-      params('tc-27', 'filesystem.list', { rootId: 'downloads' })
+      params('tc-27', 'filesystem_list', { rootId: 'downloads' })
     )
     const second = await agentPolicy().evaluate(
-      params('tc-28', 'document.extract_pdf', { path: join(dir, 'a.pdf') })
+      params('tc-28', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
     )
 
     expect(first.allowed).toBe(true)
@@ -694,15 +694,15 @@ describe('execution-policy：evaluate 永不抛', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const inputs: HostExecuteToolParams[] = [
-      params('tc-30', 'filesystem.list', { rootId: 'downloads' }),
-      params('tc-31', 'filesystem.list', { rootId: 'nope' }),
-      params('tc-32', 'filesystem.list', {}),
-      params('tc-33', 'document.extract_pdf', { path: '' }),
-      params('tc-34', 'document.extract_pdf', { path: 'C:/Windows/win.ini' }),
-      params('tc-35', 'document.extract_pdf', { path: join(dir, 'ghost.pdf') }),
-      params('tc-36', 'filesystem.move', { from: 'a', to: 'b' }),
-      params('tc-37', 'scheduler.create', {}),
-      params('tc-38', 'notification.send', {})
+      params('tc-30', 'filesystem_list', { rootId: 'downloads' }),
+      params('tc-31', 'filesystem_list', { rootId: 'nope' }),
+      params('tc-32', 'filesystem_list', {}),
+      params('tc-33', 'document_extract_pdf', { path: '' }),
+      params('tc-34', 'document_extract_pdf', { path: 'C:/Windows/win.ini' }),
+      params('tc-35', 'document_extract_pdf', { path: join(dir, 'ghost.pdf') }),
+      params('tc-36', 'filesystem_move', { from: 'a', to: 'b' }),
+      params('tc-37', 'scheduler_create', {}),
+      params('tc-38', 'notification_send', {})
     ]
 
     for (const input of inputs) {

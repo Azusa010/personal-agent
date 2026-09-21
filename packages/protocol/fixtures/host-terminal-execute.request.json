@@ -4,7 +4,7 @@
   "method": "host.execute_tool",
   "params": {
     "callId": "tc-term-1",
-    "capability": "terminal.execute",
+    "capability": "terminal_execute",
     "arguments": {
       "command": "echo hello",
       "cwd": "D:/downloads"

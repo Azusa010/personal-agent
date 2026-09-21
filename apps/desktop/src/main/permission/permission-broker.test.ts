@@ -124,7 +124,7 @@ function moveInput(): PermissionRequestInput {
   return {
     taskId: TASK_ID,
     toolCallId: 'tc-move',
-    capability: 'filesystem.move',
+    capability: 'filesystem_move',
     bound: moveBound(`${posixRoot}/a.pdf`, `${posixRoot}/Reading/a.pdf`)
   }
 }
@@ -145,7 +145,7 @@ describe('request：建记录、写事件、推送', () => {
       id: 'perm-1',
       taskId: TASK_ID,
       toolCallId: 'tc-move',
-      capability: 'filesystem.move',
+      capability: 'filesystem_move',
       status: 'pending',
       requestedAt: T0,
       decidedAt: null,
@@ -164,7 +164,7 @@ describe('request：建记录、写事件、推送', () => {
     const pending = broker!.request({
       taskId: TASK_ID,
       toolCallId: 'tc-dir',
-      capability: 'filesystem.create_dir',
+      capability: 'filesystem_create_dir',
       bound: dirBound(`${posixRoot}/Reading`)
     })
 
@@ -216,7 +216,7 @@ describe('request：建记录、写事件、推送', () => {
     expect(written[0].occurredAt).toBe(T0)
     expect(written[0].payload).toEqual({
       permissionId: 'perm-1',
-      capability: 'filesystem.move',
+      capability: 'filesystem_move',
       sourcePaths: [`${posixRoot}/a.pdf`],
       targetPath: `${posixRoot}/Reading/a.pdf`,
       expiresAt: '2026-09-14T09:00:01.000Z'
@@ -309,7 +309,7 @@ describe('respond', () => {
     expect(outcome.approved).toBe(false)
     if (!outcome.approved) {
       expect(outcome.code).toBe(ERROR_CODE.PERMISSION_DENIED)
-      expect(outcome.reason).toContain('filesystem.move')
+      expect(outcome.reason).toContain('filesystem_move')
     }
     expect(stored()[0].status).toBe('denied')
   })
@@ -651,7 +651,7 @@ describe('verifyPermission：六步验证', () => {
     const waiting = broker!.request({
       taskId: TASK_ID,
       toolCallId: 'tc-dir',
-      capability: 'filesystem.create_dir',
+      capability: 'filesystem_create_dir',
       bound
     })
     await Promise.resolve()

@@ -20,7 +20,7 @@ export const MTIME_BASE_MS = Date.UTC(2026, 0, 1, 0, 0, 0)
 
 export interface MaterializedFile {
   name: string
-  /** 绝对路径（正斜杠），与 filesystem.list 回传的 absolutePath 同一种写法 */
+  /** 绝对路径（正斜杠），与 filesystem_list 回传的 absolutePath 同一种写法 */
   path: string
   modifiedAtMs: number
 }

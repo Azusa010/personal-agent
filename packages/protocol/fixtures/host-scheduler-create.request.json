@@ -1,1 +1,1 @@
-{"jsonrpc": "2.0", "id": "call-4", "method": "host.execute_tool", "params": {"callId": "tc-9e13", "capability": "scheduler.create", "arguments": {"remindAt": "2026-09-15T20:00:00.000Z", "message": "该阅读 report-2026.pdf 的摘要了"}}}
+{"jsonrpc": "2.0", "id": "call-4", "method": "host.execute_tool", "params": {"callId": "tc-9e13", "capability": "scheduler_create", "arguments": {"remindAt": "2026-09-15T20:00:00.000Z", "message": "该阅读 report-2026.pdf 的摘要了"}}}

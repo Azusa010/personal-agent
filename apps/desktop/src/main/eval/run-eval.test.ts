@@ -84,8 +84,8 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
       const report = theReport()
 
       expect(report.metrics.tools.byCapability).toEqual({
-        'document.extract_pdf': report.cases.length,
-        'filesystem.list': report.cases.length
+        document_extract_pdf: report.cases.length,
+        filesystem_list: report.cases.length
       })
       expect(report.metrics.tools.failed).toBe(0)
       expect(report.metrics.tools.budgetExhaustedCases).toBe(0)

@@ -49,13 +49,13 @@ DECISION_SCHEMA: dict[str, Any] = DECISION_ADAPTER.json_schema()
 
 # 向后兼容说明书（供文字提示与既有测试使用）
 TOOL_SPECS: dict[str, str] = {
-    "filesystem.list": '列出指定授权根目录下的文件与子目录条目。参数 {"rootId": "<授权根标识，如 downloads>"}',
-    "document.extract_pdf": '解析并提取 PDF 文件的逐页文本与页码。参数 {"path": "<目标 PDF 文件的绝对路径>"}',
-    "filesystem.create_dir": '在授权根目录下创建新目录。参数 {"path": "<目标目录绝对路径>"}',
-    "filesystem.move": '在授权根内移动或重命名文件/目录。参数 {"source": "<源绝对路径>", "target": "<目标绝对路径>"}',
-    "scheduler.create": '创建定时提醒任务。参数 {"remindAt": "<ISO-8601 UTC 时间>", "message": "<提醒内容>"}',
-    "notification.send": '向宿主桌面发送即时通知。参数 {"reminderId": "<提醒记录ID>"}',
-    "terminal.execute": (
+    "filesystem_list": '列出指定授权根目录下的文件与子目录条目。参数 {"rootId": "<授权根标识，如 downloads>"}',
+    "document_extract_pdf": '解析并提取 PDF 文件的逐页文本与页码。参数 {"path": "<目标 PDF 文件的绝对路径>"}',
+    "filesystem_create_dir": '在授权根目录下创建新目录。参数 {"path": "<目标目录绝对路径>"}',
+    "filesystem_move": '在授权根内移动或重命名文件/目录。参数 {"source": "<源绝对路径>", "target": "<目标绝对路径>"}',
+    "scheduler_create": '创建定时提醒任务。参数 {"remindAt": "<ISO-8601 UTC 时间>", "message": "<提醒内容>"}',
+    "notification_send": '向宿主桌面发送即时通知。参数 {"reminderId": "<提醒记录ID>"}',
+    "terminal_execute": (
         '在安全受限环境下执行终端命令行。参数 {"command": "<命令行文本>", '
         '"cwd": "<可选工作目录>", "timeoutMs": <可选超时毫秒>}'
     ),
@@ -63,10 +63,10 @@ TOOL_SPECS: dict[str, str] = {
 
 # 标准 OpenAI Function Calling 工具参数定义
 TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
-    "filesystem.list": {
+    "filesystem_list": {
         "type": "function",
         "function": {
-            "name": "filesystem.list",
+            "name": "filesystem_list",
             "description": "列出指定授权根目录下的文件与子目录条目",
             "parameters": {
                 "type": "object",
@@ -80,10 +80,10 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             },
         },
     },
-    "document.extract_pdf": {
+    "document_extract_pdf": {
         "type": "function",
         "function": {
-            "name": "document.extract_pdf",
+            "name": "document_extract_pdf",
             "description": "解析并提取 PDF 文件的逐页文本与页码",
             "parameters": {
                 "type": "object",
@@ -94,10 +94,10 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             },
         },
     },
-    "filesystem.create_dir": {
+    "filesystem_create_dir": {
         "type": "function",
         "function": {
-            "name": "filesystem.create_dir",
+            "name": "filesystem_create_dir",
             "description": "在授权根目录下创建新目录",
             "parameters": {
                 "type": "object",
@@ -108,10 +108,10 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             },
         },
     },
-    "filesystem.move": {
+    "filesystem_move": {
         "type": "function",
         "function": {
-            "name": "filesystem.move",
+            "name": "filesystem_move",
             "description": "在授权根内移动或重命名文件/目录",
             "parameters": {
                 "type": "object",
@@ -123,10 +123,10 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             },
         },
     },
-    "scheduler.create": {
+    "scheduler_create": {
         "type": "function",
         "function": {
-            "name": "scheduler.create",
+            "name": "scheduler_create",
             "description": "创建定时提醒任务",
             "parameters": {
                 "type": "object",
@@ -138,10 +138,10 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             },
         },
     },
-    "notification.send": {
+    "notification_send": {
         "type": "function",
         "function": {
-            "name": "notification.send",
+            "name": "notification_send",
             "description": "向宿主桌面发送即时通知",
             "parameters": {
                 "type": "object",
@@ -152,17 +152,23 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             },
         },
     },
-    "terminal.execute": {
+    "terminal_execute": {
         "type": "function",
         "function": {
-            "name": "terminal.execute",
+            "name": "terminal_execute",
             "description": "在安全受限环境下执行终端命令行",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "command": {"type": "string", "description": "命令行文本"},
-                    "cwd": {"type": "string", "description": "可选工作目录"},
-                    "timeoutMs": {"type": "integer", "description": "可选超时毫秒"},
+                    "command": {"type": "string", "description": "要执行的命令行指令"},
+                    "cwd": {
+                        "type": "string",
+                        "description": "可选的工作目录绝对路径",
+                    },
+                    "timeoutMs": {
+                        "type": "integer",
+                        "description": "可选的超时时间（毫秒）",
+                    },
                 },
                 "required": ["command"],
             },
@@ -435,7 +441,10 @@ class LiveModel:
         """
         从 Chat Completions response 中分流解析出 ModelDecision。
         """
-        choices = getattr(response, "choices", None)
+        if isinstance(response, dict):
+            choices = response.get("choices", None)
+        else:
+            choices = getattr(response, "choices", None)
         if not choices or not isinstance(choices, list):
             raise ModelCallFailed("模型响应中缺少 choices 列表")
         message = getattr(choices[0], "message", None)

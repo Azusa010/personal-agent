@@ -16,7 +16,12 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 
-import { AGENT_RUN_TASK, ERROR_CODE, type HostExecuteToolParams } from '@personal-agent/protocol'
+import {
+  AGENT_RUN_TASK,
+  ERROR_CODE,
+  type HostExecuteToolParams,
+  type PlanStepDto
+} from '@personal-agent/protocol'
 import { listVisibleCapabilities } from '../capabilities/host-executor'
 import { repoRoot } from '../eval/paths'
 import { PythonSupervisor, type HostHandler } from './python-supervisor'
@@ -44,6 +49,15 @@ const SMOKE_PAGES = [1, 2, 3].map((pageNumber) => ({
   text: `PersonalAgent fixture page ${pageNumber}`
 }))
 
+const SMOKE_PLAN: PlanStepDto[] = [
+  { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },
+  { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
+  { description: '在 Downloads 下创建 Reading 目录', capability: 'filesystem_create_dir' },
+  { description: '把选中的 PDF 移到 Reading', capability: 'filesystem_move' },
+  { description: '创建一次性阅读提醒', capability: 'scheduler_create' },
+  { description: '基于页面内容生成带页码引用的摘要' }
+]
+
 /** 冻结产物存在才跑；不存在时整块 skip，不制造假红。 */
 const itPackaged = existsSync(PACKAGED_EXE) ? it : it.skip
 
@@ -70,7 +84,7 @@ function diagnostic(): string {
 const hostHandler: HostHandler = async (params) => {
   hostCalls.push(params)
   switch (params.capability) {
-    case 'filesystem.list':
+    case 'filesystem_list':
       return {
         ok: true,
         entries: [
@@ -82,7 +96,7 @@ const hostHandler: HostHandler = async (params) => {
           }
         ]
       }
-    case 'document.extract_pdf':
+    case 'document_extract_pdf':
       return { ok: true, pages: SMOKE_PAGES }
     default:
       return {
@@ -157,7 +171,7 @@ describe.skipIf(!existsSync(PACKAGED_EXE))('打包冒烟：冻结产物作为运
     async () => {
       const result = (await supervisor!.request(
         AGENT_RUN_TASK,
-        { taskId: 'packaged-smoke', goal: GOAL },
+        { taskId: 'packaged-smoke', goal: GOAL, plan: SMOKE_PLAN },
         { timeoutMs: 60_000 }
       )) as Record<string, unknown>
 
@@ -165,11 +179,11 @@ describe.skipIf(!existsSync(PACKAGED_EXE))('打包冒烟：冻结产物作为运
         hostCalls.map((c) => c.capability),
         diagnostic()
       ).toEqual([
-        'filesystem.list',
-        'document.extract_pdf',
-        'filesystem.create_dir',
-        'filesystem.move',
-        'scheduler.create'
+        'filesystem_list',
+        'document_extract_pdf',
+        'filesystem_create_dir',
+        'filesystem_move',
+        'scheduler_create'
       ])
       // WRITE 三步被 host 拒绝也不该让任务挂死：剧本走完、摘要基于真提取的页通过校验。
       expect(result['status'], diagnostic()).toBe('completed')
@@ -211,7 +225,7 @@ describe.skipIf(!existsSync(PACKAGED_EXE))('打包冒烟：冻结产物作为运
         await sup.initialize()
         const result = (await sup.request(
           AGENT_RUN_TASK,
-          { taskId: 'packaged-smoke-live', goal: GOAL },
+          { taskId: 'packaged-smoke-live', goal: GOAL, plan: SMOKE_PLAN },
           { timeoutMs: 120_000 }
         )) as Record<string, unknown>
 

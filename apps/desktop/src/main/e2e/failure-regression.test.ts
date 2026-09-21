@@ -86,14 +86,14 @@ const summary = (pageRefs: number[] = [1]): Decision => ({
 /** 完整 Golden Path 的决策序列（路径用占位符，落盘时替换）。 */
 function goldenPathDecisions(): Decision[] {
   return [
-    toolCall('c-1', 'filesystem.list', { rootId: 'downloads' }),
-    toolCall('c-2', 'document.extract_pdf', { path: `${ROOT_PLACEHOLDER}/${PDF_NAME}` }),
-    toolCall('c-3', 'filesystem.create_dir', { path: `${ROOT_PLACEHOLDER}/Reading` }),
-    toolCall('c-4', 'filesystem.move', {
+    toolCall('c-1', 'filesystem_list', { rootId: 'downloads' }),
+    toolCall('c-2', 'document_extract_pdf', { path: `${ROOT_PLACEHOLDER}/${PDF_NAME}` }),
+    toolCall('c-3', 'filesystem_create_dir', { path: `${ROOT_PLACEHOLDER}/Reading` }),
+    toolCall('c-4', 'filesystem_move', {
       source: `${ROOT_PLACEHOLDER}/${PDF_NAME}`,
       target: `${ROOT_PLACEHOLDER}/Reading/${PDF_NAME}`
     }),
-    toolCall('c-5', 'scheduler.create', {
+    toolCall('c-5', 'scheduler_create', {
       remindAt: REMIND_PLACEHOLDER,
       message: '读一份刚整理好的 PDF'
     }),
@@ -311,8 +311,8 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
     // 后面的 WRITE 一步都没机会执行。
     const world = await openWorld({
       decisions: [
-        toolCall('c-1', 'filesystem.list', { rootId: 'downloads' }),
-        toolCall('c-2', 'document.extract_pdf', { path: `${ROOT_PLACEHOLDER}/${PDF_NAME}` }),
+        toolCall('c-1', 'filesystem_list', { rootId: 'downloads' }),
+        toolCall('c-2', 'document_extract_pdf', { path: `${ROOT_PLACEHOLDER}/${PDF_NAME}` }),
         summary([1])
       ],
       corruptPdf: true
@@ -324,7 +324,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
     // —— 集成事实（这一层是 E2E 的本职，断言由 AI 保留）——
     expect(outcome.taskStatus).toBe('failed')
     expect(outcome.rootState).toBe('untouched')
-    expect(outcome.failedToolCalls).toContain('document.extract_pdf')
+    expect(outcome.failedToolCalls).toContain('document_extract_pdf')
     expect(outcome.permissions).toEqual([])
     expect(outcome.failureReason).not.toBeNull()
 
@@ -340,7 +340,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
   it('用户拒绝批准：没有任何副作用，任务收成 failed', async () => {
     const world = await openWorld({
       decisions: goldenPathDecisions(),
-      approve: (capability) => capability !== 'filesystem.create_dir'
+      approve: (capability) => capability !== 'filesystem_create_dir'
     })
 
     const result = await runTask(GOAL, makeDeps(world))
@@ -365,7 +365,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
       onRequest: (capability, supervisor) => {
         // 第一条 WRITE 挂起的那一刻真杀掉进程：这时批准确认还没回来，
         // 文件系统一个字节都不该动过。
-        if (capability === 'filesystem.create_dir' && !killed) {
+        if (capability === 'filesystem_create_dir' && !killed) {
           killed = true
           const pid = supervisor.pid
           if (pid !== null) process.kill(pid)
@@ -394,7 +394,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
   it('计划外调用被拦下之后模型改对顺序：任务照样完成，但那条失败留痕', async () => {
     const decisions: Decision[] = [
       // 第一步就想移动：计划第一步是 list，所以这条会被 ACTION_NOT_ALIGNED 拒。
-      toolCall('c-x', 'filesystem.move', {
+      toolCall('c-x', 'filesystem_move', {
         source: `${ROOT_PLACEHOLDER}/${PDF_NAME}`,
         target: `${ROOT_PLACEHOLDER}/Reading/${PDF_NAME}`
       }),
@@ -408,7 +408,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
     expect(outcome.taskStatus).toBe('completed')
     expect(outcome.rootState).toBe('moved')
     // 被拒的调用不占计划序号，所以后面五步仍然对得上。
-    expect(outcome.failedToolCalls).toEqual(['filesystem.move'])
+    expect(outcome.failedToolCalls).toEqual(['filesystem_move'])
     expect(outcome.permissions.map((p) => p.status)).toEqual(['approved', 'approved', 'approved'])
 
     const verdict = judgeFault('out-of-plan-call', outcome)
@@ -418,7 +418,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
   it('模型一直犯错直到预算耗尽：停在 failed，且留下 budget_exhausted', async () => {
     // 12 条计划外调用（每条都被拒、但都消耗一步）→ 第 13 次循环时预算耗尽。
     const decisions = Array.from({ length: 12 }, (_, i) =>
-      toolCall(`c-bad-${i}`, 'filesystem.move', {
+      toolCall(`c-bad-${i}`, 'filesystem_move', {
         source: `${ROOT_PLACEHOLDER}/${PDF_NAME}`,
         target: `${ROOT_PLACEHOLDER}/Reading/${PDF_NAME}`
       })
@@ -441,16 +441,16 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
     const world = await openWorld({
       decisions: goldenPathDecisions(),
       failNotification: true,
-      // 到点时刻必须晚于 scheduler.create 真正执行到的时刻（binder 拒收过去的
+      // 到点时刻必须晚于 scheduler_create 真正执行到的时刻（binder 拒收过去的
       // 时间，1.2 秒在机器一慢时不够走到第五步，与 golden-path 同一处竞态）；
       // 到点等待由下方 waitFor(…, 8000) 兜住。
-      remindAt: new Date(Date.now() + 5000).toISOString()
+      remindAt: new Date(Date.now() + 10_000).toISOString()
     })
 
     const result = await runTask(GOAL, makeDeps(world))
     expect(result.ok && result.status).toBe('completed')
 
-    const fired = await waitFor(() => world.repos.reminders.findAll()[0]?.status === 'failed', 8000)
+    const fired = await waitFor(() => world.repos.reminders.findAll()[0]?.status === 'failed', 15_000)
     expect(fired, '通知失败没有被记下来').toBe(true)
     // 到点之后再读一次：失败原因是在那个事务里写的。
     const reminder = world.repos.reminders.findAll()[0]

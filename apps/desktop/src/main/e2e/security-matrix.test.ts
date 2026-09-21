@@ -77,7 +77,7 @@ const TTL_MS = 1000
 // WRITE 任务的完整 Scope：一个「整理 PDF」任务能读能写。READ 项用来验证不挂起。
 const WRITE_SCOPE: TaskScope = {
   taskId: TASK_ID,
-  capabilities: ['filesystem.list', 'filesystem.create_dir', 'filesystem.move']
+  capabilities: ['filesystem_list', 'filesystem_create_dir', 'filesystem_move']
 }
 
 let dir = ''
@@ -278,7 +278,7 @@ describe('Deny：拒绝即零副作用', () => {
     const before = await snapshotRoot()
 
     const out = await drive(
-      params('tc-deny-move', 'filesystem.move', {
+      params('tc-deny-move', 'filesystem_move', {
         source: p('a.pdf'),
         target: p('Reading', 'a.pdf')
       }),
@@ -297,7 +297,7 @@ describe('Deny：拒绝即零副作用', () => {
     const before = await snapshotRoot()
 
     const out = await drive(
-      params('tc-deny-dir', 'filesystem.create_dir', { path: p('Reading') }),
+      params('tc-deny-dir', 'filesystem_create_dir', { path: p('Reading') }),
       {
         decision: 'denied'
       }
@@ -316,7 +316,7 @@ describe('Deny：拒绝即零副作用', () => {
     })
     const before = await snapshotRoot()
 
-    const out = await noGate(params('tc-nogate', 'filesystem.create_dir', { path: p('Reading') }))
+    const out = await noGate(params('tc-nogate', 'filesystem_create_dir', { path: p('Reading') }))
 
     expect(out['code']).toBe(ERROR_CODE.PERMISSION_REQUIRED)
     expect(await exists(join(dir, 'Reading'))).toBe(false)
@@ -329,7 +329,7 @@ describe('Deny：拒绝即零副作用', () => {
 
     const suspended = nextRequested()
     const resultPromise = run(
-      params('tc-expire', 'filesystem.move', {
+      params('tc-expire', 'filesystem_move', {
         source: p('a.pdf'),
         target: p('Reading', 'a.pdf')
       })
@@ -348,8 +348,8 @@ describe('Deny：拒绝即零副作用', () => {
 // ---------- Allow：批准精确执行一次 + READ 不挂起 ----------
 
 describe('Allow：批准精确执行一次，READ 不弹 Permission', () => {
-  it('READ（filesystem.list）不挂起、不建 Permission，直接成功', async () => {
-    const out = await run(params('tc-read', 'filesystem.list', { rootId: 'downloads' }))
+  it('READ（filesystem_list）不挂起、不建 Permission，直接成功', async () => {
+    const out = await run(params('tc-read', 'filesystem_list', { rootId: 'downloads' }))
 
     expect(out['ok']).toBe(true)
     // 没有任何 permission 记录、没有 notify，证明 READ 完全没走批准通道。
@@ -359,7 +359,7 @@ describe('Allow：批准精确执行一次，READ 不弹 Permission', () => {
 
   it('create_dir 批准 → 目录建成，且确实走过了批准通道', async () => {
     const out = await drive(
-      params('tc-allow-dir', 'filesystem.create_dir', { path: p('Reading') }),
+      params('tc-allow-dir', 'filesystem_create_dir', { path: p('Reading') }),
       { decision: 'approved' }
     )
 
@@ -381,7 +381,7 @@ describe('Allow：批准精确执行一次，READ 不弹 Permission', () => {
     await writeFile(join(dir, 'a.pdf'), 'BYTES')
 
     const out = await drive(
-      params('tc-allow-move', 'filesystem.move', {
+      params('tc-allow-move', 'filesystem_move', {
         source: p('a.pdf'),
         target: p('Reading', 'a.pdf')
       }),
@@ -393,7 +393,7 @@ describe('Allow：批准精确执行一次，READ 不弹 Permission', () => {
     expect(await readFile(join(dir, 'Reading', 'a.pdf'), 'utf-8')).toBe('BYTES')
     const key = idempotencyKey(
       TASK_ID,
-      'filesystem.move',
+      'filesystem_move',
       moveBound(rp('a.pdf'), rp('Reading', 'a.pdf'))
     )
     expect(execRepo.findByKey(key)?.status).toBe('succeeded')
@@ -409,7 +409,7 @@ describe('Tamper：参数变化后旧 Permission 无效', () => {
     const before = await snapshotRoot()
 
     const out = await drive(
-      params('tc-tamper-hash', 'filesystem.move', {
+      params('tc-tamper-hash', 'filesystem_move', {
         source: p('a.pdf'),
         target: p('Reading', 'a.pdf')
       }),
@@ -436,7 +436,7 @@ describe('Tamper：参数变化后旧 Permission 无效', () => {
     const before = await snapshotRoot()
 
     const out = await drive(
-      params('tc-tamper-call', 'filesystem.move', {
+      params('tc-tamper-call', 'filesystem_move', {
         source: p('a.pdf'),
         target: p('Reading', 'a.pdf')
       }),
@@ -466,7 +466,7 @@ describe('Traversal：路径逃逸在 bindArguments 阶段即拒，零副作用'
     const before = await snapshotRoot()
 
     const out = await run(
-      params('tc-trav-dotdot', 'filesystem.move', {
+      params('tc-trav-dotdot', 'filesystem_move', {
         source: join(dir, '..', 'secret.pdf'),
         target: p('a.pdf')
       })
@@ -484,7 +484,7 @@ describe('Traversal：路径逃逸在 bindArguments 阶段即拒，零副作用'
       const before = await snapshotRoot()
 
       const out = await run(
-        params('tc-trav-junction', 'filesystem.move', {
+        params('tc-trav-junction', 'filesystem_move', {
           source: p('a.pdf'),
           target: join(dir, 'escape', 'a.pdf')
         })
@@ -505,7 +505,7 @@ describe('Traversal：路径逃逸在 bindArguments 阶段即拒，零副作用'
     const before = await snapshotRoot()
 
     const out = await run(
-      params('tc-trav-unc', 'filesystem.move', {
+      params('tc-trav-unc', 'filesystem_move', {
         source: p('a.pdf'),
         target: '\\\\evil-server\\share\\a.pdf'
       })
@@ -523,7 +523,7 @@ describe('Traversal：路径逃逸在 bindArguments 阶段即拒，零副作用'
       const before = await snapshotRoot()
 
       const out = await run(
-        params('tc-trav-sibling', 'filesystem.move', {
+        params('tc-trav-sibling', 'filesystem_move', {
           source: p('a.pdf'),
           target: join(evilDir, 'a.pdf')
         })
@@ -540,7 +540,7 @@ describe('Traversal：路径逃逸在 bindArguments 阶段即拒，零副作用'
 
   it('根内大小写变体放行：toLowerCase 比较不误杀合法路径', async () => {
     const out = await drive(
-      params('tc-trav-case', 'filesystem.create_dir', { path: join(dir, 'READING') }),
+      params('tc-trav-case', 'filesystem_create_dir', { path: join(dir, 'READING') }),
       { decision: 'approved' }
     )
 
@@ -559,7 +559,7 @@ describe('Retry：重复响应与重复执行都只产生一次副作用', () =>
 
     const suspended = nextRequested()
     const resultPromise = run(
-      params('tc-retry-respond', 'filesystem.move', {
+      params('tc-retry-respond', 'filesystem_move', {
         source: p('a.pdf'),
         target: p('Reading', 'a.pdf')
       })
@@ -582,12 +582,12 @@ describe('Retry：重复响应与重复执行都只产生一次副作用', () =>
     await writeFile(join(dir, 'a.pdf'), 'BYTES')
     const key = idempotencyKey(
       TASK_ID,
-      'filesystem.move',
+      'filesystem_move',
       moveBound(rp('a.pdf'), rp('Reading', 'a.pdf'))
     )
 
     const first = await drive(
-      params('tc-retry-1', 'filesystem.move', {
+      params('tc-retry-1', 'filesystem_move', {
         source: p('a.pdf'),
         target: p('Reading', 'a.pdf')
       }),
@@ -598,7 +598,7 @@ describe('Retry：重复响应与重复执行都只产生一次副作用', () =>
 
     // 第二次 source 已不在：真跑必然 MOVE_SOURCE_MISSING，只有 skip 才会 ok:true。
     const second = await drive(
-      params('tc-retry-2', 'filesystem.move', {
+      params('tc-retry-2', 'filesystem_move', {
         source: p('a.pdf'),
         target: p('Reading', 'a.pdf')
       }),
@@ -619,10 +619,10 @@ describe('Crash：崩溃恢复不重复副作用', () => {
     await mkdir(join(dir, 'Reading'))
     // 上次进程已把 a.pdf 移进 Reading，但没来得及翻 succeeded 就崩了。
     await writeFile(join(dir, 'Reading', 'a.pdf'), 'ALREADY-MOVED')
-    seedExecution('filesystem.move', moveBound(rp('a.pdf'), rp('Reading', 'a.pdf')), 'attempting')
+    seedExecution('filesystem_move', moveBound(rp('a.pdf'), rp('Reading', 'a.pdf')), 'attempting')
 
     const out = await drive(
-      params('tc-crash-move', 'filesystem.move', {
+      params('tc-crash-move', 'filesystem_move', {
         source: p('a.pdf'),
         target: p('Reading', 'a.pdf')
       }),
@@ -636,7 +636,7 @@ describe('Crash：崩溃恢复不重复副作用', () => {
     expect(await exists(join(dir, 'a.pdf'))).toBe(false)
     const key = idempotencyKey(
       TASK_ID,
-      'filesystem.move',
+      'filesystem_move',
       moveBound(rp('a.pdf'), rp('Reading', 'a.pdf'))
     )
     expect(execRepo.findByKey(key)?.status).toBe('succeeded')
@@ -645,10 +645,10 @@ describe('Crash：崩溃恢复不重复副作用', () => {
   it('create_dir 崩在建目录后、翻转前 → skip，不重复创建（补 create_dir 恢复 gap）', async () => {
     // 上次已建好 Reading 但没翻 succeeded 就崩了。idempotency-guard.test.ts 只覆盖 move。
     await mkdir(join(dir, 'Reading'))
-    seedExecution('filesystem.create_dir', dirBound(rp('Reading')), 'attempting')
+    seedExecution('filesystem_create_dir', dirBound(rp('Reading')), 'attempting')
 
     const out = await drive(
-      params('tc-crash-dir', 'filesystem.create_dir', { path: p('Reading') }),
+      params('tc-crash-dir', 'filesystem_create_dir', { path: p('Reading') }),
       { decision: 'approved' }
     )
 
@@ -656,7 +656,7 @@ describe('Crash：崩溃恢复不重复副作用', () => {
     expect(out['ok']).toBe(true)
     expect(out['idempotent']).toBe(true)
     expect((await stat(join(dir, 'Reading'))).isDirectory()).toBe(true)
-    const key = idempotencyKey(TASK_ID, 'filesystem.create_dir', dirBound(rp('Reading')))
+    const key = idempotencyKey(TASK_ID, 'filesystem_create_dir', dirBound(rp('Reading')))
     expect(execRepo.findByKey(key)?.status).toBe('succeeded')
   })
 })

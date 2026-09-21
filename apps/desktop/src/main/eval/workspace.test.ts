@@ -59,7 +59,7 @@ describe('materializeCase', () => {
     expect((times[1] ?? 0) - (times[0] ?? 0)).toBe(MTIME_STEP_MS)
   })
 
-  it('落到授权根之后：filesystem.list 只列 PDF，且按 mtime 倒序（最新的在最前）', async () => {
+  it('落到授权根之后：filesystem_list 只列 PDF，且按 mtime 倒序（最新的在最前）', async () => {
     dir = mkdtempSync(join(tmpdir(), 'pa-eval-ws-'))
     materializeCase(dir, makeCase())
 

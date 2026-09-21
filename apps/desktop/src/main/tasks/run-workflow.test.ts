@@ -44,7 +44,7 @@ describe('runWorkflow：确定性工作流执行', () => {
   it('成功路径：写入 5 步静态 Plan，Task 终态 completed，事件全数入库', async () => {
     const fakeEvents = [
       { type: 'task_started', payload: { workflowId: 'golden_path' }, occurredAt: AT },
-      { type: 'tool_called', payload: { capability: 'filesystem.list' }, occurredAt: AT },
+      { type: 'tool_called', payload: { capability: 'filesystem_list' }, occurredAt: AT },
       { type: 'tool_result', payload: { ok: true }, occurredAt: AT },
       {
         type: 'task_completed',
@@ -95,8 +95,8 @@ describe('runWorkflow：确定性工作流执行', () => {
     const plan = deps.plans.findLatest('id-1')
     expect(plan).not.toBeNull()
     expect(plan?.steps).toHaveLength(5)
-    expect(plan?.steps[0].capability).toBe('filesystem.list')
-    expect(plan?.steps[4].capability).toBe('scheduler.create')
+    expect(plan?.steps[0].capability).toBe('filesystem_list')
+    expect(plan?.steps[4].capability).toBe('scheduler_create')
 
     // 检查事件持久化
     const savedEvents = deps.events.listByTask('id-1')

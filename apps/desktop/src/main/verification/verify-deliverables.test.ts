@@ -18,7 +18,7 @@
  *   2. 「fail-closed 底线」——取证有缺口时必须拒绝（闸口坏了不能变成敞开的门）。
  *
  * 证据形状的两个基准：
- *   - FULL_PLAN：Golden Path 的四步计划（list / extract / move / scheduler.create），
+ *   - FULL_PLAN：Golden Path 的四步计划（list / extract / move / scheduler_create），
  *     交付物齐备时八项检查全过；
  *   - READ_ONLY_PLAN：只读三步计划（list / extract / summary），
  *     文件与 Reminder 不是它的交付物——判定表要按计划要求，不能照搬固定清单，
@@ -43,15 +43,15 @@ const PDF = 'D:/downloads/report.pdf'
 const READING = 'D:/downloads/Reading/report.pdf'
 
 const FULL_PLAN: PlanStep[] = [
-  { description: '列出 Downloads 下的 PDF', capability: 'filesystem.list' },
-  { description: '提取目标 PDF 的每页文本', capability: 'document.extract_pdf' },
-  { description: '把选中的 PDF 移到 Reading', capability: 'filesystem.move' },
-  { description: '创建阅读提醒', capability: 'scheduler.create' }
+  { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },
+  { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
+  { description: '把选中的 PDF 移到 Reading', capability: 'filesystem_move' },
+  { description: '创建阅读提醒', capability: 'scheduler_create' }
 ]
 
 const READ_ONLY_PLAN: PlanStep[] = [
-  { description: '列出 Downloads 下的 PDF', capability: 'filesystem.list' },
-  { description: '提取目标 PDF 的每页文本', capability: 'document.extract_pdf' },
+  { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },
+  { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
   { description: '基于页面内容生成带页码引用的摘要' }
 ]
 
@@ -68,23 +68,23 @@ const FULL: CollectedEvidence = {
   parsedPageNumbers: [1, 2, 3],
   parsedPageCount: 3,
   toolResults: [
-    { callId: 'c-list', capability: 'filesystem.list', ok: true, hasResult: true },
-    { callId: 'c-extract', capability: 'document.extract_pdf', ok: true, hasResult: true },
-    { callId: 'c-move', capability: 'filesystem.move', ok: true, hasResult: true },
-    { callId: 'c-remind', capability: 'scheduler.create', ok: true, hasResult: true }
+    { callId: 'c-list', capability: 'filesystem_list', ok: true, hasResult: true },
+    { callId: 'c-extract', capability: 'document_extract_pdf', ok: true, hasResult: true },
+    { callId: 'c-move', capability: 'filesystem_move', ok: true, hasResult: true },
+    { callId: 'c-remind', capability: 'scheduler_create', ok: true, hasResult: true }
   ],
   permissions: [
     {
       toolCallId: 'c-move',
-      capability: 'filesystem.move',
+      capability: 'filesystem_move',
       status: 'approved',
       argsHash: 'h-move'
     }
   ],
   executions: [
     {
-      idempotencyKey: 'filesystem.move:h-move',
-      capability: 'filesystem.move',
+      idempotencyKey: 'filesystem_move:h-move',
+      capability: 'filesystem_move',
       argsHash: 'h-move',
       status: 'succeeded',
       sourcePaths: [PDF],
@@ -97,7 +97,7 @@ const FULL: CollectedEvidence = {
     id: 'r-1',
     remindAt: '2026-09-15T20:00:00.000Z',
     status: 'scheduled',
-    idempotencyKey: 'scheduler.create:h-remind'
+    idempotencyKey: 'scheduler_create:h-remind'
   },
   eventSequenceRange: { from: 1, to: 10 },
   gaps: []
@@ -317,18 +317,18 @@ describe('判定表：缺 Reminder', () => {
 
 describe('判定表：计划步骤与时间线证据', () => {
   it('计划里的 move 步骤没有成功的 tool_result → plan_steps_completed 不过', () => {
-    const toolResults = FULL.toolResults.filter((t) => t.capability !== 'filesystem.move')
+    const toolResults = FULL.toolResults.filter((t) => t.capability !== 'filesystem_move')
     const report = verifyDeliverables(evidence({ toolResults }))
 
     expect(report.ok).toBe(false)
     expect(checkOf(report, 'plan_steps_completed').ok).toBe(false)
-    expect(checkOf(report, 'plan_steps_completed').detail).toContain('filesystem.move')
+    expect(checkOf(report, 'plan_steps_completed').detail).toContain('filesystem_move')
   })
 
   it('计划步骤的调用只有请求没有结果（hasResult:false）→ plan_steps_completed 不过', () => {
     const toolResults = [
       ...FULL.toolResults.slice(0, 2),
-      { callId: 'c-move', capability: 'filesystem.move', ok: false, hasResult: false },
+      { callId: 'c-move', capability: 'filesystem_move', ok: false, hasResult: false },
       FULL.toolResults[3]!
     ]
     const report = verifyDeliverables(evidence({ toolResults }))
@@ -386,7 +386,7 @@ describe('判定表：权限与已拒绝的操作', () => {
       ...FULL.permissions,
       {
         toolCallId: 'c-move-2',
-        capability: 'filesystem.move',
+        capability: 'filesystem_move',
         status: 'denied' as const,
         argsHash: 'h-denied'
       }
@@ -394,8 +394,8 @@ describe('判定表：权限与已拒绝的操作', () => {
     const executions = [
       ...FULL.executions,
       {
-        idempotencyKey: 'filesystem.move:h-denied',
-        capability: 'filesystem.move',
+        idempotencyKey: 'filesystem_move:h-denied',
+        capability: 'filesystem_move',
         argsHash: 'h-denied',
         status: 'succeeded' as const,
         sourcePaths: [PDF],
@@ -415,7 +415,7 @@ describe('判定表：权限与已拒绝的操作', () => {
       ...FULL.permissions,
       {
         toolCallId: 'c-move-2',
-        capability: 'filesystem.move',
+        capability: 'filesystem_move',
         status: 'denied' as const,
         argsHash: 'h-denied'
       }
@@ -507,7 +507,7 @@ describe('轻量化交付物核查 (mode: "lenient") (Phase 3.2)', () => {
 
   it('轻量模式下，计划未完全执行（例如 ReAct 动态优化跳步）不卡死任务', () => {
     const input = evidence({
-      toolResults: [{ callId: 'c-list', capability: 'filesystem.list', ok: true, hasResult: true }]
+      toolResults: [{ callId: 'c-list', capability: 'filesystem_list', ok: true, hasResult: true }]
     })
     const report = verifyDeliverables(input, { mode: 'lenient' })
 
@@ -518,12 +518,12 @@ describe('轻量化交付物核查 (mode: "lenient") (Phase 3.2)', () => {
   it('轻量模式仍严格坚守核心安全底线：被拒绝的操作产生副作用 → 必拒', () => {
     const input = evidence({
       permissions: [
-        { toolCallId: 'c-move', capability: 'filesystem.move', status: 'denied', argsHash: 'h-bad' }
+        { toolCallId: 'c-move', capability: 'filesystem_move', status: 'denied', argsHash: 'h-bad' }
       ],
       executions: [
         {
-          idempotencyKey: 'filesystem.move:h-bad',
-          capability: 'filesystem.move',
+          idempotencyKey: 'filesystem_move:h-bad',
+          capability: 'filesystem_move',
           argsHash: 'h-bad',
           status: 'succeeded',
           sourcePaths: [PDF],

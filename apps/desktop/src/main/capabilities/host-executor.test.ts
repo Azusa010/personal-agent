@@ -30,18 +30,18 @@ const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
 // 这份就是 planning.make_plan 的字面值（TASK-028 起五步加摘要），顺序与
 // AGENT_TASK_CAPABILITIES 逐字对应。
 const PLAN: readonly PlanStep[] = [
-  { description: '列出 Downloads 下的 PDF', capability: 'filesystem.list' },
-  { description: '提取目标 PDF 的每页文本', capability: 'document.extract_pdf' },
-  { description: '在 Downloads 下创建 Reading 目录', capability: 'filesystem.create_dir' },
-  { description: '把选中的 PDF 移到 Reading', capability: 'filesystem.move' },
-  { description: '创建一次性阅读提醒', capability: 'scheduler.create' },
+  { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },
+  { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
+  { description: '在 Downloads 下创建 Reading 目录', capability: 'filesystem_create_dir' },
+  { description: '把选中的 PDF 移到 Reading', capability: 'filesystem_move' },
+  { description: '创建一次性阅读提醒', capability: 'scheduler_create' },
   { description: '基于页面内容生成带页码引用的摘要' }
 ]
 
 // 单步计划：只测「第一个 WRITE 调用」时不必先跑完 list / extract——
 // 对齐按序号比对，计划第一步写什么，第 1 次调用就得是什么。
 const WRITE_FIRST_PLAN: readonly PlanStep[] = [
-  { description: '在 Downloads 下创建 Reading 目录', capability: 'filesystem.create_dir' }
+  { description: '在 Downloads 下创建 Reading 目录', capability: 'filesystem_create_dir' }
 ]
 
 let dir: string
@@ -72,7 +72,7 @@ describe('executeCapability: IPC 网关', () => {
     // 与 Python 子进程生命周期解耦：Python 没启动也能列举。
     await writeFile(join(dir, 'a.pdf'), 'A')
 
-    const out = await executeCapability('filesystem.list', { rootId: 'downloads' })
+    const out = await executeCapability('filesystem_list', { rootId: 'downloads' })
 
     expect(out['ok']).toBe(true)
     expect(out['entries']).toEqual([expect.objectContaining({ name: 'a.pdf', sizeBytes: 1 })])
@@ -87,15 +87,15 @@ describe('executeCapability: IPC 网关', () => {
     expect(String(out['reason'])).toContain('capability 或 arguments')
   })
 
-  it('arguments 非法时被执行体层拒，reason 指向 filesystem.list', async () => {
-    const out = await executeCapability('filesystem.list', { rootId: 'secrets' })
+  it('arguments 非法时被执行体层拒，reason 指向 filesystem_list', async () => {
+    const out = await executeCapability('filesystem_list', { rootId: 'secrets' })
 
     expect(out['code']).toBe(ERROR_CODE.INVALID_ARGUMENT)
-    expect(String(out['reason'])).toContain('filesystem.list 参数')
+    expect(String(out['reason'])).toContain('filesystem_list 参数')
   })
 
   it('WRITE 能力被拒，证明网关用的是 readOnlyScope', async () => {
-    const out = await executeCapability('filesystem.move', { from: 'a', to: 'b' })
+    const out = await executeCapability('filesystem_move', { from: 'a', to: 'b' })
 
     expect(out['ok']).toBe(false)
     expect(out['code']).toBe(ERROR_CODE.CAPABILITY_OUT_OF_SCOPE)
@@ -103,7 +103,7 @@ describe('executeCapability: IPC 网关', () => {
   })
 
   it('成功输出同时过 envelope 层与 payload 层契约', async () => {
-    const out = await executeCapability('filesystem.list', { rootId: 'downloads' })
+    const out = await executeCapability('filesystem_list', { rootId: 'downloads' })
 
     expect(() => HostExecuteToolResult.parse(out)).not.toThrow()
     expect(() => FilesystemListResult.parse(out)).not.toThrow()
@@ -111,12 +111,12 @@ describe('executeCapability: IPC 网关', () => {
 
   it('单例不缓存失败状态：上一次根不可用不影响下一次', async () => {
     vi.stubEnv(ENV_NAME, join(dir, 'nope'))
-    const first = await executeCapability('filesystem.list', { rootId: 'downloads' })
+    const first = await executeCapability('filesystem_list', { rootId: 'downloads' })
     expect(first['ok']).toBe(false)
 
     vi.stubEnv(ENV_NAME, dir)
     await writeFile(join(dir, 'b.pdf'), 'BB')
-    const second = await executeCapability('filesystem.list', { rootId: 'downloads' })
+    const second = await executeCapability('filesystem_list', { rootId: 'downloads' })
 
     expect(second['ok']).toBe(true)
     expect(second['entries']).toEqual([expect.objectContaining({ name: 'b.pdf', sizeBytes: 2 })])
@@ -131,9 +131,9 @@ describe('executeHostTool: supervisor 网关', () => {
     beginTask('task-host', '整理 PDF', PLAN)
 
     const viaHost = await executeHostTool(
-      hostParams('tc-1', 'filesystem.list', { rootId: 'downloads' })
+      hostParams('tc-1', 'filesystem_list', { rootId: 'downloads' })
     )
-    const viaIpc = await executeCapability('filesystem.list', { rootId: 'downloads' })
+    const viaIpc = await executeCapability('filesystem_list', { rootId: 'downloads' })
 
     expect(viaHost).toEqual(viaIpc)
   })
@@ -144,9 +144,9 @@ describe('executeHostTool: supervisor 网关', () => {
     beginTask('task-host', '整理 PDF', WRITE_FIRST_PLAN)
 
     const viaHost = await executeHostTool(
-      hostParams('tc-2', 'filesystem.create_dir', { path: join(dir, 'Reading') })
+      hostParams('tc-2', 'filesystem_create_dir', { path: join(dir, 'Reading') })
     )
-    const viaIpc = await executeCapability('filesystem.move', { source: 'a', target: 'b' })
+    const viaIpc = await executeCapability('filesystem_move', { source: 'a', target: 'b' })
 
     expect(viaHost['ok']).toBe(false)
     expect(viaHost['code']).toBe(ERROR_CODE.PERMISSION_REQUIRED)
@@ -160,7 +160,7 @@ describe('executeHostTool: supervisor 网关', () => {
     beginTask('task-host', '整理 PDF', PLAN)
 
     const out = await executeHostTool(
-      hostParams('tc-3', 'filesystem.list', { rootId: 'downloads' })
+      hostParams('tc-3', 'filesystem_list', { rootId: 'downloads' })
     )
 
     expect(out['ok']).toBe(false)
@@ -172,9 +172,9 @@ describe('executeHostTool: supervisor 网关', () => {
     // 两个断言必须一起看：executeHostTool 拒、executeCapability 不拒。
     // 把它们弄成同一个 origin（任一方向）都会让其中一条红。
     const viaHost = await executeHostTool(
-      hostParams('tc-4', 'filesystem.list', { rootId: 'downloads' })
+      hostParams('tc-4', 'filesystem_list', { rootId: 'downloads' })
     )
-    const viaIpc = await executeCapability('filesystem.list', { rootId: 'downloads' })
+    const viaIpc = await executeCapability('filesystem_list', { rootId: 'downloads' })
 
     expect(viaHost['ok']).toBe(false)
     expect(viaHost['code']).toBe(ERROR_CODE.NO_ACTIVE_TASK)
@@ -188,7 +188,7 @@ describe('executeHostTool: supervisor 网关', () => {
     endTask()
 
     const out = await executeHostTool(
-      hostParams('tc-5', 'filesystem.list', { rootId: 'downloads' })
+      hostParams('tc-5', 'filesystem_list', { rootId: 'downloads' })
     )
 
     expect(out['code']).toBe(ERROR_CODE.NO_ACTIVE_TASK)
@@ -200,18 +200,18 @@ describe('listVisibleCapabilities: 握手时下发的清单', () => {
     // TASK-028 起模型要能看见完整 Golden Path 的五个工具（少一个就走不完计划）。
     // 顺序也要钉：清单每次不一样的话，REQ-010 的连续 20 次就无法靠快照对比定位。
     expect(listVisibleCapabilities().map((c) => c.name)).toEqual([
-      'filesystem.list',
-      'document.extract_pdf',
-      'filesystem.create_dir',
-      'filesystem.move',
-      'scheduler.create'
+      'filesystem_list',
+      'document_extract_pdf',
+      'filesystem_create_dir',
+      'filesystem_move',
+      'scheduler_create'
     ])
   })
 
-  it('不带 notification.send，且每项都有非空 description', () => {
-    // notification.send 由 Reminder 到点触发，不是模型能自选的动作。
+  it('不带 notification_send，且每项都有非空 description', () => {
+    // notification_send 由 Reminder 到点触发，不是模型能自选的动作。
     const names = listVisibleCapabilities().map((c) => c.name)
-    expect(names).not.toContain('notification.send')
+    expect(names).not.toContain('notification_send')
 
     for (const c of listVisibleCapabilities()) {
       expect(c.description.length, c.name).toBeGreaterThan(0)
@@ -262,13 +262,13 @@ describe('configureHostExecutor: 生产接线', () => {
     beginTask('task-wired', '整理 PDF', WRITE_FIRST_PLAN)
 
     const out = await executeHostTool(
-      hostParams('tc-w1', 'filesystem.create_dir', { path: join(dir, 'Reading') })
+      hostParams('tc-w1', 'filesystem_create_dir', { path: join(dir, 'Reading') })
     )
 
     expect(out['ok']).toBe(true)
     // Scope 每次按当前任务现取：权限记录、任务状态回推、幂等表都按这个 taskId 归属，
     // 用固定值（bootstrap）会把三种记录全挂到一个不存在的任务上。
-    expect(requests).toEqual([{ taskId: 'task-wired', capability: 'filesystem.create_dir' }])
+    expect(requests).toEqual([{ taskId: 'task-wired', capability: 'filesystem_create_dir' }])
   })
 
   it('用户拒绝时交给 policy 收场：不改目录、回拒绝码', async () => {
@@ -287,7 +287,7 @@ describe('configureHostExecutor: 生产接线', () => {
     beginTask('task-denied', '整理 PDF', WRITE_FIRST_PLAN)
 
     const out = await executeHostTool(
-      hostParams('tc-w2', 'filesystem.create_dir', { path: join(dir, 'Reading') })
+      hostParams('tc-w2', 'filesystem_create_dir', { path: join(dir, 'Reading') })
     )
 
     expect(out['ok']).toBe(false)
@@ -298,7 +298,7 @@ describe('configureHostExecutor: 生产接线', () => {
     const requests: { taskId: string; capability: string }[] = []
     configureHostExecutor({ permission: { gate: approvingGate(requests) } })
 
-    const out = await executeCapability('filesystem.create_dir', { path: join(dir, 'Reading') })
+    const out = await executeCapability('filesystem_create_dir', { path: join(dir, 'Reading') })
 
     expect(out['code']).toBe(ERROR_CODE.CAPABILITY_OUT_OF_SCOPE)
     expect(requests).toEqual([])

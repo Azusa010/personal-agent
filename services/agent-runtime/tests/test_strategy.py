@@ -26,7 +26,7 @@ from personal_agent.strategy import (
     ReActStrategy,
 )
 
-VISIBLE = ["filesystem.list", "document.extract_pdf"]
+VISIBLE = ["filesystem_list", "document_extract_pdf"]
 
 
 class FakeChannel:
@@ -93,7 +93,7 @@ def test_classic_strategy_executes_golden_path():
         ToolCallDecision(
             kind="tool_call",
             callId="c-1",
-            capability="filesystem.list",
+            capability="filesystem_list",
             arguments={"rootId": "downloads"},
         ),
         SummaryDecision(
@@ -105,7 +105,7 @@ def test_classic_strategy_executes_golden_path():
     model = ScriptedModel(decisions)
     channel = FakeChannel([list_result()])
     plan = [
-        PlanStepDto(description="列出文件", capability="filesystem.list"),
+        PlanStepDto(description="列出文件", capability="filesystem_list"),
         PlanStepDto(description="直接总结"),
     ]
 

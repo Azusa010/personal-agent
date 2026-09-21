@@ -20,13 +20,13 @@ def golden_path() -> list:
         ToolCallDecision(
             kind="tool_call",
             callId="c-1",
-            capability="filesystem.list",
+            capability="filesystem_list",
             arguments={"rootId": "downloads"},
         ),
         ToolCallDecision(
             kind="tool_call",
             callId="c-2",
-            capability="document.extract_pdf",
+            capability="document_extract_pdf",
             arguments={"path": "D:/downloads/a.pdf"},
         ),
         SummaryDecision(
@@ -38,7 +38,7 @@ def golden_path() -> list:
 def ctx() -> ModelContext:
     return ModelContext(
         taskGoal="整理 Downloads 里的 PDF",
-        visibleCapabilities=["filesystem.list", "document.extract_pdf"],
+        visibleCapabilities=["filesystem_list", "document_extract_pdf"],
     )
 
 
@@ -127,7 +127,7 @@ SCRIPT = [
     {
         "kind": "tool_call",
         "callId": "c-1",
-        "capability": "filesystem.list",
+        "capability": "filesystem_list",
         "arguments": {"rootId": "downloads"},
     },
     {"kind": "summary", "reply": "已完成", "facts": [{"text": "摘要", "pageRefs": [1]}]},
@@ -146,7 +146,7 @@ def test_load_script_returns_decisions_in_file_order(tmp_path):
         ToolCallDecision(
             kind="tool_call",
             callId="c-1",
-            capability="filesystem.list",
+            capability="filesystem_list",
             arguments={"rootId": "downloads"},
         ),
         SummaryDecision(
@@ -189,7 +189,7 @@ def test_load_script_unknown_kind_raises(tmp_path):
 def test_load_script_item_missing_required_field_raises(tmp_path):
     with pytest.raises(ScriptLoadError):
         load_script(
-            write_script(tmp_path, [{"kind": "tool_call", "capability": "filesystem.list"}])
+            write_script(tmp_path, [{"kind": "tool_call", "capability": "filesystem_list"}])
         )
 
 

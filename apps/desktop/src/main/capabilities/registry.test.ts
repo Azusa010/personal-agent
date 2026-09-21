@@ -10,18 +10,18 @@ import { readOnlyScope, isInScope } from './scope'
 import { CapabilityId } from '@personal-agent/protocol'
 
 /**
- * 完整正面清单：REQ-006 的六个能力 + Phase 3 的 terminal.execute。
+ * 完整正面清单：REQ-006 的六个能力 + Phase 3 的 terminal_execute。
  * SEC-007 的禁止项（Shell、代码执行、删除、覆盖、任意网络）
  * 自动被排除，不需要另写负面清单。
  */
 const ALL_CAPABILITY_NAMES = [
-  'filesystem.list',
-  'document.extract_pdf',
-  'filesystem.create_dir',
-  'filesystem.move',
-  'scheduler.create',
-  'notification.send',
-  'terminal.execute'
+  'filesystem_list',
+  'document_extract_pdf',
+  'filesystem_create_dir',
+  'filesystem_move',
+  'scheduler_create',
+  'notification_send',
+  'terminal_execute'
 ]
 
 describe('CapabilityRegistry', () => {
@@ -38,15 +38,15 @@ describe('CapabilityRegistry', () => {
 
   it('分类为 2 READ + 5 WRITE，READ 恰好是 Phase 1 那两个', () => {
     expect(listByKind('READ').map((c) => c.name)).toEqual([
-      'filesystem.list',
-      'document.extract_pdf'
+      'filesystem_list',
+      'document_extract_pdf'
     ])
     expect(listByKind('WRITE').map((c) => c.name)).toEqual([
-      'filesystem.create_dir',
-      'filesystem.move',
-      'scheduler.create',
-      'notification.send',
-      'terminal.execute'
+      'filesystem_create_dir',
+      'filesystem_move',
+      'scheduler_create',
+      'notification_send',
+      'terminal_execute'
     ])
     // 两类不重不漏
     expect(listByKind('READ').length + listByKind('WRITE').length).toBe(CAPABILITIES.length)
@@ -55,7 +55,7 @@ describe('CapabilityRegistry', () => {
   it('Phase 1 Scope 恰好含两个 READ，不含任何 WRITE', () => {
     const scope = readOnlyScope('t-1')
     expect(scope.taskId).toBe('t-1')
-    expect([...scope.capabilities].sort()).toEqual(['document.extract_pdf', 'filesystem.list'])
+    expect([...scope.capabilities].sort()).toEqual(['document_extract_pdf', 'filesystem_list'])
 
     // Phase 1 Exit 第 3 条：Agent 只能看到 Scope 中两个 READ Capability
     for (const write of listByKind('WRITE')) {
@@ -71,15 +71,15 @@ describe('CapabilityRegistry', () => {
   it('边界：未注册返回 null，Scope 外返回 false', () => {
     const scope = readOnlyScope('t-1')
 
-    expect(findCapability('filesystem.list')?.kind).toBe('READ')
+    expect(findCapability('filesystem_list')?.kind).toBe('READ')
     expect(findCapability('filesystem.rename')).toBeNull() // 近似名也不行
     expect(findCapability('')).toBeNull()
     expect(findCapability('FILESYSTEM.LIST')).toBeNull() // 大小写敏感，不做宽松匹配
 
-    expect(isInScope(scope, 'filesystem.list')).toBe(true)
-    expect(isInScope(scope, 'filesystem.move')).toBe(false) // 注册了但不在 Scope
+    expect(isInScope(scope, 'filesystem_list')).toBe(true)
+    expect(isInScope(scope, 'filesystem_move')).toBe(false) // 注册了但不在 Scope
     expect(isInScope(scope, '没注册过')).toBe(false)
-    expect(isInScope(readOnlyScope('t-2'), 'filesystem.list')).toBe(true) // 与 taskId 无关
+    expect(isInScope(readOnlyScope('t-2'), 'filesystem_list')).toBe(true) // 与 taskId 无关
   })
 })
 

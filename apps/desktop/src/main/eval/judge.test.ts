@@ -46,8 +46,8 @@ function makeObservation(overrides: Partial<CaseObservation> = {}): CaseObservat
     ],
     realPageNumbers: [1, 2, 3],
     toolCalls: [
-      { capability: 'filesystem.list', arguments: { rootId: 'downloads' } },
-      { capability: 'document.extract_pdf', arguments: { path: `D:/downloads/${TARGET}` } }
+      { capability: 'filesystem_list', arguments: { rootId: 'downloads' } },
+      { capability: 'document_extract_pdf', arguments: { path: `D:/downloads/${TARGET}` } }
     ],
     extractedPaths: [`D:/downloads/${TARGET}`],
     budgetExhausted: false,
@@ -164,7 +164,7 @@ describe('judgeCase：状态与执行判据', () => {
     const observation = makeObservation({
       extractedPaths: ['D:/downloads/notes.pdf'],
       toolCalls: [
-        { capability: 'document.extract_pdf', arguments: { path: 'D:/downloads/notes.pdf' } }
+        { capability: 'document_extract_pdf', arguments: { path: 'D:/downloads/notes.pdf' } }
       ],
       budgetExhausted: true
     })

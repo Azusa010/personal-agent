@@ -81,7 +81,7 @@ def _pick(raw: dict, path: str):
         ("initialize.response.json", Response, InitializeResult, "result"),
         ("ping.request.json", Request, None, "params"),
         ("ping.response.json", Response, None, "result"),
-        # filesystem.list 不再是 TS→Python 的独立 method（执行体已移到 host 侧），
+        # filesystem_list 不再是 TS→Python 的独立 method（执行体已移到 host 侧），
         # 它的 params/result 挂在 host.execute_tool 的 arguments/result 上。
         (
             "host-filesystem-list.request.json",
@@ -154,7 +154,7 @@ def _pick(raw: dict, path: str):
             FilesystemMoveResult,
             "result",
         ),
-        # scheduler.create（TASK-023）：request 钉 remindAt/message 字段名双端
+        # scheduler_create（TASK-023）：request 钉 remindAt/message 字段名双端
         # 一致，response 钉结果 DTO 形状。与 TS 侧 envelope.test.ts 逐条对应。
         (
             "host-scheduler-create.request.json",
@@ -174,7 +174,7 @@ def _pick(raw: dict, path: str):
             SchedulerCreateResult,
             "result",
         ),
-        # notification.send（TASK-024）：request 钉 reminderId 字段名双端一致，
+        # notification_send（TASK-024）：request 钉 reminderId 字段名双端一致，
         # response 钉结果 DTO 形状。与 TS 侧 envelope.test.ts 逐条对应。
         (
             "host-notification-send.request.json",
@@ -194,7 +194,7 @@ def _pick(raw: dict, path: str):
             NotificationSendResult,
             "result",
         ),
-        # terminal.execute
+        # terminal_execute
         (
             "host-terminal-execute.request.json",
             HostExecuteToolRequest,
@@ -357,7 +357,7 @@ def test_initialize_params_capabilities_constraints():
         "protocolVersion": "0.1",
         "capabilities": [
             {
-                "name": "filesystem.list",
+                "name": "filesystem_list",
                 "kind": "READ",
                 "description": "列出授权根目录下的条目",
             }
@@ -405,7 +405,7 @@ def test_initialize_params_capabilities_constraints():
 # RunTaskResult 是 Annotated 别名而不是 model，要用 TypeAdapter 才能校。
 TASK_EVENT = {
     "type": "tool_called",
-    "payload": {"capability": "filesystem.list"},
+    "payload": {"capability": "filesystem_list"},
     "occurredAt": "2026-09-11T10:00:00.120Z",
 }
 
@@ -414,7 +414,7 @@ RUN_TASK_RESULT = TypeAdapter(RunTaskResult)
 
 def test_run_task_params_constraints():
     plan = [
-        {"description": "列出 Downloads 下的 PDF", "capability": "filesystem.list"},
+        {"description": "列出 Downloads 下的 PDF", "capability": "filesystem_list"},
         {"description": "基于页面内容生成带页码引用的摘要"},
     ]
     RunTaskParams.model_validate({"taskId": "t-1", "goal": "整理 PDF", "plan": plan})
@@ -559,7 +559,7 @@ def test_turn_and_history_constraints():
     # history 可选：第一轮没有历史，两个 params 都不强制。
     MakePlanParams.model_validate({"taskId": "t-1", "goal": "整理 PDF"})
     plan = [
-        {"description": "列出 Downloads 下的 PDF", "capability": "filesystem.list"},
+        {"description": "列出 Downloads 下的 PDF", "capability": "filesystem_list"},
         {"description": "基于页面内容生成带页码引用的摘要"},
     ]
     RunTaskParams.model_validate({"taskId": "t-1", "goal": "整理 PDF", "plan": plan})
@@ -694,11 +694,11 @@ def test_make_plan_response_dumps_without_a_null_capability():
                 steps=[
                     PlanStepDto(
                         description="列出 Downloads 下的 PDF",
-                        capability="filesystem.list",
+                        capability="filesystem_list",
                     ),
                     PlanStepDto(
                         description="提取目标 PDF 的每页文本",
-                        capability="document.extract_pdf",
+                        capability="document_extract_pdf",
                     ),
                     PlanStepDto(description=SUMMARY_STEP_DESCRIPTION),
                 ]
@@ -708,7 +708,7 @@ def test_make_plan_response_dumps_without_a_null_capability():
     assert rebuilt == fixture
 
 
-# ---- scheduler.create（TASK-023）----
+# ---- scheduler_create（TASK-023）----
 # 以下三个函数与 packages/protocol/tests/scheduler.test.ts 的 describe 逐条对应。
 # SchedulerCreateOutcome 是 Annotated 别名而不是 model，要用 TypeAdapter 才能校。
 SCHEDULER_CREATE_OUTCOME = TypeAdapter(SchedulerCreateOutcome)
@@ -811,7 +811,7 @@ def test_scheduler_create_outcome_discriminated_union():
         )
 
 
-# ---- notification.send（TASK-024）----
+# ---- notification_send（TASK-024）----
 # 以下三个函数与 packages/protocol/tests/notification.test.ts 的 describe 逐条对应。
 # NotificationSendOutcome 是 Annotated 别名而不是 model，要用 TypeAdapter 才能校。
 NOTIFICATION_SEND_OUTCOME = TypeAdapter(NotificationSendOutcome)

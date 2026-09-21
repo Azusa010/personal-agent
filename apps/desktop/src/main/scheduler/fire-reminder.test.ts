@@ -70,7 +70,7 @@ function seedReminder(overrides: Partial<ReminderRecord> = {}): ReminderRecord {
     toolCallId: 'tc-1',
     remindAt: DUE,
     message: MESSAGE,
-    idempotencyKey: 'scheduler.create:hash-r1',
+    idempotencyKey: 'scheduler_create:hash-r1',
     status: 'scheduled',
     createdAt: T0,
     updatedAt: T0,

@@ -37,18 +37,18 @@ class FakeHostChannel:
 def test_golden_path_missing_required_read_capabilities_raises_error():
     # 缺少任一必选的 READ 能力，工作流必须构建失败（fail-closed）
     with pytest.raises(WorkflowPlanError, match="缺少必需能力"):
-        build_golden_path_workflow(visible_capabilities=["filesystem.list"])
+        build_golden_path_workflow(visible_capabilities=["filesystem_list"])
 
 
 def test_golden_path_read_only_mode():
     # 只读模式：只给两个读能力，只生成 2 步
     wf = build_golden_path_workflow(
-        visible_capabilities=["filesystem.list", "document.extract_pdf"]
+        visible_capabilities=["filesystem_list", "document_extract_pdf"]
     )
     assert len(wf.steps) == 2
     assert [s.capability for s in wf.steps] == [
-        "filesystem.list",
-        "document.extract_pdf",
+        "filesystem_list",
+        "document_extract_pdf",
     ]
 
     channel = FakeHostChannel(
@@ -83,11 +83,11 @@ def test_golden_path_read_only_mode():
 def test_golden_path_full_five_steps():
     # 完整模式：5 个能力全给，跑满 5 步
     all_caps = [
-        "filesystem.list",
-        "document.extract_pdf",
-        "filesystem.create_dir",
-        "filesystem.move",
-        "scheduler.create",
+        "filesystem_list",
+        "document_extract_pdf",
+        "filesystem_create_dir",
+        "filesystem_move",
+        "scheduler_create",
     ]
     wf = build_golden_path_workflow(visible_capabilities=all_caps)
     assert len(wf.steps) == 5
@@ -104,7 +104,7 @@ def test_golden_path_full_five_steps():
             ),
             HostExecuteToolResult(ok=True),  # create_dir
             HostExecuteToolResult(ok=True),  # move
-            HostExecuteToolResult(ok=True, reminderId="rem-1"),  # scheduler.create
+            HostExecuteToolResult(ok=True, reminderId="rem-1"),  # scheduler_create
         ]
     )
 
@@ -130,6 +130,6 @@ def test_golden_path_full_five_steps():
     assert channel.calls[3].arguments["target"].replace("\\", "/").endswith(
         "Downloads/Reading/paper.pdf"
     )
-    # scheduler.create 应带 remindAt 和 message
+    # scheduler_create 应带 remindAt 和 message
     assert "remindAt" in channel.calls[4].arguments
     assert "paper.pdf" in channel.calls[4].arguments["message"]

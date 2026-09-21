@@ -19,7 +19,7 @@ const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
 let dir: string
 const scope: TaskScope = {
   taskId: 't-terminal',
-  capabilities: ['terminal.execute']
+  capabilities: ['terminal_execute']
 }
 
 function allowAllGate(): PermissionGate {
@@ -39,7 +39,7 @@ function denyGate(reason = '用户拒绝了执行'): PermissionGate {
 function terminalParams(args: Record<string, unknown>): HostExecuteToolParams {
   return {
     callId: 'call-1',
-    capability: 'terminal.execute',
+    capability: 'terminal_execute',
     arguments: args
   }
 }
@@ -58,7 +58,7 @@ afterEach(async () => {
   }
 })
 
-describe('terminal.execute 执行体', () => {
+describe('terminal_execute 执行体', () => {
   it('执行简单命令成功：返回 ok: true, exitCode: 0 并捕获 stdout', async () => {
     const executor = createExecutor(scope, UI_ORIGIN, new RuleBasedToolRetriever(), {
       gate: allowAllGate()

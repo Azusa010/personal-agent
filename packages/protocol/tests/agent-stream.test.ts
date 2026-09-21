@@ -30,7 +30,7 @@ const eventNotice = {
       type: "tool_called",
       payload: {
         callId: "call-1",
-        capability: "filesystem.list",
+        capability: "filesystem_list",
         arguments: { rootId: "downloads" },
       },
       occurredAt: "2026-09-18T09:00:00.123Z",

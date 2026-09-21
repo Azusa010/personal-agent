@@ -132,7 +132,7 @@ describe('getTimeline', () => {
     deps.plans.append({
       id: 'p-1',
       taskId: 't-1',
-      steps: [{ description: '列出 Downloads 下的 PDF', capability: 'filesystem.list' }],
+      steps: [{ description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' }],
       createdAt: '2026-09-07T00:00:00Z'
     })
 

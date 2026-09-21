@@ -22,7 +22,7 @@ describe('ROOT_ENV', () => {
   })
 
   it('只有 downloads 一个逻辑根', () => {
-    // filesystem.list 的 RootId enum 目前只有 downloads。这里多出一个键
+    // filesystem_list 的 RootId enum 目前只有 downloads。这里多出一个键
     // 说明有人加了没走契约的根，两边会各自演化。
     expect(Object.keys(ROOT_ENV)).toEqual(['downloads'])
   })

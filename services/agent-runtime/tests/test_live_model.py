@@ -39,7 +39,7 @@ from personal_agent.model_gateway import (
 )
 from personal_agent.protocol.models import CapabilityId, PlanStepDto, ProfileDto, Turn
 
-VISIBLE = ["filesystem.list", "document.extract_pdf"]
+VISIBLE = ["filesystem_list", "document_extract_pdf"]
 
 
 class FakeUsage:
@@ -107,9 +107,10 @@ def _adapt_to_chat_completion(item: Any) -> Any:
     if isinstance(data, dict):
         kind = data.get("kind")
         if kind == "tool_call":
+            cap = data.get("capability", "filesystem_list")
             tc = FakeToolCall(
                 id=data.get("callId", "call-1"),
-                name=data.get("capability", "filesystem.list"),
+                name=cap,
                 arguments=json.dumps(data.get("arguments", {})),
             )
             return FakeChatCompletion(FakeMessage(tool_calls=[tc]), item.usage)
@@ -227,7 +228,7 @@ class FakeClient:
         self.responses = FakeResponses(items, stream_events)
 
 
-def tool_call_json(call_id="call-1", capability="filesystem.list", **arguments):
+def tool_call_json(call_id="call-1", capability="filesystem_list", **arguments):
     return json.dumps(
         {
             "kind": "tool_call",
@@ -278,9 +279,9 @@ def test_decision_schema_is_derived_from_the_contract():
 
 
 def test_build_tools_filters_by_visible_and_adds_finish_task():
-    tools = build_tools(["filesystem.list"])
+    tools = build_tools(["filesystem_list"])
     names = [t["function"]["name"] for t in tools]
-    assert names == ["filesystem.list", FINISH_TASK_TOOL_NAME]
+    assert names == ["filesystem_list", FINISH_TASK_TOOL_NAME]
     assert tools[1] == FINISH_TASK_SCHEMA
 
 
@@ -289,21 +290,21 @@ def test_render_messages_full_structure():
         observations=[
             Observation(
                 callId="call-1",
-                capability="filesystem.list",
+                capability="filesystem_list",
                 ok=True,
                 payload={"entries": [{"name": "a.pdf"}]},
                 arguments={"rootId": "downloads"},
             ),
             Observation(
                 callId="call-2",
-                capability="document.extract_pdf",
+                capability="document_extract_pdf",
                 ok=False,
                 payload={"code": "PDF_UNREADABLE", "reason": "损坏"},
                 arguments={"path": "/docs/a.pdf"},
             ),
         ],
         plan=[
-            PlanStepDto(description="列出目录", capability="filesystem.list"),
+            PlanStepDto(description="列出目录", capability="filesystem_list"),
             PlanStepDto(description="总结汇报"),
         ],
         history=[Turn(role="user", text="请帮我整理文件")],
@@ -318,12 +319,12 @@ def test_render_messages_full_structure():
     # 3. current task goal & plan
     assert messages[2]["role"] == "user"
     assert "整理 Downloads 里的 PDF" in messages[2]["content"]
-    assert "1. 列出目录（filesystem.list）" in messages[2]["content"]
+    assert "1. 列出目录（filesystem_list）" in messages[2]["content"]
     assert "2. 总结汇报" in messages[2]["content"]
     # 4. assistant call-1
     assert messages[3]["role"] == "assistant"
     assert messages[3]["tool_calls"][0]["id"] == "call-1"
-    assert messages[3]["tool_calls"][0]["function"]["name"] == "filesystem.list"
+    assert messages[3]["tool_calls"][0]["function"]["name"] == "filesystem_list"
     assert json.loads(messages[3]["tool_calls"][0]["function"]["arguments"]) == {"rootId": "downloads"}
     # 5. tool result 1
     assert messages[4]["role"] == "tool"
@@ -350,13 +351,13 @@ def test_render_input_lists_goal_capabilities_and_observations():
             [
                 Observation(
                     callId="call-1",
-                    capability="filesystem.list",
+                    capability="filesystem_list",
                     ok=True,
                     payload={"entries": [{"name": "a.pdf"}]},
                 ),
                 Observation(
                     callId="call-2",
-                    capability="document.extract_pdf",
+                    capability="document_extract_pdf",
                     ok=False,
                     payload={"code": "PDF_UNREADABLE", "reason": "坏了"},
                 ),
@@ -365,8 +366,8 @@ def test_render_input_lists_goal_capabilities_and_observations():
     )
 
     assert "整理 Downloads 里的 PDF" in rendered
-    assert "- filesystem.list: " in rendered
-    assert "- document.extract_pdf: " in rendered
+    assert "- filesystem_list: " in rendered
+    assert "- document_extract_pdf: " in rendered
     assert "call-1" in rendered and "a.pdf" in rendered
     assert "ok=False" in rendered and "PDF_UNREADABLE" in rendered
     assert "坏了" in rendered
@@ -386,11 +387,11 @@ def test_decide_sends_the_contract_schema_and_returns_a_tool_call():
     decision = model.decide(context_with())
 
     assert isinstance(decision, ToolCallDecision)
-    assert decision.capability == "filesystem.list"
+    assert decision.capability == "filesystem_list"
     assert decision.arguments == {"rootId": "downloads"}
     request = client.chat.completions.requests[0]
     assert request["model"] == "gpt-test"
-    assert any(t["function"]["name"] == "filesystem.list" for t in request["tools"])
+    assert any(t["function"]["name"] == "filesystem_list" for t in request["tools"])
     assert any(t["function"]["name"] == FINISH_TASK_TOOL_NAME for t in request["tools"])
 
 
@@ -450,7 +451,7 @@ def test_usage_snapshot_accumulates_across_calls():
     client = FakeClient(
         [
             FakeResponse(tool_call_json("call-1"), FakeUsage(10, 2)),
-            FakeResponse(tool_call_json("call-2", capability="document.extract_pdf"), FakeUsage(20, 5)),
+            FakeResponse(tool_call_json("call-2", capability="document_extract_pdf"), FakeUsage(20, 5)),
             FakeResponse(summary_json(), FakeUsage(30, 8)),
         ]
     )
@@ -501,7 +502,7 @@ def test_non_json_output_as_plain_text_summary_fallback():
 
 
 def test_json_that_violates_the_decision_contract_is_a_model_call_failure():
-    tc = FakeToolCall(id="c-1", name="filesystem.list", arguments="{not_json")
+    tc = FakeToolCall(id="c-1", name="filesystem_list", arguments="{not_json")
     resp = FakeChatCompletion(FakeMessage(tool_calls=[tc]))
     model = LiveModel(model="gpt-test", client=FakeClient([resp]))
 

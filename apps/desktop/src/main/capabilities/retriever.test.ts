@@ -10,7 +10,7 @@ describe('RuleBasedToolRetriever', () => {
     const visible = retriever.listVisible(readOnlyScope('t-1'))
 
     // Phase 1 Exit Checklist 第 3 条
-    expect(visible.map((c) => c.name)).toEqual(['filesystem.list', 'document.extract_pdf'])
+    expect(visible.map((c) => c.name)).toEqual(['filesystem_list', 'document_extract_pdf'])
     expect(visible.every((c) => c.kind === 'READ')).toBe(true)
     // 四个 WRITE 一个都看不见
     expect(visible).toHaveLength(listByKind('READ').length)
@@ -25,12 +25,12 @@ describe('RuleBasedToolRetriever', () => {
   })
 
   it('可执行门：Scope 内 READ 放行，并直接带回 descriptor', () => {
-    const result = retriever.authorize(readOnlyScope('t-1'), 'filesystem.list')
+    const result = retriever.authorize(readOnlyScope('t-1'), 'filesystem_list')
 
     expect(result.allowed).toBe(true)
     if (result.allowed) {
       // 判别联合：只有分支之后才访问得到 capability
-      expect(result.capability.name).toBe('filesystem.list')
+      expect(result.capability.name).toBe('filesystem_list')
       expect(result.capability.kind).toBe('READ')
     }
   })
@@ -46,7 +46,7 @@ describe('RuleBasedToolRetriever', () => {
     }
 
     // 注册了但不在 Phase 1 Scope
-    const outOfScope = retriever.authorize(scope, 'filesystem.move')
+    const outOfScope = retriever.authorize(scope, 'filesystem_move')
     expect(outOfScope.allowed).toBe(false)
     if (!outOfScope.allowed) {
       expect(outOfScope.code).toBe('CAPABILITY_OUT_OF_SCOPE')
@@ -69,8 +69,8 @@ describe('RuleBasedToolRetriever', () => {
       'eval',
       '',
       'FILESYSTEM.LIST', // 大小写不宽松匹配
-      ' filesystem.list', // 前导空格
-      'filesystem.list ', // 尾随空格
+      ' filesystem_list', // 前导空格
+      'filesystem_list ', // 尾随空格
       '__proto__',
       'constructor'
     ]
@@ -85,7 +85,7 @@ describe('RuleBasedToolRetriever', () => {
 
     // 放行的必须恰好是 Scope 里那两个，不多不少
     const allowed = CAPABILITIES.filter((c) => retriever.authorize(scope, c.name).allowed)
-    expect(allowed.map((c) => c.name)).toEqual(['filesystem.list', 'document.extract_pdf'])
+    expect(allowed.map((c) => c.name)).toEqual(['filesystem_list', 'document_extract_pdf'])
   })
 
   it('Scope 无法被运行时扩权：push 在编译期即被拒', () => {
@@ -99,6 +99,6 @@ describe('RuleBasedToolRetriever', () => {
     expect(typeof pushFn).toBe('function')
 
     expect(scope.capabilities).toHaveLength(2)
-    expect(retriever.authorize(scope, 'filesystem.move').allowed).toBe(false)
+    expect(retriever.authorize(scope, 'filesystem_move').allowed).toBe(false)
   })
 })

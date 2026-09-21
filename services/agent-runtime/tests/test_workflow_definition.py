@@ -13,7 +13,7 @@ def test_workflow_state_recording_and_parameter_resolution():
     # 模拟步骤 1：列出文件
     step1 = WorkflowStep(
         id="list_files",
-        capability="filesystem.list",
+        capability="filesystem_list",
         description="列出文件",
         resolve_args=lambda s: {"rootId": s.inputs["rootId"]},
     )
@@ -29,7 +29,7 @@ def test_workflow_state_recording_and_parameter_resolution():
     # 模拟步骤 2：依赖步骤 1 产出的路径
     step2 = WorkflowStep(
         id="extract_text",
-        capability="document.extract_pdf",
+        capability="document_extract_pdf",
         description="提取 PDF 内容",
         resolve_args=lambda s: {
             "path": s.get_result("list_files")["entries"][0]["path"]
@@ -46,7 +46,7 @@ def test_workflow_definition_assembly():
         steps=[
             WorkflowStep(
                 id="step1",
-                capability="filesystem.list",
+                capability="filesystem_list",
                 description="步骤1",
                 resolve_args=lambda s: {},
             )

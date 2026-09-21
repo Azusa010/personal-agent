@@ -44,8 +44,8 @@ export const TOOL_RESULT_EVENT = 'tool_result'
  */
 export { EXTRACT_PDF_CAPABILITY }
 
-/** filesystem.move 的能力名。同一条派生规则，不在本文件写第二份字面量。 */
-const MOVE_CAPABILITY = CapabilityId.enum['filesystem.move']
+/** filesystem_move 的能力名。同一条派生规则，不在本文件写第二份字面量。 */
+const MOVE_CAPABILITY = CapabilityId.enum['filesystem_move']
 /** 判定表的检查项。id 是稳定契约：报告、UI、验收测试都按 id 断言，不要改名。 */
 export const VERIFICATION_CHECK_IDS = [
   /** 摘要存在，且每条 fact 带非空页码引用 */
@@ -148,7 +148,7 @@ export interface CollectedEvidence {
   /** summary 里出现过的页码，去重升序 */
   reply: string | null
   pageReferences: number[]
-  /** 摘要依据的那份 PDF：时间线里最后一次成功的 document.extract_pdf 的入参路径 */
+  /** 摘要依据的那份 PDF：时间线里最后一次成功的 document_extract_pdf 的入参路径 */
   selectedPdf: string | null
   /** selectedPdf 解析到授权根内的真实路径；被移动过则取移动后的位置 */
   resolvedPdfPath: string | null
@@ -268,7 +268,7 @@ export function collectToolResults(events: ExecutionEventRecord[]): ToolCallEvid
 /**
  * 摘要依据的那份 PDF 是哪个（业务主逻辑）。
  *
- * 规则：**最后一次成功的** document.extract_pdf 调用的入参路径。
+ * 规则：**最后一次成功的** document_extract_pdf 调用的入参路径。
  *  - 「成功」= 该 callId 有 tool_result 且 ok === true；失败的那次不算数，
  *    它引用的页集合根本不存在；
  *  - 多次提取时取最后一次：后一次提取会覆盖前一次的页集合，摘要依据的是它；
@@ -352,7 +352,7 @@ export function finalPathOf(moves: MoveEvidence[]): string | null {
 /**
  * 移动证据的文件系统探测与失败收场（健壮性）。
  *
- * 只有 capability 是 filesystem.move 且 status === 'succeeded' 的执行记录算移动证据：
+ * 只有 capability 是 filesystem_move 且 status === 'succeeded' 的执行记录算移动证据：
  * attempting / failed 是「打算移」而不是「移完了」，它们已经完整地在 executions 里，
  * 判定表自己会看。
  *
@@ -426,7 +426,7 @@ async function collectPdfPages(
   const selectedPdf = lastExtractedPath(events)
   if (selectedPdf === null) {
     if (planHasExtractPdf) {
-      gaps.push('时间线里没有成功的 document.extract_pdf 调用，拿不到摘要依据的 PDF')
+      gaps.push('时间线里没有成功的 document_extract_pdf 调用，拿不到摘要依据的 PDF')
     }
     return {
       selectedPdf: null,
@@ -509,7 +509,7 @@ export async function collectEvidence(
   }
 
   const hasExtractPdf = (state.plan?.steps ?? []).some(
-    (step) => step.capability === 'document.extract_pdf'
+    (step) => step.capability === 'document_extract_pdf'
   )
 
   const moves = await collectMoveEvidence(state.executions, deps, gaps)

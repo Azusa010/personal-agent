@@ -4,7 +4,7 @@
   "method": "host.execute_tool",
   "params": {
     "callId": "tc-7c21",
-    "capability": "notification.send",
+    "capability": "notification_send",
     "arguments": { "reminderId": "3f6a9c1e-8b4d-4f2a-9c7e-1d5b8a2e4f60" }
   }
 }

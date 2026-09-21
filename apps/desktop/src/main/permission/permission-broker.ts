@@ -82,7 +82,7 @@ function splitPaths(
   bound: BoundArgs
 ): { sourcePaths: string[]; targetPath: string | null } {
   switch (capability) {
-    case 'filesystem.move': {
+    case 'filesystem_move': {
       const source = bound.paths['source']
       const target = bound.paths['target']
       return {
@@ -90,7 +90,7 @@ function splitPaths(
         targetPath: target ?? null
       }
     }
-    case 'filesystem.create_dir':
+    case 'filesystem_create_dir':
       return { sourcePaths: [], targetPath: bound.paths['path'] ?? null }
     default:
       return { sourcePaths: Object.values(bound.paths), targetPath: null }

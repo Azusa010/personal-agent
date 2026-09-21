@@ -58,7 +58,7 @@ function PermissionBody({
     }
   }
 
-  // scheduler.create 的时间预览（TASK-023 / US-06）：「今晚」被解析成了哪个
+  // scheduler_create 的时间预览（TASK-023 / US-06）：「今晚」被解析成了哪个
   // 具体时刻，用户在批准前必须看得见——批准的就是这个时刻。null = 其它能力
   // 或解析失败，退回文件路径展示。
   const preview = describeReminderPreview(permission)
@@ -183,7 +183,7 @@ export function PermissionDialog({
             需要你批准
           </DialogTitle>
           <DialogDescription>
-            {permission !== null && permission.capability === 'scheduler.create'
+            {permission !== null && permission.capability === 'scheduler_create'
               ? '这个操作会创建一次性提醒。时间是解析之后的具体时刻，批准的就是它。'
               : '这个操作会改动授权目录里的文件。路径是规范化之后的绝对路径，批准的就是它。'}
           </DialogDescription>

@@ -78,7 +78,7 @@ describe('migrate', () => {
     new SqlitePlanRepository(first).append({
       id: 'p-1',
       taskId: 't-1',
-      steps: [{ description: '列出下载目录的 PDF', capability: 'filesystem.list' }],
+      steps: [{ description: '列出下载目录的 PDF', capability: 'filesystem_list' }],
       createdAt: TS
     })
     new SqliteEventRepository(first).append({
@@ -106,7 +106,7 @@ describe('migrate', () => {
     const plan = new SqlitePlanRepository(reopened).findLatest('t-1')
     expect(plan?.version).toBe(1)
     expect(plan?.steps).toEqual([
-      { description: '列出下载目录的 PDF', capability: 'filesystem.list' }
+      { description: '列出下载目录的 PDF', capability: 'filesystem_list' }
     ])
 
     const events = new SqliteEventRepository(reopened).listByTask('t-1')
@@ -288,7 +288,7 @@ describe('migration 0005：重建 tasks 表放宽 CHECK', () => {
       'perm-1',
       't-1',
       'tc-1',
-      'filesystem.move',
+      'filesystem_move',
       '{}',
       'h',
       'pending',

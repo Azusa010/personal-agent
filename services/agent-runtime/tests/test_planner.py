@@ -7,13 +7,13 @@ from personal_agent.planning import PlanError, make_plan
 from personal_agent.protocol.models import Turn
 
 FULL = [
-    "filesystem.list",
-    "document.extract_pdf",
-    "filesystem.create_dir",
-    "filesystem.move",
-    "scheduler.create",
+    "filesystem_list",
+    "document_extract_pdf",
+    "filesystem_create_dir",
+    "filesystem_move",
+    "scheduler_create",
 ]
-READ_ONLY = ["filesystem.list", "document.extract_pdf"]
+READ_ONLY = ["filesystem_list", "document_extract_pdf"]
 
 
 def test_deterministic_planner_outputs_make_plan_verbatim():
@@ -39,7 +39,7 @@ def test_deterministic_planner_reports_missing_read_capability():
     # 缺 READ 能力时异常要透传：翻成 PLAN_NOT_BUILDABLE 是 runtime 的事，
     # 端口吞掉的话协议层只能回一个说不清原因的失败。
     with pytest.raises(PlanError):
-        DeterministicPlanner().plan("整理 PDF", ["scheduler.create"])
+        DeterministicPlanner().plan("整理 PDF", ["scheduler_create"])
 
 
 def test_deterministic_planner_satisfies_the_port():

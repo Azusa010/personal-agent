@@ -22,7 +22,7 @@ const RECORD: PermissionRecord = {
   id: 'perm-1',
   taskId: 'task-1',
   toolCallId: 'tc-9f3a',
-  capability: 'filesystem.create_dir',
+  capability: 'filesystem_create_dir',
   argsCanonical: '{"path":"D:/downloads/reports"}',
   argsHash: 'a1b2c3d4e5f60718293a',
   status: 'pending',

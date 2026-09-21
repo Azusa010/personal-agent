@@ -5,11 +5,11 @@
     "steps": [
       {
         "description": "列出 Downloads 下的 PDF",
-        "capability": "filesystem.list"
+        "capability": "filesystem_list"
       },
       {
         "description": "提取目标 PDF 的每页文本",
-        "capability": "document.extract_pdf"
+        "capability": "document_extract_pdf"
       },
       {
         "description": "基于页面内容生成带页码引用的摘要"

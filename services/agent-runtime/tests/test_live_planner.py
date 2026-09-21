@@ -17,11 +17,11 @@ from personal_agent.model_gateway import ModelCallFailed
 from personal_agent.protocol.models import ProfileDto, Turn
 
 VISIBLE = [
-    "filesystem.list",
-    "document.extract_pdf",
-    "filesystem.create_dir",
-    "filesystem.move",
-    "scheduler.create",
+    "filesystem_list",
+    "document_extract_pdf",
+    "filesystem_create_dir",
+    "filesystem_move",
+    "scheduler_create",
 ]
 
 
@@ -94,10 +94,10 @@ def plan_json(steps):
 def full_plan_json():
     return plan_json(
         [
-            {"description": "列出 Downloads 下的 PDF", "capability": "filesystem.list"},
+            {"description": "列出 Downloads 下的 PDF", "capability": "filesystem_list"},
             {
                 "description": "提取目标 PDF 的每页文本",
-                "capability": "document.extract_pdf",
+                "capability": "document_extract_pdf",
             },
             {"description": "基于页面内容生成带页码引用的摘要"},
         ]
@@ -109,12 +109,12 @@ def full_plan_json():
 def test_clean_plan_keeps_the_model_order_and_drops_no_step():
     steps = clean_plan(
         [
-            {"description": "先列文件", "capability": "filesystem.list"},
+            {"description": "先列文件", "capability": "filesystem_list"},
             {"description": "再回答"},
         ],
         VISIBLE,
     )
-    assert [s.capability for s in steps] == ["filesystem.list", None]
+    assert [s.capability for s in steps] == ["filesystem_list", None]
     assert [s.description for s in steps] == ["先列文件", "再回答"]
 
 
@@ -145,11 +145,11 @@ def test_a_plan_without_tools_is_valid_even_when_nothing_is_visible():
 # ---- render_plan_input ----
 
 def test_render_plan_input_lists_goal_and_only_visible_capabilities():
-    rendered = render_plan_input("整理 Downloads 里的 PDF", ["filesystem.list"])
+    rendered = render_plan_input("整理 Downloads 里的 PDF", ["filesystem_list"])
     assert "整理 Downloads 里的 PDF" in rendered
-    assert "filesystem.list" in rendered
-    # Scope 外的能力不下发：notification.send 在 TOOL_SPECS 里，但不该出现在这里。
-    assert "notification.send" not in rendered
+    assert "filesystem_list" in rendered
+    # Scope 外的能力不下发：notification_send 在 TOOL_SPECS 里，但不该出现在这里。
+    assert "notification_send" not in rendered
 
 
 def test_render_plan_input_renders_the_history_for_coreference():
@@ -157,7 +157,7 @@ def test_render_plan_input_renders_the_history_for_coreference():
     # 角色标记进入规划请求。
     rendered = render_plan_input(
         "把它移回 Downloads",
-        ["filesystem.list", "filesystem.move"],
+        ["filesystem_list", "filesystem_move"],
         [
             Turn(role="user", text="把最新的 PDF 整理到 Reading"),
             Turn(role="assistant", text="已整理好"),
@@ -185,8 +185,8 @@ def test_plan_sends_the_planner_instructions_and_the_output_schema():
     steps = planner.plan("整理 Downloads 里的 PDF", VISIBLE)
 
     assert [s.capability for s in steps] == [
-        "filesystem.list",
-        "document.extract_pdf",
+        "filesystem_list",
+        "document_extract_pdf",
         None,
     ]
     request = client.responses.requests[0]
@@ -363,4 +363,4 @@ def test_plan_without_summary_events_streams_plan_steps_fallback():
     assert len(steps) == 3
     assert "制定执行策略（共 3 步）：" in "".join(chunks)
 
-
+

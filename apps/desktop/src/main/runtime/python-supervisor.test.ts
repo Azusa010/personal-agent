@@ -142,7 +142,7 @@ describe('PythonSupervisor ~ Slice 2', () => {
     child.emit('exit', null, 'SIGTERM')
     const writtenBefore = written.length
 
-    const p = sup.request('filesystem.list')
+    const p = sup.request('filesystem_list')
     await expect(p).rejects.toMatchObject({ code: RUNTIME_ERROR_CODE.CRASHED })
     expect(written).toHaveLength(writtenBefore)
   }, 2000)
@@ -188,9 +188,9 @@ describe('PythonSupervisor ~ Slice 2b (握手)', () => {
       command: 'fake',
       args: [],
       capabilities: [
-        { name: 'filesystem.list', kind: 'READ', description: '列出授权根目录下的条目' },
+        { name: 'filesystem_list', kind: 'READ', description: '列出授权根目录下的条目' },
         {
-          name: 'document.extract_pdf',
+          name: 'document_extract_pdf',
           kind: 'READ',
           description: '提取 PDF 每页文本与页码'
         }
@@ -207,8 +207,8 @@ describe('PythonSupervisor ~ Slice 2b (握手)', () => {
         // 只钉 name 与 kind 的内容与顺序：这份清单是 Agent 的权限边界，
         // 漂了就意味着模型看到的能力和它真正能调的不一致。
         capabilities: [
-          { name: 'filesystem.list', kind: 'READ' },
-          { name: 'document.extract_pdf', kind: 'READ' }
+          { name: 'filesystem_list', kind: 'READ' },
+          { name: 'document_extract_pdf', kind: 'READ' }
         ],
         client: { name: 'personal-agent-electron', version: '0.1.0' }
       }
@@ -268,7 +268,7 @@ itReal(
     expect(result).toEqual({})
     await sup.stop()
   },
-  15000
+  30000
 )
 itReal(
   '真实 spawn Python:initialize 握手 -> 校验 server -> ping',
@@ -278,9 +278,9 @@ itReal(
       args: ['-m', 'personal_agent'],
       cwd: runtimeCwd,
       capabilities: [
-        { name: 'filesystem.list', kind: 'READ', description: '列出授权根目录下的条目' },
+        { name: 'filesystem_list', kind: 'READ', description: '列出授权根目录下的条目' },
         {
-          name: 'document.extract_pdf',
+          name: 'document_extract_pdf',
           kind: 'READ',
           description: '提取 PDF 每页文本与页码'
         }
@@ -343,7 +343,7 @@ describe('PythonSupervisor ~ 片 2b (host.execute_tool)', () => {
         method: 'host.execute_tool',
         params: {
           callId: 'tc-1',
-          capability: 'filesystem.list',
+          capability: 'filesystem_list',
           arguments: { rootId: 'downloads' }
         },
         ...over
@@ -390,7 +390,7 @@ describe('PythonSupervisor ~ 片 2b (host.execute_tool)', () => {
     expect(handler).toHaveBeenCalledOnce()
     expect(handler.mock.calls[0][0]).toMatchObject({
       callId: 'tc-1',
-      capability: 'filesystem.list',
+      capability: 'filesystem_list',
       arguments: { rootId: 'downloads' }
     })
     expect(reply).toEqual({ jsonrpc: '2.0', id: 'call-1', result: { ok: true, entries: [] } })
@@ -644,7 +644,7 @@ describe('PythonSupervisor ~ agent.stream 通知（TASK-033）', () => {
         kind: 'event',
         event: {
           type: 'tool_called',
-          payload: { callId: 'call-1', capability: 'filesystem.list' },
+          payload: { callId: 'call-1', capability: 'filesystem_list' },
           occurredAt: '2026-09-18T09:00:00.123Z'
         },
         delta: undefined
@@ -657,7 +657,7 @@ describe('PythonSupervisor ~ agent.stream 通知（TASK-033）', () => {
       taskId: 't-1',
       event: {
         type: 'tool_called',
-        payload: { callId: 'call-1', capability: 'filesystem.list' },
+        payload: { callId: 'call-1', capability: 'filesystem_list' },
         occurredAt: '2026-09-18T09:00:00.123Z'
       }
     })

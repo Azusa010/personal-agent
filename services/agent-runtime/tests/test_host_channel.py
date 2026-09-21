@@ -47,7 +47,7 @@ def make_channel(lines, written=None):
 def pdf_params(call_id="tc-9f3a"):
     return HostExecuteToolParams(
         callId=call_id,
-        capability="document.extract_pdf",
+        capability="document_extract_pdf",
         arguments={"path": "D:/Users/demo/Downloads/report-2026.pdf"},
     )
 
@@ -146,7 +146,7 @@ def test_non_matching_request_goes_to_inbox():
     暂存后由主循环回头处理，代价只是延迟。
     """
     ts_request = (
-        '{"jsonrpc": "2.0", "id": "req-7", "method": "filesystem.list",'
+        '{"jsonrpc": "2.0", "id": "req-7", "method": "filesystem_list",'
         ' "params": {"rootId": "downloads"}}'
     )
     ch, _, _ = make_channel([ts_request, OK_CALL_1])
@@ -171,7 +171,7 @@ def test_line_with_method_field_never_treated_as_response():
         [
             (
                 '{"jsonrpc": "2.0", "id": "call-1", "method": "host.execute_tool",'
-                ' "params": {"callId": "tc-1", "capability": "filesystem.list",'
+                ' "params": {"callId": "tc-1", "capability": "filesystem_list",'
                 ' "arguments": {}}}'
             ),
             OK_CALL_1,

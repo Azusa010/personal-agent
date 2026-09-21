@@ -37,7 +37,7 @@ describe('SqlitePlanRepository', () => {
   it('首个版本 version=1，返回完整 record', () => {
     const { plans } = makeRepos()
     const steps: PlanStep[] = [
-      { description: '列出 Downloads 下的 PDF', capability: 'filesystem.list' }
+      { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' }
     ]
 
     const saved = plans.append({ id: 'p-1', taskId: 't-1', steps, createdAt: T })
@@ -90,8 +90,8 @@ describe('SqlitePlanRepository', () => {
   it('steps 走 JSON 往返：中文、可选 capability、空数组都保真', () => {
     const { plans } = makeRepos()
     const steps: PlanStep[] = [
-      { description: '列出下载目录的 PDF', capability: 'filesystem.list' },
-      { description: '提取每个 PDF 的页面文本', capability: 'document.extract_pdf' },
+      { description: '列出下载目录的 PDF', capability: 'filesystem_list' },
+      { description: '提取每个 PDF 的页面文本', capability: 'document_extract_pdf' },
       { description: '汇总成带页码引用的摘要' } // 故意不给 capability
     ]
     plans.append({ id: 'p-1', taskId: 't-1', steps, createdAt: T })

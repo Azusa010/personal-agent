@@ -22,15 +22,15 @@ export function readOnlyScope(taskId: string): TaskScope {
  * 放行）：少一项，计划里那一步就会撞 ACTION_NOT_ALIGNED；多一项，模型就会看见一个
  * 计划里永远用不到的工具。两份表的漂移由 e2e/golden-path.test.ts 的断言盯住。
  *
- * notification.send 不在内：它由 Reminder 到点触发（reminder-timer → fireReminder），
+ * notification_send 不在内：它由 Reminder 到点触发（reminder-timer → fireReminder），
  * 不是模型能自选的动作。放进 Scope 等于让模型有权给任意一条提醒发通知。
  */
 export const AGENT_TASK_CAPABILITIES: readonly CapabilityName[] = [
-  'filesystem.list',
-  'document.extract_pdf',
-  'filesystem.create_dir',
-  'filesystem.move',
-  'scheduler.create'
+  'filesystem_list',
+  'document_extract_pdf',
+  'filesystem_create_dir',
+  'filesystem_move',
+  'scheduler_create'
 ]
 
 export function agentTaskScope(taskId: string): TaskScope {

@@ -44,7 +44,7 @@ function execution(key: string, overrides: Partial<ToolExecutionRecord> = {}): T
     idempotencyKey: key,
     taskId: 't-1',
     toolCallId: `call-${key}`,
-    capability: 'filesystem.move',
+    capability: 'filesystem_move',
     argsHash: `hash-${key}`,
     sourcePaths: ['D:/downloads/a.pdf'],
     targetPath: 'D:/downloads/Reading/a.pdf',
@@ -87,7 +87,7 @@ describe('tool_executions 表结构', () => {
         .prepare(
           `INSERT INTO tool_executions (idempotency_key, task_id, tool_call_id, capability,
             args_hash, source_paths, status, attempted_at)
-           VALUES ('k','t-1','c','filesystem.move','h','[]','expired',?)`
+           VALUES ('k','t-1','c','filesystem_move','h','[]','expired',?)`
         )
         .run(T0)
     ).toThrow(/CHECK/)
@@ -112,7 +112,7 @@ describe('SqliteToolExecutionRepository 读写往返', () => {
 
   it('targetPath 为 null 也能往返（create_dir 之外的能力可能没有 target）', () => {
     const repo = makeRepo()
-    repo.insert(execution('k-1', { capability: 'filesystem.create_dir', targetPath: null }))
+    repo.insert(execution('k-1', { capability: 'filesystem_create_dir', targetPath: null }))
     expect(repo.findByKey('k-1')?.targetPath).toBeNull()
   })
 

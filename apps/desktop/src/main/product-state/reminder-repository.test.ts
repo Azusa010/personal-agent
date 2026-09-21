@@ -50,7 +50,7 @@ function reminder(id: string, overrides: Partial<ReminderRecord> = {}): Reminder
     toolCallId: `call-${id}`,
     remindAt: REMIND_AT,
     message: '该阅读 report-2026.pdf 的摘要了',
-    idempotencyKey: `scheduler.create:hash-${id}`,
+    idempotencyKey: `scheduler_create:hash-${id}`,
     status: 'scheduled',
     createdAt: T0,
     updatedAt: T0,

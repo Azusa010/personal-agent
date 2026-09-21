@@ -11,19 +11,19 @@ function descriptor(name: string, kind: 'READ' | 'WRITE'): CapabilityDescriptor 
 
 describe('assessRisk：两档判定', () => {
   it('READ -> NONE', () => {
-    expect(assessRisk(descriptor('filesystem.list', 'READ')).level).toBe('NONE')
+    expect(assessRisk(descriptor('filesystem_list', 'READ')).level).toBe('NONE')
   })
 
   it('WRITE -> PERMISSION_REQUIRED', () => {
-    expect(assessRisk(descriptor('filesystem.move', 'WRITE')).level).toBe('PERMISSION_REQUIRED')
+    expect(assessRisk(descriptor('filesystem_move', 'WRITE')).level).toBe('PERMISSION_REQUIRED')
   })
 
   it('reason 带能力名：它是 timeline 上唯一能看懂「为什么被拦」的字段', () => {
-    const read = assessRisk(descriptor('filesystem.list', 'READ'))
-    const write = assessRisk(descriptor('filesystem.move', 'WRITE'))
+    const read = assessRisk(descriptor('filesystem_list', 'READ'))
+    const write = assessRisk(descriptor('filesystem_move', 'WRITE'))
 
-    expect(read.reason).toContain('filesystem.list')
-    expect(write.reason).toContain('filesystem.move')
+    expect(read.reason).toContain('filesystem_list')
+    expect(write.reason).toContain('filesystem_move')
     // 两档的 reason 必须能区分开。都写「无风险」的话，事后看日志
     // 分不清是判成了 READ 还是压根没判。
     expect(write.reason).not.toBe(read.reason)
@@ -51,15 +51,15 @@ describe('assessRisk：与 registry 对账', () => {
     // 钉数量是为了让「有人悄悄把一个 WRITE 改成 READ」这件事变红。
     // 改成 READ 就绕过了 Permission，而 Phase 2 的整个 Exit Gate 建立在它之上。
     expect(listByKind('READ').map((c) => c.name)).toEqual([
-      'filesystem.list',
-      'document.extract_pdf'
+      'filesystem_list',
+      'document_extract_pdf'
     ])
     expect(listByKind('WRITE').map((c) => c.name)).toEqual([
-      'filesystem.create_dir',
-      'filesystem.move',
-      'scheduler.create',
-      'notification.send',
-      'terminal.execute'
+      'filesystem_create_dir',
+      'filesystem_move',
+      'scheduler_create',
+      'notification_send',
+      'terminal_execute'
     ])
   })
 })

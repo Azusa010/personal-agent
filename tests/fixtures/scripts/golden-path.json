@@ -2,28 +2,28 @@
   {
     "kind": "tool_call",
     "callId": "c-1",
-    "capability": "filesystem.list",
+    "capability": "filesystem_list",
     "arguments": { "rootId": "downloads" },
     "thinking": "先列出 Downloads 里有哪些 PDF，再决定整理哪一份。"
   },
   {
     "kind": "tool_call",
     "callId": "c-2",
-    "capability": "document.extract_pdf",
+    "capability": "document_extract_pdf",
     "arguments": { "path": "{{DOWNLOADS_ROOT}}/three-page-text.pdf" },
     "thinking": "挑中了 three-page-text.pdf，先把每页文本提出来——后面写摘要要用真实页码。"
   },
   {
     "kind": "tool_call",
     "callId": "c-3",
-    "capability": "filesystem.create_dir",
+    "capability": "filesystem_create_dir",
     "arguments": { "path": "{{DOWNLOADS_ROOT}}/Reading" },
     "thinking": "建一个 Reading 目录当归档目标；这一步会让用户看到批准面板。"
   },
   {
     "kind": "tool_call",
     "callId": "c-4",
-    "capability": "filesystem.move",
+    "capability": "filesystem_move",
     "arguments": {
       "source": "{{DOWNLOADS_ROOT}}/three-page-text.pdf",
       "target": "{{DOWNLOADS_ROOT}}/Reading/three-page-text.pdf"
@@ -33,7 +33,7 @@
   {
     "kind": "tool_call",
     "callId": "c-5",
-    "capability": "scheduler.create",
+    "capability": "scheduler_create",
     "arguments": {
       "remindAt": "{{REMIND_AT}}",
       "message": "读一份刚整理好的 PDF：three-page-text.pdf"

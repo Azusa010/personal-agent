@@ -5,17 +5,17 @@ export const HOST_EXECUTE_TOOL = "host.execute_tool";
 export const HOST_CALL_ID_PATTERN = /^call-[0-9]+$/;
 
 export const CapabilityId = z.enum([
-  "filesystem.list",
-  "document.extract_pdf",
-  "filesystem.create_dir",
-  "filesystem.move",
-  "scheduler.create",
-  "notification.send",
-  "terminal.execute",
+  "filesystem_list",
+  "document_extract_pdf",
+  "filesystem_create_dir",
+  "filesystem_move",
+  "scheduler_create",
+  "notification_send",
+  "terminal_execute",
 ]);
-export const EXTRACT_PDF_CAPABILITY = CapabilityId.enum["document.extract_pdf"];
+export const EXTRACT_PDF_CAPABILITY = CapabilityId.enum["document_extract_pdf"];
 export const TERMINAL_EXECUTE_CAPABILITY =
-  CapabilityId.enum["terminal.execute"];
+  CapabilityId.enum["terminal_execute"];
 
 export type CapabilityId = z.infer<typeof CapabilityId>;
 

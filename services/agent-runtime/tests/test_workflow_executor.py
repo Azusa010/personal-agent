@@ -45,13 +45,13 @@ def test_workflow_executor_golden_run():
     # 模拟两步工作流：列出目录 -> 提取第一个文件
     step1 = WorkflowStep(
         id="list",
-        capability="filesystem.list",
+        capability="filesystem_list",
         description="列出文件",
         resolve_args=lambda s: {"rootId": s.inputs["rootId"]},
     )
     step2 = WorkflowStep(
         id="extract",
-        capability="document.extract_pdf",
+        capability="document_extract_pdf",
         description="提取内容",
         resolve_args=lambda s: {"path": s.get_result("list")["entries"][0]["path"]},
     )
@@ -113,13 +113,13 @@ def test_workflow_executor_golden_run():
 def test_workflow_executor_stops_on_step_failure():
     step1 = WorkflowStep(
         id="step1",
-        capability="filesystem.create_dir",
+        capability="filesystem_create_dir",
         description="创建目录",
         resolve_args=lambda s: {"path": "/bad/path"},
     )
     step2 = WorkflowStep(
         id="step2",
-        capability="filesystem.move",
+        capability="filesystem_move",
         description="移动文件",
         resolve_args=lambda s: {},
     )
@@ -161,13 +161,13 @@ def test_workflow_executor_stops_on_step_failure():
 def test_workflow_executor_budget_exhaustion():
     step1 = WorkflowStep(
         id="s1",
-        capability="filesystem.list",
+        capability="filesystem_list",
         description="s1",
         resolve_args=lambda s: {},
     )
     step2 = WorkflowStep(
         id="s2",
-        capability="filesystem.list",
+        capability="filesystem_list",
         description="s2",
         resolve_args=lambda s: {},
     )
@@ -193,7 +193,7 @@ def test_workflow_executor_budget_exhaustion():
 def test_workflow_executor_channel_closed():
     step1 = WorkflowStep(
         id="s1",
-        capability="filesystem.list",
+        capability="filesystem_list",
         description="s1",
         resolve_args=lambda s: {},
     )

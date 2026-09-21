@@ -56,10 +56,10 @@ export interface ExecutorIdempotencyWiring {
   readonly now?: () => string
 }
 
-/** Reminder 存储的集成。不传时 scheduler.create 回 NOT_IMPLEMENTED——
+/** Reminder 存储的集成。不传时 scheduler_create 回 NOT_IMPLEMENTED——
  *  宁可明说没接线，也不半创建状态。db 只用来把 insert 与事件包进同一事务
- *  - notifications：notification.send 的通知端口，不传时该能力回 NOT_IMPLEMENTED；
- *  - armTimer：scheduler.create 新建成功后挂触发定时器的钩子
+ *  - notifications：notification_send 的通知端口，不传时该能力回 NOT_IMPLEMENTED；
+ *  - armTimer：scheduler_create 新建成功后挂触发定时器的钩子
  */
 export interface ExecutorSchedulerWiring {
   readonly db: SqliteDatabase
@@ -94,7 +94,7 @@ export function createExecutor(
     }
     const call = decision.call
     // 没接幂等 store，或不是 WRITE 能力（只读无副作用）→ 直接执行，维持原行为。
-    // scheduler.create 虽是 WRITE 但不进这道关：它的副作用是库内一行而不是
+    // scheduler_create 虽是 WRITE 但不进这道关：它的副作用是库内一行而不是
     // 文件系统，reminders.task_id UNIQUE + 执行体内按 idempotencyKey 比对已经
     // 覆盖了「同参重试幂等返回、异参拒绝」，没有需要 recovery resolver 复查的中间态。
     if (idempotency === undefined || !isWriteCapability(call.capability.name)) {
@@ -124,19 +124,19 @@ async function runCapability(
   scheduler?: ExecutorSchedulerWiring
 ): Promise<CapabilityOutcome> {
   switch (call.capability.name) {
-    case 'filesystem.list':
+    case 'filesystem_list':
       return runFilesystemList(call)
-    case 'document.extract_pdf':
+    case 'document_extract_pdf':
       return runExtractPdf(call)
-    case 'filesystem.create_dir':
+    case 'filesystem_create_dir':
       return runCreateDir(call)
-    case 'filesystem.move':
+    case 'filesystem_move':
       return runMove(call)
-    case 'scheduler.create':
+    case 'scheduler_create':
       return runSchedulerCreate(call, scheduler)
-    case 'notification.send':
+    case 'notification_send':
       return runNotificationSend(call, scheduler)
-    case 'terminal.execute':
+    case 'terminal_execute':
       return runTerminalExecute(call)
     default:
       // BINDERS 与这个 switch 是两张必须同步的表。加了 binder 忘了执行体，
@@ -195,7 +195,7 @@ async function runMove(call: AuthorizedCall): Promise<CapabilityOutcome> {
   }
 }
 
-/** scheduler.create：在 reminders 表落一条 scheduled 记录，与 reminder_created
+/** scheduler_create：在 reminders 表落一条 scheduled 记录，与 reminder_created
  *  事件同事务提交。
  *
  *  「同一 Task 不创建重复 Reminder」的判定顺序：
@@ -209,7 +209,7 @@ function runSchedulerCreate(
   scheduler: ExecutorSchedulerWiring | undefined
 ): CapabilityOutcome {
   if (scheduler === undefined) {
-    return fail(ERROR_CODE.NOT_IMPLEMENTED, 'scheduler.create 没有接线 Reminder 存储')
+    return fail(ERROR_CODE.NOT_IMPLEMENTED, 'scheduler_create 没有接线 Reminder 存储')
   }
   // binder 已把 remindAt 规范化成 UTC ISO、message 校验过非空，这里直接用。
   const remindAt = String(call.bound.args['remindAt'])
@@ -289,7 +289,7 @@ async function runNotificationSend(
   scheduler: ExecutorSchedulerWiring | undefined
 ): Promise<CapabilityOutcome> {
   if (scheduler?.notifications === undefined) {
-    return fail(ERROR_CODE.NOT_IMPLEMENTED, 'notification.send 没有接线通知端口')
+    return fail(ERROR_CODE.NOT_IMPLEMENTED, 'notification_send 没有接线通知端口')
   }
   // binder 已校验 reminderId 非空，这里直接用。
   const reminderId = String(call.bound.args['reminderId'])

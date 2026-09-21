@@ -95,7 +95,7 @@ describe('canonicalize：转义', () => {
 })
 
 describe('canonicalize：贴近真实参数的综合用例', () => {
-  it('filesystem.move 的两个规范化路径', () => {
+  it('filesystem_move 的两个规范化路径', () => {
     const bound = {
       target: 'D:/downloads/Reading/a.pdf',
       source: 'D:/downloads/a.pdf'
@@ -105,7 +105,7 @@ describe('canonicalize：贴近真实参数的综合用例', () => {
     )
   })
 
-  it('filesystem.list 只有一个枚举字段', () => {
+  it('filesystem_list 只有一个枚举字段', () => {
     expect(canonicalize({ rootId: 'downloads' })).toBe('{"rootId":"downloads"}')
   })
 })

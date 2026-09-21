@@ -10,7 +10,7 @@ function record(status: PermissionRecord['status'], expiresAt = EXPIRES): Permis
     id: 'p-1',
     taskId: 't-1',
     toolCallId: 'call-1',
-    capability: 'filesystem.move',
+    capability: 'filesystem_move',
     argsCanonical: '{}',
     argsHash: 'h',
     status,

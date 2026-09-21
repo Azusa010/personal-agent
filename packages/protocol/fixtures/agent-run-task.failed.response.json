@@ -7,7 +7,7 @@
     "events": [
       {
         "type": "tool_called",
-        "payload": { "capability": "document.extract_pdf", "callId": "call-3" },
+        "payload": { "capability": "document_extract_pdf", "callId": "call-3" },
         "occurredAt": "2026-09-11T10:00:02.010Z"
       },
       {

@@ -154,7 +154,7 @@ function seedReminder(overrides: Partial<ReminderRecord> = {}): ReminderRecord {
     toolCallId: 'tc-r-1',
     remindAt: DUE,
     message: MESSAGE,
-    idempotencyKey: 'scheduler.create:hash-r-1',
+    idempotencyKey: 'scheduler_create:hash-r-1',
     status: 'scheduled',
     createdAt: T0,
     updatedAt: T0,
@@ -349,7 +349,7 @@ describe('启动恢复：重启测试 10/10', () => {
     for (let cycle = 0; cycle < 10; cycle++) {
       const taskId = `t-c${cycle}`
       const reminderId = `r-c${cycle}`
-      // ── 进程内：创建一条 Reminder（这里等价于 scheduler.create 落库）──
+      // ── 进程内：创建一条 Reminder（这里等价于 scheduler_create 落库）──
       seedTask(taskId)
       const remindAt = new Date(clockMs + CYCLE_LEAD_MS).toISOString()
       seedReminder({ id: reminderId, taskId, remindAt, toolCallId: `tc-${reminderId}` })

@@ -21,12 +21,12 @@ def test_discriminated_union_parses_tool_call():
         {
             "kind": "tool_call",
             "callId": "c-1",
-            "capability": "filesystem.list",
+            "capability": "filesystem_list",
             "arguments": {"rootId": "downloads"},
         }
     )
     assert isinstance(d, ToolCallDecision)
-    assert d.capability == "filesystem.list"
+    assert d.capability == "filesystem_list"
     assert d.arguments == {"rootId": "downloads"}
 
 
@@ -48,7 +48,7 @@ def test_missing_kind_is_rejected():
     discriminator 会把报错精确指向 kind 缺失。
     """
     with pytest.raises(ValidationError):
-        adapter.validate_python({"callId": "c-1", "capability": "filesystem.list"})
+        adapter.validate_python({"callId": "c-1", "capability": "filesystem_list"})
 
 
 def test_tool_call_rejects_empty_capability():
@@ -64,7 +64,7 @@ def test_tool_call_rejects_empty_capability():
 def test_tool_call_rejects_empty_call_id():
     with pytest.raises(ValidationError):
         adapter.validate_python(
-            {"kind": "tool_call", "callId": "", "capability": "filesystem.list"}
+            {"kind": "tool_call", "callId": "", "capability": "filesystem_list"}
         )
 
 
@@ -90,7 +90,7 @@ def test_model_context_accepts_observations_from_dicts():
         observations=[
             {
                 "callId": "call-1",
-                "capability": "filesystem.list",
+                "capability": "filesystem_list",
                 "ok": True,
                 "payload": {"entries": []},
             }
@@ -106,7 +106,7 @@ def test_observation_rejects_empty_call_id():
     空着的话两条观察就分不清谁是谁，模型会把 A 工具的结果当 B 工具的读。
     """
     with pytest.raises(ValidationError):
-        Observation(callId="", capability="filesystem.list", ok=True)
+        Observation(callId="", capability="filesystem_list", ok=True)
 
 
 def test_observation_rejects_empty_capability():
@@ -121,11 +121,11 @@ def test_observation_ok_is_required():
     模型会换路子重试一个其实已经成功的调用 —— 而这一切不报错。
     """
     with pytest.raises(ValidationError):
-        Observation(callId="call-1", capability="filesystem.list")
+        Observation(callId="call-1", capability="filesystem_list")
 
 
 def test_observation_payload_defaults_to_empty_dict():
-    o = Observation(callId="call-1", capability="filesystem.list", ok=True)
+    o = Observation(callId="call-1", capability="filesystem_list", ok=True)
     assert o.payload == {}
 
 

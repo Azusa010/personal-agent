@@ -48,16 +48,16 @@ export type RecoveryVerdict =
 /** 按能力把恢复判定分发到各自的文件系统检查 */
 export async function resolveExecution(record: ToolExecutionRecord): Promise<RecoveryVerdict> {
   switch (record.capability) {
-    case 'filesystem.move':
+    case 'filesystem_move':
       return resolveMove(record)
-    case 'filesystem.create_dir':
+    case 'filesystem_create_dir':
       return resolveCreateDir(record)
     default:
       return { kind: 'unknown', reason: `没有崩溃恢复判定的能力: ${record.capability}` }
   }
 }
 
-/** filesystem.move 的崩溃恢复判定 */
+/** filesystem_move 的崩溃恢复判定 */
 async function resolveMove(record: ToolExecutionRecord): Promise<RecoveryVerdict> {
   if (record.sourcePaths.length === 0 || record.targetPath === null) {
     return { kind: 'unknown', reason: '数据异常：sourcePaths 为空或 targetPath 为 null' }
@@ -76,7 +76,7 @@ async function resolveMove(record: ToolExecutionRecord): Promise<RecoveryVerdict
   return { kind: 'not-done' }
 }
 
-/** filesystem.create_dir 的崩溃恢复判定。*/
+/** filesystem_create_dir 的崩溃恢复判定。*/
 async function resolveCreateDir(record: ToolExecutionRecord): Promise<RecoveryVerdict> {
   if (record.targetPath === null) {
     return { kind: 'unknown', reason: '数据异常：targetPath 为 null' }
@@ -111,8 +111,8 @@ export type BeforeDecision =
 
 /** 会产生文件系统副作用、需要幂等保护的能力。只读能力（list/extract_pdf）不在内。 */
 const WRITE_CAPABILITIES: ReadonlySet<string> = new Set([
-  'filesystem.move',
-  'filesystem.create_dir'
+  'filesystem_move',
+  'filesystem_create_dir'
 ])
 
 export function isWriteCapability(name: string): boolean {
@@ -127,9 +127,9 @@ function extractSideEffects(
   bound: BoundArgs
 ): { sourcePaths: string[]; targetPath: string | null } {
   switch (capability) {
-    case 'filesystem.move':
+    case 'filesystem_move':
       return { sourcePaths: [bound.paths['source']], targetPath: bound.paths['target'] }
-    case 'filesystem.create_dir':
+    case 'filesystem_create_dir':
       return { sourcePaths: [], targetPath: bound.paths['path'] }
     default:
       return { sourcePaths: [], targetPath: null }

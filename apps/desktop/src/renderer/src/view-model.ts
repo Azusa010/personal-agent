@@ -276,18 +276,18 @@ export function summarizePayload(type: string, payload: unknown): string {
   }
 }
 
-// ---- 五点五、scheduler.create 的时间预览 ----
+// ---- 五点五、scheduler_create 的时间预览 ----
 
 /** 批准面板的时间预览数据源：从 argsCanonical 解析出规范化参数。
  *
- *  只对 scheduler.create 生效；argsCanonical 不是合法 JSON 或缺 remindAt 时
+ *  只对 scheduler_create 生效；argsCanonical 不是合法 JSON 或缺 remindAt 时
  *  返回 null，Dialog 退回通用展示（参数摘要行仍会原样展示 argsCanonical）。
  *  message 单独判：缺了它时间预览仍然有意义。 */
 export function describeReminderPreview(permission: {
   capability: string
   argsCanonical: string
 }): { remindAt: string; message: string | null } | null {
-  if (permission.capability !== 'scheduler.create') return null
+  if (permission.capability !== 'scheduler_create') return null
   try {
     const args = JSON.parse(permission.argsCanonical) as Record<string, unknown>
     const remindAt = str(args['remindAt'])

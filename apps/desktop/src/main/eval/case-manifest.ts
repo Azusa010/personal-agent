@@ -89,7 +89,7 @@ export const EvalCase = z
      * 落盘——「最近改过的那份」这类目标因此是确定的，最后一份最新。
      */
     pdfs: z.array(EvalCasePdf).min(1),
-    /** 混在目录里的非 PDF 文件：filesystem.list 只列 PDF，这些是选择干扰项 */
+    /** 混在目录里的非 PDF 文件：filesystem_list 只列 PDF，这些是选择干扰项 */
     extraFiles: z.array(EvalExtraFile).default([]),
     /** 期望被提取的那份 PDF。null 只在目录里只有一份 PDF 时合法 */
     target: z.string().min(1).nullable().default(null),

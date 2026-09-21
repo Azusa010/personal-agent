@@ -57,16 +57,16 @@ def test_dispatch_run_workflow_golden_path_success():
     )
 
     capabilities = [
-        CapabilityDescriptor(name="filesystem.list", kind="READ", description="list"),
+        CapabilityDescriptor(name="filesystem_list", kind="READ", description="list"),
         CapabilityDescriptor(
-            name="document.extract_pdf", kind="READ", description="extract"
+            name="document_extract_pdf", kind="READ", description="extract"
         ),
         CapabilityDescriptor(
-            name="filesystem.create_dir", kind="WRITE", description="create"
+            name="filesystem_create_dir", kind="WRITE", description="create"
         ),
-        CapabilityDescriptor(name="filesystem.move", kind="WRITE", description="move"),
+        CapabilityDescriptor(name="filesystem_move", kind="WRITE", description="move"),
         CapabilityDescriptor(
-            name="scheduler.create", kind="WRITE", description="reminder"
+            name="scheduler_create", kind="WRITE", description="reminder"
         ),
     ]
 

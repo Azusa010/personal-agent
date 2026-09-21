@@ -42,8 +42,8 @@ export const LIVE_MODEL_ENV = 'OPENAI_MODEL'
 export const DOWNLOADS_ENV = ROOT_ENV['downloads'] ?? 'PERSONAL_AGENT_DOWNLOADS_DIR'
 
 /** 目标 PDF 该被提取的那一步：与 Python planning.py 的三步计划前两步对齐 */
-const LIST_CAPABILITY = 'filesystem.list'
-const EXTRACT_CAPABILITY = 'document.extract_pdf'
+const LIST_CAPABILITY = 'filesystem_list'
+const EXTRACT_CAPABILITY = 'document_extract_pdf'
 
 export interface EvalRuntime {
   /** venv 里的 python.exe */

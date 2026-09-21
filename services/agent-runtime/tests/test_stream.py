@@ -38,7 +38,7 @@ from personal_agent.stream import (
 
 TASK_ID = "t-1"
 OCCURRED_AT = "2026-09-18T09:00:00.123Z"
-VISIBLE = ["filesystem.list"]
+VISIBLE = ["filesystem_list"]
 
 
 def make_event(
@@ -52,7 +52,7 @@ def make_event(
 
 
 def a_plan() -> list[PlanStepDto]:
-    return [PlanStepDto(description="列出 Downloads 下的 PDF", capability="filesystem.list")]
+    return [PlanStepDto(description="列出 Downloads 下的 PDF", capability="filesystem_list")]
 
 
 class RecordingChannel:
@@ -190,7 +190,7 @@ def test_scripted_model_forwards_thinking_in_chunks() -> None:
             ToolCallDecision(
                 kind="tool_call",
                 callId="c-1",
-                capability="filesystem.list",
+                capability="filesystem_list",
                 arguments={"rootId": "downloads"},
                 thinking=text,
             )
@@ -215,7 +215,7 @@ def test_scripted_model_without_thinking_emits_nothing() -> None:
             ToolCallDecision(
                 kind="tool_call",
                 callId="c-1",
-                capability="filesystem.list",
+                capability="filesystem_list",
                 arguments={"rootId": "downloads"},
             )
         ],
@@ -249,7 +249,7 @@ def test_engine_forwards_every_event_except_model_usage() -> None:
             ToolCallDecision(
                 kind="tool_call",
                 callId="c-1",
-                capability="filesystem.list",
+                capability="filesystem_list",
                 arguments={"rootId": "downloads"},
             ),
             SummaryDecision(kind="summary", reply="整理完了。", facts=[]),
@@ -272,7 +272,7 @@ def test_engine_interleaves_thinking_before_its_decision() -> None:
             ToolCallDecision(
                 kind="tool_call",
                 callId="c-1",
-                capability="filesystem.list",
+                capability="filesystem_list",
                 arguments={"rootId": "downloads"},
                 thinking="先列目录",
             ),

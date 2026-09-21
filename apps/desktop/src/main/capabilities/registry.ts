@@ -8,37 +8,37 @@ export type { CapabilityDescriptor, CapabilityKind }
 
 export const CAPABILITIES = [
   {
-    name: 'filesystem.list',
+    name: 'filesystem_list',
     kind: 'READ',
     description: '列出授权根目录下的条目'
   },
   {
-    name: 'document.extract_pdf',
+    name: 'document_extract_pdf',
     kind: 'READ',
     description: '提取 PDF 每页文本与页码'
   },
   {
-    name: 'filesystem.create_dir',
+    name: 'filesystem_create_dir',
     kind: 'WRITE',
     description: '在授权根目录下创建子目录'
   },
   {
-    name: 'filesystem.move',
+    name: 'filesystem_move',
     kind: 'WRITE',
     description: '在授权根目录内移动文件'
   },
   {
-    name: 'scheduler.create',
+    name: 'scheduler_create',
     kind: 'WRITE',
     description: '创建 Reminder'
   },
   {
-    name: 'notification.send',
+    name: 'notification_send',
     kind: 'WRITE',
     description: '发送系统通知'
   },
   {
-    name: 'terminal.execute',
+    name: 'terminal_execute',
     kind: 'WRITE',
     description: '在安全工作目录下执行终端命令行'
   }

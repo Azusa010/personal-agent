@@ -79,7 +79,7 @@ describe('collectObservation：从库里取事实', () => {
       type: 'tool_called',
       payload: {
         callId: 'call-1',
-        capability: 'filesystem.list',
+        capability: 'filesystem_list',
         arguments: { rootId: 'downloads' }
       },
       occurredAt: AT
@@ -87,7 +87,7 @@ describe('collectObservation：从库里取事实', () => {
     events.append({
       taskId: TASK_ID,
       type: 'tool_result',
-      payload: { callId: 'call-1', capability: 'filesystem.list', ok: true },
+      payload: { callId: 'call-1', capability: 'filesystem_list', ok: true },
       occurredAt: AT
     })
     events.append({
@@ -95,7 +95,7 @@ describe('collectObservation：从库里取事实', () => {
       type: 'tool_called',
       payload: {
         callId: 'call-2',
-        capability: 'document.extract_pdf',
+        capability: 'document_extract_pdf',
         arguments: { path: TARGET }
       },
       occurredAt: AT
@@ -103,7 +103,7 @@ describe('collectObservation：从库里取事实', () => {
     events.append({
       taskId: TASK_ID,
       type: 'tool_result',
-      payload: { callId: 'call-2', capability: 'document.extract_pdf', ok: false },
+      payload: { callId: 'call-2', capability: 'document_extract_pdf', ok: false },
       occurredAt: AT
     })
     events.append({
@@ -129,8 +129,8 @@ describe('collectObservation：从库里取事实', () => {
     expect(collected.observation.status).toBe('completed')
     expect(collected.observation.facts).toEqual([{ text: '总额 4800', pageRefs: [1] }])
     expect(collected.observation.toolCalls.map((c) => c.capability)).toEqual([
-      'filesystem.list',
-      'document.extract_pdf'
+      'filesystem_list',
+      'document_extract_pdf'
     ])
     expect(collected.observation.extractedPaths).toEqual([TARGET])
     expect(collected.observation.failedToolCalls).toBe(1)

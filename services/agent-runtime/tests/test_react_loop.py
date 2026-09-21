@@ -23,7 +23,7 @@ from personal_agent.protocol.models import (
 from personal_agent.react_loop import ReActLoop, ReActOutcome
 from personal_agent.scripted_model import ScriptedModel
 
-VISIBLE = ["filesystem.list", "document.extract_pdf"]
+VISIBLE = ["filesystem_list", "document_extract_pdf"]
 
 
 class FakeChannel:
@@ -74,7 +74,7 @@ def test_react_loop_completes_with_summary():
         ToolCallDecision(
             kind="tool_call",
             callId="call-1",
-            capability="filesystem.list",
+            capability="filesystem_list",
             arguments={"rootId": "downloads"},
         ),
         SummaryDecision(
@@ -101,7 +101,7 @@ def test_react_loop_stops_on_step_complete_when_configured():
         ToolCallDecision(
             kind="tool_call",
             callId="call-1",
-            capability="filesystem.list",
+            capability="filesystem_list",
             arguments={"rootId": "downloads"},
         ),
         StepCompleteDecision(
@@ -126,7 +126,7 @@ def test_react_loop_triggers_budget_exhaustion():
         ToolCallDecision(
             kind="tool_call",
             callId=f"call-{i}",
-            capability="filesystem.list",
+            capability="filesystem_list",
             arguments={"rootId": "downloads"},
         )
         for i in range(10)

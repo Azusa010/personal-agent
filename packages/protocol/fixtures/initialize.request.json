@@ -6,12 +6,12 @@
     "protocolVersion": "0.1",
     "capabilities": [
       {
-        "name": "filesystem.list",
+        "name": "filesystem_list",
         "kind": "READ",
         "description": "列出授权根目录下的条目"
       },
       {
-        "name": "document.extract_pdf",
+        "name": "document_extract_pdf",
         "kind": "READ",
         "description": "提取 PDF 每页文本与页码"
       }

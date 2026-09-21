@@ -1,5 +1,5 @@
 /**
- * scheduler.create 执行体集成测试（TASK-023）。
+ * scheduler_create 执行体集成测试（TASK-023）。
  *
  * 与 security-matrix.test.ts 的分工：那边用真 broker 验证 fs WRITE 的 Permission
  * 六步与幂等关；这里聚焦 Reminder 存储链路——接线、同事务事件、同参幂等返回、
@@ -38,7 +38,7 @@ const MESSAGE = '该阅读 report-2026.pdf 的摘要了'
 
 const SCHEDULER_SCOPE: TaskScope = {
   taskId: TASK_ID,
-  capabilities: ['scheduler.create']
+  capabilities: ['scheduler_create']
 }
 
 let db: SqliteDatabase
@@ -104,14 +104,14 @@ function makeRun(
 }
 
 function params(callId: string, args: Record<string, unknown>): HostExecuteToolParams {
-  return { callId, capability: 'scheduler.create', arguments: args }
+  return { callId, capability: 'scheduler_create', arguments: args }
 }
 
 function reminderEvents(): ExecutionEventRecord[] {
   return eventRepo.listByTask(TASK_ID).filter((e) => e.type === REMINDER_CREATED_EVENT)
 }
 
-describe('scheduler.create：批准后创建', () => {
+describe('scheduler_create：批准后创建', () => {
   it('批准 → 落库 scheduled，结果带 reminderId/remindAt/status/created:true', async () => {
     const run = makeRun('approved')
     const out = await run(params('tc-r1', { remindAt: REMIND_AT, message: MESSAGE }))
@@ -147,13 +147,13 @@ describe('scheduler.create：批准后创建', () => {
     expect(reminderRepo.findByTaskId(TASK_ID)?.remindAt).toBe(REMIND_AT)
   })
 
-  it('idempotencyKey 用统一公式 scheduler.create:{argsHash}，重试可命中', async () => {
+  it('idempotencyKey 用统一公式 scheduler_create:{argsHash}，重试可命中', async () => {
     const run = makeRun('approved')
     await run(params('tc-r3', { remindAt: REMIND_AT, message: MESSAGE }))
 
     const bound: BoundArgs = { args: { remindAt: REMIND_AT, message: MESSAGE }, paths: {} }
     expect(reminderRepo.findByTaskId(TASK_ID)?.idempotencyKey).toBe(
-      idempotencyKey(TASK_ID, 'scheduler.create', bound)
+      idempotencyKey(TASK_ID, 'scheduler_create', bound)
     )
   })
 
@@ -190,7 +190,7 @@ describe('scheduler.create：批准后创建', () => {
   })
 
   it('不进 tool_executions：Reminder 的幂等靠 task_id UNIQUE，不靠 fs 幂等关', async () => {
-    // 设计决策的钉子：即使接了幂等 wiring，scheduler.create 也不登记执行记录。
+    // 设计决策的钉子：即使接了幂等 wiring，scheduler_create 也不登记执行记录。
     // 它的副作用是库内一行，insert 原子完成，没有需要 recovery resolver 复查的中间态。
     const run = makeRun('approved', { withIdempotency: true })
     const out = await run(params('tc-r6', { remindAt: REMIND_AT, message: MESSAGE }))
@@ -200,7 +200,7 @@ describe('scheduler.create：批准后创建', () => {
   })
 })
 
-describe('scheduler.create：拒绝即零副作用', () => {
+describe('scheduler_create：拒绝即零副作用', () => {
   it('Deny → PERMISSION_DENIED，reminders 表为空，事件不落', async () => {
     const run = makeRun('denied')
     const out = await run(params('tc-d1', { remindAt: REMIND_AT, message: MESSAGE }))
@@ -230,7 +230,7 @@ describe('scheduler.create：拒绝即零副作用', () => {
   })
 })
 
-describe('scheduler.create：同一 Task 不创建重复 Reminder', () => {
+describe('scheduler_create：同一 Task 不创建重复 Reminder', () => {
   it('同参重试（新 callId）→ created:false 幂等返回同一条，库里仍只有一条', async () => {
     const run = makeRun('approved')
     const first = await run(params('tc-p1', { remindAt: REMIND_AT, message: MESSAGE }))
@@ -297,7 +297,7 @@ describe('scheduler.create：同一 Task 不创建重复 Reminder', () => {
       createdAt: T0,
       updatedAt: T0
     })
-    const otherScope: TaskScope = { taskId: 'task-other', capabilities: ['scheduler.create'] }
+    const otherScope: TaskScope = { taskId: 'task-other', capabilities: ['scheduler_create'] }
     const otherRun = createExecutor(
       otherScope,
       UI_ORIGIN,

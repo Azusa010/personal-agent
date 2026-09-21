@@ -19,7 +19,7 @@ from personal_agent.model_gateway import Observation
 from personal_agent.protocol.models import PlanStepDto, Turn
 
 
-def obs(call_id="call-1", capability="document.extract_pdf", ok=True, payload=None):
+def obs(call_id="call-1", capability="document_extract_pdf", ok=True, payload=None):
     return Observation(
         callId=call_id,
         capability=capability,
@@ -29,7 +29,7 @@ def obs(call_id="call-1", capability="document.extract_pdf", ok=True, payload=No
 
 
 def pages(*texts):
-    """document.extract_pdf 的 payload 形状。
+    """document_extract_pdf 的 payload 形状。
 
     ok 不在这里：engine 会把它提成 Observation.ok，payload 只装数据。
     """
@@ -94,7 +94,7 @@ def test_truncate_leaves_identifier_fields_alone():
     # code / name / absolutePath 是模型下一步要原样回传的标识符。
     # 截断 PATH_OUT_OF_ROOT 会变成 PATH_OUT_O…[truncated]，模型认不出这是
     # 哪个错误码，GUD-005 的「稳定 error code」也就不成立。
-    # absolutePath 更直接：Golden Path 第二步要拿它当 document.extract_pdf
+    # absolutePath 更直接：Golden Path 第二步要拿它当 document_extract_pdf
     # 的 path，截断过的路径必然打不开文件。
     src = {
         "code": "PATH_OUT_OF_ROOT",
@@ -154,13 +154,13 @@ def test_limit_is_configurable_per_instance():
 
 def test_record_keeps_order():
     m = ContextManager()
-    m.record(obs("call-1", "filesystem.list", payload={"entries": []}))
-    m.record(obs("call-2", "document.extract_pdf", payload=pages("x")))
+    m.record(obs("call-1", "filesystem_list", payload={"entries": []}))
+    m.record(obs("call-2", "document_extract_pdf", payload=pages("x")))
 
     assert [o.callId for o in m.observations] == ["call-1", "call-2"]
     assert [o.capability for o in m.observations] == [
-        "filesystem.list",
-        "document.extract_pdf",
+        "filesystem_list",
+        "document_extract_pdf",
     ]
 
 
@@ -189,11 +189,11 @@ def test_observations_is_readonly_snapshot():
 def test_build_passes_goal_and_capabilities_through():
     m = ContextManager()
     ctx = m.build(
-        "整理 Downloads 里的 PDF", ["filesystem.list", "document.extract_pdf"]
+        "整理 Downloads 里的 PDF", ["filesystem_list", "document_extract_pdf"]
     )
 
     assert ctx.taskGoal == "整理 Downloads 里的 PDF"
-    assert ctx.visibleCapabilities == ["filesystem.list", "document.extract_pdf"]
+    assert ctx.visibleCapabilities == ["filesystem_list", "document_extract_pdf"]
 
 
 def test_build_with_empty_history():
@@ -230,7 +230,7 @@ def test_build_preserves_call_id_capability_and_ok():
     m.record(
         obs(
             "call-7",
-            "filesystem.list",
+            "filesystem_list",
             ok=False,
             payload={"code": "PATH_OUT_OF_ROOT", "reason": "r" * 100},
         )
@@ -239,7 +239,7 @@ def test_build_preserves_call_id_capability_and_ok():
     got = m.build("g", []).observations[0]
     assert (got.callId, got.capability, got.ok) == (
         "call-7",
-        "filesystem.list",
+        "filesystem_list",
         False,
     )
     assert got.payload["code"] == "PATH_OUT_OF_ROOT"
@@ -273,11 +273,11 @@ def test_build_carries_the_plan_into_the_context():
     # 计划是任务级常量，跟 observations 一样归这个容器管：Main 随 run_task
     # 带回来的计划要原样走到 ModelContext.plan，模型才知道这一轮要做哪几步。
     plan = [
-        PlanStepDto(description="列出 Downloads 下的 PDF", capability="filesystem.list"),
+        PlanStepDto(description="列出 Downloads 下的 PDF", capability="filesystem_list"),
         PlanStepDto(description="基于页面内容生成带页码引用的摘要"),
     ]
 
-    ctx = ContextManager(plan=plan).build("整理 Downloads 里的 PDF", ["filesystem.list"])
+    ctx = ContextManager(plan=plan).build("整理 Downloads 里的 PDF", ["filesystem_list"])
 
     assert ctx.plan == plan
 
@@ -287,12 +287,12 @@ def test_build_truncates_overlong_plan_descriptions():
     # 更该截——不然一条脏数据就能把上下文撑爆。
     ctx = ContextManager(
         maxCharsPerString=10,
-        plan=[PlanStepDto(description="长" * 500, capability="filesystem.list")],
-    ).build("g", ["filesystem.list"])
+        plan=[PlanStepDto(description="长" * 500, capability="filesystem_list")],
+    ).build("g", ["filesystem_list"])
 
     assert ctx.plan[0].description == "长" * 10 + TRUNCATION_MARKER
     # capability 不是自由文本，截断逻辑碰它等于改计划。
-    assert ctx.plan[0].capability == "filesystem.list"
+    assert ctx.plan[0].capability == "filesystem_list"
 
 
 # ---- build：历史 ----

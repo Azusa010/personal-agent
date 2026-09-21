@@ -54,11 +54,11 @@ def build_golden_path_workflow(
     - 收尾自动从真实解析页码中抽取 SummaryFact。
     """
     if (
-        "filesystem.list" not in visible_capabilities
-        or "document.extract_pdf" not in visible_capabilities
+        "filesystem_list" not in visible_capabilities
+        or "document_extract_pdf" not in visible_capabilities
     ):
         raise WorkflowPlanError(
-            "缺少必需能力：filesystem.list 与 document.extract_pdf 必须全部可用"
+            "缺少必需能力：filesystem_list 与 document_extract_pdf 必须全部可用"
         )
 
     steps: list[WorkflowStep] = []
@@ -67,7 +67,7 @@ def build_golden_path_workflow(
     steps.append(
         WorkflowStep(
             id="list_files",
-            capability="filesystem.list",
+            capability="filesystem_list",
             description="列出 Downloads 下的 PDF",
             resolve_args=lambda s: {"rootId": s.inputs.get("rootId", "downloads")},
         )
@@ -77,18 +77,18 @@ def build_golden_path_workflow(
     steps.append(
         WorkflowStep(
             id="extract_pdf",
-            capability="document.extract_pdf",
+            capability="document_extract_pdf",
             description="提取目标 PDF 的每页文本",
             resolve_args=lambda s: {"path": _find_target_pdf(s)["path"]},
         )
     )
 
     # 3. 创建 Reading 目录（可选）
-    if "filesystem.create_dir" in visible_capabilities:
+    if "filesystem_create_dir" in visible_capabilities:
         steps.append(
             WorkflowStep(
                 id="create_dir",
-                capability="filesystem.create_dir",
+                capability="filesystem_create_dir",
                 description="在 Downloads 下创建 Reading 目录",
                 resolve_args=lambda s: {
                     "path": _reading_dir_path(_find_target_pdf(s)["path"])
@@ -97,12 +97,12 @@ def build_golden_path_workflow(
         )
 
     # 4. 移动 PDF（可选）
-    has_move = "filesystem.move" in visible_capabilities
+    has_move = "filesystem_move" in visible_capabilities
     if has_move:
         steps.append(
             WorkflowStep(
                 id="move_pdf",
-                capability="filesystem.move",
+                capability="filesystem_move",
                 description="把选中的 PDF 移到 Reading",
                 resolve_args=lambda s: {
                     "source": _find_target_pdf(s)["path"],
@@ -114,11 +114,11 @@ def build_golden_path_workflow(
         )
 
     # 5. 创建提醒（可选）
-    if "scheduler.create" in visible_capabilities:
+    if "scheduler_create" in visible_capabilities:
         steps.append(
             WorkflowStep(
                 id="create_reminder",
-                capability="scheduler.create",
+                capability="scheduler_create",
                 description="创建一次性阅读提醒",
                 resolve_args=lambda s: {
                     "remindAt": _generate_future_remind_time(1),

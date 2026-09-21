@@ -64,7 +64,7 @@ class StubPlanner:
 # 的断言钉（那里能拿到真的 registry），这里够 planning.make_plan 用即可。
 CAPABILITIES = [
     {
-        "name": "filesystem.list",
+        "name": "filesystem_list",
         "kind": "READ",
         "description": "列出授权根目录下的条目",
     },
@@ -74,17 +74,17 @@ CAPABILITIES = [
         "description": "提取 PDF 的逐页文本",
     },
     {
-        "name": "filesystem.create_dir",
+        "name": "filesystem_create_dir",
         "kind": "WRITE",
         "description": "在授权根目录下创建子目录",
     },
     {
-        "name": "filesystem.move",
+        "name": "filesystem_move",
         "kind": "WRITE",
         "description": "在授权根目录内移动文件",
     },
     {
-        "name": "scheduler.create",
+        "name": "scheduler_create",
         "kind": "WRITE",
         "description": "创建 Reminder",
     },
@@ -107,8 +107,8 @@ def initialize_line(req_id="10", capabilities=None, version="0.1"):
 
 
 PLAN = [
-    {"description": "列出 Downloads 下的 PDF", "capability": "filesystem.list"},
-    {"description": "提取目标 PDF 的每页文本", "capability": "document.extract_pdf"},
+    {"description": "列出 Downloads 下的 PDF", "capability": "filesystem_list"},
+    {"description": "提取目标 PDF 的每页文本", "capability": "document_extract_pdf"},
     {"description": "基于页面内容生成带页码引用的摘要"},
 ]
 
@@ -177,7 +177,7 @@ def read_only_script():
     """runtime 层测试用的三步剧本：list→extract→summary。
 
     完整 Golden Path（TASK-028 的 fixture 那份还带 create_dir / move /
-    scheduler.create）在 test_runtime 里跑不出差别：runtime 只负责把决策喂给
+    scheduler_create）在 test_runtime 里跑不出差别：runtime 只负责把决策喂给
     engine、把 host 结果收回来，WRITE 那三步的判定全在 Main 侧。要验完整链路
     得看 e2e/golden-path.test.ts。
     """
@@ -185,7 +185,7 @@ def read_only_script():
         ToolCallDecision(
             kind="tool_call",
             callId="c-1",
-            capability="filesystem.list",
+            capability="filesystem_list",
             arguments={"rootId": "downloads"},
         ),
         ToolCallDecision(
@@ -236,7 +236,7 @@ def test_initialize_returns_server_info():
                 "protocolVersion": "0.1",
                 "capabilities": [
                     {
-                        "name": "filesystem.list",
+                        "name": "filesystem_list",
                         "kind": "READ",
                         "description": "列出授权根目录下的条目",
                     }
@@ -355,8 +355,8 @@ def test_run_task_hands_the_plan_to_the_model():
     assert factory.instances[0].receivedContexts
     for ctx in factory.instances[0].receivedContexts:
         assert [(s.description, s.capability) for s in ctx.plan] == [
-            ("列出 Downloads 下的 PDF", "filesystem.list"),
-            ("提取目标 PDF 的每页文本", "document.extract_pdf"),
+            ("列出 Downloads 下的 PDF", "filesystem_list"),
+            ("提取目标 PDF 的每页文本", "document_extract_pdf"),
             ("基于页面内容生成带页码引用的摘要", None),
         ]
 
@@ -455,7 +455,7 @@ def test_initialize_wrong_version_returns_error():
                 # 而是“缺字段”，两个失败原因叠在一起看不出钉的是哪个。
                 "capabilities": [
                     {
-                        "name": "filesystem.list",
+                        "name": "filesystem_list",
                         "kind": "READ",
                         "description": "列出授权根目录下的条目",
                     }
@@ -608,11 +608,11 @@ def test_fixture_script_is_the_full_golden_path():
     # 能力顺序必须与 planning.PLAN_REQUIREMENTS 逐字一致：Main 侧 ActionAlignment
     # 按序号比对，顺序错了第一个 WRITE 调用就会被拒。
     assert [d.capability for d in decisions[:5]] == [
-        "filesystem.list",
+        "filesystem_list",
         EXTRACT_PDF_CAPABILITY,
-        "filesystem.create_dir",
-        "filesystem.move",
-        "scheduler.create",
+        "filesystem_create_dir",
+        "filesystem_move",
+        "scheduler_create",
     ]
     # 页码只能用 1/2/3：固定 PDF 就三页，引用到第 4 页会被 SummaryVerifier 拒掉。
     assert decisions[5].facts[0]["pageRefs"] == [1]
@@ -642,11 +642,11 @@ def test_fixture_script_keeps_the_path_and_time_placeholders():
 # ---- agent.make_plan ----
 # 与 planning.PLAN_REQUIREMENTS 同源；握手下发的能力清单（CAPABILITIES）必须覆盖它。
 EXPECTED_PLAN_CAPABILITIES = [
-    "filesystem.list",
+    "filesystem_list",
     EXTRACT_PDF_CAPABILITY,
-    "filesystem.create_dir",
-    "filesystem.move",
-    "scheduler.create",
+    "filesystem_create_dir",
+    "filesystem_move",
+    "scheduler_create",
 ]
 
 
@@ -761,7 +761,7 @@ def test_make_plan_wrong_version_initialize_does_not_leak_capabilities():
 
 def test_make_plan_goes_through_the_planner_factory():
     planner = StubPlanner(
-        [PlanStep(description="自定义的一步", capability="filesystem.list")]
+        [PlanStep(description="自定义的一步", capability="filesystem_list")]
     )
 
     deps = RuntimeDeps(channel=StubChannel(), planner_factory=lambda: planner)
@@ -770,7 +770,7 @@ def test_make_plan_goes_through_the_planner_factory():
     out = handle_line(make_plan_line(), deps)
 
     assert out["result"]["steps"] == [
-        {"description": "自定义的一步", "capability": "filesystem.list"}
+        {"description": "自定义的一步", "capability": "filesystem_list"}
     ]
     # 端口拿到的是目标文本 + 握手下发的能力名清单（顺序原样）+ 空历史（第一轮）。
     assert planner.calls == [("整理 Downloads 里的 PDF", EXPECTED_PLAN_CAPABILITIES, [])]
@@ -780,7 +780,7 @@ def test_make_plan_hands_the_history_to_the_planner():
     # 「把它移回 Downloads」这类指代只能靠历史解析：handle_make_plan 要把
     # params.history 原样交给端口，不裁剪不重排。
     planner = StubPlanner(
-        [PlanStep(description="自定义的一步", capability="filesystem.list")]
+        [PlanStep(description="自定义的一步", capability="filesystem_list")]
     )
     deps = RuntimeDeps(channel=StubChannel(), planner_factory=lambda: planner)
     handle_line(initialize_line(), deps)
@@ -822,7 +822,7 @@ def test_make_plan_hands_the_profile_to_the_planner():
             profile=None,
         ):
             self.received_profile = profile
-            return [PlanStep(description="自定义的一步", capability="filesystem.list")]
+            return [PlanStep(description="自定义的一步", capability="filesystem_list")]
 
     planner = ProfileAwarePlanner()
     deps = RuntimeDeps(channel=StubChannel(), planner_factory=lambda: planner)

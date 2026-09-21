@@ -61,7 +61,7 @@ describe('projectTimeline', () => {
     events.append({
       taskId: 't-1',
       type: 'tool_called',
-      payload: { tool: 'filesystem.list', count: 3 },
+      payload: { tool: 'filesystem_list', count: 3 },
       occurredAt: at
     })
 
@@ -72,7 +72,7 @@ describe('projectTimeline', () => {
     expect(timeline?.events.map((e) => e.seq)).toEqual([1, 2])
     expect(timeline?.events.map((e) => e.type)).toEqual(['task_started', 'tool_called'])
     // payload 经 JSON 往返后结构原样
-    expect(timeline?.events[1].payload).toEqual({ tool: 'filesystem.list', count: 3 })
+    expect(timeline?.events[1].payload).toEqual({ tool: 'filesystem_list', count: 3 })
   })
 
   it('多 task 隔离：t-1 的投影不含 t-2 的事件', () => {
@@ -117,7 +117,7 @@ describe('projectTimeline', () => {
   it('带上最新版 plan；追加 v2 后投影立即反映 v2', () => {
     const { tasks, events, plans } = makeRepos()
     seed(tasks, 't-1')
-    const steps: PlanStep[] = [{ description: '第一步', capability: 'filesystem.list' }]
+    const steps: PlanStep[] = [{ description: '第一步', capability: 'filesystem_list' }]
     plans.append({ id: 'p-1', taskId: 't-1', steps, createdAt: '2026-09-07T00:00:01Z' })
 
     expect(projectTimeline(tasks, events, plans, 't-1')?.plan?.version).toBe(1)

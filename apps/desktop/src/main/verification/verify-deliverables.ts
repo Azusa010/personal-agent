@@ -32,8 +32,8 @@ import {
  *    `parsedPageNumbers`（重读真实 PDF 得到的页集合）里才算成立；判的是 facts
  *    里的引用，不是 `pageReferences` 这个派生数组。
  * 4. **交付物按计划要求**：计划里出现的 capability 才产生对应交付物的硬要求——
- *    有 extract_pdf 才要求页码落地、有 filesystem.move 才要求文件与批准、
- *    有 scheduler.create 才要求 Reminder。只读任务不该因为「没移动文件」被判失败；
+ *    有 extract_pdf 才要求页码落地、有 filesystem_move 才要求文件与批准、
+ *    有 scheduler_create 才要求 Reminder。只读任务不该因为「没移动文件」被判失败；
  *    TASK-028 把计划扩成四步之后，同一条判定表自动开始要求文件与 Reminder。
  * 5. **被拒绝的操作也要查**：denied 的 Permission 必须没有对应的执行记录
  *    （PRD 3.7「被拒绝的操作没有产生副作用」）。
@@ -47,9 +47,9 @@ import {
  * 验收：`verify-deliverables.test.ts`。
  */
 
-const EXTRACT_PDF_CAPABILITY = CapabilityId.enum['document.extract_pdf']
-const MOVE_CAPABILITY = CapabilityId.enum['filesystem.move']
-const SCHEDULER_CREATE_CAPABILITY = CapabilityId.enum['scheduler.create']
+const EXTRACT_PDF_CAPABILITY = CapabilityId.enum['document_extract_pdf']
+const MOVE_CAPABILITY = CapabilityId.enum['filesystem_move']
+const SCHEDULER_CREATE_CAPABILITY = CapabilityId.enum['scheduler_create']
 export type VerificationMode = 'strict' | 'lenient'
 export interface VerifyDeliverablesOptions {
   readonly mode?: VerificationMode

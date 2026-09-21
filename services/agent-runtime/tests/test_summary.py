@@ -41,7 +41,7 @@ def failed_pdf_obs():
 
 def list_obs():
     return obs(
-        capability="filesystem.list",
+        capability="filesystem_list",
         payload={
             "entries": [
                 {
@@ -82,7 +82,7 @@ def test_collect_ignores_failed_extract():
 
 
 def test_collect_ignores_other_capabilities():
-    # filesystem.list 的 payload 里是 entries，形状完全不同。
+    # filesystem_list 的 payload 里是 entries，形状完全不同。
     assert collect_extracted_pages([list_obs()]) == frozenset()
 
 

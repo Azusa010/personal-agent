@@ -15,11 +15,11 @@ from personal_agent.planning import PlanError, PlanStep, make_plan
 
 GOAL = "整理 Downloads 里的 PDF，给出带页码引用的摘要"
 VISIBLE = [
-    "filesystem.list",
-    "document.extract_pdf",
-    "filesystem.create_dir",
-    "filesystem.move",
-    "scheduler.create",
+    "filesystem_list",
+    "document_extract_pdf",
+    "filesystem_create_dir",
+    "filesystem_move",
+    "scheduler_create",
 ]
 
 EXPECTED_DESCRIPTIONS = [
@@ -31,11 +31,11 @@ EXPECTED_DESCRIPTIONS = [
     "基于页面内容生成带页码引用的摘要",
 ]
 EXPECTED_CAPABILITIES = [
-    "filesystem.list",
-    "document.extract_pdf",
-    "filesystem.create_dir",
-    "filesystem.move",
-    "scheduler.create",
+    "filesystem_list",
+    "document_extract_pdf",
+    "filesystem_create_dir",
+    "filesystem_move",
+    "scheduler_create",
     None,
 ]
 
@@ -68,7 +68,7 @@ def test_make_plan_summary_step_carries_no_capability() -> None:
 def test_write_steps_come_before_the_summary() -> None:
     """摘要一旦给出，engine 的循环就结束——写操作排在它后面等于永远不会执行。"""
     steps = make_plan(GOAL, VISIBLE)
-    writes = {"filesystem.create_dir", "filesystem.move", "scheduler.create"}
+    writes = {"filesystem_create_dir", "filesystem_move", "scheduler_create"}
     indices = [i for i, s in enumerate(steps) if s.capability in writes]
 
     assert indices == [2, 3, 4]
@@ -89,13 +89,13 @@ def test_make_plan_returns_a_fresh_list_each_time() -> None:
 
 
 def test_make_plan_raises_when_filesystem_list_is_not_visible() -> None:
-    with pytest.raises(PlanError, match="filesystem.list"):
-        make_plan(GOAL, [c for c in VISIBLE if c != "filesystem.list"])
+    with pytest.raises(PlanError, match="filesystem_list"):
+        make_plan(GOAL, [c for c in VISIBLE if c != "filesystem_list"])
 
 
 def test_make_plan_raises_when_extract_pdf_is_not_visible() -> None:
-    with pytest.raises(PlanError, match="document.extract_pdf"):
-        make_plan(GOAL, [c for c in VISIBLE if c != "document.extract_pdf"])
+    with pytest.raises(PlanError, match="document_extract_pdf"):
+        make_plan(GOAL, [c for c in VISIBLE if c != "document_extract_pdf"])
 
 
 def test_make_plan_shrinks_to_a_read_only_plan_when_writes_are_not_visible() -> None:
@@ -105,9 +105,9 @@ def test_make_plan_shrinks_to_a_read_only_plan_when_writes_are_not_visible() -> 
     不该被交付物闸口要求「文件已移动、Reminder 已创建」——闸口是按计划推导的，
     计划里没有 WRITE 就不会要求它们的交付物。
     """
-    steps = make_plan(GOAL, ["filesystem.list", "document.extract_pdf"])
+    steps = make_plan(GOAL, ["filesystem_list", "document_extract_pdf"])
 
-    assert [s.capability for s in steps] == ["filesystem.list", "document.extract_pdf", None]
+    assert [s.capability for s in steps] == ["filesystem_list", "document_extract_pdf", None]
     assert [s.description for s in steps] == [
         "列出 Downloads 下的 PDF",
         "提取目标 PDF 的每页文本",
@@ -117,12 +117,12 @@ def test_make_plan_shrinks_to_a_read_only_plan_when_writes_are_not_visible() -> 
 
 def test_make_plan_includes_only_the_visible_write_steps() -> None:
     """WRITE 是逐个伸缩的：可见哪个就有哪一步，顺序仍按 WRITE_STEPS。"""
-    steps = make_plan(GOAL, ["filesystem.list", "document.extract_pdf", "scheduler.create"])
+    steps = make_plan(GOAL, ["filesystem_list", "document_extract_pdf", "scheduler_create"])
 
     assert [s.capability for s in steps] == [
-        "filesystem.list",
-        "document.extract_pdf",
-        "scheduler.create",
+        "filesystem_list",
+        "document_extract_pdf",
+        "scheduler_create",
         None,
     ]
 
@@ -130,11 +130,11 @@ def test_make_plan_includes_only_the_visible_write_steps() -> None:
 def test_make_plan_keeps_the_write_order_from_the_table() -> None:
     """可见顺序被打乱也不改计划顺序：计划是执行顺序。"""
     shuffled = [
-        "scheduler.create",
-        "document.extract_pdf",
-        "filesystem.move",
-        "filesystem.create_dir",
-        "filesystem.list",
+        "scheduler_create",
+        "document_extract_pdf",
+        "filesystem_move",
+        "filesystem_create_dir",
+        "filesystem_list",
     ]
 
     assert [s.capability for s in make_plan(GOAL, shuffled)] == EXPECTED_CAPABILITIES
@@ -146,9 +146,9 @@ def test_make_plan_raises_when_nothing_is_visible() -> None:
 
 
 def test_make_plan_ignores_capabilities_it_does_not_need() -> None:
-    """可见清单里多出 notification.send（由 Reminder 到点触发，不是模型自选动作）
+    """可见清单里多出 notification_send（由 Reminder 到点触发，不是模型自选动作）
     不该改变计划。"""
-    wider = [*VISIBLE, "notification.send"]
+    wider = [*VISIBLE, "notification_send"]
     assert [s.capability for s in make_plan(GOAL, wider)] == EXPECTED_CAPABILITIES
 
 
@@ -171,10 +171,10 @@ def test_plan_step_dumps_without_a_null_capability() -> None:
 
 
 def test_plan_step_keeps_capability_when_present() -> None:
-    dumped = PlanStep(description="x", capability="filesystem.list").model_dump(
+    dumped = PlanStep(description="x", capability="filesystem_list").model_dump(
         exclude_none=True
     )
-    assert dumped == {"description": "x", "capability": "filesystem.list"}
+    assert dumped == {"description": "x", "capability": "filesystem_list"}
 
 
 def test_plan_step_rejects_a_capability_outside_the_enum() -> None:

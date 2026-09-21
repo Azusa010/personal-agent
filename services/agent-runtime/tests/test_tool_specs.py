@@ -19,18 +19,23 @@ def test_tool_specs_covers_all_registered_capabilities():
 
 
 def test_tool_schemas_covers_all_registered_capabilities():
-    # TOOL_SCHEMAS 应当覆盖协议中定义的全部能力枚举，并且符合 OpenAI function 格式
+    # TOOL_SCHEMAS 应当覆盖协议中定义的全部能力枚举，且函数名必须符合 OpenAI 的 ^[a-zA-Z0-9_-]+$ 正则（不能带点号）
+    import re
+
     all_capabilities = set(get_args(CapabilityId))
     assert set(TOOL_SCHEMAS) == all_capabilities
     for name, schema in TOOL_SCHEMAS.items():
         assert schema["type"] == "function"
-        assert schema["function"]["name"] == name
+        func_name = schema["function"]["name"]
+        assert func_name == name
+        assert re.match(r"^[a-zA-Z0-9_-]+$", func_name)
+        assert "." not in func_name
         assert "parameters" in schema["function"]
 
 
 def test_tool_specs_filesystem_list_is_generic_not_pdf_specific():
-    # 彻底消除场景色彩：filesystem.list 是通用的目录扫描工具，不应硬编码限定为 PDF
-    list_spec = TOOL_SPECS["filesystem.list"]
+    # 彻底消除场景色彩：filesystem_list 是通用的目录扫描工具，不应硬编码限定为 PDF
+    list_spec = TOOL_SPECS["filesystem_list"]
     assert "PDF" not in list_spec
     assert "pdf" not in list_spec
     assert "授权根" in list_spec
@@ -45,17 +50,17 @@ def test_all_tool_specs_provide_parameter_hints():
 
 
 def test_render_input_and_plan_input_only_render_visible_subset():
-    # 当只下发 terminal.execute 时，其余未授权能力一律不进 Prompt
+    # 当只下发 terminal_execute 时，其余未授权能力一律不进 Prompt
     ctx = ModelContext(
         taskGoal="查看当前系统负载",
-        visibleCapabilities=["terminal.execute"],
+        visibleCapabilities=["terminal_execute"],
         observations=[],
     )
     rendered_executor = render_input(ctx)
-    assert "terminal.execute" in rendered_executor
-    assert "filesystem.list" not in rendered_executor
-    assert "document.extract_pdf" not in rendered_executor
+    assert "terminal_execute" in rendered_executor
+    assert "filesystem_list" not in rendered_executor
+    assert "document_extract_pdf" not in rendered_executor
 
-    rendered_planner = render_plan_input("查看当前系统负载", ["terminal.execute"])
-    assert "terminal.execute" in rendered_planner
-    assert "filesystem.list" not in rendered_planner
+    rendered_planner = render_plan_input("查看当前系统负载", ["terminal_execute"])
+    assert "terminal_execute" in rendered_planner
+    assert "filesystem_list" not in rendered_planner

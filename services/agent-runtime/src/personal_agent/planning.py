@@ -44,14 +44,14 @@ class PlanStep(BaseModel):
 # 之后循环就结束了。所以写操作（建目录 / 移动 / 建提醒）必须发生在摘要之前——用户
 # 批准移动、任务落终态、摘要随之交付，这三件事的先后在任务层面看不出差别。
 READ_STEPS: tuple[tuple[CapabilityId, str], ...] = (
-    ("filesystem.list", "列出 Downloads 下的 PDF"),
-    ("document.extract_pdf", "提取目标 PDF 的每页文本"),
+    ("filesystem_list", "列出 Downloads 下的 PDF"),
+    ("document_extract_pdf", "提取目标 PDF 的每页文本"),
 )
 
 WRITE_STEPS: tuple[tuple[CapabilityId, str], ...] = (
-    ("filesystem.create_dir", "在 Downloads 下创建 Reading 目录"),
-    ("filesystem.move", "把选中的 PDF 移到 Reading"),
-    ("scheduler.create", "创建一次性阅读提醒"),
+    ("filesystem_create_dir", "在 Downloads 下创建 Reading 目录"),
+    ("filesystem_move", "把选中的 PDF 移到 Reading"),
+    ("scheduler_create", "创建一次性阅读提醒"),
 )
 
 SUMMARY_STEP_DESCRIPTION = "基于页面内容生成带页码引用的摘要"

@@ -83,7 +83,7 @@ function makeRecord(id: string, remindAtOffsetMs: number): ReminderRecord {
     toolCallId: `tc-${id}`,
     remindAt: new Date(clockMs + remindAtOffsetMs).toISOString(),
     message: `提醒 ${id}`,
-    idempotencyKey: `scheduler.create:hash-${id}`,
+    idempotencyKey: `scheduler_create:hash-${id}`,
     status: 'scheduled',
     createdAt: T0,
     updatedAt: T0,
@@ -196,7 +196,7 @@ describe('ReminderTimerService：撤销与清理', () => {
   })
 
   it('重复 arm 同一 id → 旧表被撤，只按新时间触发一次', async () => {
-    // scheduler.create 幂等重试、TASK-025 恢复重挂都可能对同一 id 再 arm。
+    // scheduler_create 幂等重试、TASK-025 恢复重挂都可能对同一 id 再 arm。
     const service = makeService()
     service.arm(makeRecord('r-1', 1_000))
     const second = makeRecord('r-1', 3_000)

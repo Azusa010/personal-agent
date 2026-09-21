@@ -395,13 +395,13 @@ describe("host schema 不得与 Envelope 漂移", () => {
 
 const TASK_EVENT = {
   type: "tool_called",
-  payload: { capability: "filesystem.list" },
+  payload: { capability: "filesystem_list" },
   occurredAt: "2026-09-11T10:00:00.120Z",
 };
 
 describe("RunTaskParams 约束", () => {
   const PLAN = [
-    { description: "列出 Downloads 下的 PDF", capability: "filesystem.list" },
+    { description: "列出 Downloads 下的 PDF", capability: "filesystem_list" },
     { description: "基于页面内容生成带页码引用的摘要" },
   ];
 
@@ -486,7 +486,7 @@ describe("RunTaskParams 约束", () => {
 
 describe("Turn 与 history 约束（TASK-032）", () => {
   const PLAN = [
-    { description: "列出 Downloads 下的 PDF", capability: "filesystem.list" },
+    { description: "列出 Downloads 下的 PDF", capability: "filesystem_list" },
   ];
 
   it("合法 turn 被接受：role 只有 user / assistant", () => {
@@ -737,7 +737,7 @@ describe("InitializeParams 的能力清单约束", () => {
     protocolVersion: "0.1",
     capabilities: [
       {
-        name: "filesystem.list",
+        name: "filesystem_list",
         kind: "READ",
         description: "列出授权根目录下的条目",
       },
@@ -917,7 +917,7 @@ describe("ProfileDto 约束（TASK-034）", () => {
   it("MakePlanParams 与 RunTaskParams 可选携带合法 profile", () => {
     const profile = { name: "助手", persona: "设定", reasoningSummary: false };
     const plan = [
-      { description: "列出文件", capability: "filesystem.list" as const },
+      { description: "列出文件", capability: "filesystem_list" as const },
     ];
     const planParams = MakePlanParams.parse({
       taskId: "t-1",

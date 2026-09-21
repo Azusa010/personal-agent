@@ -58,12 +58,12 @@ function pythonEvents(): Array<{ type: string; payload: unknown; occurredAt: str
     { type: 'task_started', payload: { goal: GOAL }, occurredAt: AT },
     {
       type: 'tool_called',
-      payload: { callId: 'c-1', capability: 'filesystem.list', arguments: { rootId: 'downloads' } },
+      payload: { callId: 'c-1', capability: 'filesystem_list', arguments: { rootId: 'downloads' } },
       occurredAt: AT
     },
     {
       type: 'tool_result',
-      payload: { callId: 'c-1', capability: 'filesystem.list', ok: true },
+      payload: { callId: 'c-1', capability: 'filesystem_list', ok: true },
       occurredAt: AT
     },
     { type: 'task_completed', payload: { factCount: 1 }, occurredAt: AT }
@@ -102,8 +102,8 @@ interface RecordedCall {
 /** Python 侧 planning.make_plan 的真回包。第三步没有 capability 键（exclude_none 剔掉了，
  *  不是 null）——zod 的 optional 不收 null，写成 null 这条 stub 就跟真链路不一样了。 */
 const PLAN_STEPS = [
-  { description: '列出 Downloads 下的 PDF', capability: 'filesystem.list' },
-  { description: '提取目标 PDF 的每页文本', capability: 'document.extract_pdf' },
+  { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },
+  { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
   { description: '基于页面内容生成带页码引用的摘要' }
 ]
 
@@ -680,7 +680,7 @@ describe('runTask：参数与故障', () => {
 
 describe('runTask：索要计划', () => {
   it('计划原样落库：Python 回四步就落四步，TS 不裁剪不重排', async () => {
-    const four = [...PLAN_STEPS, { description: '多出来的一步', capability: 'filesystem.list' }]
+    const four = [...PLAN_STEPS, { description: '多出来的一步', capability: 'filesystem_list' }]
     const h = openHarness(sendReturning(completedResult(), planResult(four)))
     const out = await runTask(GOAL, h)
     if (!out.ok) throw new Error('预期 ok:true')
@@ -694,7 +694,7 @@ describe('runTask：索要计划', () => {
     const send = sendThrowing(
       new RuntimeError(
         RUNTIME_ERROR_CODE.PLAN_NOT_BUILDABLE,
-        '计划需要 filesystem.list，但它不在模型可见的能力清单里'
+        '计划需要 filesystem_list，但它不在模型可见的能力清单里'
       ),
       AGENT_MAKE_PLAN
     )
@@ -704,7 +704,7 @@ describe('runTask：索要计划', () => {
     expect(out).toEqual({
       ok: false,
       code: RUNTIME_ERROR_CODE.PLAN_NOT_BUILDABLE,
-      message: expect.stringContaining('filesystem.list')
+      message: expect.stringContaining('filesystem_list')
     })
     expect(h.tasks.findAll()).toEqual([])
     expect(send.calls.map((c) => c.method)).toEqual([AGENT_MAKE_PLAN])
@@ -961,7 +961,7 @@ describe('runTask：任务槽位（ActionAlignment 的比对基准）', () => {
 
   it('重规划事件 replan_completed 会在 plans 表自动追加递增版本', async () => {
     const newPlanSteps = [
-      { description: '重新查找解压文件', capability: 'filesystem.list' },
+      { description: '重新查找解压文件', capability: 'filesystem_list' },
       { description: '直接总结' }
     ]
     const replanResult = {

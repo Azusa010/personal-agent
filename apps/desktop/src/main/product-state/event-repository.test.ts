@@ -70,7 +70,7 @@ describe('SqliteEventRepository', () => {
     seedTask(tasks, 't-1')
 
     const payload = {
-      tool: 'filesystem.list',
+      tool: 'filesystem_list',
       ok: true,
       count: 3,
       entries: [

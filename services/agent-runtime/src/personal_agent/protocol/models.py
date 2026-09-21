@@ -78,13 +78,13 @@ HOST_EXECUTE_TOOL = "host.execute_tool"
 HOST_CALL_ID_PATTERN = r"^call-[0-9]+$"
 
 CapabilityId = Literal[
-    "filesystem.list",
-    "document.extract_pdf",
-    "filesystem.create_dir",
-    "filesystem.move",
-    "scheduler.create",
-    "notification.send",
-    "terminal.execute",
+    "filesystem_list",
+    "document_extract_pdf",
+    "filesystem_create_dir",
+    "filesystem_move",
+    "scheduler_create",
+    "notification_send",
+    "terminal_execute",
 ]
 
 

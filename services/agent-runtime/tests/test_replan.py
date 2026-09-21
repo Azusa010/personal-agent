@@ -29,7 +29,7 @@ from personal_agent.react_loop import (
 from personal_agent.scripted_model import ScriptedModel
 from personal_agent.strategy import PlanAndExecuteStrategy
 
-VISIBLE = ["filesystem.list", "document.extract_pdf"]
+VISIBLE = ["filesystem_list", "document_extract_pdf"]
 
 
 class FakeChannel:
@@ -77,7 +77,7 @@ def test_replan_flow_updates_plan_and_completes():
     """场景：执行步骤 1 时模型发现需要重拟，Planner 返回新步骤，最终执行完毕。"""
     strategy = PlanAndExecuteStrategy()
     initial_plan = [
-        PlanStepDto(description="查找原始文件", capability="filesystem.list"),
+        PlanStepDto(description="查找原始文件", capability="filesystem_list"),
         PlanStepDto(description="原计划第二步：直接总结"),
     ]
 
@@ -89,7 +89,7 @@ def test_replan_flow_updates_plan_and_completes():
         ToolCallDecision(
             kind="tool_call",
             callId="c-1",
-            capability="filesystem.list",
+            capability="filesystem_list",
             arguments={"rootId": "downloads"},
         ),
         ReplanDecision(
@@ -99,7 +99,7 @@ def test_replan_flow_updates_plan_and_completes():
         ToolCallDecision(
             kind="tool_call",
             callId="c-2",
-            capability="filesystem.list",
+            capability="filesystem_list",
             arguments={"rootId": "downloads"},
         ),
         StepCompleteDecision(
@@ -117,7 +117,7 @@ def test_replan_flow_updates_plan_and_completes():
 
     # Planner 给出的新剩余步骤
     new_plan_steps = [
-        PlanStep(description="重新查找解压文件", capability="filesystem.list"),
+        PlanStep(description="重新查找解压文件", capability="filesystem_list"),
         PlanStep(description="给出总结报告"),
     ]
     planner = FakePlanner([new_plan_steps])
@@ -218,15 +218,15 @@ def test_replan_triggered_by_permission_denial_feedback():
     """场景：用户在写操作弹窗中拒绝并给出理由（如改存到 temp），模型识别后触发 replan，生成符合要求的新计划。"""
     strategy = PlanAndExecuteStrategy()
     initial_plan = [
-        PlanStepDto(description="创建归档目录", capability="filesystem.create_dir"),
-        PlanStepDto(description="移动文件到归档目录", capability="filesystem.move"),
+        PlanStepDto(description="创建归档目录", capability="filesystem_create_dir"),
+        PlanStepDto(description="移动文件到归档目录", capability="filesystem_move"),
     ]
 
     decisions = [
         ToolCallDecision(
             kind="tool_call",
             callId="c-1",
-            capability="filesystem.create_dir",
+            capability="filesystem_create_dir",
             arguments={"path": "D:/downloads/archive"},
         ),
         ReplanDecision(
@@ -236,7 +236,7 @@ def test_replan_triggered_by_permission_denial_feedback():
         ToolCallDecision(
             kind="tool_call",
             callId="c-2",
-            capability="filesystem.create_dir",
+            capability="filesystem_create_dir",
             arguments={"path": "D:/downloads/temp"},
         ),
         StepCompleteDecision(
@@ -254,13 +254,13 @@ def test_replan_triggered_by_permission_denial_feedback():
         {
             "ok": False,
             "code": "PERMISSION_DENIED",
-            "reason": "用户拒绝了 filesystem.create_dir：不要创建 archive，请改存到 temp",
+            "reason": "用户拒绝了 filesystem_create_dir：不要创建 archive，请改存到 temp",
         },
         {"ok": True},
     ])
 
     new_plan_steps = [
-        PlanStep(description="创建临时目录", capability="filesystem.create_dir"),
+        PlanStep(description="创建临时目录", capability="filesystem_create_dir"),
         PlanStep(description="完成任务总结"),
     ]
     planner = FakePlanner([new_plan_steps])
@@ -269,7 +269,7 @@ def test_replan_triggered_by_permission_denial_feedback():
         model=model,
         channel=channel,
         goal="归档报告文件",
-        visible_capabilities=["filesystem.create_dir", "filesystem.move"],
+        visible_capabilities=["filesystem_create_dir", "filesystem_move"],
         plan=initial_plan,
         history=(),
         profile=None,

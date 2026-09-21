@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from personal_agent.model_gateway import Observation
 from personal_agent.protocol.models import SummaryFact
 
-EXTRACT_PDF_CAPABILITY = "document.extract_pdf"
+EXTRACT_PDF_CAPABILITY = "document_extract_pdf"
 
 
 class SummaryRejected(Exception):

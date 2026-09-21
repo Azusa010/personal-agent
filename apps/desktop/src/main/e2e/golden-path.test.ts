@@ -81,7 +81,7 @@ const GOLDEN_EVENT_TYPES = [
     'permission_requested',
     'permission_decision'
   ]).flat(),
-  // scheduler.create 与 reminder_created 事件同事务落库（executor.ts），
+  // scheduler_create 与 reminder_created 事件同事务落库（executor.ts），
   // 所以它也在 Python 事件批之前——那批是整批在 B1 落的。
   'reminder_created',
   'task_started',
@@ -113,15 +113,15 @@ const PLAN_DESCRIPTIONS = [
   '基于页面内容生成带页码引用的摘要'
 ]
 const PLAN_CAPABILITIES = [
-  'filesystem.list',
-  'document.extract_pdf',
-  'filesystem.create_dir',
-  'filesystem.move',
-  'scheduler.create',
+  'filesystem_list',
+  'document_extract_pdf',
+  'filesystem_create_dir',
+  'filesystem_move',
+  'scheduler_create',
   undefined
 ]
 // 三个 WRITE 步骤，按计划顺序。批准记录与幂等登记都按它们断言。
-const WRITE_STEPS = ['filesystem.create_dir', 'filesystem.move', 'scheduler.create']
+const WRITE_STEPS = ['filesystem_create_dir', 'filesystem_move', 'scheduler_create']
 
 let tempDir = ''
 let downloadsRoot = ''
@@ -340,7 +340,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
       const visible = listVisibleCapabilities()
 
       expect(visible.map((c) => c.name)).toEqual(PLAN_CAPABILITIES.filter(Boolean))
-      // READ 两个 + WRITE 三个；notification.send 不在内（它由 Reminder 到点触发）。
+      // READ 两个 + WRITE 三个；notification_send 不在内（它由 Reminder 到点触发）。
       expect(visible.filter((c) => c.kind === 'READ')).toHaveLength(2)
       expect(visible.filter((c) => c.kind === 'WRITE')).toHaveLength(3)
     })
@@ -400,7 +400,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
     })
 
     it('文件类副作用登记在幂等表里：两条 succeeded，调度不登记', () => {
-      // scheduler.create 是 WRITE 但不进幂等关：它的副作用是库内一行 + task_id UNIQUE，
+      // scheduler_create 是 WRITE 但不进幂等关：它的副作用是库内一行 + task_id UNIQUE，
       // 没有需要 recovery resolver 复查的中间态（executor.ts 里有这段推导）。
       const store = db as SqliteDatabase
       const executions = new SqliteToolExecutionRepository(store)
@@ -411,7 +411,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
         expect(
           rows.map((r) => r.capability),
           taskId
-        ).toEqual(['filesystem.create_dir', 'filesystem.move'])
+        ).toEqual(['filesystem_create_dir', 'filesystem_move'])
         expect(
           rows.every((r) => r.status === 'succeeded'),
           taskId
@@ -540,10 +540,10 @@ describe.skipIf(!existsSync(VENV_PYTHON))('提醒到点：真定时器 + 假通�
     let sup: PythonSupervisor | null = null
     try {
       copyFileSync(FIXTURE_PDF, join(root, PDF_NAME))
-      // 到点时刻必须晚于 scheduler.create 真正执行到的时刻（binder 拒收过去的
-      // 时间，1.2 秒在机器一慢时不够走到第五步）；又不能长到拖慢测试，
-      // 到点等待由下方 waitFor(…, 8000) 兜住。
-      const remindAt = new Date(Date.now() + 5000).toISOString()
+      // 到点时刻必须晚于 scheduler_create 真正执行到的时刻（binder 拒收过去的
+      // 时间，子进程冷启动与前四步在机器慢时耗时可能接近 5 秒）；
+      // 到点等待由下方 waitFor(…, 15000) 兜住。
+      const remindAt = new Date(Date.now() + 10_000).toISOString()
       const template = readFileSync(SCRIPT_TEMPLATE, 'utf8')
       const scriptPath = join(dir, 'fire.json')
       writeFileSync(
@@ -562,7 +562,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))('提醒到点：真定时器 + 假通�
       expect(reminder?.status).toBe('scheduled')
 
       // 等到点：真定时器，真 fireReminder，假端口收结果。
-      const fired = await waitFor(() => reminders.findAll()[0]?.status === 'fired', 8000)
+      const fired = await waitFor(() => reminders.findAll()[0]?.status === 'fired', 15_000)
       expect(fired, '提醒没有到点触发').toBe(true)
       expect(sent).toEqual([{ title: NOTIFICATION_TITLE, body: reminder?.message }])
 

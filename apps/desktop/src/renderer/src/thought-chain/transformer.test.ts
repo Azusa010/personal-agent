@@ -16,7 +16,7 @@ describe('transformer', () => {
         type: 'tool_called',
         payload: {
           callId: 'call-1',
-          capability: 'filesystem.list',
+          capability: 'filesystem_list',
           arguments: { rootId: 'downloads' }
         },
         occurredAt: '2026-09-20T10:00:00.000Z'
@@ -25,7 +25,7 @@ describe('transformer', () => {
         type: 'tool_result',
         payload: {
           callId: 'call-1',
-          capability: 'filesystem.list',
+          capability: 'filesystem_list',
           ok: true,
           result: [{ name: 'a.pdf' }]
         },
@@ -38,7 +38,7 @@ describe('transformer', () => {
     const tool = steps[0] as ToolStepView
     expect(tool.type).toBe('tool')
     expect(tool.callId).toBe('call-1')
-    expect(tool.capability).toBe('filesystem.list')
+    expect(tool.capability).toBe('filesystem_list')
     expect(tool.status).toBe('success')
     expect(tool.durationMs).toBe(500)
     expect(tool.observation).toEqual([{ name: 'a.pdf' }])
@@ -50,7 +50,7 @@ describe('transformer', () => {
         type: 'tool_called',
         payload: {
           callId: 'call-2',
-          capability: 'document.extract_pdf',
+          capability: 'document_extract_pdf',
           arguments: { path: 'corrupted.pdf' }
         },
         occurredAt: '2026-09-20T10:00:01.000Z'
@@ -59,7 +59,7 @@ describe('transformer', () => {
         type: 'tool_result',
         payload: {
           callId: 'call-2',
-          capability: 'document.extract_pdf',
+          capability: 'document_extract_pdf',
           ok: false,
           error: {
             code: 'PDF_PARSE_ERROR',
@@ -120,7 +120,7 @@ describe('transformer', () => {
         taskId: 'task-1',
         version: 1,
         steps: [
-          { description: '扫描目录', capability: 'filesystem.list' },
+          { description: '扫描目录', capability: 'filesystem_list' },
           { description: '生成摘要' }
         ],
         createdAt: '2026-09-20T10:00:00.100Z'
@@ -130,14 +130,14 @@ describe('transformer', () => {
           seq: 1,
           taskId: 'task-1',
           type: 'tool_called',
-          payload: { callId: 'c1', capability: 'filesystem.list', arguments: {} },
+          payload: { callId: 'c1', capability: 'filesystem_list', arguments: {} },
           occurredAt: '2026-09-20T10:00:01.000Z'
         },
         {
           seq: 2,
           taskId: 'task-1',
           type: 'tool_result',
-          payload: { callId: 'c1', capability: 'filesystem.list', ok: true },
+          payload: { callId: 'c1', capability: 'filesystem_list', ok: true },
           occurredAt: '2026-09-20T10:00:01.300Z'
         }
       ]
@@ -168,7 +168,7 @@ describe('transformer', () => {
         id: 'plan-1',
         taskId: 'task-cot',
         version: 1,
-        steps: [{ description: '扫描目录', capability: 'filesystem.list' }],
+        steps: [{ description: '扫描目录', capability: 'filesystem_list' }],
         createdAt: '2026-09-20T10:00:00.100Z'
       },
       events: []
@@ -191,7 +191,7 @@ describe('transformer', () => {
       events: [
         {
           type: 'tool_called',
-          payload: { callId: 'c-live', capability: 'filesystem.list', arguments: {} },
+          payload: { callId: 'c-live', capability: 'filesystem_list', arguments: {} },
           occurredAt: '2026-09-20T10:00:00.000Z'
         }
       ]

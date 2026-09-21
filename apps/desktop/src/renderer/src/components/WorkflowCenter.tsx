@@ -35,35 +35,35 @@ const GOLDEN_PATH_STEPS: WorkflowStepMeta[] = [
   {
     index: 1,
     title: '扫描文件',
-    capability: 'filesystem.list',
+    capability: 'filesystem_list',
     description: '检索 Downloads 目录下的待处理 PDF 文档',
     icon: <FileCheck2 size={16} />
   },
   {
     index: 2,
     title: '提取页面',
-    capability: 'document.extract_pdf',
+    capability: 'document_extract_pdf',
     description: '提取目标 PDF 的每页文本并抽取核心要点',
     icon: <Sparkles size={16} />
   },
   {
     index: 3,
     title: '创建目录',
-    capability: 'filesystem.create_dir',
+    capability: 'filesystem_create_dir',
     description: '在 Downloads 目录下新建 Reading 分类归档目录',
     icon: <FolderPlus size={16} />
   },
   {
     index: 4,
     title: '移动归档',
-    capability: 'filesystem.move',
+    capability: 'filesystem_move',
     description: '将已处理的 PDF 文件安全移动到 Reading 目录',
     icon: <FolderCheck size={16} />
   },
   {
     index: 5,
     title: '创建提醒',
-    capability: 'scheduler.create',
+    capability: 'scheduler_create',
     description: '设定 1 小时后的系统级到点阅读提醒',
     icon: <CalendarClock size={16} />
   }
@@ -89,19 +89,19 @@ export function WorkflowCenter({ onCompleted }: WorkflowCenterProps): React.JSX.
           setLogs((prev) => [...prev, `[开始] 工作流启动 (任务 ID: ${notice.taskId})`])
         } else if (ev.type === 'tool_called') {
           const cap = (ev.payload as { capability?: string })?.capability
-          if (cap === 'filesystem.list') {
+          if (cap === 'filesystem_list') {
             setStepStatuses(['running', 'pending', 'pending', 'pending', 'pending'])
             setLogs((prev) => [...prev, `[步骤 1] 正在扫描 Downloads 目录…`])
-          } else if (cap === 'document.extract_pdf') {
+          } else if (cap === 'document_extract_pdf') {
             setStepStatuses(['completed', 'running', 'pending', 'pending', 'pending'])
             setLogs((prev) => [...prev, `[步骤 2] 正在解析 PDF 页面内容…`])
-          } else if (cap === 'filesystem.create_dir') {
+          } else if (cap === 'filesystem_create_dir') {
             setStepStatuses(['completed', 'completed', 'running', 'pending', 'pending'])
             setLogs((prev) => [...prev, `[步骤 3] 正在创建 Reading 目录…`])
-          } else if (cap === 'filesystem.move') {
+          } else if (cap === 'filesystem_move') {
             setStepStatuses(['completed', 'completed', 'completed', 'running', 'pending'])
             setLogs((prev) => [...prev, `[步骤 4] 正在移动 PDF 至 Reading 目录…`])
-          } else if (cap === 'scheduler.create') {
+          } else if (cap === 'scheduler_create') {
             setStepStatuses(['completed', 'completed', 'completed', 'completed', 'running'])
             setLogs((prev) => [...prev, `[步骤 5] 正在创建阅读提醒…`])
           }

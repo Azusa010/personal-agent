@@ -25,12 +25,12 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true })
 })
 
-describe('bindArguments：filesystem.list', () => {
+describe('bindArguments：filesystem_list', () => {
   it('合法 rootId -> args 原样带过，paths 为空', async () => {
     // rootId 是白名单枚举里的一项，不是用户给的路径，所以不该出现在 paths 里：
     // paths 的每个值都会被 TASK-018 拿去算 Canonical Arguments Hash，
     // 混一个非路径进去，hash 的含义就不清了。
-    const out = await bindArguments('filesystem.list', { rootId: 'downloads' })
+    const out = await bindArguments('filesystem_list', { rootId: 'downloads' })
 
     expect(out).toEqual({
       ok: true,
@@ -39,7 +39,7 @@ describe('bindArguments：filesystem.list', () => {
   })
 
   it('rootId 不在白名单 -> INVALID_ARGUMENT', async () => {
-    const out = await bindArguments('filesystem.list', { rootId: 'system32' })
+    const out = await bindArguments('filesystem_list', { rootId: 'system32' })
 
     expect(out.ok).toBe(false)
     expect(!out.ok && out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
@@ -47,7 +47,7 @@ describe('bindArguments：filesystem.list', () => {
 
   it('缺 rootId / 类型错 -> INVALID_ARGUMENT', async () => {
     for (const args of [{}, { rootId: 123 }, { rootId: null }]) {
-      const out = await bindArguments('filesystem.list', args)
+      const out = await bindArguments('filesystem_list', args)
       expect(out.ok, JSON.stringify(args)).toBe(false)
       expect(!out.ok && out.code, JSON.stringify(args)).toBe(ERROR_CODE.INVALID_ARGUMENT)
     }
@@ -56,23 +56,23 @@ describe('bindArguments：filesystem.list', () => {
   it('多余字段被剥掉：绑出来的 args 只有契约里的键', async () => {
     // z.object 默认 strip。留着多余字段的话，TASK-018 的 hash 会跟着模型
     // 塞进来的垃圾一起变，同一个操作两次批准算出两个 hash。
-    const out = await bindArguments('filesystem.list', { rootId: 'downloads', rmrf: '/' })
+    const out = await bindArguments('filesystem_list', { rootId: 'downloads', rmrf: '/' })
 
     expect(out.ok && out.bound.args).toEqual({ rootId: 'downloads' })
   })
 
   it('reason 里点名是哪个能力的参数不对', async () => {
-    const out = await bindArguments('filesystem.list', { rootId: 'system32' })
+    const out = await bindArguments('filesystem_list', { rootId: 'system32' })
 
-    expect(!out.ok && out.reason).toContain('filesystem.list')
+    expect(!out.ok && out.reason).toContain('filesystem_list')
   })
 })
 
-describe('bindArguments：document.extract_pdf', () => {
+describe('bindArguments：document_extract_pdf', () => {
   it('根内真实文件 -> paths.path 是 realpath 后的绝对路径', async () => {
     await writeFile(join(dir, 'a.pdf'), 'A')
 
-    const out = await bindArguments('document.extract_pdf', { path: join(dir, 'a.pdf') })
+    const out = await bindArguments('document_extract_pdf', { path: join(dir, 'a.pdf') })
 
     expect(out).toEqual({
       ok: true,
@@ -91,21 +91,21 @@ describe('bindArguments：document.extract_pdf', () => {
     await symlink(inner, join(dir, 'alias'), 'junction')
     const viaAlias = join(dir, 'alias', 'a.pdf')
 
-    const out = await bindArguments('document.extract_pdf', { path: viaAlias })
+    const out = await bindArguments('document_extract_pdf', { path: viaAlias })
 
     expect(out.ok && out.bound.args['path']).toBe(viaAlias)
     expect(out.ok && out.bound.paths['path']).toBe(`${realRoot}/inner/a.pdf`)
   })
 
   it('根外绝对路径 -> PATH_OUT_OF_ROOT', async () => {
-    const out = await bindArguments('document.extract_pdf', { path: 'C:/Windows/win.ini' })
+    const out = await bindArguments('document_extract_pdf', { path: 'C:/Windows/win.ini' })
 
     expect(out.ok).toBe(false)
     expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
   })
 
   it('.. 逃逸 -> PATH_OUT_OF_ROOT', async () => {
-    const out = await bindArguments('document.extract_pdf', {
+    const out = await bindArguments('document_extract_pdf', {
       path: join(dir, '..', '..', 'secret.pdf')
     })
 
@@ -118,7 +118,7 @@ describe('bindArguments：document.extract_pdf', () => {
       await writeFile(join(outside, 'secret.pdf'), 'S')
       await symlink(outside, join(dir, 'escape'), 'junction')
 
-      const out = await bindArguments('document.extract_pdf', {
+      const out = await bindArguments('document_extract_pdf', {
         path: join(dir, 'escape', 'secret.pdf')
       })
 
@@ -129,7 +129,7 @@ describe('bindArguments：document.extract_pdf', () => {
   })
 
   it('UNC -> PATH_UNC_NOT_ALLOWED', async () => {
-    const out = await bindArguments('document.extract_pdf', {
+    const out = await bindArguments('document_extract_pdf', {
       path: '\\\\evil-server\\share\\x.pdf'
     })
 
@@ -138,7 +138,7 @@ describe('bindArguments：document.extract_pdf', () => {
 
   it('空 path / 缺 path -> INVALID_ARGUMENT', async () => {
     for (const args of [{ path: '' }, {}]) {
-      const out = await bindArguments('document.extract_pdf', args)
+      const out = await bindArguments('document_extract_pdf', args)
       expect(out.ok, JSON.stringify(args)).toBe(false)
       expect(!out.ok && out.code, JSON.stringify(args)).toBe(ERROR_CODE.INVALID_ARGUMENT)
     }
@@ -147,7 +147,7 @@ describe('bindArguments：document.extract_pdf', () => {
   it('根内不存在的目标仍然绑定成功', async () => {
     // 「不存在」不等于「越界」。这里拒了的话，下游 readFile 的 FILE_UNREADABLE
     // 就永远出不来，UI 上只会看到一句莫名其妙的路径错误。
-    const out = await bindArguments('document.extract_pdf', { path: join(dir, 'ghost.pdf') })
+    const out = await bindArguments('document_extract_pdf', { path: join(dir, 'ghost.pdf') })
 
     expect(out).toEqual({
       ok: true,
@@ -161,7 +161,7 @@ describe('bindArguments：document.extract_pdf', () => {
     const other = await mkdtemp(join(tmpdir(), 'pa-bind-other-'))
     try {
       vi.stubEnv(ENV_NAME, other)
-      const out = await bindArguments('document.extract_pdf', { path: join(dir, 'a.pdf') })
+      const out = await bindArguments('document_extract_pdf', { path: join(dir, 'a.pdf') })
 
       expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
     } finally {
@@ -172,7 +172,7 @@ describe('bindArguments：document.extract_pdf', () => {
   it('授权根不存在 -> PATH_OUT_OF_ROOT，而不是绑定成功', async () => {
     vi.stubEnv(ENV_NAME, join(dir, 'nope'))
 
-    const out = await bindArguments('document.extract_pdf', {
+    const out = await bindArguments('document_extract_pdf', {
       path: join(dir, 'nope', 'a.pdf')
     })
 
@@ -181,11 +181,11 @@ describe('bindArguments：document.extract_pdf', () => {
   })
 })
 
-describe('bindArguments：filesystem.create_dir', () => {
+describe('bindArguments：filesystem_create_dir', () => {
   it('根内还不存在的目录 -> 绑定成功，paths.path 是规范化后的绝对路径', async () => {
     // 要建的目录当然还不存在，guard 必须能处理这种输入，
     // 否则 create_dir 永远绑不成功。
-    const out = await bindArguments('filesystem.create_dir', { path: join(dir, 'Reading') })
+    const out = await bindArguments('filesystem_create_dir', { path: join(dir, 'Reading') })
 
     expect(out).toEqual({
       ok: true,
@@ -194,7 +194,7 @@ describe('bindArguments：filesystem.create_dir', () => {
   })
 
   it('多层不存在的目录也过：guard 只管边界，不管深度', async () => {
-    const out = await bindArguments('filesystem.create_dir', { path: join(dir, 'a', 'b', 'c') })
+    const out = await bindArguments('filesystem_create_dir', { path: join(dir, 'a', 'b', 'c') })
 
     expect(out.ok && out.bound.paths['path']).toBe(`${realRoot}/a/b/c`)
   })
@@ -202,20 +202,20 @@ describe('bindArguments：filesystem.create_dir', () => {
   it('根内已存在的目录也绑定成功：是否已存在归执行体判', async () => {
     await mkdir(join(dir, 'exists'))
 
-    const out = await bindArguments('filesystem.create_dir', { path: join(dir, 'exists') })
+    const out = await bindArguments('filesystem_create_dir', { path: join(dir, 'exists') })
 
     expect(out.ok && out.bound.paths['path']).toBe(`${realRoot}/exists`)
   })
 
   it('根外 -> PATH_OUT_OF_ROOT', async () => {
-    const out = await bindArguments('filesystem.create_dir', { path: 'C:/Windows/Temp/evil' })
+    const out = await bindArguments('filesystem_create_dir', { path: 'C:/Windows/Temp/evil' })
 
     expect(out.ok).toBe(false)
     expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
   })
 
   it('.. 逃逸 -> PATH_OUT_OF_ROOT', async () => {
-    const out = await bindArguments('filesystem.create_dir', { path: join(dir, '..', 'escaped') })
+    const out = await bindArguments('filesystem_create_dir', { path: join(dir, '..', 'escaped') })
 
     expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
   })
@@ -225,7 +225,7 @@ describe('bindArguments：filesystem.create_dir', () => {
     try {
       await symlink(outside, join(dir, 'escape'), 'junction')
 
-      const out = await bindArguments('filesystem.create_dir', {
+      const out = await bindArguments('filesystem_create_dir', {
         path: join(dir, 'escape', 'sub')
       })
 
@@ -237,7 +237,7 @@ describe('bindArguments：filesystem.create_dir', () => {
 
   it('空 path / 缺 path / 类型错 -> INVALID_ARGUMENT', async () => {
     for (const args of [{ path: '' }, {}, { path: 123 }]) {
-      const out = await bindArguments('filesystem.create_dir', args)
+      const out = await bindArguments('filesystem_create_dir', args)
       expect(out.ok, JSON.stringify(args)).toBe(false)
       expect(!out.ok && out.code, JSON.stringify(args)).toBe(ERROR_CODE.INVALID_ARGUMENT)
     }
@@ -246,7 +246,7 @@ describe('bindArguments：filesystem.create_dir', () => {
   it('多余字段被剔掉：绑出来的 args 只有 path', async () => {
     // Permission 的 hash 基于这个 args 算。混进模型塞的垃圾，
     // 同一个操作两次批准会算出两个 hash。
-    const out = await bindArguments('filesystem.create_dir', {
+    const out = await bindArguments('filesystem_create_dir', {
       path: join(dir, 'Reading'),
       recursive: true,
       mode: 511
@@ -256,11 +256,11 @@ describe('bindArguments：filesystem.create_dir', () => {
   })
 })
 
-describe('bindArguments：filesystem.move', () => {
+describe('bindArguments：filesystem_move', () => {
   it('根内真实文件 -> 根内不存在的目标：两个路径都规范化', async () => {
     await writeFile(join(dir, 'a.pdf'), 'A')
 
-    const out = await bindArguments('filesystem.move', {
+    const out = await bindArguments('filesystem_move', {
       source: join(dir, 'a.pdf'),
       target: join(dir, 'Reading', 'a.pdf')
     })
@@ -275,7 +275,7 @@ describe('bindArguments：filesystem.move', () => {
   })
 
   it('source 越界 -> PATH_OUT_OF_ROOT，reason 点名 source', async () => {
-    const out = await bindArguments('filesystem.move', {
+    const out = await bindArguments('filesystem_move', {
       source: 'C:/Windows/win.ini',
       target: join(dir, 'a.pdf')
     })
@@ -288,7 +288,7 @@ describe('bindArguments：filesystem.move', () => {
     // 只校验 source 的话，这一条就是「从合法位置搬到根外」，正是要拦的。
     await writeFile(join(dir, 'a.pdf'), 'A')
 
-    const out = await bindArguments('filesystem.move', {
+    const out = await bindArguments('filesystem_move', {
       source: join(dir, 'a.pdf'),
       target: 'C:/Windows/Temp/a.pdf'
     })
@@ -303,7 +303,7 @@ describe('bindArguments：filesystem.move', () => {
       await writeFile(join(outside, 'secret.pdf'), 'S')
       await symlink(outside, join(dir, 'escape'), 'junction')
 
-      const out = await bindArguments('filesystem.move', {
+      const out = await bindArguments('filesystem_move', {
         source: join(dir, 'escape', 'secret.pdf'),
         target: join(dir, 'moved.pdf')
       })
@@ -322,7 +322,7 @@ describe('bindArguments：filesystem.move', () => {
       await writeFile(join(dir, 'a.pdf'), 'A')
       await symlink(outside, join(dir, 'escape'), 'junction')
 
-      const out = await bindArguments('filesystem.move', {
+      const out = await bindArguments('filesystem_move', {
         source: join(dir, 'a.pdf'),
         target: join(dir, 'escape', 'a.pdf')
       })
@@ -335,7 +335,7 @@ describe('bindArguments：filesystem.move', () => {
   })
 
   it('target 是 UNC -> PATH_UNC_NOT_ALLOWED', async () => {
-    const out = await bindArguments('filesystem.move', {
+    const out = await bindArguments('filesystem_move', {
       source: join(dir, 'a.pdf'),
       target: '\\\\evil-server\\share\\a.pdf'
     })
@@ -349,7 +349,7 @@ describe('bindArguments：filesystem.move', () => {
       { source: '', target: join(dir, 'b.pdf') },
       { from: join(dir, 'a.pdf'), to: join(dir, 'b.pdf') }
     ]) {
-      const out = await bindArguments('filesystem.move', args)
+      const out = await bindArguments('filesystem_move', args)
       expect(out.ok, JSON.stringify(args)).toBe(false)
       expect(!out.ok && out.code, JSON.stringify(args)).toBe(ERROR_CODE.INVALID_ARGUMENT)
     }
@@ -359,13 +359,13 @@ describe('bindArguments：filesystem.move', () => {
     await writeFile(join(dir, 'a.pdf'), 'A')
     const same = join(dir, 'a.pdf')
 
-    const out = await bindArguments('filesystem.move', { source: same, target: same })
+    const out = await bindArguments('filesystem_move', { source: same, target: same })
 
     expect(out.ok).toBe(true)
   })
 
   it('多余字段被剔掉：绑出来的 args 只有 source 与 target', async () => {
-    const out = await bindArguments('filesystem.move', {
+    const out = await bindArguments('filesystem_move', {
       source: join(dir, 'a.pdf'),
       target: join(dir, 'b.pdf'),
       overwrite: true
@@ -378,11 +378,11 @@ describe('bindArguments：filesystem.move', () => {
   })
 })
 
-describe('bindArguments：scheduler.create', () => {
+describe('bindArguments：scheduler_create', () => {
   const FUTURE = '2099-01-01T00:00:00.000Z'
 
   it('合法 ISO 时间 -> remindAt 规范化成 UTC 毫秒串，paths 为空', async () => {
-    const out = await bindArguments('scheduler.create', { remindAt: FUTURE, message: '该读书了' })
+    const out = await bindArguments('scheduler_create', { remindAt: FUTURE, message: '该读书了' })
 
     expect(out).toEqual({
       ok: true,
@@ -393,7 +393,7 @@ describe('bindArguments：scheduler.create', () => {
   it('带时区偏移的时间被归一到 UTC：批准面板与落库是同一个串', async () => {
     // 「今晚八点」在东八区解析出来是 +08:00 结尾。规范化前两种写法 hash 不同，
     // 规范化后是同一个时刻同一个串——用户确认的就是落库的。
-    const out = await bindArguments('scheduler.create', {
+    const out = await bindArguments('scheduler_create', {
       remindAt: '2099-01-01T20:00:00+08:00',
       message: '该读书了'
     })
@@ -404,14 +404,14 @@ describe('bindArguments：scheduler.create', () => {
   it('无法解析的时间 -> INVALID_ARGUMENT，reason 带上原值', async () => {
     // 契约层（SchedulerCreateParams）只钉非空字符串，「今晚八点」这种没解析成
     // 具体时间的字面值在这里被拦：模型跳过了它该做的那步解析。
-    const out = await bindArguments('scheduler.create', { remindAt: '今晚八点', message: 'x' })
+    const out = await bindArguments('scheduler_create', { remindAt: '今晚八点', message: 'x' })
 
     expect(!out.ok && out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
     expect(!out.ok && out.reason).toContain('今晚八点')
   })
 
   it('过去的时刻 -> REMINDER_TIME_IN_PAST', async () => {
-    const out = await bindArguments('scheduler.create', {
+    const out = await bindArguments('scheduler_create', {
       remindAt: '1999-01-01T00:00:00.000Z',
       message: 'x'
     })
@@ -421,7 +421,7 @@ describe('bindArguments：scheduler.create', () => {
 
   it('恰好等于当前时刻也拒：一次性提醒必须在未来', async () => {
     const nowIso = new Date().toISOString()
-    const out = await bindArguments('scheduler.create', { remindAt: nowIso, message: 'x' })
+    const out = await bindArguments('scheduler_create', { remindAt: nowIso, message: 'x' })
 
     expect(!out.ok && out.code).toBe(ERROR_CODE.REMINDER_TIME_IN_PAST)
   })
@@ -435,14 +435,14 @@ describe('bindArguments：scheduler.create', () => {
       { remindAt: FUTURE, message: '' },
       { remindAt: 123, message: 'x' }
     ]) {
-      const out = await bindArguments('scheduler.create', args)
+      const out = await bindArguments('scheduler_create', args)
       expect(out.ok, JSON.stringify(args)).toBe(false)
       expect(!out.ok && out.code, JSON.stringify(args)).toBe(ERROR_CODE.INVALID_ARGUMENT)
     }
   })
 
   it('多余字段被剥掉：hash 不跟着模型塞进来的垃圾变', async () => {
-    const out = await bindArguments('scheduler.create', {
+    const out = await bindArguments('scheduler_create', {
       remindAt: FUTURE,
       message: 'x',
       repeat: 'daily'
@@ -452,9 +452,9 @@ describe('bindArguments：scheduler.create', () => {
   })
 })
 
-describe('bindArguments：notification.send', () => {
+describe('bindArguments：notification_send', () => {
   it('合法 reminderId -> bound.args 只有引用，paths 为空', async () => {
-    const out = await bindArguments('notification.send', { reminderId: 'r-1' })
+    const out = await bindArguments('notification_send', { reminderId: 'r-1' })
 
     expect(out).toEqual({ ok: true, bound: { args: { reminderId: 'r-1' }, paths: {} } })
   })
@@ -462,7 +462,7 @@ describe('bindArguments：notification.send', () => {
   it('自由文本被剥掉：正文只能来自落库的 reminders.message', async () => {
     // 「仅由持久化 Reminder 触发」（PRD 3.2）的关口表达：模型塞的 message/title
     // 在 zod strip 时就被剥掉，进不了 bound.args，也就进不了批准 hash。
-    const out = await bindArguments('notification.send', {
+    const out = await bindArguments('notification_send', {
       reminderId: 'r-1',
       message: '模型想自己编的正文',
       title: '模型想自己编的标题'
@@ -473,7 +473,7 @@ describe('bindArguments：notification.send', () => {
 
   it('缺字段 / 空串 / 类型错 -> INVALID_ARGUMENT', async () => {
     for (const args of [{}, { reminderId: '' }, { reminderId: 42 }, { id: 'r-1' }]) {
-      const out = await bindArguments('notification.send', args)
+      const out = await bindArguments('notification_send', args)
       expect(out.ok, JSON.stringify(args)).toBe(false)
       expect(!out.ok && out.code, JSON.stringify(args)).toBe(ERROR_CODE.INVALID_ARGUMENT)
     }
@@ -482,7 +482,7 @@ describe('bindArguments：notification.send', () => {
   it('不校验存在性/归属/到点：那是执行体的判定', async () => {
     // binder 只管形状（对照 bindSchedulerCreate 不查重复 Reminder 的分工）。
     // REMINDER_NOT_FOUND / REMINDER_NOT_DUE 在 executor 里判。
-    const out = await bindArguments('notification.send', { reminderId: '不存在的-id' })
+    const out = await bindArguments('notification_send', { reminderId: '不存在的-id' })
 
     expect(out.ok).toBe(true)
   })
@@ -511,22 +511,22 @@ describe('bindArguments：没有绑定器的能力', () => {
     // 抛出去的话 supervisor 会把 code 写死成 HOST_HANDLER_FAILED，精确码全丢。
     await mkdir(join(dir, 'sub'), { recursive: true })
     const inputs: [string, Record<string, unknown>][] = [
-      ['filesystem.list', { rootId: 'downloads' }],
-      ['filesystem.list', { rootId: 'nope' }],
-      ['document.extract_pdf', { path: dir }],
-      ['document.extract_pdf', { path: join(dir, 'sub') }],
-      ['document.extract_pdf', { path: join(dir, 'ghost.pdf') }],
-      ['filesystem.create_dir', { path: '' }],
-      ['filesystem.create_dir', { path: join(dir, 'sub', 'deep') }],
-      ['filesystem.move', { source: 'a', target: 'b' }],
-      ['filesystem.move', { from: 'a', to: 'b' }],
-      ['scheduler.create', { remindAt: '今晚八点', message: 'x' }],
-      ['scheduler.create', { remindAt: '1999-01-01T00:00:00.000Z', message: 'x' }],
-      ['notification.send', { reminderId: 'r-1' }],
-      ['notification.send', { reminderId: '' }],
-      ['terminal.execute', { command: 'echo hi' }],
-      ['terminal.execute', { command: '' }],
-      ['terminal.execute', { command: 'dir', cwd: '../escape' }],
+      ['filesystem_list', { rootId: 'downloads' }],
+      ['filesystem_list', { rootId: 'nope' }],
+      ['document_extract_pdf', { path: dir }],
+      ['document_extract_pdf', { path: join(dir, 'sub') }],
+      ['document_extract_pdf', { path: join(dir, 'ghost.pdf') }],
+      ['filesystem_create_dir', { path: '' }],
+      ['filesystem_create_dir', { path: join(dir, 'sub', 'deep') }],
+      ['filesystem_move', { source: 'a', target: 'b' }],
+      ['filesystem_move', { from: 'a', to: 'b' }],
+      ['scheduler_create', { remindAt: '今晚八点', message: 'x' }],
+      ['scheduler_create', { remindAt: '1999-01-01T00:00:00.000Z', message: 'x' }],
+      ['notification_send', { reminderId: 'r-1' }],
+      ['notification_send', { reminderId: '' }],
+      ['terminal_execute', { command: 'echo hi' }],
+      ['terminal_execute', { command: '' }],
+      ['terminal_execute', { command: 'dir', cwd: '../escape' }],
       ['nope.nope', {}]
     ]
 
@@ -538,9 +538,9 @@ describe('bindArguments：没有绑定器的能力', () => {
   })
 })
 
-describe('bindArguments：terminal.execute', () => {
+describe('bindArguments：terminal_execute', () => {
   it('合法 command，缺省 cwd -> args 原样带过，paths.cwd 默认为 root 真实路径', async () => {
-    const out = await bindArguments('terminal.execute', { command: 'echo hello' })
+    const out = await bindArguments('terminal_execute', { command: 'echo hello' })
     expect(out).toEqual({
       ok: true,
       bound: {
@@ -552,7 +552,7 @@ describe('bindArguments：terminal.execute', () => {
 
   it('合法 command 与有效 cwd 相对路径 -> paths.cwd 规范化为真实路径', async () => {
     await mkdir(join(dir, 'subfolder'), { recursive: true })
-    const out = await bindArguments('terminal.execute', {
+    const out = await bindArguments('terminal_execute', {
       command: 'dir',
       cwd: 'subfolder',
       timeoutMs: 5000
@@ -569,7 +569,7 @@ describe('bindArguments：terminal.execute', () => {
   })
 
   it('cwd 逃逸授权根 -> PATH_OUT_OF_ROOT', async () => {
-    const out = await bindArguments('terminal.execute', {
+    const out = await bindArguments('terminal_execute', {
       command: 'whoami',
       cwd: '../../outside'
     })
@@ -581,7 +581,7 @@ describe('bindArguments：terminal.execute', () => {
 
   it('缺 command 或 command 为空 -> INVALID_ARGUMENT', async () => {
     for (const bad of [{}, { command: '' }, { command: 123 }]) {
-      const out = await bindArguments('terminal.execute', bad)
+      const out = await bindArguments('terminal_execute', bad)
       expect(out.ok, JSON.stringify(bad)).toBe(false)
       if (!out.ok) {
         expect(out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
@@ -595,7 +595,7 @@ describe('bindArguments：terminal.execute', () => {
       { command: 'echo', timeoutMs: 0 },
       { command: 'echo', timeoutMs: '1000' }
     ]) {
-      const out = await bindArguments('terminal.execute', bad)
+      const out = await bindArguments('terminal_execute', bad)
       expect(out.ok, JSON.stringify(bad)).toBe(false)
       if (!out.ok) {
         expect(out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)

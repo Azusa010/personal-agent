@@ -68,7 +68,7 @@ export interface FaultVerdict {
 }
 
 /** 完整计划的三个 WRITE：out-of-plan-call 场景要它们都有 approved。 */
-const WRITE_CAPABILITIES = ['filesystem.create_dir', 'filesystem.move', 'scheduler.create'] as const
+const WRITE_CAPABILITIES = ['filesystem_create_dir', 'filesystem_move', 'scheduler_create'] as const
 
 /** 「不许动授权根」的场景：故障发生在副作用之前，落地任何东西都算收场错了。 */
 const MUST_NOT_TOUCH: ReadonlySet<FaultScenario> = new Set<FaultScenario>([
@@ -83,10 +83,10 @@ const MUST_NOT_TOUCH: ReadonlySet<FaultScenario> = new Set<FaultScenario>([
  *
  * | 场景 | 终态 | 授权根 | 必须留下的证据 |
  * |------|------|--------|----------------|
- * | pdf-unreadable | failed | untouched | failedToolCalls 含 document.extract_pdf；没有任何权限记录（没走到 WRITE）；failureReason 非空 |
+ * | pdf-unreadable | failed | untouched | failedToolCalls 含 document_extract_pdf；没有任何权限记录（没走到 WRITE）；failureReason 非空 |
  * | permission-denied | failed | untouched | permissions 里至少一条 denied；没有 approved 的 WRITE |
  * | python-crashed | failed | untouched | failureCode 是 RUNTIME_CRASHED；权限停在 pending（批准窗口没关，重启后由过期投影收） |
- * | out-of-plan-call | completed | moved | failedToolCalls 含那条计划外调用（filesystem.move）；三条 WRITE 都有 approved |
+ * | out-of-plan-call | completed | moved | failedToolCalls 含那条计划外调用（filesystem_move）；三条 WRITE 都有 approved |
  * | budget-exhausted | failed | untouched | eventTypes 含 budget_exhausted；failureReason 提到预算 |
  * | notification-failed | completed | moved | reminderStatus 为 failed；eventTypes 含 notification_failed |
  *
@@ -144,7 +144,7 @@ export function judgeFault(scenario: FaultScenario, outcome: FaultOutcome): Faul
   switch (scenario) {
     case 'pdf-unreadable': {
       expectStatus('failed')
-      require_(outcome.failedToolCalls.includes('document.extract_pdf'), '应当留下一次提取失败')
+      require_(outcome.failedToolCalls.includes('document_extract_pdf'), '应当留下一次提取失败')
       require_(outcome.permissions.length === 0, '走到 WRITE 之前就该停，不该有权限记录')
       break
     }
@@ -173,7 +173,7 @@ export function judgeFault(scenario: FaultScenario, outcome: FaultOutcome): Faul
       expectStatus('completed')
       expectRoot('moved')
       require_(
-        outcome.failedToolCalls.includes('filesystem.move'),
+        outcome.failedToolCalls.includes('filesystem_move'),
         '计划外那条调用应当留下失败痕迹'
       )
       const missing = WRITE_CAPABILITIES.filter(

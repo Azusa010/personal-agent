@@ -64,7 +64,7 @@ export function listVisibleCapabilities(): readonly CapabilityDescriptor[] {
 }
 
 /**
- * 只读清单：`filesystem.list` 与 `document.extract_pdf`。
+ * 只读清单：`filesystem_list` 与 `document_extract_pdf`。
  *
  * 给「只跑读链路」的入口用——Live Eval 的 20 条 Case 就是这种配置（它量的是文档
  * 摘要，不该被要求移动文件、建 Reminder）。握手时下发什么，Python 的 make_plan
