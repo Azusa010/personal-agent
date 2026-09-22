@@ -2,40 +2,43 @@
 
 import os
 import platform
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Protocol
 
 from personal_agent.conversation.status.models import (
     StatusBarState,
     SystemEnvironment,
-    TodoItem,
     TodoStatus,
 )
 
 
 def detect_system_environment(cwd: str | None = None) -> SystemEnvironment:
     """探测当前运行宿主的真实操作系统、Shell 环境、Python 版本与工作目录。
-
-    # TODO(你填)[工程与规范]: 跨平台系统环境感知与安全嗅探
-    # 契约：
-    # - 输入：cwd (str | None)，若提供则使用传入的 cwd，否则调用 os.getcwd()
-    # - 字段探测要求：
-    #   1. current_time: datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    #   2. cwd: 传入的 cwd 或 os.getcwd()
-    #   3. os_type: 结合 platform.system() 与 platform.release()，如 "Windows 11" 或 "Linux 5.15.0"
-    #   4. python_version: platform.python_version()，如 "3.13.3"
-    #   5. shell: 跨平台 Shell 识别：
-    #      - 若 platform.system() == "Windows":
-    #        - 若环境变量中包含 "PSModulePath"，识别为 "PowerShell"
-    #        - 否则若环境变量中 "COMSPEC" 存在且包含 "cmd"，识别为 "CMD"
-    #        - 否则 fallback 到 "Windows Shell"
-    #      - 否则（非 Windows 如 Linux/Darwin）：
-    #        - 优先读取 os.environ.get("SHELL")，提取最后一截（如 "/bin/zsh" -> "zsh", "/bin/bash" -> "bash"）
-    #        - 找不到则 fallback 到 "sh"
-    # - 输出：构造并返回合法的 SystemEnvironment 实例
-    # - 对应验收测试：tests/test_status_bar.py::test_detect_system_environment
     """
-    raise NotImplementedError("TODO(你填)[工程与规范]: detect_system_environment 待实现")
+    target_cwd = cwd or os.getcwd()
+    current_time = datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+    os_type = f"{platform.system()} {platform.release()}".strip()
+    python_version = platform.python_version()
+    if platform.system() == "Windows":
+        if "PSModulePath" in os.environ:
+            shell = "PowerShell"
+        elif "COMSPEC" in os.environ and "cmd" in os.environ["COMSPEC"].lower():
+            shell = "CMD"
+        else:
+            shell = "Windows Shell"
+    else:
+        env_shell = os.environ.get("SHELL", "")
+        if env_shell:
+            shell = os.path.basename(env_shell.strip())
+        else:
+            shell = "sh"
+    return SystemEnvironment(
+        current_time=current_time,
+        cwd=target_cwd,
+        os_type=os_type,
+        shell=shell,
+        python_version=python_version,
+    )
 
 
 class StatusBarSectionProvider(Protocol):
