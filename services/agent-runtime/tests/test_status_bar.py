@@ -463,3 +463,142 @@ def test_evaluate_injection_strategy_math_model():
         == "replace"
     )
 
+
+# ==========================================
+# 阶段 4：安全修剪与管理中枢测试
+# ==========================================
+
+from personal_agent.conversation.status.manager import StatusBarManager
+from personal_agent.conversation.status.pruner import (
+    ContextInvariantViolation,
+    is_status_bar_message,
+    safe_prune_status_bars,
+)
+from personal_agent.protocol.models import PlanStepDto
+
+
+def test_is_status_bar_message():
+    # 合法状态栏消息
+    valid_sb = {
+        "role": "user",
+        "content": "<status_bar>\n## 🖥️ 系统环境\n</status_bar>",
+    }
+    assert is_status_bar_message(valid_sb) is True
+
+    # 普通用户消息
+    user_msg = {"role": "user", "content": "请帮我提取财务报告"}
+    assert is_status_bar_message(user_msg) is False
+
+    # 包含 tool_calls 的 assistant 消息
+    assistant_msg = {
+        "role": "assistant",
+        "tool_calls": [{"id": "call-1", "type": "function"}],
+    }
+    assert is_status_bar_message(assistant_msg) is False
+
+    # 真实的 tool 响应消息
+    tool_msg = {
+        "role": "tool",
+        "tool_call_id": "call-1",
+        "content": '{"status": "ok"}',
+    }
+    assert is_status_bar_message(tool_msg) is False
+
+
+def test_safe_prune_status_bars_clean():
+    # 模拟包含 2 条历史状态栏、普通用户消息与完整配对工具调用的真实轨迹
+    messages = [
+        {"role": "system", "content": "You are a helpful agent."},
+        {"role": "user", "content": "任务目标：整理数据"},
+        {"role": "user", "content": "<status_bar>\n旧状态 1\n</status_bar>"},
+        {
+            "role": "assistant",
+            "tool_calls": [{"id": "call-1", "type": "function", "function": {"name": "read"}}],
+        },
+        {"role": "tool", "tool_call_id": "call-1", "content": "data 1"},
+        {"role": "user", "content": "<status_bar>\n旧状态 2\n</status_bar>"},
+        {
+            "role": "assistant",
+            "tool_calls": [{"id": "call-2", "type": "function", "function": {"name": "write"}}],
+        },
+        {"role": "tool", "tool_call_id": "call-2", "content": "data 2"},
+    ]
+
+    original_len = len(messages)
+    cleaned = safe_prune_status_bars(messages)
+
+    # 1. 验证纯函数：入参未被原地修改
+    assert len(messages) == original_len
+
+    # 2. 验证两条旧状态栏被完全剔除 (8 - 2 = 6 条)
+    assert len(cleaned) == 6
+    for msg in cleaned:
+        assert not is_status_bar_message(msg)
+
+    # 3. 验证保留的消息内容顺序与工具调用无损
+    roles = [m["role"] for m in cleaned]
+    assert roles == ["system", "user", "assistant", "tool", "assistant", "tool"]
+
+
+def test_safe_prune_status_bars_invariants():
+    # 场景 1：tool_calls 悬空（没有后续紧跟的 tool 响应）
+    dangling_assistant = [
+        {"role": "user", "content": "hi"},
+        {
+            "role": "assistant",
+            "tool_calls": [{"id": "call-1", "type": "function"}],
+        },
+        {"role": "user", "content": "next prompt"},  # 应该紧跟 tool，却出现了 user
+    ]
+    with pytest.raises(ContextInvariantViolation, match="不变量破坏"):
+        safe_prune_status_bars(dangling_assistant)
+
+    # 场景 2：tool_call_id 不匹配
+    mismatched_id = [
+        {
+            "role": "assistant",
+            "tool_calls": [{"id": "call-1", "type": "function"}],
+        },
+        {"role": "tool", "tool_call_id": "call-999", "content": "err"},
+    ]
+    with pytest.raises(ContextInvariantViolation, match="不变量破坏"):
+        safe_prune_status_bars(mismatched_id)
+
+
+def test_status_bar_manager_lifecycle():
+    manager = StatusBarManager()
+
+    # 1. 从 PlanStep 初始化 TODO
+    plan = [
+        PlanStepDto(description="步骤一：列出文件", capability="filesystem_list"),
+        PlanStepDto(description="步骤二：分析内容"),
+    ]
+    todos = manager.init_from_plan(plan)
+    assert len(todos) == 2
+    assert todos[0].status == TodoStatus.IN_PROGRESS
+    assert todos[1].status == TodoStatus.PENDING
+
+    # 2. 推进 TODO 状态
+    manager.update_todo_status("todo-1", TodoStatus.COMPLETED)
+    manager.update_todo_status("todo-2", TodoStatus.IN_PROGRESS)
+    assert manager.state.todos[0].status == TodoStatus.COMPLETED
+    assert manager.state.todos[1].status == TodoStatus.IN_PROGRESS
+
+    # 3. 工具调用记录
+    anno = manager.record_tool_call("filesystem_list")
+    assert anno == "Tool call #1 for 'filesystem_list'"
+    assert manager.state.tool_counter.total_calls == 1
+
+    # 4. 消息装配 (Replace 模式)
+    history = [
+        {"role": "user", "content": "目标"},
+        {"role": "user", "content": "<status_bar>旧状态</status_bar>"},
+    ]
+    updated_msgs = manager.apply_to_messages(history, strategy="replace")
+    # 旧状态栏被剔除，末尾追加新状态栏
+    assert len(updated_msgs) == 2
+    assert updated_msgs[0]["content"] == "目标"
+    assert "<status_bar>" in updated_msgs[1]["content"]
+    assert "## 📋 任务规划 (TODO LIST)" in updated_msgs[1]["content"]
+
+
