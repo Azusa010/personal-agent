@@ -1,6 +1,6 @@
 """状态栏（Status Bar）核心数据模型与契约定义。"""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -77,6 +77,6 @@ class StatusBarState(BaseModel):
         default=None, description="系统环境状态快照"
     )
     updated_at: str = Field(
-        default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        default_factory=lambda: datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S"),
         description="状态快照更新时间",
     )

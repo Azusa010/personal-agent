@@ -30,7 +30,6 @@ def is_status_bar_message(message: dict[str, Any]) -> bool:
 class ContextInvariantViolation(Exception):
     """上下文协议不变量破坏异常（如 tool_calls 悬空或丢失配对）。"""
 
-    pass
 
 
 def safe_prune_status_bars(

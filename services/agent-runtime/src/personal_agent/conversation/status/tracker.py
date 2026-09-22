@@ -1,7 +1,7 @@
 """状态栏追踪器：工具调用计数器与时间戳追踪。"""
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import UTC, datetime
 
 from personal_agent.conversation.status.models import ToolCounterState
 
@@ -13,7 +13,7 @@ def format_timestamp(dt: datetime | None = None) -> str:
 
     若 dt 为 None 则获取当前系统本地时间。
     """
-    target_dt = dt or datetime.now()
+    target_dt = dt or datetime.now(UTC).astimezone()
     return f"[{target_dt.strftime(TIMESTAMP_FORMAT)}]"
 
 

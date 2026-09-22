@@ -1,7 +1,7 @@
 """状态栏管理中枢（StatusBarManager）：生命周期协调、状态流转与消息装配。"""
 
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from personal_agent.conversation.status.models import (
@@ -56,7 +56,7 @@ class StatusBarManager:
 
     def init_from_plan(self, plan: Sequence[PlanStepDto]) -> list[TodoItem]:
         """根据初始任务计划初始化 TODO 清单。第一项置为 in_progress，其余置为 pending。"""
-        now_str = datetime.now().strftime(TIMESTAMP_FORMAT)
+        now_str = datetime.now(UTC).astimezone().strftime(TIMESTAMP_FORMAT)
         todos: list[TodoItem] = []
         for idx, step in enumerate(plan, start=1):
             status = TodoStatus.IN_PROGRESS if idx == 1 else TodoStatus.PENDING
@@ -75,7 +75,7 @@ class StatusBarManager:
         self, todo_id: str, status: TodoStatus
     ) -> TodoItem | None:
         """更新指定 TODO 项的状态和更新时间戳。"""
-        now_str = datetime.now().strftime(TIMESTAMP_FORMAT)
+        now_str = datetime.now(UTC).astimezone().strftime(TIMESTAMP_FORMAT)
         for todo in self._state.todos:
             if todo.id == todo_id:
                 todo.status = status

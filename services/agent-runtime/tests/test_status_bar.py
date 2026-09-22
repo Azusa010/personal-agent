@@ -1,7 +1,7 @@
 """状态栏单元测试：数据模型、工具计数器与时间戳跟踪。"""
 
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -74,7 +74,7 @@ def test_timestamp_formatting():
     assert re.match(r"^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]$", ts)
 
     # 验证指定固定时间的格式化
-    fixed_dt = datetime(2026, 9, 22, 8, 30, 45)
+    fixed_dt = datetime(2026, 9, 22, 8, 30, 45, tzinfo=UTC)
     assert format_timestamp(fixed_dt) == "[2026-09-22 08:30:45]"
 
     # 验证前缀追加
