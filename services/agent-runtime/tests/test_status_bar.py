@@ -364,3 +364,102 @@ def test_status_bar_renderer_extensibility():
     assert "## 🧠 内存状态" in output
     assert "## 🖥️ 系统环境" in output
     assert output.index("## 🧠 内存状态") < output.index("## 🖥️ 系统环境")
+
+
+# ==========================================
+# 阶段 3：自适应注入策略评估器测试
+# ==========================================
+
+from personal_agent.conversation.status.strategy import (
+    evaluate_injection_strategy,
+)
+
+
+def test_evaluate_injection_strategy_validation():
+    # 负数参数校验
+    with pytest.raises(ValueError, match="参数超出有效范围"):
+        evaluate_injection_strategy(s_tokens=-1, r_tokens=100, n_turns=2)
+    with pytest.raises(ValueError, match="参数超出有效范围"):
+        evaluate_injection_strategy(s_tokens=100, r_tokens=-1, n_turns=2)
+    with pytest.raises(ValueError, match="参数超出有效范围"):
+        evaluate_injection_strategy(s_tokens=100, r_tokens=100, n_turns=0)
+
+    # alpha 超限校验
+    with pytest.raises(ValueError, match="alpha 必须在"):
+        evaluate_injection_strategy(s_tokens=100, r_tokens=100, n_turns=2, alpha=-0.1)
+    with pytest.raises(ValueError, match="alpha 必须在"):
+        evaluate_injection_strategy(s_tokens=100, r_tokens=100, n_turns=2, alpha=1.1)
+
+    # context_used_ratio 超限校验
+    with pytest.raises(ValueError, match="context_used_ratio 必须在"):
+        evaluate_injection_strategy(
+            s_tokens=100, r_tokens=100, n_turns=2, context_used_ratio=1.5
+        )
+
+
+def test_evaluate_injection_strategy_guards():
+    # 场景：数学模型计算原本倾向 "append"（S小，R大，N小）
+    # left = (0.5 * 50 * 3) / 2 = 37.5
+    # right = (1 - 0.5) * 1000 = 500
+    # left < right => append
+
+    # 守卫 1：上下文天花板触碰（ratio >= 0.75 强制 replace）
+    strat_ceiling = evaluate_injection_strategy(
+        s_tokens=50,
+        r_tokens=1000,
+        n_turns=3,
+        alpha=0.5,
+        context_used_ratio=0.80,  # 触碰 75% 天花板
+    )
+    assert strat_ceiling == "replace"
+
+    # 守卫 2：陈旧状态歧义（n_turns > 8 强制 replace）
+    strat_ambiguity = evaluate_injection_strategy(
+        s_tokens=50,
+        r_tokens=1000,
+        n_turns=9,  # 超过 8 轮历史
+        alpha=0.5,
+        context_used_ratio=0.20,
+    )
+    assert strat_ambiguity == "replace"
+
+
+def test_evaluate_injection_strategy_math_model():
+    # 场景 1：第 1 轮无历史累积，自然倾向 append
+    assert (
+        evaluate_injection_strategy(s_tokens=100, r_tokens=100, n_turns=1)
+        == "append"
+    )
+
+    # 场景 2：小状态 S=100，大后缀 R=1000，更新次数少 N=4，alpha=0.5
+    # left = (0.5 * 100 * 4) / 2 = 100
+    # right = (1 - 0.5) * 1000 = 500
+    # left < right => append 胜出
+    assert (
+        evaluate_injection_strategy(
+            s_tokens=100, r_tokens=1000, n_turns=4, alpha=0.5
+        )
+        == "append"
+    )
+
+    # 场景 3：大状态 S=800，小后缀 R=200，更新轮数中等 N=6，alpha=0.5
+    # left = (0.5 * 800 * 6) / 2 = 1200
+    # right = (1 - 0.5) * 200 = 100
+    # left >= right => replace 胜出
+    assert (
+        evaluate_injection_strategy(
+            s_tokens=800, r_tokens=200, n_turns=6, alpha=0.5
+        )
+        == "replace"
+    )
+
+    # 场景 4：无前缀缓存支持（alpha=1.0）
+    # right = (1 - 1.0) * R = 0
+    # left > 0 => replace 胜出（没有缓存优惠时保留旧状态只有纯害处）
+    assert (
+        evaluate_injection_strategy(
+            s_tokens=100, r_tokens=500, n_turns=3, alpha=1.0
+        )
+        == "replace"
+    )
+

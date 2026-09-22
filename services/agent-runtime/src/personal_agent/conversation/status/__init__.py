@@ -19,6 +19,13 @@ from personal_agent.conversation.status.renderer import (
     STATUS_BAR_OPEN_TAG,
     StatusBarRenderer,
 )
+from personal_agent.conversation.status.strategy import (
+    DEFAULT_ALPHA,
+    DEFAULT_MAX_APPEND_TURNS,
+    DEFAULT_MAX_CONTEXT_RATIO,
+    InjectionStrategy,
+    evaluate_injection_strategy,
+)
 from personal_agent.conversation.status.tracker import (
     ToolCallTracker,
     format_timestamp,
@@ -42,4 +49,9 @@ __all__ = [
     "StatusBarRenderer",
     "STATUS_BAR_OPEN_TAG",
     "STATUS_BAR_CLOSE_TAG",
+    "InjectionStrategy",
+    "evaluate_injection_strategy",
+    "DEFAULT_ALPHA",
+    "DEFAULT_MAX_APPEND_TURNS",
+    "DEFAULT_MAX_CONTEXT_RATIO",
 ]
