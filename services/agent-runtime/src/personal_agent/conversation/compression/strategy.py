@@ -50,7 +50,7 @@ def select_compression_candidates(
 
 def infer_task_type(task_goal: str) -> TaskType:
     """根据任务目标文本自适应识别任务意图模式。
-    # TODO 可选用Jev模型实验
+    # TODO 可选用Jev模型实    验
     """
     goal = task_goal.lower()
     analytical_keywords = ("分析", "为什么", "评估", "对比", "原因", "深度", "影响")
