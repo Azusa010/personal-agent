@@ -18,12 +18,16 @@ import {
 } from './settings-ipc'
 
 const SECRET = 'sk-secret-key-0123456789'
+const TS_SECRET = 'ts-secret-key-0123456789'
 
 const SAVED: ModelSettings = {
   model: 'gpt-4o-mini',
   baseUrl: 'https://relay.example.com/v1',
   apiKey: SECRET,
-  apiProtocol: 'responses'
+  apiProtocol: 'responses',
+  typesafeApiKey: TS_SECRET,
+  typesafeModel: 'jev-planner-v1',
+  typesafeBaseUrl: 'https://relay.example.com/typesafe/v1'
 }
 
 interface FakeOptions {
@@ -58,16 +62,24 @@ function fakeDeps(options: FakeOptions = {}): {
 }
 
 describe('getModelSettingsView', () => {
-  it('没配过 → 四个字段都空，apiKeySet 为 false', () => {
+  it('没配过 → 字段都空，apiKeySet 与 typesafeApiKeySet 为 false', () => {
     const { deps } = fakeDeps({ current: null })
 
     expect(getModelSettingsView(deps)).toEqual({
       ok: true,
-      settings: { apiKeySet: false, model: null, baseUrl: null, apiProtocol: null }
+      settings: {
+        apiKeySet: false,
+        model: null,
+        baseUrl: null,
+        apiProtocol: null,
+        typesafeApiKeySet: false,
+        typesafeModel: null,
+        typesafeBaseUrl: null
+      }
     })
   })
 
-  it('配置过 → model / baseUrl / apiProtocol 回给面板，apiKey 只回「配没配」', () => {
+  it('配置过 → 模型与地址回给面板，apiKey 与 typesafeApiKey 只回「配没配」', () => {
     const { deps } = fakeDeps({ current: SAVED })
 
     const result = getModelSettingsView(deps)
@@ -78,22 +90,34 @@ describe('getModelSettingsView', () => {
       apiKeySet: true,
       model: 'gpt-4o-mini',
       baseUrl: 'https://relay.example.com/v1',
-      apiProtocol: 'responses'
+      apiProtocol: 'responses',
+      typesafeApiKeySet: true,
+      typesafeModel: 'jev-planner-v1',
+      typesafeBaseUrl: 'https://relay.example.com/typesafe/v1'
     })
   })
 
   // 契约底线（SEC-008）：Key 明文不出主进程。断言由 AI 保留，不随陪练交出。
-  it('契约底线：整个返回体序列化后搜不到 Key 明文', () => {
+  it('契约底线：整个返回体序列化后搜不到任何 Key 明文', () => {
     const { deps } = fakeDeps({ current: SAVED })
 
     const result = getModelSettingsView(deps)
 
     expect(JSON.stringify(result)).not.toContain(SECRET)
+    expect(JSON.stringify(result)).not.toContain(TS_SECRET)
   })
 
-  it('只存了 model、没存 Key → apiKeySet 为 false', () => {
+  it('只存了 model、没存 Key → apiKeySet 和 typesafeApiKeySet 为 false', () => {
     const { deps } = fakeDeps({
-      current: { model: 'm', baseUrl: null, apiKey: null, apiProtocol: null }
+      current: {
+        model: 'm',
+        baseUrl: null,
+        apiKey: null,
+        apiProtocol: null,
+        typesafeApiKey: null,
+        typesafeModel: 'jev-v1',
+        typesafeBaseUrl: null
+      }
     })
 
     const result = getModelSettingsView(deps)
@@ -101,6 +125,8 @@ describe('getModelSettingsView', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.settings.apiKeySet).toBe(false)
+    expect(result.settings.typesafeApiKeySet).toBe(false)
+    expect(result.settings.typesafeModel).toBe('jev-v1')
   })
 
   it('存储层真抛异常 → READ_FAILED，不装成「未配置」', () => {
@@ -124,7 +150,11 @@ describe('setModelSettings: 入参收窄', () => {
     ['model 是数字', { model: 42 }],
     ['baseUrl 是对象', { baseUrl: {} }],
     ['apiKey 是数字', { apiKey: 5 }],
-    ['clearApiKey 是字符串', { clearApiKey: 'yes' }]
+    ['clearApiKey 是字符串', { clearApiKey: 'yes' }],
+    ['typesafeApiKey 是数字', { typesafeApiKey: 123 }],
+    ['clearTypesafeApiKey 是字符串', { clearTypesafeApiKey: 'yes' }],
+    ['typesafeModel 是数字', { typesafeModel: 99 }],
+    ['typesafeBaseUrl 是布尔值', { typesafeBaseUrl: true }]
   ]
 
   it.each(cases)('%s → PROTOCOL_INVALID_REQUEST，且不写存储', async (_label, input) => {
@@ -147,19 +177,27 @@ describe('setModelSettings: 入参收窄', () => {
     if (result.ok) return
     expect(result.message).not.toContain('12345')
   })
+
+  it('typesafeApiKey 类型不对时不把收到的值写进错误消息（安全边界）', async () => {
+    const { deps } = fakeDeps()
+
+    const result = await setModelSettings({ typesafeApiKey: 54321 }, deps)
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.message).not.toContain('54321')
+  })
 })
 
 describe('setModelSettings: 合并语义', () => {
-  it('只给 model：另外三个字段保持原值（面板留空 = 没改）', async () => {
+  it('只给 model：另外字段保持原值（面板留空 = 没改）', async () => {
     const { deps, store } = fakeDeps({ current: SAVED })
 
     await setModelSettings({ model: 'gpt-4.1-mini' }, deps)
 
     expect(store.save).toHaveBeenCalledWith({
-      model: 'gpt-4.1-mini',
-      baseUrl: 'https://relay.example.com/v1',
-      apiKey: SECRET,
-      apiProtocol: 'responses'
+      ...SAVED,
+      model: 'gpt-4.1-mini'
     })
   })
 
@@ -187,12 +225,47 @@ describe('setModelSettings: 合并语义', () => {
     expect(store.save).toHaveBeenCalledWith({ ...SAVED, apiKey: null })
   })
 
+  it('typesafeApiKey 是空串：按「没改」处理，旧 Key 不会被清掉', async () => {
+    const { deps, store } = fakeDeps({ current: SAVED })
+
+    await setModelSettings({ typesafeApiKey: '' }, deps)
+
+    expect(store.save).toHaveBeenCalledWith({ ...SAVED })
+  })
+
+  it('typesafeApiKey 给了新值：覆盖旧 Key', async () => {
+    const { deps, store } = fakeDeps({ current: SAVED })
+
+    await setModelSettings({ typesafeApiKey: 'ts-brand-new' }, deps)
+
+    expect(store.save).toHaveBeenCalledWith({ ...SAVED, typesafeApiKey: 'ts-brand-new' })
+  })
+
+  it('clearTypesafeApiKey 优先于 typesafeApiKey：同时给也按清除算', async () => {
+    const { deps, store } = fakeDeps({ current: SAVED })
+
+    await setModelSettings({ clearTypesafeApiKey: true, typesafeApiKey: 'ts-ignored' }, deps)
+
+    expect(store.save).toHaveBeenCalledWith({ ...SAVED, typesafeApiKey: null })
+  })
+
   it('model 传 null：清空该字段', async () => {
     const { deps, store } = fakeDeps({ current: SAVED })
 
     await setModelSettings({ model: null }, deps)
 
     expect(store.save).toHaveBeenCalledWith({ ...SAVED, model: null })
+  })
+
+  it('typesafeModel 与 typesafeBaseUrl 可以更新或清空为 null', async () => {
+    const { deps, store } = fakeDeps({ current: SAVED })
+
+    await setModelSettings({ typesafeModel: 'jev-planner-v2', typesafeBaseUrl: null }, deps)
+    expect(store.save).toHaveBeenCalledWith({
+      ...SAVED,
+      typesafeModel: 'jev-planner-v2',
+      typesafeBaseUrl: null
+    })
   })
 
   it('apiProtocol 可以切换为 chat_completions 或清空为 null', async () => {
@@ -214,7 +287,10 @@ describe('setModelSettings: 合并语义', () => {
       model: 'gpt-4o-mini',
       baseUrl: null,
       apiKey: SECRET,
-      apiProtocol: null
+      apiProtocol: null,
+      typesafeApiKey: null,
+      typesafeModel: null,
+      typesafeBaseUrl: null
     })
   })
 })

@@ -9,6 +9,7 @@ dependencies = [
     "openai>=3.6.0",
     "pydantic>=2.13.5",
     "tiktoken>=0.14.0",
+    "typesafe-sdk>=0.7.1",
 ]
 
 [project.scripts]

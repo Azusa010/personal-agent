@@ -1,6 +1,7 @@
-"""阶段 3 单元测试：窗口水位监视、候选选取与自适应任务策略。"""
+from unittest.mock import MagicMock
 
 import pytest
+from typesafe_sdk import Choice
 
 from personal_agent.conversation.compression.models import (
     LifecycleTier,
@@ -63,14 +64,77 @@ def test_select_compression_candidates():
     assert cand_obs[1].callId == "call-2"
 
 
-def test_infer_task_type():
-    """验证从任务目标自适应识别任务模式。"""
+def test_infer_task_type_heuristic_offline():
+    """验证在无 Jev 客户端或离线环境下，自适应回退到启发式规则。"""
     assert infer_task_type("查找并整理所有联合创始人名单") == TaskType.RETRIEVAL
     assert infer_task_type("列出下载目录下的财务文件清单") == TaskType.RETRIEVAL
     assert infer_task_type("分析这次架构调整的原因与潜在商业影响") == TaskType.ANALYTICAL
     assert infer_task_type("对比两家公司的核心技术优势") == TaskType.ANALYTICAL
     assert infer_task_type("构思一段吸引人的新产品宣传语") == TaskType.CREATIVE
     assert infer_task_type("设计一个幽默的助手开场白") == TaskType.CREATIVE
+
+
+def test_infer_task_type_jev_success():
+    """验证传入 Jev 客户端时，优先使用 Jev 模型的结构化决策。"""
+    mock_client = MagicMock()
+    mock_client.__enter__.return_value = mock_client
+
+    # 1. 模拟 Jev 做出检索型决策
+    mock_answer = MagicMock()
+    mock_answer.choice = "retrieval"
+    mock_response = MagicMock()
+    mock_response.choices = {"task_type": mock_answer}
+    mock_response.answers = {"task_type": mock_answer}
+    mock_client.system_one.return_value = mock_response
+
+    res = infer_task_type("提取合同第一条条款", client=mock_client)
+    assert res == TaskType.RETRIEVAL
+
+    # 契约底线断言（保留）：验证向 Jev 传递的状态与题目结构
+    mock_client.system_one.assert_called_once()
+    _, call_kwargs = mock_client.system_one.call_args
+    assert call_kwargs["state"] == {"task_goal": "提取合同第一条条款"}
+    assert "task_type" in call_kwargs["questions"]
+    assert isinstance(call_kwargs["questions"]["task_type"], Choice)
+
+    # 2. 模拟 Jev 做出分析型决策
+    mock_client.reset_mock()
+    mock_client.__enter__.return_value = mock_client
+    mock_answer.choice = "analytical"
+    res_analytical = infer_task_type("评估该策略的隐蔽风险", client=mock_client)
+    assert res_analytical == TaskType.ANALYTICAL
+
+    # 3. 模拟 Jev 做出创作型决策
+    mock_client.reset_mock()
+    mock_client.__enter__.return_value = mock_client
+    mock_answer.choice = "creative"
+    res_creative = infer_task_type("撰写一段富有感染力的口号", client=mock_client)
+    assert res_creative == TaskType.CREATIVE
+
+
+def test_infer_task_type_jev_fallback_on_exception():
+    """验证 Jev 客户端调用抛出异常时，平滑降级至启发式规则（CON-006 fail-safe）。"""
+    mock_client = MagicMock()
+    mock_client.__enter__.return_value = mock_client
+    mock_client.system_one.side_effect = RuntimeError("网络不可达或超时")
+
+    res = infer_task_type("分析这次架构调整的原因与潜在商业影响", client=mock_client)
+    assert res == TaskType.ANALYTICAL
+
+
+def test_infer_task_type_jev_fallback_on_invalid_choice():
+    """验证 Jev 返回未知或非法选项时，平滑降级至启发式规则。"""
+    mock_client = MagicMock()
+    mock_client.__enter__.return_value = mock_client
+    mock_answer = MagicMock()
+    mock_answer.choice = "some_unknown_choice"
+    mock_response = MagicMock()
+    mock_response.choices = {"task_type": mock_answer}
+    mock_response.answers = {"task_type": mock_answer}
+    mock_client.system_one.return_value = mock_response
+
+    res = infer_task_type("构思一段吸引人的新产品宣传语", client=mock_client)
+    assert res == TaskType.CREATIVE
 
 
 def test_classify_lifecycle():

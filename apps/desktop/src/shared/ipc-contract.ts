@@ -101,19 +101,27 @@ export interface ModelSettingsView {
   model: string | null
   baseUrl: string | null
   apiProtocol: 'responses' | 'chat_completions' | null
+  typesafeApiKeySet: boolean
+  typesafeModel: string | null
+  typesafeBaseUrl: string | null
 }
 
 export type GetModelSettingsResult =
   { ok: true; settings: ModelSettingsView } | { ok: false; code: IpcErrorCode; message: string }
 
 /** 字段语义：不给 = 保持不变；model / baseUrl 传 null = 清空；
- *  apiKey 空串 = 保持不变，清空走显式的 clearApiKey。 */
+ *  apiKey 空串 = 保持不变，清空走显式的 clearApiKey。
+ *  TypeSafe 字段遵循相同语义。 */
 export interface SetModelSettingsInput {
   model?: string | null
   baseUrl?: string | null
   apiKey?: string
   clearApiKey?: boolean
   apiProtocol?: 'responses' | 'chat_completions' | null
+  typesafeApiKey?: string
+  clearTypesafeApiKey?: boolean
+  typesafeModel?: string | null
+  typesafeBaseUrl?: string | null
 }
 
 /** applied 区分「已经重启生效」与「有任务在跑、留到下次启动」——两种都算保存成功，

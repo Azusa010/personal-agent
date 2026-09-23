@@ -32,6 +32,7 @@ class ModelContext(BaseModel):
     history: list[Turn] = Field(default_factory=list)
     profile: ProfileDto | None = None
     progressDocument: str | None = None
+    statusBar: str | None = None
 
 
 class ToolCallDecision(BaseModel):

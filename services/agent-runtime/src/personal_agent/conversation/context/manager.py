@@ -20,6 +20,7 @@ from personal_agent.conversation.compression import (
     select_compression_candidates,
 )
 from personal_agent.conversation.model.gateway import ModelContext, Observation
+from personal_agent.conversation.status import StatusBarManager
 from personal_agent.protocol.models import PlanStepDto, ProfileDto, Turn
 
 # 一页 A4 文本约 2000-4000 字符。12 页 × 2000 ≈ 24k 字符 ≈ 6k token，
@@ -67,6 +68,7 @@ class ContextManager:
         doc_manager: ProgressDocumentManager | None = None,
         task_goal: str = "",
         max_window_chars: int | None = None,
+        status_bar_manager: StatusBarManager | None = None,
     ) -> None:
         if maxCharsPerString < 1:
             raise ValueError(f"maxCharsPerString 必须 >= 1，收到 {maxCharsPerString}")
@@ -92,6 +94,13 @@ class ContextManager:
         else:
             self._doc_manager = None
         self._distilled_cache: dict[str, DistilledObservation] = {}
+        self._status_bar_manager = status_bar_manager or StatusBarManager()
+        if self._plan:
+            self._status_bar_manager.init_from_plan(self._plan)
+
+    @property
+    def status_bar_manager(self) -> StatusBarManager:
+        return self._status_bar_manager
 
     @property
     def doc_manager(self) -> ProgressDocumentManager | None:
@@ -134,10 +143,12 @@ class ContextManager:
     def update_plan(self, plan: Sequence[PlanStepDto]) -> None:
         """重规划（Re-planning）后替换计划。保留已有的 observations。"""
         self._plan = list(plan)
+        self._status_bar_manager.init_from_plan(self._plan)
 
     def record(self, observation: Observation) -> None:
         self._observations.append(observation)
         self._step_observations.append(observation)
+        self._status_bar_manager.record_tool_call(observation.capability)
 
     def build(self, taskGoal: str, visibleCapabilities: Sequence[str]) -> ModelContext:
         # 1. 确保工作文档管理器初始化
@@ -237,6 +248,8 @@ class ContextManager:
         ):
             doc_content = self._doc_manager.render()
 
+        sb_text = self._status_bar_manager.render()
+
         return ModelContext(
             taskGoal=taskGoal,
             visibleCapabilities=visibleCapabilities,
@@ -245,4 +258,5 @@ class ContextManager:
             history=history,
             profile=self._profile,
             progressDocument=doc_content,
+            statusBar=sb_text if sb_text else None,
         )

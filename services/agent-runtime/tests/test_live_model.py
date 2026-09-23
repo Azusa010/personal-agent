@@ -781,3 +781,32 @@ def test_decide_profile_reasoning_summary_overrides_instance_config():
     model2.decide(ctx2)
     assert len(client2.responses.requests) == 1
     assert len(client2.responses.stream_requests) == 0
+
+
+def test_render_messages_appends_status_bar_as_user_message():
+    ctx = context_with(
+        observations=[
+            Observation(
+                callId="call-1",
+                capability="filesystem_list",
+                ok=True,
+                payload={"entries": []},
+            )
+        ]
+    )
+    ctx.statusBar = "<status_bar>\n## 📋 任务规划 (TODO LIST)\n- [x] 步骤1\n</status_bar>"
+
+    messages = render_messages(ctx)
+    # 消息顺序：system -> user(goal) -> assistant(tool_call) -> tool(result) -> user(status_bar)
+    assert len(messages) == 5
+    assert messages[-1]["role"] == "user"
+    assert "<status_bar>" in messages[-1]["content"]
+    assert "## 📋 任务规划 (TODO LIST)" in messages[-1]["content"]
+
+
+def test_render_input_appends_status_bar():
+    ctx = context_with()
+    ctx.statusBar = "<status_bar>\n[系统信息]\n</status_bar>"
+    rendered = render_input(ctx)
+    assert "<status_bar>" in rendered
+    assert "[系统信息]" in rendered

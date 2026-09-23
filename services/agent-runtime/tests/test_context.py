@@ -320,3 +320,29 @@ def test_build_truncates_overlong_history_text():
     assert ctx.history[0].text == "长" * 10 + TRUNCATION_MARKER
     # role 是枚举标识，不在截断范围。
     assert ctx.history[0].role == "user"
+
+
+def test_context_manager_builds_status_bar():
+    plan = [PlanStepDto(description="测试步骤", capability="filesystem_list")]
+    cm = ContextManager(plan=plan, task_goal="测试目标")
+
+    # 记录一次工具调用
+    cm.record(Observation(callId="call-1", capability="filesystem_list", ok=True))
+
+    ctx = cm.build(taskGoal="测试目标", visibleCapabilities=["filesystem_list"])
+    assert ctx.statusBar is not None
+    assert "<status_bar>" in ctx.statusBar
+    assert "filesystem_list: 1" in ctx.statusBar
+    assert "测试步骤" in ctx.statusBar
+
+
+def test_context_manager_updates_status_bar_on_plan_update():
+    cm = ContextManager(task_goal="测试目标")
+    assert cm.status_bar_manager is not None
+
+    new_plan = [PlanStepDto(description="新步骤A", capability="filesystem_create_dir")]
+    cm.update_plan(new_plan)
+
+    ctx = cm.build(taskGoal="测试目标", visibleCapabilities=["filesystem_create_dir"])
+    assert ctx.statusBar is not None
+    assert "新步骤A" in ctx.statusBar

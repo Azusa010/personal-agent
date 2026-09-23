@@ -21,6 +21,9 @@ import {
   SCRIPT_ENV_KEY,
   SETTINGS_VERSION,
   SettingsSaveError,
+  TYPESAFE_API_KEY_ENV_KEY,
+  TYPESAFE_BASE_URL_ENV_KEY,
+  TYPESAFE_MODEL_ENV_KEY,
   buildRuntimeEnv,
   loadModelSettings,
   saveModelSettings,
@@ -64,12 +67,15 @@ afterEach(() => {
 })
 
 describe('model-settings: 读写往返', () => {
-  it('四个字段存下去、读回来完全一致', () => {
+  it('全部字段存下去、读回来完全一致', () => {
     const settings: ModelSettings = {
       model: 'gpt-4o-mini',
       baseUrl: 'https://relay.example.com/v1',
       apiKey: SECRET,
-      apiProtocol: 'responses'
+      apiProtocol: 'responses',
+      typesafeApiKey: 'ts-secret-123',
+      typesafeModel: 'jev-planner-v1',
+      typesafeBaseUrl: 'https://typesafe.example.com/v1'
     }
 
     saveModelSettings(settings, { filePath, codec: fakeCodec() })
@@ -78,23 +84,42 @@ describe('model-settings: 读写往返', () => {
   })
 
   it('Key 只以密文落盘：文件里搜不到明文（SEC-008）', () => {
+    const tsSecret = 'ts-secret-456'
     saveModelSettings(
-      { model: null, baseUrl: null, apiKey: SECRET, apiProtocol: null },
+      {
+        model: null,
+        baseUrl: null,
+        apiKey: SECRET,
+        apiProtocol: null,
+        typesafeApiKey: tsSecret,
+        typesafeModel: null,
+        typesafeBaseUrl: null
+      },
       { filePath, codec: fakeCodec() }
     )
 
     const raw = readFileSync(filePath, 'utf8')
     expect(raw).not.toContain(SECRET)
+    expect(raw).not.toContain(tsSecret)
     expect(JSON.parse(raw)).toMatchObject({
       version: SETTINGS_VERSION,
       apiKeyEncrypted: `enc:${Buffer.from(SECRET, 'utf8').toString('base64')}`,
+      typesafeApiKeyEncrypted: `enc:${Buffer.from(tsSecret, 'utf8').toString('base64')}`,
       apiProtocol: null
     })
   })
 
   it('空串与纯空白字段归一化成 null 落盘', () => {
     saveModelSettings(
-      { model: '  ', baseUrl: '', apiKey: '   ', apiProtocol: null },
+      {
+        model: '  ',
+        baseUrl: '',
+        apiKey: '   ',
+        apiProtocol: null,
+        typesafeApiKey: '  ',
+        typesafeModel: '',
+        typesafeBaseUrl: '   '
+      },
       { filePath, codec: fakeCodec() }
     )
 
@@ -102,11 +127,14 @@ describe('model-settings: 读写往返', () => {
       model: null,
       baseUrl: null,
       apiKey: null,
-      apiProtocol: null
+      apiProtocol: null,
+      typesafeApiKey: null,
+      typesafeModel: null,
+      typesafeBaseUrl: null
     })
   })
 
-  it('未配置 apiProtocol 的旧配置文件平滑兼容为 null', () => {
+  it('未配置 apiProtocol 和 typesafe 字段的旧配置文件平滑兼容为 null', () => {
     writeFileSync(
       filePath,
       JSON.stringify({
@@ -122,7 +150,10 @@ describe('model-settings: 读写往返', () => {
       model: 'gpt-4o-mini',
       baseUrl: null,
       apiKey: null,
-      apiProtocol: null
+      apiProtocol: null,
+      typesafeApiKey: null,
+      typesafeModel: null,
+      typesafeBaseUrl: null
     })
   })
 
@@ -165,7 +196,15 @@ describe('model-settings: 读写往返', () => {
   it('密钥库不可用时保存 Key → ENCRYPTION_UNAVAILABLE，且文件不出现在盘上', () => {
     const error = catchError(() =>
       saveModelSettings(
-        { model: 'gpt-4o-mini', baseUrl: null, apiKey: SECRET, apiProtocol: null },
+        {
+          model: 'gpt-4o-mini',
+          baseUrl: null,
+          apiKey: SECRET,
+          apiProtocol: null,
+          typesafeApiKey: null,
+          typesafeModel: null,
+          typesafeBaseUrl: null
+        },
         { filePath, codec: fakeCodec(false) }
       )
     )
@@ -176,9 +215,38 @@ describe('model-settings: 读写往返', () => {
     expect(loadModelSettings({ filePath, codec: fakeCodec() })).toBeNull()
   })
 
-  it('密钥库不可用但没填 Key → 照常保存 model / baseUrl', () => {
+  it('密钥库不可用时保存 TypeSafe Key → ENCRYPTION_UNAVAILABLE，且文件不出现在盘上', () => {
+    const error = catchError(() =>
+      saveModelSettings(
+        {
+          model: 'gpt-4o-mini',
+          baseUrl: null,
+          apiKey: null,
+          apiProtocol: null,
+          typesafeApiKey: 'ts-secret-key',
+          typesafeModel: null,
+          typesafeBaseUrl: null
+        },
+        { filePath, codec: fakeCodec(false) }
+      )
+    )
+
+    expect(error).toBeInstanceOf(SettingsSaveError)
+    expect((error as SettingsSaveError).code).toBe(SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE)
+    expect(loadModelSettings({ filePath, codec: fakeCodec() })).toBeNull()
+  })
+
+  it('密钥库不可用但没填 Key → 照常保存 model / baseUrl / typesafeModel', () => {
     saveModelSettings(
-      { model: 'gpt-4o-mini', baseUrl: null, apiKey: null, apiProtocol: null },
+      {
+        model: 'gpt-4o-mini',
+        baseUrl: null,
+        apiKey: null,
+        apiProtocol: null,
+        typesafeApiKey: null,
+        typesafeModel: 'jev-v1',
+        typesafeBaseUrl: null
+      },
       { filePath, codec: fakeCodec(false) }
     )
 
@@ -186,7 +254,10 @@ describe('model-settings: 读写往返', () => {
       model: 'gpt-4o-mini',
       baseUrl: null,
       apiKey: null,
-      apiProtocol: null
+      apiProtocol: null,
+      typesafeApiKey: null,
+      typesafeModel: 'jev-v1',
+      typesafeBaseUrl: null
     })
   })
 
@@ -194,7 +265,15 @@ describe('model-settings: 读写往返', () => {
     const nested = join(dir, 'a', 'b', 'model-settings.json')
 
     saveModelSettings(
-      { model: 'm', baseUrl: null, apiKey: null, apiProtocol: null },
+      {
+        model: 'm',
+        baseUrl: null,
+        apiKey: null,
+        apiProtocol: null,
+        typesafeApiKey: null,
+        typesafeModel: null,
+        typesafeBaseUrl: null
+      },
       { filePath: nested, codec: fakeCodec() }
     )
 
@@ -202,7 +281,10 @@ describe('model-settings: 读写往返', () => {
       model: 'm',
       baseUrl: null,
       apiKey: null,
-      apiProtocol: null
+      apiProtocol: null,
+      typesafeApiKey: null,
+      typesafeModel: null,
+      typesafeBaseUrl: null
     })
   })
 })
@@ -211,14 +293,18 @@ describe('buildRuntimeEnv（陪练点）', () => {
   const INHERITED: NodeJS.ProcessEnv = {
     PATH: 'C:\\Windows\\system32',
     SystemRoot: 'C:\\Windows',
-    OPENAI_MODEL: 'gpt-4o'
+    OPENAI_MODEL: 'gpt-4o',
+    TYPESAFE_DEFAULT_MODEL: 'jev-base'
   }
 
   const SAVED: ModelSettings = {
     model: 'gpt-4o-mini',
     baseUrl: 'https://relay.example.com/v1',
     apiKey: SECRET,
-    apiProtocol: 'responses'
+    apiProtocol: 'responses',
+    typesafeApiKey: 'ts-secret-key-0123456789',
+    typesafeModel: 'jev-planner-v1',
+    typesafeBaseUrl: 'https://relay.example.com/typesafe/v1'
   }
 
   it('settings 为 null：整份拷贝继承环境，且是新对象', () => {
@@ -236,13 +322,17 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(INHERITED[API_KEY_ENV_KEY]).toBeUndefined()
   })
 
-  it('四个字段齐备：逐字段覆盖，继承里的同名值被换掉', () => {
+  it('全部字段齐备：逐字段覆盖，继承里的同名值被换掉', () => {
     const env = buildRuntimeEnv(INHERITED, SAVED)
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o-mini')
     expect(env[BASE_URL_ENV_KEY]).toBe('https://relay.example.com/v1')
     expect(env[API_KEY_ENV_KEY]).toBe(SECRET)
     expect(env[API_PROTOCOL_ENV_KEY]).toBe('responses')
+
+    expect(env[TYPESAFE_MODEL_ENV_KEY]).toBe('jev-planner-v1')
+    expect(env[TYPESAFE_BASE_URL_ENV_KEY]).toBe('https://relay.example.com/typesafe/v1')
+    expect(env[TYPESAFE_API_KEY_ENV_KEY]).toBe('ts-secret-key-0123456789')
   })
 
   it('设置的 null 字段不注入：继承值原样保留（开发态 shell 的 export 照旧可用）', () => {
@@ -250,13 +340,20 @@ describe('buildRuntimeEnv（陪练点）', () => {
       model: null,
       baseUrl: null,
       apiKey: null,
-      apiProtocol: null
+      apiProtocol: null,
+      typesafeApiKey: null,
+      typesafeModel: null,
+      typesafeBaseUrl: null
     })
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o')
     expect(env[BASE_URL_ENV_KEY]).toBeUndefined()
     expect(env[API_KEY_ENV_KEY]).toBeUndefined()
     expect(env[API_PROTOCOL_ENV_KEY]).toBeUndefined()
+
+    expect(env[TYPESAFE_MODEL_ENV_KEY]).toBe('jev-base')
+    expect(env[TYPESAFE_BASE_URL_ENV_KEY]).toBeUndefined()
+    expect(env[TYPESAFE_API_KEY_ENV_KEY]).toBeUndefined()
   })
 
   it('部分设置：只覆盖填了的字段，其余保留继承值', () => {
@@ -264,16 +361,23 @@ describe('buildRuntimeEnv（陪练点）', () => {
       model: null,
       baseUrl: 'https://relay/v1',
       apiKey: SECRET,
-      apiProtocol: 'chat_completions'
+      apiProtocol: 'chat_completions',
+      typesafeApiKey: 'ts-key-only',
+      typesafeModel: null,
+      typesafeBaseUrl: null
     })
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o')
     expect(env[BASE_URL_ENV_KEY]).toBe('https://relay/v1')
     expect(env[API_KEY_ENV_KEY]).toBe(SECRET)
     expect(env[API_PROTOCOL_ENV_KEY]).toBe('chat_completions')
+
+    expect(env[TYPESAFE_MODEL_ENV_KEY]).toBe('jev-base')
+    expect(env[TYPESAFE_API_KEY_ENV_KEY]).toBe('ts-key-only')
+    expect(env[TYPESAFE_BASE_URL_ENV_KEY]).toBeUndefined()
   })
 
-  it('继承环境里有 PERSONAL_AGENT_SCRIPT：四个 OPENAI_* 一个都不动（剧本压过设置）', () => {
+  it('继承环境里有 PERSONAL_AGENT_SCRIPT：OPENAI 与 TYPESAFE 变量一个都不动（剧本压过设置）', () => {
     const inherited: NodeJS.ProcessEnv = {
       ...INHERITED,
       [SCRIPT_ENV_KEY]: 'C:\\demo\\script.json'
@@ -285,6 +389,10 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[BASE_URL_ENV_KEY]).toBeUndefined()
     expect(env[API_KEY_ENV_KEY]).toBeUndefined()
     expect(env[API_PROTOCOL_ENV_KEY]).toBeUndefined()
+
+    expect(env[TYPESAFE_MODEL_ENV_KEY]).toBe('jev-base')
+    expect(env[TYPESAFE_BASE_URL_ENV_KEY]).toBeUndefined()
+    expect(env[TYPESAFE_API_KEY_ENV_KEY]).toBeUndefined()
     expect(env[SCRIPT_ENV_KEY]).toBe('C:\\demo\\script.json')
   })
 
@@ -294,23 +402,32 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o-mini')
     expect(env[API_KEY_ENV_KEY]).toBe(SECRET)
     expect(env[API_PROTOCOL_ENV_KEY]).toBe('responses')
+    expect(env[TYPESAFE_MODEL_ENV_KEY]).toBe('jev-planner-v1')
+    expect(env[TYPESAFE_API_KEY_ENV_KEY]).toBe('ts-secret-key-0123456789')
   })
 
-  it('设置里的空串字段不注入，也不产生空串的 OPENAI_*', () => {
+  it('设置里的空串字段不注入，也不产生空串的环境变量', () => {
     const env = buildRuntimeEnv(INHERITED, {
       model: '  ',
       baseUrl: '',
       apiKey: '',
-      apiProtocol: null
+      apiProtocol: null,
+      typesafeApiKey: '',
+      typesafeModel: '  ',
+      typesafeBaseUrl: ''
     })
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o')
     expect(env[BASE_URL_ENV_KEY]).toBeUndefined()
     expect(env[API_KEY_ENV_KEY]).toBeUndefined()
     expect(env[API_PROTOCOL_ENV_KEY]).toBeUndefined()
+
+    expect(env[TYPESAFE_MODEL_ENV_KEY]).toBe('jev-base')
+    expect(env[TYPESAFE_BASE_URL_ENV_KEY]).toBeUndefined()
+    expect(env[TYPESAFE_API_KEY_ENV_KEY]).toBeUndefined()
   })
 
-  it('任何分支都带上继承环境里的非 OPENAI 变量（spawn 的 env 是整份替换）', () => {
+  it('任何分支都带上继承环境里的非模型变量（spawn 的 env 是整份替换）', () => {
     const env = buildRuntimeEnv(INHERITED, SAVED)
 
     expect(env.PATH).toBe('C:\\Windows\\system32')

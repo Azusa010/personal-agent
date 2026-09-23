@@ -5,7 +5,11 @@ import { SETTINGS_ERROR_CODE } from './error-code'
 
 export const API_PROTOCOL_ENV_KEY = 'OPENAI_API_PROTOCOL'
 
-/** 用户级模型配置的内存形状。apiKey 是解密后的明文，只允许活在主进程
+export const TYPESAFE_API_KEY_ENV_KEY = 'TYPESAFE_API_KEY'
+export const TYPESAFE_MODEL_ENV_KEY = 'TYPESAFE_DEFAULT_MODEL'
+export const TYPESAFE_BASE_URL_ENV_KEY = 'TYPESAFE_BASE_URL'
+
+/** 用户级模型配置的内存形状。apiKey 和 typesafeApiKey 是解密后的明文，只允许活在主进程
  *  字段可变：设置面板是「读出现状 → 改了哪几个字段 → 整体回写」，
  *  与 shared/domain.ts 的 TaskRecord / PermissionRecord 同一种写法。 */
 export interface ModelSettings {
@@ -13,6 +17,9 @@ export interface ModelSettings {
   baseUrl: string | null
   apiKey: string | null
   apiProtocol: 'responses' | 'chat_completions' | null
+  typesafeApiKey: string | null
+  typesafeModel: string | null
+  typesafeBaseUrl: string | null
 }
 
 /** settings 文件在 userData 下的文件名。 */
@@ -31,13 +38,16 @@ export const BASE_URL_ENV_KEY = 'OPENAI_BASE_URL'
 /** 剧本模式开关：设了它 = 本次启动显式指定走剧本（演示脚本、CI、E2E）。 */
 export const SCRIPT_ENV_KEY = 'PERSONAL_AGENT_SCRIPT'
 
-/** 落盘形状。apiKey 只存密文（base64），明文绝不进文件。 */
+/** 落盘形状。apiKey 与 typesafeApiKey 只存密文（base64），明文绝不进文件。 */
 interface StoredSettings {
   version: number
   model: string | null
   baseUrl: string | null
   apiKeyEncrypted: string | null
   apiProtocol: 'responses' | 'chat_completions' | null
+  typesafeApiKeyEncrypted?: string | null
+  typesafeModel?: string | null
+  typesafeBaseUrl?: string | null
 }
 
 /** 系统密钥库的薄封装。生产接线是 Electron safeStorage（Windows 走 DPAPI，密文
@@ -79,8 +89,8 @@ export class SettingsSaveError extends Error {
 
 /** 空串与空白按「未设置」处理：设置面板里删干净输入框、环境变量里设成空串，
  *  在 Python 侧 os.environ.get 眼里都是假值，两侧语义必须一致。 */
-function normalize(value: string | null): string | null {
-  if (value === null) return null
+function normalize(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null
   const trimmed = value.trim()
   return trimmed === '' ? null : trimmed
 }
@@ -144,7 +154,29 @@ export function loadModelSettings(deps: ModelSettingsStoreDeps): ModelSettings |
     return null
   }
 
-  return { model, baseUrl, apiKey, apiProtocol }
+  const typesafeModel = asNullableString(record.typesafeModel) ?? null
+  const typesafeBaseUrl = asNullableString(record.typesafeBaseUrl) ?? null
+  const typesafeApiKeyEncrypted = asNullableString(record.typesafeApiKeyEncrypted) ?? null
+
+  let typesafeApiKey: string | null = null
+  if (typesafeApiKeyEncrypted !== null) {
+    if (!deps.codec.isAvailable()) return null
+    try {
+      typesafeApiKey = deps.codec.decrypt(typesafeApiKeyEncrypted)
+    } catch {
+      return null
+    }
+  }
+
+  return {
+    model,
+    baseUrl,
+    apiKey,
+    apiProtocol,
+    typesafeApiKey,
+    typesafeModel,
+    typesafeBaseUrl
+  }
 }
 
 /**
@@ -169,12 +201,31 @@ export function saveModelSettings(settings: ModelSettings, deps: ModelSettingsSt
     }
   }
 
+  const typesafeApiKey = normalize(settings.typesafeApiKey)
+  let typesafeApiKeyEncrypted: string | null = null
+  if (typesafeApiKey !== null) {
+    if (!deps.codec.isAvailable()) {
+      throw new SettingsSaveError(
+        SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE,
+        '系统密钥库不可用，TypeSafe API Key 无法加密保存'
+      )
+    }
+    try {
+      typesafeApiKeyEncrypted = deps.codec.encrypt(typesafeApiKey)
+    } catch (e) {
+      throw new SettingsSaveError(SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE, describe(e))
+    }
+  }
+
   const stored: StoredSettings = {
     version: SETTINGS_VERSION,
     model: normalize(settings.model),
     baseUrl: normalize(settings.baseUrl),
     apiKeyEncrypted,
-    apiProtocol: settings.apiProtocol
+    apiProtocol: settings.apiProtocol,
+    typesafeApiKeyEncrypted,
+    typesafeModel: normalize(settings.typesafeModel),
+    typesafeBaseUrl: normalize(settings.typesafeBaseUrl)
   }
 
   try {
@@ -192,21 +243,19 @@ export function saveModelSettings(settings: ModelSettings, deps: ModelSettingsSt
  * 契约（输入输出）：
  * - inherited：Electron 进程的 process.env（不能改它）；settings：loadModelSettings 的结果，可为 null。
  * - settings 为 null → 原样拷贝继承环境（等于维持现状：全走 shell 里设的变量）。
- * - 继承环境里有非空 PERSONAL_AGENT_SCRIPT → OPENAI_MODEL / OPENAI_API_KEY /
- *   OPENAI_BASE_URL 一个都不注入。剧本模式是本次启动的显式指定（演示脚本、CI、E2E），
- *   压过持久化的设置；反过来让设置静默顶掉剧本，演示会改打真模型——花钱、不确定、
- *   还从界面上看不出来。
- * - 其余情况逐字段覆盖：settings.model → OPENAI_MODEL、settings.baseUrl → OPENAI_BASE_URL、
- *   settings.apiKey → OPENAI_API_KEY。settings 里为 null、空串或**纯空白**的字段不注入，
- *   保留继承值（开发态 shell 里 export 的那套照旧可用）。
+ * - 继承环境里有非空 PERSONAL_AGENT_SCRIPT → OPENAI_* 与 TYPESAFE_* 一个都不注入。
+ *   剧本模式是本次启动的显式指定（演示脚本、CI、E2E），压过持久化的设置。
+ * - 其余情况逐字段覆盖：
+ *   settings.model → OPENAI_MODEL、settings.baseUrl → OPENAI_BASE_URL、
+ *   settings.apiKey → OPENAI_API_KEY、settings.apiProtocol → OPENAI_API_PROTOCOL、
+ *   settings.typesafeApiKey → TYPESAFE_API_KEY、
+ *   settings.typesafeModel → TYPESAFE_DEFAULT_MODEL、
+ *   settings.typesafeBaseUrl → TYPESAFE_BASE_URL。
+ *   settings 里为 null、空串或**纯空白**的字段不注入，保留继承值。
  *
  * 不变量：
  * - 返回新对象，改它不污染 inherited / process.env。
- * - 不注入空串 / 纯空白值的 OPENAI_*：Python 侧 os.environ.get 拿到 '' 是假值、拿到 '  ' 是真值，
- *   而存储层写盘前已把纯空白归一成 null（见 normalize）。这里对齐同一口径——手工改坏的文件
- *   （"model": "  "）不会变成一份真去调模型的垃圾配置。
- *
- * 验收：model-settings.test.ts 的 describe('buildRuntimeEnv')。
+ * - 不注入空串 / 纯空白值。
  */
 export function buildRuntimeEnv(
   inherited: NodeJS.ProcessEnv,
@@ -233,6 +282,16 @@ export function buildRuntimeEnv(
   }
   if (settings.apiProtocol !== null) {
     env.OPENAI_API_PROTOCOL = settings.apiProtocol
+  }
+
+  if (settings.typesafeApiKey?.trim()) {
+    env.TYPESAFE_API_KEY = settings.typesafeApiKey
+  }
+  if (settings.typesafeModel?.trim()) {
+    env.TYPESAFE_DEFAULT_MODEL = settings.typesafeModel
+  }
+  if (settings.typesafeBaseUrl?.trim()) {
+    env.TYPESAFE_BASE_URL = settings.typesafeBaseUrl
   }
 
   return env

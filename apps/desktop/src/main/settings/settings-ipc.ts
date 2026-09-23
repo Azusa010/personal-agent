@@ -34,14 +34,21 @@ const SetSettingsInput = z.object({
   // 不把收到的值写进错误消息：这是密钥，出错信息会进日志（SEC-008）
   apiKey: z.string('apiKey 必须是字符串').optional(),
   clearApiKey: z.boolean('clearApiKey 必须是布尔值').optional(),
-  apiProtocol: z.enum(['responses', 'chat_completions']).nullable().optional()
+  apiProtocol: z.enum(['responses', 'chat_completions']).nullable().optional(),
+  typesafeApiKey: z.string('typesafeApiKey 必须是字符串').optional(),
+  clearTypesafeApiKey: z.boolean('clearTypesafeApiKey 必须是布尔值').optional(),
+  typesafeModel: z.string().nullable().optional(),
+  typesafeBaseUrl: z.string().nullable().optional()
 })
 
 const EMPTY_SETTINGS: ModelSettings = {
   model: null,
   baseUrl: null,
   apiKey: null,
-  apiProtocol: null
+  apiProtocol: null,
+  typesafeApiKey: null,
+  typesafeModel: null,
+  typesafeBaseUrl: null
 }
 
 function invalid(message: string): { ok: false; code: IpcErrorCode; message: string } {
@@ -72,7 +79,10 @@ export function getModelSettingsView(deps: SettingsIpcDeps): GetModelSettingsRes
       apiKeySet: settings !== null && settings.apiKey !== null,
       model: settings?.model ?? null,
       baseUrl: settings?.baseUrl ?? null,
-      apiProtocol: settings?.apiProtocol ?? null
+      apiProtocol: settings?.apiProtocol ?? null,
+      typesafeApiKeySet: settings !== null && settings.typesafeApiKey !== null,
+      typesafeModel: settings?.typesafeModel ?? null,
+      typesafeBaseUrl: settings?.typesafeBaseUrl ?? null
     }
   }
 }
@@ -111,6 +121,14 @@ export async function setModelSettings(
   if (patch.apiProtocol !== undefined) {
     next.apiProtocol = patch.apiProtocol
   }
+
+  if (patch.clearTypesafeApiKey === true) {
+    next.typesafeApiKey = null
+  } else if (patch.typesafeApiKey !== undefined && patch.typesafeApiKey.trim() !== '') {
+    next.typesafeApiKey = patch.typesafeApiKey
+  }
+  if (patch.typesafeModel !== undefined) next.typesafeModel = patch.typesafeModel
+  if (patch.typesafeBaseUrl !== undefined) next.typesafeBaseUrl = patch.typesafeBaseUrl
 
   try {
     deps.store.save(next)

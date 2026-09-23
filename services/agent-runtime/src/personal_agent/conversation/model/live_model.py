@@ -277,6 +277,8 @@ def render_messages(context: ModelContext) -> list[dict[str, Any]]:
                 "content": json.dumps(obs.payload, ensure_ascii=False),
             }
         )
+    if context.statusBar:
+        messages.append({"role": "user", "content": context.statusBar})
     return messages
 
 
@@ -722,6 +724,8 @@ def render_input(context: ModelContext) -> str:
             f"- {observation.capability} ok={observation.ok} "
             f"callId={observation.callId} 结果={payload}"
         )
+    if context.statusBar:
+        lines.extend(["", context.statusBar])
     return "\n".join(lines)
 
 
