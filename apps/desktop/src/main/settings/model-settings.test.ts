@@ -17,6 +17,7 @@ import {
   API_KEY_ENV_KEY,
   API_PROTOCOL_ENV_KEY,
   BASE_URL_ENV_KEY,
+  CONTEXT_WINDOW_ENV_KEY,
   MODEL_ENV_KEY,
   SCRIPT_ENV_KEY,
   SETTINGS_VERSION,
@@ -75,7 +76,8 @@ describe('model-settings: 读写往返', () => {
       apiProtocol: 'responses',
       typesafeApiKey: 'ts-secret-123',
       typesafeModel: 'jev-planner-v1',
-      typesafeBaseUrl: 'https://typesafe.example.com/v1'
+      typesafeBaseUrl: 'https://typesafe.example.com/v1',
+      contextWindow: 128000
     }
 
     saveModelSettings(settings, { filePath, codec: fakeCodec() })
@@ -93,7 +95,8 @@ describe('model-settings: 读写往返', () => {
         apiProtocol: null,
         typesafeApiKey: tsSecret,
         typesafeModel: null,
-        typesafeBaseUrl: null
+        typesafeBaseUrl: null,
+        contextWindow: null
       },
       { filePath, codec: fakeCodec() }
     )
@@ -118,7 +121,8 @@ describe('model-settings: 读写往返', () => {
         apiProtocol: null,
         typesafeApiKey: '  ',
         typesafeModel: '',
-        typesafeBaseUrl: '   '
+        typesafeBaseUrl: '   ',
+        contextWindow: null
       },
       { filePath, codec: fakeCodec() }
     )
@@ -130,7 +134,8 @@ describe('model-settings: 读写往返', () => {
       apiProtocol: null,
       typesafeApiKey: null,
       typesafeModel: null,
-      typesafeBaseUrl: null
+      typesafeBaseUrl: null,
+      contextWindow: null
     })
   })
 
@@ -153,7 +158,8 @@ describe('model-settings: 读写往返', () => {
       apiProtocol: null,
       typesafeApiKey: null,
       typesafeModel: null,
-      typesafeBaseUrl: null
+      typesafeBaseUrl: null,
+      contextWindow: null
     })
   })
 
@@ -203,7 +209,8 @@ describe('model-settings: 读写往返', () => {
           apiProtocol: null,
           typesafeApiKey: null,
           typesafeModel: null,
-          typesafeBaseUrl: null
+          typesafeBaseUrl: null,
+          contextWindow: null
         },
         { filePath, codec: fakeCodec(false) }
       )
@@ -225,7 +232,8 @@ describe('model-settings: 读写往返', () => {
           apiProtocol: null,
           typesafeApiKey: 'ts-secret-key',
           typesafeModel: null,
-          typesafeBaseUrl: null
+          typesafeBaseUrl: null,
+          contextWindow: null
         },
         { filePath, codec: fakeCodec(false) }
       )
@@ -245,7 +253,8 @@ describe('model-settings: 读写往返', () => {
         apiProtocol: null,
         typesafeApiKey: null,
         typesafeModel: 'jev-v1',
-        typesafeBaseUrl: null
+        typesafeBaseUrl: null,
+        contextWindow: null
       },
       { filePath, codec: fakeCodec(false) }
     )
@@ -257,7 +266,8 @@ describe('model-settings: 读写往返', () => {
       apiProtocol: null,
       typesafeApiKey: null,
       typesafeModel: 'jev-v1',
-      typesafeBaseUrl: null
+      typesafeBaseUrl: null,
+      contextWindow: null
     })
   })
 
@@ -272,7 +282,8 @@ describe('model-settings: 读写往返', () => {
         apiProtocol: null,
         typesafeApiKey: null,
         typesafeModel: null,
-        typesafeBaseUrl: null
+        typesafeBaseUrl: null,
+        contextWindow: null
       },
       { filePath: nested, codec: fakeCodec() }
     )
@@ -284,7 +295,8 @@ describe('model-settings: 读写往返', () => {
       apiProtocol: null,
       typesafeApiKey: null,
       typesafeModel: null,
-      typesafeBaseUrl: null
+      typesafeBaseUrl: null,
+      contextWindow: null
     })
   })
 })
@@ -304,7 +316,8 @@ describe('buildRuntimeEnv（陪练点）', () => {
     apiProtocol: 'responses',
     typesafeApiKey: 'ts-secret-key-0123456789',
     typesafeModel: 'jev-planner-v1',
-    typesafeBaseUrl: 'https://relay.example.com/typesafe/v1'
+    typesafeBaseUrl: 'https://relay.example.com/typesafe/v1',
+    contextWindow: 128000
   }
 
   it('settings 为 null：整份拷贝继承环境，且是新对象', () => {
@@ -333,6 +346,7 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[TYPESAFE_MODEL_ENV_KEY]).toBe('jev-planner-v1')
     expect(env[TYPESAFE_BASE_URL_ENV_KEY]).toBe('https://relay.example.com/typesafe/v1')
     expect(env[TYPESAFE_API_KEY_ENV_KEY]).toBe('ts-secret-key-0123456789')
+    expect(env[CONTEXT_WINDOW_ENV_KEY]).toBe('128000')
   })
 
   it('设置的 null 字段不注入：继承值原样保留（开发态 shell 的 export 照旧可用）', () => {
@@ -343,7 +357,8 @@ describe('buildRuntimeEnv（陪练点）', () => {
       apiProtocol: null,
       typesafeApiKey: null,
       typesafeModel: null,
-      typesafeBaseUrl: null
+      typesafeBaseUrl: null,
+      contextWindow: null
     })
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o')
@@ -354,6 +369,7 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[TYPESAFE_MODEL_ENV_KEY]).toBe('jev-base')
     expect(env[TYPESAFE_BASE_URL_ENV_KEY]).toBeUndefined()
     expect(env[TYPESAFE_API_KEY_ENV_KEY]).toBeUndefined()
+    expect(env[CONTEXT_WINDOW_ENV_KEY]).toBeUndefined()
   })
 
   it('部分设置：只覆盖填了的字段，其余保留继承值', () => {
@@ -364,7 +380,8 @@ describe('buildRuntimeEnv（陪练点）', () => {
       apiProtocol: 'chat_completions',
       typesafeApiKey: 'ts-key-only',
       typesafeModel: null,
-      typesafeBaseUrl: null
+      typesafeBaseUrl: null,
+      contextWindow: null
     })
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o')
@@ -414,7 +431,8 @@ describe('buildRuntimeEnv（陪练点）', () => {
       apiProtocol: null,
       typesafeApiKey: '',
       typesafeModel: '  ',
-      typesafeBaseUrl: ''
+      typesafeBaseUrl: '',
+      contextWindow: null
     })
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o')

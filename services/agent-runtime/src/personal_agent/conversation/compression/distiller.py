@@ -76,6 +76,31 @@ class ObservationDistiller:
         self._model = model or resolve_distill_model()
         self._client = client
 
+    def _get_client(self) -> Any | None:
+        if self._client is not None:
+            return self._client
+        api_key = (
+            os.environ.get("OPENAI_DISTILL_API_KEY")
+            or os.environ.get("OPENAI_API_KEY")
+        )
+        if not api_key:
+            return None
+        base_url = (
+            os.environ.get("OPENAI_DISTILL_BASE_URL")
+            or os.environ.get("OPENAI_BASE_URL")
+        )
+        try:
+            from openai import OpenAI
+
+            if base_url:
+                self._client = OpenAI(api_key=api_key, base_url=base_url)
+            else:
+                self._client = OpenAI(api_key=api_key)
+            return self._client
+        except Exception as err:  # noqa: BLE001
+            log.warning("提炼模型客户端创建失败: %s", err)
+            return None
+
     def distill_observation(
         self,
         observation: Observation,
@@ -113,9 +138,10 @@ class ObservationDistiller:
         summary = f"提取自 {observation.capability}"
         valid_facts: list[DistilledFact] = []
 
-        if self._client is not None:
+        client = self._get_client()
+        if client is not None:
             try:
-                res = self._client.chat.completions.create(
+                res = client.chat.completions.create(
                     model=self._model,
                     messages=[{"role": "user", "content": prompt}],
                 )

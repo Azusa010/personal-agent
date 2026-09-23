@@ -62,6 +62,7 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [apiProtocol, setApiProtocol] = useState<'responses' | 'chat_completions'>('responses')
+  const [contextWindow, setContextWindow] = useState('128000')
 
   // TypeSafe / Jev 配置
   const [typesafeModel, setTypesafeModel] = useState('')
@@ -87,6 +88,9 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
       setBaseUrl(modelRes.settings.baseUrl ?? '')
       setApiKey('')
       setApiProtocol(modelRes.settings.apiProtocol ?? 'responses')
+      setContextWindow(
+        modelRes.settings.contextWindow ? String(modelRes.settings.contextWindow) : '128000'
+      )
 
       setTypesafeModel(modelRes.settings.typesafeModel ?? '')
       setTypesafeBaseUrl(modelRes.settings.typesafeBaseUrl ?? '')
@@ -180,12 +184,16 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
   }
 
   const handleSave = (): void => {
+    const parsedWindow = parseInt(contextWindow.trim(), 10)
+    const validWindow = Number.isInteger(parsedWindow) && parsedWindow > 0 ? parsedWindow : 128000
+
     void submit(
       {
         model: model.trim() === '' ? null : model.trim(),
         baseUrl: baseUrl.trim() === '' ? null : baseUrl.trim(),
         apiKey: apiKey.trim() === '' ? undefined : apiKey.trim(),
         apiProtocol,
+        contextWindow: validWindow,
         typesafeModel: typesafeModel.trim() === '' ? null : typesafeModel.trim(),
         typesafeBaseUrl: typesafeBaseUrl.trim() === '' ? null : typesafeBaseUrl.trim(),
         typesafeApiKey: typesafeApiKey.trim() === '' ? undefined : typesafeApiKey.trim()
@@ -392,6 +400,23 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
                   placeholder="gpt-4o-mini"
                   spellCheck={false}
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="settings-context-window">上下文窗口 (Tokens)</Label>
+                <Input
+                  id="settings-context-window"
+                  type="number"
+                  min={1000}
+                  step={1000}
+                  value={contextWindow}
+                  onChange={(e) => setContextWindow(e.target.value)}
+                  placeholder="128000"
+                  spellCheck={false}
+                />
+                <p className="m-0 text-[11px] text-muted-foreground">
+                  模型最大上下文窗口（Tokens），默认 128K (128,000)。当多轮历史与工具执行负荷达到 75% 时自动启动记忆提炼与安全压缩。
+                </p>
               </div>
 
               <div className="space-y-1.5">

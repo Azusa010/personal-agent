@@ -7,6 +7,7 @@ observation 的条数已经被步数预算钉死（engine 侧），再叠一层�
 """
 
 import json
+import os
 from collections.abc import Sequence
 from typing import Any
 
@@ -54,8 +55,11 @@ def truncate_strings(value: Any, limit: int) -> Any:
     return _walk(value, limit, None)
 
 
+DEFAULT_MAX_WINDOW_TOKENS = 128000
+
+
 class ContextManager:
-    """保存原始观察，按需组装出截断过的 ModelContext。"""
+    """观察历史与 ModelContext 组装。"""
 
     def __init__(
         self,
@@ -63,7 +67,7 @@ class ContextManager:
         plan: Sequence[PlanStepDto] = (),
         history: Sequence[Turn] = (),
         profile: ProfileDto | None = None,
-        max_window_tokens: int = 8000,
+        max_window_tokens: int = DEFAULT_MAX_WINDOW_TOKENS,
         distiller: ObservationDistiller | None = None,
         doc_manager: ProgressDocumentManager | None = None,
         task_goal: str = "",
@@ -82,7 +86,11 @@ class ContextManager:
         if max_window_chars is not None:
             self._max_window_tokens = max_window_chars
         else:
-            self._max_window_tokens = max_window_tokens
+            env_val = os.environ.get("PERSONAL_AGENT_MAX_WINDOW_TOKENS", "").strip()
+            if env_val and env_val.isdigit():
+                self._max_window_tokens = int(env_val)
+            else:
+                self._max_window_tokens = max_window_tokens
         self._distiller = distiller or ObservationDistiller()
         if doc_manager is not None:
             self._doc_manager = doc_manager

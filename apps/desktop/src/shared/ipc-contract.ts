@@ -104,6 +104,7 @@ export interface ModelSettingsView {
   typesafeApiKeySet: boolean
   typesafeModel: string | null
   typesafeBaseUrl: string | null
+  contextWindow: number | null
 }
 
 export type GetModelSettingsResult =
@@ -122,6 +123,7 @@ export interface SetModelSettingsInput {
   clearTypesafeApiKey?: boolean
   typesafeModel?: string | null
   typesafeBaseUrl?: string | null
+  contextWindow?: number | null
 }
 
 /** applied 区分「已经重启生效」与「有任务在跑、留到下次启动」——两种都算保存成功，

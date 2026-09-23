@@ -27,7 +27,8 @@ const SAVED: ModelSettings = {
   apiProtocol: 'responses',
   typesafeApiKey: TS_SECRET,
   typesafeModel: 'jev-planner-v1',
-  typesafeBaseUrl: 'https://relay.example.com/typesafe/v1'
+  typesafeBaseUrl: 'https://relay.example.com/typesafe/v1',
+  contextWindow: 128000
 }
 
 interface FakeOptions {
@@ -74,7 +75,8 @@ describe('getModelSettingsView', () => {
         apiProtocol: null,
         typesafeApiKeySet: false,
         typesafeModel: null,
-        typesafeBaseUrl: null
+        typesafeBaseUrl: null,
+        contextWindow: 128000
       }
     })
   })
@@ -93,7 +95,8 @@ describe('getModelSettingsView', () => {
       apiProtocol: 'responses',
       typesafeApiKeySet: true,
       typesafeModel: 'jev-planner-v1',
-      typesafeBaseUrl: 'https://relay.example.com/typesafe/v1'
+      typesafeBaseUrl: 'https://relay.example.com/typesafe/v1',
+      contextWindow: 128000
     })
   })
 
@@ -116,7 +119,8 @@ describe('getModelSettingsView', () => {
         apiProtocol: null,
         typesafeApiKey: null,
         typesafeModel: 'jev-v1',
-        typesafeBaseUrl: null
+        typesafeBaseUrl: null,
+        contextWindow: null
       }
     })
 
@@ -290,8 +294,19 @@ describe('setModelSettings: 合并语义', () => {
       apiProtocol: null,
       typesafeApiKey: null,
       typesafeModel: null,
-      typesafeBaseUrl: null
+      typesafeBaseUrl: null,
+      contextWindow: null
     })
+  })
+
+  it('contextWindow 可以更新为自定义数字或重置为 null', async () => {
+    const { deps, store } = fakeDeps({ current: SAVED })
+
+    await setModelSettings({ contextWindow: 64000 }, deps)
+    expect(store.save).toHaveBeenCalledWith({ ...SAVED, contextWindow: 64000 })
+
+    await setModelSettings({ contextWindow: null }, deps)
+    expect(store.save).toHaveBeenCalledWith({ ...SAVED, contextWindow: null })
   })
 })
 

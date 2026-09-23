@@ -8,6 +8,7 @@ export const API_PROTOCOL_ENV_KEY = 'OPENAI_API_PROTOCOL'
 export const TYPESAFE_API_KEY_ENV_KEY = 'TYPESAFE_API_KEY'
 export const TYPESAFE_MODEL_ENV_KEY = 'TYPESAFE_DEFAULT_MODEL'
 export const TYPESAFE_BASE_URL_ENV_KEY = 'TYPESAFE_BASE_URL'
+export const CONTEXT_WINDOW_ENV_KEY = 'PERSONAL_AGENT_MAX_WINDOW_TOKENS'
 
 /** 用户级模型配置的内存形状。apiKey 和 typesafeApiKey 是解密后的明文，只允许活在主进程
  *  字段可变：设置面板是「读出现状 → 改了哪几个字段 → 整体回写」，
@@ -20,6 +21,7 @@ export interface ModelSettings {
   typesafeApiKey: string | null
   typesafeModel: string | null
   typesafeBaseUrl: string | null
+  contextWindow: number | null
 }
 
 /** settings 文件在 userData 下的文件名。 */
@@ -48,6 +50,7 @@ interface StoredSettings {
   typesafeApiKeyEncrypted?: string | null
   typesafeModel?: string | null
   typesafeBaseUrl?: string | null
+  contextWindow?: number | null
 }
 
 /** 系统密钥库的薄封装。生产接线是 Electron safeStorage（Windows 走 DPAPI，密文
@@ -168,6 +171,13 @@ export function loadModelSettings(deps: ModelSettingsStoreDeps): ModelSettings |
     }
   }
 
+  const contextWindow =
+    typeof record.contextWindow === 'number' &&
+    Number.isInteger(record.contextWindow) &&
+    record.contextWindow > 0
+      ? record.contextWindow
+      : null
+
   return {
     model,
     baseUrl,
@@ -175,7 +185,8 @@ export function loadModelSettings(deps: ModelSettingsStoreDeps): ModelSettings |
     apiProtocol,
     typesafeApiKey,
     typesafeModel,
-    typesafeBaseUrl
+    typesafeBaseUrl,
+    contextWindow
   }
 }
 
@@ -225,7 +236,11 @@ export function saveModelSettings(settings: ModelSettings, deps: ModelSettingsSt
     apiProtocol: settings.apiProtocol,
     typesafeApiKeyEncrypted,
     typesafeModel: normalize(settings.typesafeModel),
-    typesafeBaseUrl: normalize(settings.typesafeBaseUrl)
+    typesafeBaseUrl: normalize(settings.typesafeBaseUrl),
+    contextWindow:
+      typeof settings.contextWindow === 'number' && settings.contextWindow > 0
+        ? settings.contextWindow
+        : null
   }
 
   try {
@@ -292,6 +307,10 @@ export function buildRuntimeEnv(
   }
   if (settings.typesafeBaseUrl?.trim()) {
     env.TYPESAFE_BASE_URL = settings.typesafeBaseUrl
+  }
+
+  if (typeof settings.contextWindow === 'number' && settings.contextWindow > 0) {
+    env[CONTEXT_WINDOW_ENV_KEY] = String(settings.contextWindow)
   }
 
   return env
