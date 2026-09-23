@@ -14,6 +14,7 @@ EXECUTOR_INSTRUCTIONS = f"""<system_instruction>
 
 ### 阶段 1：现状审视（Inspect State & Observations）
 - 研读 `<conversation_history>` 与当前已经积累的 `<observations>`。
+- 若存在 `<progress_document>` 认知工作台，优先审视其中已确认的核心事实与执行里程碑，避免对已确认知识进行重复探索。
 - 诊断最近一次工具调用的状态：
   * 若成功：提取核心返回数据作为后续决策依据；
   * 若失败（如路径不存在、权限被拒、格式错误）：分析根因，禁止机械盲目重试相同调用。

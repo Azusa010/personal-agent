@@ -77,7 +77,12 @@ class ClassicStrategy:
         stream: StreamSink | None,
         planner: Planner | None = None,
     ) -> RunTaskCompleted | RunTaskFailed:
-        context = ContextManager(plan=plan, history=history, profile=profile)
+        context = ContextManager(
+            plan=plan,
+            history=history,
+            profile=profile,
+            task_goal=goal,
+        )
         engine = AgentEngine(
             model=model,
             channel=channel,
@@ -120,7 +125,12 @@ class ReActStrategy:
         stream: StreamSink | None,
         planner: Planner | None = None,
     ) -> RunTaskCompleted | RunTaskFailed:
-        context = ContextManager(plan=plan, history=history, profile=profile)
+        context = ContextManager(
+            plan=plan,
+            history=history,
+            profile=profile,
+            task_goal=goal,
+        )
         loop = ReActLoop(
             model=model,
             channel=channel,
@@ -165,7 +175,12 @@ class PlanAndExecuteStrategy:
         stream: StreamSink | None,
         planner: Planner | None = None,
     ) -> RunTaskCompleted | RunTaskFailed:
-        context = ContextManager(plan=plan, history=history, profile=profile)
+        context = ContextManager(
+            plan=plan,
+            history=history,
+            profile=profile,
+            task_goal=goal,
+        )
         total_steps = 0
         total_tools = 0
         all_events: list[RunTaskEvent] = []
