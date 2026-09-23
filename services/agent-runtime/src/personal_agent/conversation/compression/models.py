@@ -18,7 +18,7 @@ class LifecycleTier(str, Enum):
 
     EPHEMERAL_L0 = "ephemeral_l0"      # 瞬时执行细节（命令输出/多余条目），确认后折叠
     TASK_SCOPED_L1 = "task_scoped_l1"  # 任务级核心事实（5W1H 事实），结构化常驻
-    PERSISTENT_L2 = "persistent_l2"    # 持久化认知工作文档（跨步/跨任务总结）
+    PERSISTENT_L2 = "persistent_l2"    # 长期记忆与跨会话持久化认知（预留至后续 Memory 记忆系统接入）
 
 
 class DistilledFact(BaseModel):
