@@ -1,0 +1,24 @@
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
+    container_name: personal-agent-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: personal_agent
+      POSTGRES_USER: pa_user
+      POSTGRES_PASSWORD: pa_dev_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pa_user -d personal_agent"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:

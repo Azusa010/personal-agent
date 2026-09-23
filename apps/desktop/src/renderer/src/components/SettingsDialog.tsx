@@ -415,7 +415,8 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
                   spellCheck={false}
                 />
                 <p className="m-0 text-[11px] text-muted-foreground">
-                  模型最大上下文窗口（Tokens），默认 128K (128,000)。当多轮历史与工具执行负荷达到 75% 时自动启动记忆提炼与安全压缩。
+                  模型最大上下文窗口（Tokens），默认 128K (128,000)。当多轮历史与工具执行负荷达到
+                  75% 时自动启动记忆提炼与安全压缩。
                 </p>
               </div>
 
