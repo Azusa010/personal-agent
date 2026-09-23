@@ -6,9 +6,19 @@ observation 的条数已经被步数预算钉死（engine 侧），再叠一层�
 真正无上界的是单条的大小（一份 500 页的 PDF）。
 """
 
+import json
 from collections.abc import Sequence
 from typing import Any
 
+from personal_agent.conversation.compression import (
+    DistilledObservation,
+    ObservationDistiller,
+    ProgressDocumentManager,
+    count_tokens,
+    evaluate_window_pressure,
+    infer_task_type,
+    select_compression_candidates,
+)
 from personal_agent.conversation.model.gateway import ModelContext, Observation
 from personal_agent.protocol.models import PlanStepDto, ProfileDto, Turn
 
@@ -52,6 +62,11 @@ class ContextManager:
         plan: Sequence[PlanStepDto] = (),
         history: Sequence[Turn] = (),
         profile: ProfileDto | None = None,
+        max_window_tokens: int = 8000,
+        distiller: ObservationDistiller | None = None,
+        doc_manager: ProgressDocumentManager | None = None,
+        task_goal: str = "",
+        max_window_chars: int | None = None,
     ) -> None:
         if maxCharsPerString < 1:
             raise ValueError(f"maxCharsPerString 必须 >= 1，收到 {maxCharsPerString}")
@@ -62,6 +77,29 @@ class ContextManager:
         self._profile = profile
         self._current_step: PlanStepDto | None = None
         self._step_observations: list[Observation] = []
+        if max_window_chars is not None:
+            self._max_window_tokens = max_window_chars
+        else:
+            self._max_window_tokens = max_window_tokens
+        self._distiller = distiller or ObservationDistiller()
+        if doc_manager is not None:
+            self._doc_manager = doc_manager
+        elif task_goal:
+            self._doc_manager = ProgressDocumentManager(
+                task_goal=task_goal,
+                task_type=infer_task_type(task_goal),
+            )
+        else:
+            self._doc_manager = None
+        self._distilled_cache: dict[str, DistilledObservation] = {}
+
+    @property
+    def doc_manager(self) -> ProgressDocumentManager | None:
+        return self._doc_manager
+
+    @property
+    def distiller(self) -> ObservationDistiller:
+        return self._distiller
 
     @property
     def observations(self) -> tuple[Observation, ...]:
@@ -102,19 +140,80 @@ class ContextManager:
         self._step_observations.append(observation)
 
     def build(self, taskGoal: str, visibleCapabilities: Sequence[str]) -> ModelContext:
+        # 1. 确保工作文档管理器初始化
+        if self._doc_manager is None:
+            task_type = infer_task_type(taskGoal)
+            self._doc_manager = ProgressDocumentManager(
+                task_goal=taskGoal,
+                task_type=task_type,
+            )
+
+        # 2. 统计当前窗口负载（历史 + 计划 + 观察原始 Token 数）
+        current_tokens = (
+            sum(count_tokens(t.text) for t in self._history)
+            + sum(
+                count_tokens(json.dumps(obs.payload, ensure_ascii=False))
+                for obs in self._observations
+            )
+            + count_tokens(taskGoal)
+        )
+
+        # 3. 检查主 Agent 窗口负载率是否超警戒线
+        if evaluate_window_pressure(
+            current_tokens=current_tokens,
+            max_window_tokens=self._max_window_tokens,
+            ratio_threshold=0.75,
+        ):
+            _cand_turns, cand_obs = select_compression_candidates(
+                history=self._history,
+                observations=self._observations,
+                keep_recent_turns=2,
+                keep_recent_obs=1,
+            )
+            for obs in cand_obs:
+                if obs.callId not in self._distilled_cache:
+                    step_desc = (
+                        self._current_step.description if self._current_step else ""
+                    )
+                    distilled = self._distiller.distill_observation(
+                        observation=obs,
+                        query=step_desc or obs.capability,
+                        context=self._doc_manager.render(),
+                        task_type=self._doc_manager.state.taskType,
+                    )
+                    self._distilled_cache[obs.callId] = distilled
+                    if distilled.facts:
+                        self._doc_manager.merge_facts(distilled.facts)
+                    if distilled.tier.value == "ephemeral_l0":
+                        self._doc_manager.add_milestone(distilled.summary)
+
+        # 4. 构建 observations，命中提炼缓存的使用精简 payload
         observations = []
         for observation in self._observations:
-            value = truncate_strings(observation.payload, self._maxCharsPerString)
-            args_val = truncate_strings(observation.arguments, self._maxCharsPerString)
-            observations.append(
-                Observation(
-                    callId=observation.callId,
-                    capability=observation.capability,
-                    ok=observation.ok,
-                    payload=value,
-                    arguments=args_val if isinstance(args_val, dict) else observation.arguments,
+            if observation.callId in self._distilled_cache:
+                cached = self._distilled_cache[observation.callId]
+                observations.append(
+                    Observation(
+                        callId=observation.callId,
+                        capability=observation.capability,
+                        ok=observation.ok,
+                        payload={"summary": cached.summary, "distilled": True},
+                        arguments=observation.arguments,
+                    )
                 )
-            )
+            else:
+                value = truncate_strings(observation.payload, self._maxCharsPerString)
+                args_val = truncate_strings(observation.arguments, self._maxCharsPerString)
+                observations.append(
+                    Observation(
+                        callId=observation.callId,
+                        capability=observation.capability,
+                        ok=observation.ok,
+                        payload=value,
+                        arguments=args_val if isinstance(args_val, dict) else observation.arguments,
+                    )
+                )
+
         plan = [
             PlanStepDto(
                 description=truncate_strings(step.description, self._maxCharsPerString),
@@ -129,6 +228,15 @@ class ContextManager:
             )
             for turn in self._history
         ]
+
+        doc_content = None
+        if self._doc_manager and (
+            self._doc_manager.state.verifiedFacts
+            or self._doc_manager.state.milestones
+            or self._doc_manager.state.notes
+        ):
+            doc_content = self._doc_manager.render()
+
         return ModelContext(
             taskGoal=taskGoal,
             visibleCapabilities=visibleCapabilities,
@@ -136,4 +244,5 @@ class ContextManager:
             observations=observations,
             history=history,
             profile=self._profile,
+            progressDocument=doc_content,
         )

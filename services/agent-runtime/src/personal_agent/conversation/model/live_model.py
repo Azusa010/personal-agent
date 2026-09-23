@@ -250,6 +250,9 @@ def render_messages(context: ModelContext) -> list[dict[str, Any]]:
                 )
             else:
                 user_lines.append(f"{index}. {step.description}（{step.capability}）")
+    if context.progressDocument:
+        user_lines.append("")
+        user_lines.append(context.progressDocument)
     messages.append({"role": "user", "content": "\n".join(user_lines)})
     for obs in context.observations:
         messages.append(
@@ -699,6 +702,9 @@ def render_input(context: ModelContext) -> str:
             lines.append(f"{index}. {step.description}（不经工具，最后直接回复用户）")
         else:
             lines.append(f"{index}. {step.description}（{step.capability}）")
+    if context.progressDocument:
+        lines.append("")
+        lines.append(context.progressDocument)
     lines.extend(["", "可用能力："])
     visible = [c for c in context.visibleCapabilities if c in TOOL_SPECS]
     if visible:

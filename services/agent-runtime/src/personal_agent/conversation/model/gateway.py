@@ -31,6 +31,7 @@ class ModelContext(BaseModel):
     plan: list[PlanStepDto] = Field(default_factory=list)
     history: list[Turn] = Field(default_factory=list)
     profile: ProfileDto | None = None
+    progressDocument: str | None = None
 
 
 class ToolCallDecision(BaseModel):
