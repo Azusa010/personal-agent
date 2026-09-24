@@ -292,6 +292,7 @@ class KnowledgeChunkItem(BaseModel):
     chunkIndex: int = Field(ge=0)
     pageNumbers: list[int] = Field(default_factory=list)
     headingPath: str | None = None
+    contextPrefix: str | None = None
     rawText: str
     score: float
     denseRank: int | None = Field(default=None, ge=1)

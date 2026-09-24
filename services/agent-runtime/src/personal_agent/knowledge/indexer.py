@@ -11,6 +11,10 @@ import asyncpg
 
 from personal_agent.db.postgres import get_pg_pool
 from personal_agent.knowledge.chunker import StructureAwareChunker
+from personal_agent.knowledge.contextualizer import (
+    BaseContextualizer,
+    get_default_contextualizer,
+)
 from personal_agent.knowledge.embedder import BaseEmbedder, get_embedder
 from personal_agent.knowledge.models import DocumentRecord, IndexResult
 from personal_agent.knowledge.parser import get_parser
@@ -41,10 +45,12 @@ class KnowledgeIndexer:
         pool: asyncpg.Pool | None = None,
         chunker: StructureAwareChunker | None = None,
         embedder: BaseEmbedder | None = None,
+        contextualizer: BaseContextualizer | None = None,
     ):
         self._pool = pool
         self.chunker = chunker or StructureAwareChunker()
         self.embedder = embedder
+        self.contextualizer = contextualizer
 
     async def _get_pool(self) -> asyncpg.Pool:
         if self._pool is None:
@@ -93,10 +99,16 @@ class KnowledgeIndexer:
         chunks = self.chunker.chunk(parsed_doc)
         total_tokens = sum(c.token_count for c in chunks)
 
-        # 3. 向量特征嵌入计算 (Phase 3)
+        if self.contextualizer is None:
+            self.contextualizer = get_default_contextualizer()
+        contextualized_chunks = await self.contextualizer.contextualize_chunks(
+            parsed_doc, chunks
+        )
+        chunks = contextualized_chunks
+
         if chunks:
             embedder_inst = self.embedder or get_embedder()
-            texts = [c.raw_text for c in chunks]
+            texts = [c.augmented_text for c in chunks]
             embeddings = await embedder_inst.embed_documents(texts)
             for chunk, emb in zip(chunks, embeddings, strict=False):
                 chunk.dense_embedding = emb.dense

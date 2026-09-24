@@ -21,6 +21,7 @@ export const KnowledgeChunkItem = z.object({
   chunkIndex: z.number().int().nonnegative(),
   pageNumbers: z.array(z.number().int().positive()),
   headingPath: z.string().nullable().optional(),
+  contextPrefix: z.string().nullable().optional(),
   rawText: z.string(),
   score: z.number(),
   denseRank: z.number().int().positive().nullable().optional(),

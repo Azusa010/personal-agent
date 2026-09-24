@@ -1,6 +1,13 @@
 """PersonalAgent 知识库系统模块。"""
 
 from personal_agent.knowledge.chunker import StructureAwareChunker
+from personal_agent.knowledge.contextualizer import (
+    BaseContextualizer,
+    DeterministicFallbackContextualizer,
+    LLMContextualizer,
+    MockContextualizer,
+    get_default_contextualizer,
+)
 from personal_agent.knowledge.embedder import (
     BaseEmbedder,
     BgeM3Embedder,
@@ -38,11 +45,13 @@ from personal_agent.knowledge.retriever import (
 )
 
 __all__ = [
+    "BaseContextualizer",
     "BaseEmbedder",
     "BaseParser",
     "BaseReranker",
     "BgeM3Embedder",
     "BgeReranker",
+    "DeterministicFallbackContextualizer",
     "DocumentChunk",
     "DocumentRecord",
     "EmbeddingOutput",
@@ -51,7 +60,9 @@ __all__ = [
     "HybridRetriever",
     "IndexResult",
     "KnowledgeIndexer",
+    "LLMContextualizer",
     "MinerUParser",
+    "MockContextualizer",
     "MockEmbedder",
     "MockReranker",
     "ParsedDocument",
@@ -61,6 +72,7 @@ __all__ = [
     "TextMarkdownParser",
     "clean_fts_query",
     "fuse_rrf",
+    "get_default_contextualizer",
     "get_embedder",
     "get_parser",
     "get_reranker",

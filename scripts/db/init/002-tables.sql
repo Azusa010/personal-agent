@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS chunks (
     context_prefix TEXT,                  -- 上下文感知前缀（Phase 4 填充）
     dense_embedding vector(1024),         -- bge-m3 稠密向量
     sparse_vector  JSONB,                 -- bge-m3 稀疏向量 {term_id: weight}
-    fts_vector     tsvector               -- PostgreSQL 全文检索向量
-        GENERATED ALWAYS AS (to_tsvector('jiebacfg', raw_text)) STORED,
+    fts_vector     tsvector               -- PostgreSQL 全文检索向量 (覆盖上下文前缀与正文)
+        GENERATED ALWAYS AS (to_tsvector('jiebacfg', COALESCE(context_prefix || E'\n\n', '') || raw_text)) STORED,
     token_count    INT,
     created_at     TIMESTAMPTZ DEFAULT now()
 );

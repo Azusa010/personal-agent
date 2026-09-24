@@ -47,10 +47,18 @@ class DocumentChunk(BaseModel):
     chunk_index: int
     page_numbers: list[int]
     heading_path: str | None = None
+    context_prefix: str | None = None
     raw_text: str
     token_count: int
     dense_embedding: list[float] | None = None
     sparse_vector: dict[str, float] | None = None
+
+    @property
+    def augmented_text(self) -> str:
+        """获取增强上下文后的完整文本（用于向量化编码与深度语义匹配）。"""
+        if self.context_prefix and self.context_prefix.strip():
+            return f"{self.context_prefix.strip()}\n\n{self.raw_text}"
+        return self.raw_text
 
 
 class DocumentRecord(BaseModel):

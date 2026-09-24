@@ -59,7 +59,6 @@ async def delete_chunks_by_document(pool: asyncpg.Pool, document_id: UUID) -> in
         except (IndexError, ValueError):
             return 0
 
-
 async def batch_insert_chunks(
     pool: asyncpg.Pool,
     document_id: UUID,
@@ -71,10 +70,10 @@ async def batch_insert_chunks(
 
     query = """
     INSERT INTO chunks (
-        document_id, chunk_index, page_numbers, heading_path, raw_text, token_count,
+        document_id, chunk_index, page_numbers, heading_path, raw_text, context_prefix, token_count,
         dense_embedding, sparse_vector
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
     """
     records = [
         (
@@ -83,6 +82,7 @@ async def batch_insert_chunks(
             c.page_numbers,
             c.heading_path,
             c.raw_text,
+            c.context_prefix,
             c.token_count,
             c.dense_embedding,
             json.dumps(c.sparse_vector) if c.sparse_vector else None,
@@ -109,7 +109,7 @@ async def get_chunks_by_document_id(
 ) -> list[dict[str, Any]]:
     """查询指定文档下的全部切块，按 chunk_index 升序排序。"""
     query = """
-    SELECT id, document_id, chunk_index, page_numbers, heading_path, raw_text, token_count,
+    SELECT id, document_id, chunk_index, page_numbers, heading_path, raw_text, context_prefix, token_count,
            dense_embedding, sparse_vector, created_at
     FROM chunks
     WHERE document_id = $1

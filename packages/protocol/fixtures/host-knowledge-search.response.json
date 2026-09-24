@@ -14,6 +14,7 @@
         "chunkIndex": 0,
         "pageNumbers": [1],
         "headingPath": "第3章/3.1节/记忆机制",
+        "contextPrefix": "[文档: agent_theory.md | 章节: 第3章/3.1节/记忆机制] 本段介绍智能体长期记忆的双重索引与混合检索机制。",
         "rawText": "智能体的长期记忆通常由向量存储与全文检索双重索引支持。通过混合检索算法可以大幅降低幻觉并提升关键事实召回率。",
         "score": 0.952,
         "denseRank": 1,

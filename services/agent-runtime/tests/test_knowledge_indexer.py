@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import UUID
 
 from personal_agent.db.postgres import close_pg_pool, get_pg_pool
+from personal_agent.knowledge.contextualizer import MockContextualizer
 from personal_agent.knowledge.embedder import MockEmbedder
 from personal_agent.knowledge.indexer import KnowledgeIndexer
 from personal_agent.knowledge.repository import (
@@ -112,6 +113,64 @@ def test_indexer_real_pdf_fixture():
             search_results = await search_chunks_fts(pool, "PersonalAgent")
             matching = [r for r in search_results if r["document_id"] == doc_id]
             assert len(matching) > 0
+        finally:
+            if doc_id:
+                await delete_document(pool, doc_id)
+            await close_pg_pool()
+
+    asyncio.run(_run())
+
+
+def test_indexer_with_contextual_retrieval_disambiguation(tmp_path: Path):
+    """Phase 4 黄金验证：测试上下文前缀消歧端到端入库与全文检索命中。
+
+    场景：切块正文仅包含代词“该公司”，不包含“ACME”；
+    通过上下文前缀注入“[文档: ACME 集团 | 章节: 财务表现]”，
+    验证：
+    1. 数据库 chunks 表成功持久化 context_prefix；
+    2. 全文检索（FTS）搜索“ACME & 营收”时，通过前缀中的词精准召回该切块！
+    """
+
+    async def _run():
+        pool = await get_pg_pool()
+        doc_id = None
+        try:
+            sample_file = tmp_path / "acme_financial.md"
+            sample_file.write_text(
+                "# 财务年报\n\n## 财务表现\n该公司第二季度的营业收入同比增长 35%，净利润达 1200 万元。\n",
+                encoding="utf-8",
+            )
+
+            mock_ctx = MockContextualizer(
+                prefix_template="[文档: ACME 集团 | 章节: {heading_path}] 本切块讨论 ACME 集团的核心财务营收指标。"
+            )
+            indexer = KnowledgeIndexer(
+                pool=pool,
+                embedder=MockEmbedder(),
+                contextualizer=mock_ctx,
+            )
+
+            res = await indexer.index_file(sample_file)
+            assert res.status == "indexed"
+            assert res.chunk_count > 0
+            doc_id = UUID(res.document_id)
+
+            # 1. 验证 chunks 表记录包含 context_prefix，且与 raw_text 物理分列存储
+            chunks = await get_chunks_by_document_id(pool, doc_id)
+            assert len(chunks) > 0
+            chunk = chunks[0]
+            assert chunk["context_prefix"] is not None
+            assert "ACME 集团" in chunk["context_prefix"]
+            # 原始正文保持纯净，无前缀污染
+            assert "ACME" not in chunk["raw_text"]
+            assert "该公司第二季度的营业收入" in chunk["raw_text"]
+
+            # 2. 验证全文检索 (FTS)：由于 fts_vector 覆盖了 context_prefix，
+            # 搜索“ACME”能精准命中正文中仅包含“该公司”的切块！
+            search_results = await search_chunks_fts(pool, "ACME & 营收")
+            matching = [r for r in search_results if r["document_id"] == doc_id]
+            assert len(matching) > 0
+            assert matching[0]["id"] == chunk["id"]
         finally:
             if doc_id:
                 await delete_document(pool, doc_id)
