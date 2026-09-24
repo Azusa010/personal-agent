@@ -19,6 +19,7 @@ import {
 
 const SECRET = 'sk-secret-key-0123456789'
 const TS_SECRET = 'ts-secret-key-0123456789'
+const MINERU_SECRET = 'mineru-secret-key-0123456789'
 
 const SAVED: ModelSettings = {
   model: 'gpt-4o-mini',
@@ -28,7 +29,9 @@ const SAVED: ModelSettings = {
   typesafeApiKey: TS_SECRET,
   typesafeModel: 'jev-planner-v1',
   typesafeBaseUrl: 'https://relay.example.com/typesafe/v1',
-  contextWindow: 128000
+  contextWindow: 128000,
+  mineruApiUrl: 'https://mineru.example.com/api/v4',
+  mineruApiKey: MINERU_SECRET
 }
 
 interface FakeOptions {
@@ -63,7 +66,7 @@ function fakeDeps(options: FakeOptions = {}): {
 }
 
 describe('getModelSettingsView', () => {
-  it('没配过 → 字段都空，apiKeySet 与 typesafeApiKeySet 为 false', () => {
+  it('没配过 → 字段都空，apiKeySet、typesafeApiKeySet 与 mineruApiKeySet 为 false', () => {
     const { deps } = fakeDeps({ current: null })
 
     expect(getModelSettingsView(deps)).toEqual({
@@ -76,7 +79,9 @@ describe('getModelSettingsView', () => {
         typesafeApiKeySet: false,
         typesafeModel: null,
         typesafeBaseUrl: null,
-        contextWindow: 128000
+        contextWindow: 128000,
+        mineruApiUrl: null,
+        mineruApiKeySet: false
       }
     })
   })
@@ -96,7 +101,9 @@ describe('getModelSettingsView', () => {
       typesafeApiKeySet: true,
       typesafeModel: 'jev-planner-v1',
       typesafeBaseUrl: 'https://relay.example.com/typesafe/v1',
-      contextWindow: 128000
+      contextWindow: 128000,
+      mineruApiUrl: 'https://mineru.example.com/api/v4',
+      mineruApiKeySet: true
     })
   })
 
@@ -108,6 +115,7 @@ describe('getModelSettingsView', () => {
 
     expect(JSON.stringify(result)).not.toContain(SECRET)
     expect(JSON.stringify(result)).not.toContain(TS_SECRET)
+    expect(JSON.stringify(result)).not.toContain(MINERU_SECRET)
   })
 
   it('只存了 model、没存 Key → apiKeySet 和 typesafeApiKeySet 为 false', () => {
@@ -120,7 +128,9 @@ describe('getModelSettingsView', () => {
         typesafeApiKey: null,
         typesafeModel: 'jev-v1',
         typesafeBaseUrl: null,
-        contextWindow: null
+        contextWindow: null,
+        mineruApiUrl: null,
+        mineruApiKey: null
       }
     })
 
@@ -130,6 +140,7 @@ describe('getModelSettingsView', () => {
     if (!result.ok) return
     expect(result.settings.apiKeySet).toBe(false)
     expect(result.settings.typesafeApiKeySet).toBe(false)
+    expect(result.settings.mineruApiKeySet).toBe(false)
     expect(result.settings.typesafeModel).toBe('jev-v1')
   })
 
@@ -295,7 +306,30 @@ describe('setModelSettings: 合并语义', () => {
       typesafeApiKey: null,
       typesafeModel: null,
       typesafeBaseUrl: null,
-      contextWindow: null
+      contextWindow: null,
+      mineruApiUrl: null,
+      mineruApiKey: null
+    })
+  })
+
+  it('mineruApiKey 与 mineruApiUrl 可以更新或清除', async () => {
+    const { deps, store } = fakeDeps({ current: SAVED })
+
+    await setModelSettings(
+      { mineruApiKey: 'new-mineru-key', mineruApiUrl: 'https://custom.mineru.com' },
+      deps
+    )
+    expect(store.save).toHaveBeenCalledWith({
+      ...SAVED,
+      mineruApiKey: 'new-mineru-key',
+      mineruApiUrl: 'https://custom.mineru.com'
+    })
+
+    await setModelSettings({ clearMineruApiKey: true, mineruApiUrl: null }, deps)
+    expect(store.save).toHaveBeenCalledWith({
+      ...SAVED,
+      mineruApiKey: null,
+      mineruApiUrl: null
     })
   })
 

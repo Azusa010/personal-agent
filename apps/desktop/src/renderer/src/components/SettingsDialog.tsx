@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Bot, Cpu, KeyRound, Save, Settings as SettingsIcon, Sparkles } from 'lucide-react'
+import {
+  Bot,
+  Cpu,
+  FileText,
+  KeyRound,
+  Save,
+  Settings as SettingsIcon,
+  Sparkles
+} from 'lucide-react'
 import type {
   AgentProfileView,
   ModelSettingsView,
@@ -20,7 +28,7 @@ export interface SettingsDialogProps {
   onSaved: () => void
 }
 
-type SettingsTab = 'profile' | 'model' | 'typesafe'
+type SettingsTab = 'profile' | 'model' | 'typesafe' | 'mineru'
 
 interface NavItem {
   id: SettingsTab
@@ -47,6 +55,12 @@ const NAV_ITEMS: NavItem[] = [
     label: 'TypeSafe AI',
     description: 'Jev 决策模型与 API',
     icon: Cpu
+  },
+  {
+    id: 'mineru',
+    label: 'MinerU 解析',
+    description: 'PDF 高精度版面识别',
+    icon: FileText
   }
 ]
 
@@ -68,6 +82,10 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
   const [typesafeModel, setTypesafeModel] = useState('')
   const [typesafeBaseUrl, setTypesafeBaseUrl] = useState('')
   const [typesafeApiKey, setTypesafeApiKey] = useState('')
+
+  // MinerU 解析配置
+  const [mineruApiUrl, setMineruApiUrl] = useState('')
+  const [mineruApiKey, setMineruApiKey] = useState('')
 
   // 人设配置
   const [name, setName] = useState('')
@@ -95,6 +113,9 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
       setTypesafeModel(modelRes.settings.typesafeModel ?? '')
       setTypesafeBaseUrl(modelRes.settings.typesafeBaseUrl ?? '')
       setTypesafeApiKey('')
+
+      setMineruApiUrl(modelRes.settings.mineruApiUrl ?? '')
+      setMineruApiKey('')
     } else {
       setLoadError(`[${modelRes.code}] ${modelRes.message}`)
     }
@@ -196,7 +217,9 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
         contextWindow: validWindow,
         typesafeModel: typesafeModel.trim() === '' ? null : typesafeModel.trim(),
         typesafeBaseUrl: typesafeBaseUrl.trim() === '' ? null : typesafeBaseUrl.trim(),
-        typesafeApiKey: typesafeApiKey.trim() === '' ? undefined : typesafeApiKey.trim()
+        typesafeApiKey: typesafeApiKey.trim() === '' ? undefined : typesafeApiKey.trim(),
+        mineruApiUrl: mineruApiUrl.trim() === '' ? null : mineruApiUrl.trim(),
+        mineruApiKey: mineruApiKey.trim() === '' ? undefined : mineruApiKey.trim()
       },
       {
         name: name.trim() || 'PersonalAgent',
@@ -220,6 +243,17 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
   const handleClearTypesafeKey = (): void => {
     void submit(
       { clearTypesafeApiKey: true },
+      {
+        name: name.trim() || 'PersonalAgent',
+        persona: persona.trim(),
+        reasoningSummary
+      }
+    )
+  }
+
+  const handleClearMineruKey = (): void => {
+    void submit(
+      { clearMineruApiKey: true },
       {
         name: name.trim() || 'PersonalAgent',
         persona: persona.trim(),
@@ -304,7 +338,7 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
                 配置通用大模型接入点、认证凭证与协议模式。保存后自动重启 runtime 刷新生效。
               </p>
             </div>
-          ) : (
+          ) : activeTab === 'typesafe' ? (
             <div>
               <h3 className="m-0 flex items-center gap-2 text-[14px] font-semibold text-foreground">
                 <Cpu size={16} className="text-primary" />
@@ -312,6 +346,16 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
               </h3>
               <p className="m-0 mt-0.5 text-[12px] text-muted-foreground">
                 配置专用于结构化决策与任务规划的 TypeSafe API 接入点与 Key，同等级系统安全加密。
+              </p>
+            </div>
+          ) : (
+            <div>
+              <h3 className="m-0 flex items-center gap-2 text-[14px] font-semibold text-foreground">
+                <FileText size={16} className="text-primary" />
+                MinerU 文档解析服务
+              </h3>
+              <p className="m-0 mt-0.5 text-[12px] text-muted-foreground">
+                配置用于 PDF 高精度版面识别、表格与公式提取的 MinerU API 端点与凭证。
               </p>
             </div>
           )}
@@ -477,7 +521,7 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
                 </p>
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'typesafe' ? (
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="settings-typesafe-api-key">TypeSafe API Key</Label>
@@ -530,6 +574,45 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
                 </p>
               </div>
             </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="settings-mineru-api-key">MinerU API Token (Key)</Label>
+                <Input
+                  id="settings-mineru-api-key"
+                  type="password"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={mineruApiKey}
+                  onChange={(e) => setMineruApiKey(e.target.value)}
+                  placeholder={
+                    modelView.mineruApiKeySet
+                      ? '已配置，留空保持不变'
+                      : '未配置，粘贴 MinerU API Token'
+                  }
+                />
+                <p className="m-0 text-[11px] text-muted-foreground">
+                  以系统安全密钥库加密保存在本机，已保存的 Token 不回显、不进日志。
+                  {modelView.mineruApiKeySet &&
+                    ' 需要换掉时直接粘贴新的，需要删除时点下方清除按钮。'}
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="settings-mineru-api-url">API 端点 (Base URL)</Label>
+                <Input
+                  id="settings-mineru-api-url"
+                  value={mineruApiUrl}
+                  onChange={(e) => setMineruApiUrl(e.target.value)}
+                  placeholder="https://mineru.net/api/v4"
+                  spellCheck={false}
+                />
+                <p className="m-0 text-[11px] text-muted-foreground">
+                  对应运行时环境变量 MINERU_API_URL。留空使用官方云端地址
+                  https://mineru.net/api/v4；私有化或本地 Docker 部署时填写实际服务地址。
+                </p>
+              </div>
+            </div>
           )}
         </div>
 
@@ -566,6 +649,18 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
               >
                 <Cpu size={14} />
                 清除已存的 TypeSafe Key
+              </Button>
+            )}
+            {activeTab === 'mineru' && modelView?.mineruApiKeySet && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={saving}
+                onClick={handleClearMineruKey}
+              >
+                <FileText size={14} />
+                清除已存的 MinerU Token
               </Button>
             )}
             <Button type="button" size="sm" disabled={saving} onClick={handleSave}>

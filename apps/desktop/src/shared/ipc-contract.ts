@@ -105,6 +105,8 @@ export interface ModelSettingsView {
   typesafeModel: string | null
   typesafeBaseUrl: string | null
   contextWindow: number | null
+  mineruApiUrl: string | null
+  mineruApiKeySet: boolean
 }
 
 export type GetModelSettingsResult =
@@ -112,7 +114,7 @@ export type GetModelSettingsResult =
 
 /** 字段语义：不给 = 保持不变；model / baseUrl 传 null = 清空；
  *  apiKey 空串 = 保持不变，清空走显式的 clearApiKey。
- *  TypeSafe 字段遵循相同语义。 */
+ *  TypeSafe 与 MinerU 字段遵循相同语义。 */
 export interface SetModelSettingsInput {
   model?: string | null
   baseUrl?: string | null
@@ -124,6 +126,9 @@ export interface SetModelSettingsInput {
   typesafeModel?: string | null
   typesafeBaseUrl?: string | null
   contextWindow?: number | null
+  mineruApiUrl?: string | null
+  mineruApiKey?: string
+  clearMineruApiKey?: boolean
 }
 
 /** applied 区分「已经重启生效」与「有任务在跑、留到下次启动」——两种都算保存成功，

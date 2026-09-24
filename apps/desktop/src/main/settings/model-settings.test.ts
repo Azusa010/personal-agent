@@ -18,6 +18,8 @@ import {
   API_PROTOCOL_ENV_KEY,
   BASE_URL_ENV_KEY,
   CONTEXT_WINDOW_ENV_KEY,
+  MINERU_API_KEY_ENV_KEY,
+  MINERU_API_URL_ENV_KEY,
   MODEL_ENV_KEY,
   SCRIPT_ENV_KEY,
   SETTINGS_VERSION,
@@ -77,7 +79,9 @@ describe('model-settings: 读写往返', () => {
       typesafeApiKey: 'ts-secret-123',
       typesafeModel: 'jev-planner-v1',
       typesafeBaseUrl: 'https://typesafe.example.com/v1',
-      contextWindow: 128000
+      contextWindow: 128000,
+      mineruApiUrl: 'https://mineru.example.com/api/v4',
+      mineruApiKey: 'mineru-secret-123'
     }
 
     saveModelSettings(settings, { filePath, codec: fakeCodec() })
@@ -87,6 +91,7 @@ describe('model-settings: 读写往返', () => {
 
   it('Key 只以密文落盘：文件里搜不到明文（SEC-008）', () => {
     const tsSecret = 'ts-secret-456'
+    const mineruSecret = 'mineru-secret-789'
     saveModelSettings(
       {
         model: null,
@@ -96,7 +101,9 @@ describe('model-settings: 读写往返', () => {
         typesafeApiKey: tsSecret,
         typesafeModel: null,
         typesafeBaseUrl: null,
-        contextWindow: null
+        contextWindow: null,
+        mineruApiUrl: 'https://mineru.example.com/api/v4',
+        mineruApiKey: mineruSecret
       },
       { filePath, codec: fakeCodec() }
     )
@@ -104,10 +111,13 @@ describe('model-settings: 读写往返', () => {
     const raw = readFileSync(filePath, 'utf8')
     expect(raw).not.toContain(SECRET)
     expect(raw).not.toContain(tsSecret)
+    expect(raw).not.toContain(mineruSecret)
     expect(JSON.parse(raw)).toMatchObject({
       version: SETTINGS_VERSION,
       apiKeyEncrypted: `enc:${Buffer.from(SECRET, 'utf8').toString('base64')}`,
       typesafeApiKeyEncrypted: `enc:${Buffer.from(tsSecret, 'utf8').toString('base64')}`,
+      mineruApiKeyEncrypted: `enc:${Buffer.from(mineruSecret, 'utf8').toString('base64')}`,
+      mineruApiUrl: 'https://mineru.example.com/api/v4',
       apiProtocol: null
     })
   })
@@ -122,7 +132,9 @@ describe('model-settings: 读写往返', () => {
         typesafeApiKey: '  ',
         typesafeModel: '',
         typesafeBaseUrl: '   ',
-        contextWindow: null
+        contextWindow: null,
+        mineruApiUrl: '   ',
+        mineruApiKey: '  '
       },
       { filePath, codec: fakeCodec() }
     )
@@ -135,11 +147,13 @@ describe('model-settings: 读写往返', () => {
       typesafeApiKey: null,
       typesafeModel: null,
       typesafeBaseUrl: null,
-      contextWindow: null
+      contextWindow: null,
+      mineruApiUrl: null,
+      mineruApiKey: null
     })
   })
 
-  it('未配置 apiProtocol 和 typesafe 字段的旧配置文件平滑兼容为 null', () => {
+  it('未配置 apiProtocol 和 typesafe / mineru 字段的旧配置文件平滑兼容为 null', () => {
     writeFileSync(
       filePath,
       JSON.stringify({
@@ -159,7 +173,9 @@ describe('model-settings: 读写往返', () => {
       typesafeApiKey: null,
       typesafeModel: null,
       typesafeBaseUrl: null,
-      contextWindow: null
+      contextWindow: null,
+      mineruApiUrl: null,
+      mineruApiKey: null
     })
   })
 
@@ -210,7 +226,9 @@ describe('model-settings: 读写往返', () => {
           typesafeApiKey: null,
           typesafeModel: null,
           typesafeBaseUrl: null,
-          contextWindow: null
+          contextWindow: null,
+          mineruApiUrl: null,
+          mineruApiKey: null
         },
         { filePath, codec: fakeCodec(false) }
       )
@@ -233,7 +251,9 @@ describe('model-settings: 读写往返', () => {
           typesafeApiKey: 'ts-secret-key',
           typesafeModel: null,
           typesafeBaseUrl: null,
-          contextWindow: null
+          contextWindow: null,
+          mineruApiUrl: null,
+          mineruApiKey: null
         },
         { filePath, codec: fakeCodec(false) }
       )
@@ -244,7 +264,31 @@ describe('model-settings: 读写往返', () => {
     expect(loadModelSettings({ filePath, codec: fakeCodec() })).toBeNull()
   })
 
-  it('密钥库不可用但没填 Key → 照常保存 model / baseUrl / typesafeModel', () => {
+  it('密钥库不可用时保存 MinerU Key → ENCRYPTION_UNAVAILABLE，且文件不出现在盘上', () => {
+    const error = catchError(() =>
+      saveModelSettings(
+        {
+          model: 'gpt-4o-mini',
+          baseUrl: null,
+          apiKey: null,
+          apiProtocol: null,
+          typesafeApiKey: null,
+          typesafeModel: null,
+          typesafeBaseUrl: null,
+          contextWindow: null,
+          mineruApiUrl: null,
+          mineruApiKey: 'mineru-secret-key'
+        },
+        { filePath, codec: fakeCodec(false) }
+      )
+    )
+
+    expect(error).toBeInstanceOf(SettingsSaveError)
+    expect((error as SettingsSaveError).code).toBe(SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE)
+    expect(loadModelSettings({ filePath, codec: fakeCodec() })).toBeNull()
+  })
+
+  it('密钥库不可用但没填 Key → 照常保存 model / baseUrl / typesafeModel / mineruApiUrl', () => {
     saveModelSettings(
       {
         model: 'gpt-4o-mini',
@@ -254,7 +298,9 @@ describe('model-settings: 读写往返', () => {
         typesafeApiKey: null,
         typesafeModel: 'jev-v1',
         typesafeBaseUrl: null,
-        contextWindow: null
+        contextWindow: null,
+        mineruApiUrl: 'https://mineru.example.com/api/v4',
+        mineruApiKey: null
       },
       { filePath, codec: fakeCodec(false) }
     )
@@ -267,7 +313,9 @@ describe('model-settings: 读写往返', () => {
       typesafeApiKey: null,
       typesafeModel: 'jev-v1',
       typesafeBaseUrl: null,
-      contextWindow: null
+      contextWindow: null,
+      mineruApiUrl: 'https://mineru.example.com/api/v4',
+      mineruApiKey: null
     })
   })
 
@@ -283,7 +331,9 @@ describe('model-settings: 读写往返', () => {
         typesafeApiKey: null,
         typesafeModel: null,
         typesafeBaseUrl: null,
-        contextWindow: null
+        contextWindow: null,
+        mineruApiUrl: null,
+        mineruApiKey: null
       },
       { filePath: nested, codec: fakeCodec() }
     )
@@ -296,7 +346,9 @@ describe('model-settings: 读写往返', () => {
       typesafeApiKey: null,
       typesafeModel: null,
       typesafeBaseUrl: null,
-      contextWindow: null
+      contextWindow: null,
+      mineruApiUrl: null,
+      mineruApiKey: null
     })
   })
 })
@@ -317,7 +369,9 @@ describe('buildRuntimeEnv（陪练点）', () => {
     typesafeApiKey: 'ts-secret-key-0123456789',
     typesafeModel: 'jev-planner-v1',
     typesafeBaseUrl: 'https://relay.example.com/typesafe/v1',
-    contextWindow: 128000
+    contextWindow: 128000,
+    mineruApiUrl: 'https://mineru.example.com/api/v4',
+    mineruApiKey: 'mineru-secret-123'
   }
 
   it('settings 为 null：整份拷贝继承环境，且是新对象', () => {
@@ -347,6 +401,9 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[TYPESAFE_BASE_URL_ENV_KEY]).toBe('https://relay.example.com/typesafe/v1')
     expect(env[TYPESAFE_API_KEY_ENV_KEY]).toBe('ts-secret-key-0123456789')
     expect(env[CONTEXT_WINDOW_ENV_KEY]).toBe('128000')
+
+    expect(env[MINERU_API_URL_ENV_KEY]).toBe('https://mineru.example.com/api/v4')
+    expect(env[MINERU_API_KEY_ENV_KEY]).toBe('mineru-secret-123')
   })
 
   it('设置的 null 字段不注入：继承值原样保留（开发态 shell 的 export 照旧可用）', () => {
@@ -358,7 +415,9 @@ describe('buildRuntimeEnv（陪练点）', () => {
       typesafeApiKey: null,
       typesafeModel: null,
       typesafeBaseUrl: null,
-      contextWindow: null
+      contextWindow: null,
+      mineruApiUrl: null,
+      mineruApiKey: null
     })
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o')
@@ -370,6 +429,9 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[TYPESAFE_BASE_URL_ENV_KEY]).toBeUndefined()
     expect(env[TYPESAFE_API_KEY_ENV_KEY]).toBeUndefined()
     expect(env[CONTEXT_WINDOW_ENV_KEY]).toBeUndefined()
+
+    expect(env[MINERU_API_URL_ENV_KEY]).toBeUndefined()
+    expect(env[MINERU_API_KEY_ENV_KEY]).toBeUndefined()
   })
 
   it('部分设置：只覆盖填了的字段，其余保留继承值', () => {
@@ -381,7 +443,9 @@ describe('buildRuntimeEnv（陪练点）', () => {
       typesafeApiKey: 'ts-key-only',
       typesafeModel: null,
       typesafeBaseUrl: null,
-      contextWindow: null
+      contextWindow: null,
+      mineruApiUrl: 'https://mineru.custom/v4',
+      mineruApiKey: null
     })
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o')
@@ -392,6 +456,9 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[TYPESAFE_MODEL_ENV_KEY]).toBe('jev-base')
     expect(env[TYPESAFE_API_KEY_ENV_KEY]).toBe('ts-key-only')
     expect(env[TYPESAFE_BASE_URL_ENV_KEY]).toBeUndefined()
+
+    expect(env[MINERU_API_URL_ENV_KEY]).toBe('https://mineru.custom/v4')
+    expect(env[MINERU_API_KEY_ENV_KEY]).toBeUndefined()
   })
 
   it('继承环境里有 PERSONAL_AGENT_SCRIPT：OPENAI 与 TYPESAFE 变量一个都不动（剧本压过设置）', () => {
@@ -411,6 +478,9 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[TYPESAFE_BASE_URL_ENV_KEY]).toBeUndefined()
     expect(env[TYPESAFE_API_KEY_ENV_KEY]).toBeUndefined()
     expect(env[SCRIPT_ENV_KEY]).toBe('C:\\demo\\script.json')
+
+    expect(env[MINERU_API_URL_ENV_KEY]).toBeUndefined()
+    expect(env[MINERU_API_KEY_ENV_KEY]).toBeUndefined()
   })
 
   it('空串的剧本变量不算剧本模式（空串按没设处理）', () => {
@@ -421,6 +491,8 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[API_PROTOCOL_ENV_KEY]).toBe('responses')
     expect(env[TYPESAFE_MODEL_ENV_KEY]).toBe('jev-planner-v1')
     expect(env[TYPESAFE_API_KEY_ENV_KEY]).toBe('ts-secret-key-0123456789')
+    expect(env[MINERU_API_URL_ENV_KEY]).toBe('https://mineru.example.com/api/v4')
+    expect(env[MINERU_API_KEY_ENV_KEY]).toBe('mineru-secret-123')
   })
 
   it('设置里的空串字段不注入，也不产生空串的环境变量', () => {
@@ -432,7 +504,9 @@ describe('buildRuntimeEnv（陪练点）', () => {
       typesafeApiKey: '',
       typesafeModel: '  ',
       typesafeBaseUrl: '',
-      contextWindow: null
+      contextWindow: null,
+      mineruApiUrl: '  ',
+      mineruApiKey: ''
     })
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o')
@@ -443,6 +517,9 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[TYPESAFE_MODEL_ENV_KEY]).toBe('jev-base')
     expect(env[TYPESAFE_BASE_URL_ENV_KEY]).toBeUndefined()
     expect(env[TYPESAFE_API_KEY_ENV_KEY]).toBeUndefined()
+
+    expect(env[MINERU_API_URL_ENV_KEY]).toBeUndefined()
+    expect(env[MINERU_API_KEY_ENV_KEY]).toBeUndefined()
   })
 
   it('任何分支都带上继承环境里的非模型变量（spawn 的 env 是整份替换）', () => {

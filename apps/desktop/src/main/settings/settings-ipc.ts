@@ -39,7 +39,10 @@ const SetSettingsInput = z.object({
   clearTypesafeApiKey: z.boolean('clearTypesafeApiKey 必须是布尔值').optional(),
   typesafeModel: z.string().nullable().optional(),
   typesafeBaseUrl: z.string().nullable().optional(),
-  contextWindow: z.number().int().positive().nullable().optional()
+  contextWindow: z.number().int().positive().nullable().optional(),
+  mineruApiUrl: z.string().nullable().optional(),
+  mineruApiKey: z.string('mineruApiKey 必须是字符串').optional(),
+  clearMineruApiKey: z.boolean('clearMineruApiKey 必须是布尔值').optional()
 })
 
 const EMPTY_SETTINGS: ModelSettings = {
@@ -50,7 +53,9 @@ const EMPTY_SETTINGS: ModelSettings = {
   typesafeApiKey: null,
   typesafeModel: null,
   typesafeBaseUrl: null,
-  contextWindow: null
+  contextWindow: null,
+  mineruApiUrl: null,
+  mineruApiKey: null
 }
 
 function invalid(message: string): { ok: false; code: IpcErrorCode; message: string } {
@@ -85,7 +90,9 @@ export function getModelSettingsView(deps: SettingsIpcDeps): GetModelSettingsRes
       typesafeApiKeySet: settings !== null && settings.typesafeApiKey !== null,
       typesafeModel: settings?.typesafeModel ?? null,
       typesafeBaseUrl: settings?.typesafeBaseUrl ?? null,
-      contextWindow: settings?.contextWindow ?? 128000
+      contextWindow: settings?.contextWindow ?? 128000,
+      mineruApiUrl: settings?.mineruApiUrl ?? null,
+      mineruApiKeySet: settings !== null && settings.mineruApiKey !== null
     }
   }
 }
@@ -133,6 +140,13 @@ export async function setModelSettings(
   if (patch.typesafeModel !== undefined) next.typesafeModel = patch.typesafeModel
   if (patch.typesafeBaseUrl !== undefined) next.typesafeBaseUrl = patch.typesafeBaseUrl
   if (patch.contextWindow !== undefined) next.contextWindow = patch.contextWindow
+
+  if (patch.clearMineruApiKey === true) {
+    next.mineruApiKey = null
+  } else if (patch.mineruApiKey !== undefined && patch.mineruApiKey.trim() !== '') {
+    next.mineruApiKey = patch.mineruApiKey
+  }
+  if (patch.mineruApiUrl !== undefined) next.mineruApiUrl = patch.mineruApiUrl
 
   try {
     deps.store.save(next)

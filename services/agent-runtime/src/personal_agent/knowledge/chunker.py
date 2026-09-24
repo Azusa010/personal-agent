@@ -186,12 +186,11 @@ class StructureAwareChunker:
                 overlap_count = 0
                 for piece in reversed(current_pieces):
                     piece_toks = self.count_tokens(piece)
-                    if overlap_count + piece_toks <= self.overlap_tokens or not overlap_pieces:
-                        overlap_pieces.insert(0, piece)
-                        overlap_count += piece_toks
-                    else:
+                    if overlap_pieces and (overlap_count + piece_toks > self.overlap_tokens):
                         break
-
+                    overlap_pieces.append(piece)
+                    overlap_count += piece_toks
+                overlap_pieces.reverse()
                 current_pieces = overlap_pieces
                 current_tokens = overlap_count
 

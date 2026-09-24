@@ -10,6 +10,9 @@ export const TYPESAFE_MODEL_ENV_KEY = 'TYPESAFE_DEFAULT_MODEL'
 export const TYPESAFE_BASE_URL_ENV_KEY = 'TYPESAFE_BASE_URL'
 export const CONTEXT_WINDOW_ENV_KEY = 'PERSONAL_AGENT_MAX_WINDOW_TOKENS'
 
+export const MINERU_API_URL_ENV_KEY = 'MINERU_API_URL'
+export const MINERU_API_KEY_ENV_KEY = 'MINERU_API_KEY'
+
 /** 用户级模型配置的内存形状。apiKey 和 typesafeApiKey 是解密后的明文，只允许活在主进程
  *  字段可变：设置面板是「读出现状 → 改了哪几个字段 → 整体回写」，
  *  与 shared/domain.ts 的 TaskRecord / PermissionRecord 同一种写法。 */
@@ -22,6 +25,8 @@ export interface ModelSettings {
   typesafeModel: string | null
   typesafeBaseUrl: string | null
   contextWindow: number | null
+  mineruApiUrl: string | null
+  mineruApiKey: string | null
 }
 
 /** settings 文件在 userData 下的文件名。 */
@@ -51,6 +56,8 @@ interface StoredSettings {
   typesafeModel?: string | null
   typesafeBaseUrl?: string | null
   contextWindow?: number | null
+  mineruApiUrl?: string | null
+  mineruApiKeyEncrypted?: string | null
 }
 
 /** 系统密钥库的薄封装。生产接线是 Electron safeStorage（Windows 走 DPAPI，密文
@@ -171,6 +178,19 @@ export function loadModelSettings(deps: ModelSettingsStoreDeps): ModelSettings |
     }
   }
 
+  const mineruApiUrl = asNullableString(record.mineruApiUrl) ?? null
+  const mineruApiKeyEncrypted = asNullableString(record.mineruApiKeyEncrypted) ?? null
+
+  let mineruApiKey: string | null = null
+  if (mineruApiKeyEncrypted !== null) {
+    if (!deps.codec.isAvailable()) return null
+    try {
+      mineruApiKey = deps.codec.decrypt(mineruApiKeyEncrypted)
+    } catch {
+      return null
+    }
+  }
+
   const contextWindow =
     typeof record.contextWindow === 'number' &&
     Number.isInteger(record.contextWindow) &&
@@ -186,7 +206,9 @@ export function loadModelSettings(deps: ModelSettingsStoreDeps): ModelSettings |
     typesafeApiKey,
     typesafeModel,
     typesafeBaseUrl,
-    contextWindow
+    contextWindow,
+    mineruApiUrl,
+    mineruApiKey
   }
 }
 
@@ -228,6 +250,22 @@ export function saveModelSettings(settings: ModelSettings, deps: ModelSettingsSt
     }
   }
 
+  const mineruApiKey = normalize(settings.mineruApiKey)
+  let mineruApiKeyEncrypted: string | null = null
+  if (mineruApiKey !== null) {
+    if (!deps.codec.isAvailable()) {
+      throw new SettingsSaveError(
+        SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE,
+        '系统密钥库不可用，MinerU API Key 无法加密保存'
+      )
+    }
+    try {
+      mineruApiKeyEncrypted = deps.codec.encrypt(mineruApiKey)
+    } catch (e) {
+      throw new SettingsSaveError(SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE, describe(e))
+    }
+  }
+
   const stored: StoredSettings = {
     version: SETTINGS_VERSION,
     model: normalize(settings.model),
@@ -240,7 +278,9 @@ export function saveModelSettings(settings: ModelSettings, deps: ModelSettingsSt
     contextWindow:
       typeof settings.contextWindow === 'number' && settings.contextWindow > 0
         ? settings.contextWindow
-        : null
+        : null,
+    mineruApiUrl: normalize(settings.mineruApiUrl),
+    mineruApiKeyEncrypted
   }
 
   try {
@@ -311,6 +351,13 @@ export function buildRuntimeEnv(
 
   if (typeof settings.contextWindow === 'number' && settings.contextWindow > 0) {
     env[CONTEXT_WINDOW_ENV_KEY] = String(settings.contextWindow)
+  }
+
+  if (settings.mineruApiUrl?.trim()) {
+    env[MINERU_API_URL_ENV_KEY] = settings.mineruApiUrl
+  }
+  if (settings.mineruApiKey?.trim()) {
+    env[MINERU_API_KEY_ENV_KEY] = settings.mineruApiKey
   }
 
   return env
