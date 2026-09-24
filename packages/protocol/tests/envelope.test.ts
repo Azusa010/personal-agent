@@ -56,6 +56,10 @@ import {
   RunWorkflowRequest,
   RunWorkflowResponse,
 } from "../schemas/workflow.js";
+import {
+  KnowledgeSearchParams,
+  KnowledgeSearchResult,
+} from "../schemas/knowledge.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, "../fixtures");
@@ -233,6 +237,25 @@ const legalCases = [
     file: "host-terminal-execute.response.json",
     envelope: HostExecuteToolResponse,
     payload: TerminalExecuteResult,
+    field: "result",
+  },
+  // knowledge_search
+  {
+    file: "host-knowledge-search.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-knowledge-search.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: KnowledgeSearchParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-knowledge-search.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: KnowledgeSearchResult,
     field: "result",
   },
   {

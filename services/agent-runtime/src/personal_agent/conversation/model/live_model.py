@@ -61,6 +61,10 @@ TOOL_SPECS: dict[str, str] = {
         '在安全受限环境下执行终端命令行。参数 {"command": "<命令行文本>", '
         '"cwd": "<可选工作目录>", "timeoutMs": <可选超时毫秒>}'
     ),
+    "knowledge_search": (
+        '在本地知识库中进行混合语义检索与关键词检索。参数 {"query": "<查询文本>", '
+        '"topK": <可选返回条数，默认5>}'
+    ),
 }
 
 # 标准 OpenAI Function Calling 工具参数定义
@@ -173,6 +177,27 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
                     },
                 },
                 "required": ["command"],
+            },
+        },
+    },
+    "knowledge_search": {
+        "type": "function",
+        "function": {
+            "name": "knowledge_search",
+            "description": "在本地知识库中进行混合语义检索与关键词检索",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "要检索的问题或关键词",
+                    },
+                    "topK": {
+                        "type": "integer",
+                        "description": "可选返回的最优候选条数（默认 5）",
+                    },
+                },
+                "required": ["query"],
             },
         },
     },

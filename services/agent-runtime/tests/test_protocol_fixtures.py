@@ -20,6 +20,8 @@ from personal_agent.protocol.models import (
     HostExecuteToolResponse,
     InitializeParams,
     InitializeResult,
+    KnowledgeSearchParams,
+    KnowledgeSearchResult,
     MakePlanParams,
     MakePlanRequest,
     MakePlanResponse,
@@ -211,6 +213,25 @@ def _pick(raw: dict, path: str):
             "host-terminal-execute.response.json",
             HostExecuteToolResponse,
             TerminalExecuteResult,
+            "result",
+        ),
+        # knowledge_search (Phase 3)
+        (
+            "host-knowledge-search.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-knowledge-search.request.json",
+            HostExecuteToolRequest,
+            KnowledgeSearchParams,
+            "params.arguments",
+        ),
+        (
+            "host-knowledge-search.response.json",
+            HostExecuteToolResponse,
+            KnowledgeSearchResult,
             "result",
         ),
         (

@@ -9,3 +9,4 @@ export * from "./scheduler";
 export * from "./notification";
 export * from "./terminal";
 export * from "./workflow";
+export * from "./knowledge";

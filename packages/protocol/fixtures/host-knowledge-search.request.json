@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-ksearch-1",
+    "capability": "knowledge_search",
+    "arguments": {
+      "query": "智能体长期记忆与混合检索",
+      "topK": 5
+    }
+  }
+}

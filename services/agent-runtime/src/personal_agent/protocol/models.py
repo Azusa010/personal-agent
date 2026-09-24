@@ -85,6 +85,7 @@ CapabilityId = Literal[
     "scheduler_create",
     "notification_send",
     "terminal_execute",
+    "knowledge_search",
 ]
 
 
@@ -265,6 +266,49 @@ class TerminalExecuteResult(BaseModel):
 
 TerminalExecuteOutcome = Annotated[
     TerminalExecuteResult | CapabilityFailure, Field(discriminator="ok")
+]
+
+
+# ---- knowledge.search (Phase 3) ----
+class KnowledgeSearchParams(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    query: str = Field(min_length=1)
+    topK: int = Field(default=5, ge=1, le=50)
+    denseLimit: int | None = Field(default=None, ge=1, le=100)
+    sparseLimit: int | None = Field(default=None, ge=1, le=100)
+    fileTypes: list[str] | None = None
+    documentIds: list[str] | None = None
+    minScore: float | None = None
+
+
+class KnowledgeChunkItem(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str = Field(min_length=1)
+    documentId: str = Field(min_length=1)
+    fileName: str = Field(min_length=1)
+    sourcePath: str = Field(min_length=1)
+    chunkIndex: int = Field(ge=0)
+    pageNumbers: list[int] = Field(default_factory=list)
+    headingPath: str | None = None
+    rawText: str
+    score: float
+    denseRank: int | None = Field(default=None, ge=1)
+    sparseRank: int | None = Field(default=None, ge=1)
+
+
+class KnowledgeSearchResult(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True]
+    query: str
+    totalFound: int = Field(ge=0)
+    chunks: list[KnowledgeChunkItem]
+
+
+KnowledgeSearchOutcome = Annotated[
+    KnowledgeSearchResult | CapabilityFailure, Field(discriminator="ok")
 ]
 
 
