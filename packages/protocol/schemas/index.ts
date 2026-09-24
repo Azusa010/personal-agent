@@ -10,3 +10,4 @@ export * from "./notification";
 export * from "./terminal";
 export * from "./workflow";
 export * from "./knowledge";
+export * from "./memory";

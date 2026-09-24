@@ -13,12 +13,15 @@ export const CapabilityId = z.enum([
   "notification_send",
   "terminal_execute",
   "knowledge_search",
+  "user_memory_search",
 ]);
 export const EXTRACT_PDF_CAPABILITY = CapabilityId.enum["document_extract_pdf"];
 export const TERMINAL_EXECUTE_CAPABILITY =
   CapabilityId.enum["terminal_execute"];
 export const KNOWLEDGE_SEARCH_CAPABILITY =
   CapabilityId.enum["knowledge_search"];
+export const USER_MEMORY_SEARCH_CAPABILITY =
+  CapabilityId.enum["user_memory_search"];
 
 export type CapabilityId = z.infer<typeof CapabilityId>;
 

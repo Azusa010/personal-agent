@@ -1,0 +1,15 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-8",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-msearch-1",
+    "capability": "user_memory_search",
+    "arguments": {
+      "query": "用户的饮食偏好与禁忌",
+      "memoryType": "semantic",
+      "category": "preference",
+      "topK": 5
+    }
+  }
+}

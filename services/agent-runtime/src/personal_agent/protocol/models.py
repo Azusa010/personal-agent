@@ -86,6 +86,7 @@ CapabilityId = Literal[
     "notification_send",
     "terminal_execute",
     "knowledge_search",
+    "user_memory_search",
 ]
 
 
@@ -310,6 +311,82 @@ class KnowledgeSearchResult(BaseModel):
 
 KnowledgeSearchOutcome = Annotated[
     KnowledgeSearchResult | CapabilityFailure, Field(discriminator="ok")
+]
+
+
+# ---- user_memory (Phase 5) ----
+MemoryType = Literal["semantic", "episodic", "procedural"]
+MemoryCategory = Literal[
+    "preference",
+    "identity",
+    "relationship",
+    "work",
+    "routine",
+    "general",
+]
+
+
+class UserMemoryCard(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str = Field(min_length=1)
+    memoryType: MemoryType
+    category: MemoryCategory
+    subject: str = Field(min_length=1)
+    person: str | None = None
+    relationship: str | None = None
+    content: dict[str, Any] = Field(default_factory=dict)
+    backstory: str | None = None
+    sourceTaskId: str | None = None
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    occurredAt: str | None = None
+    validFrom: str
+    supersededBy: str | None = None
+    supersedeReason: str | None = None
+    accessCount: int = Field(default=0, ge=0)
+    lastAccessedAt: str | None = None
+    isSanitized: bool = False
+    createdAt: str
+    updatedAt: str
+
+
+class UserMemorySearchParams(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    query: str = Field(min_length=1)
+    memoryType: MemoryType | None = None
+    category: MemoryCategory | None = None
+    subject: str | None = None
+    person: str | None = None
+    relationship: str | None = None
+    occurredAfter: str | None = None
+    occurredBefore: str | None = None
+    topK: int = Field(default=5, ge=1, le=50)
+    includeSuperseded: bool = False
+    minScore: float | None = None
+
+
+class UserMemorySearchItem(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    card: UserMemoryCard
+    score: float
+    denseRank: int | None = Field(default=None, ge=1)
+    sparseRank: int | None = Field(default=None, ge=1)
+    matchedText: str
+
+
+class UserMemorySearchResult(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True]
+    query: str
+    totalFound: int = Field(ge=0)
+    items: list[UserMemorySearchItem]
+
+
+UserMemorySearchOutcome = Annotated[
+    UserMemorySearchResult | CapabilityFailure, Field(discriminator="ok")
 ]
 
 

@@ -48,6 +48,8 @@ from personal_agent.protocol.models import (
     TerminalExecuteParams,
     TerminalExecuteResult,
     Turn,
+    UserMemorySearchParams,
+    UserMemorySearchResult,
 )
 
 FIXTURES_DIR = (
@@ -232,6 +234,25 @@ def _pick(raw: dict, path: str):
             "host-knowledge-search.response.json",
             HostExecuteToolResponse,
             KnowledgeSearchResult,
+            "result",
+        ),
+        # user_memory_search (Phase 5)
+        (
+            "host-user-memory-search.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-user-memory-search.request.json",
+            HostExecuteToolRequest,
+            UserMemorySearchParams,
+            "params.arguments",
+        ),
+        (
+            "host-user-memory-search.response.json",
+            HostExecuteToolResponse,
+            UserMemorySearchResult,
             "result",
         ),
         (

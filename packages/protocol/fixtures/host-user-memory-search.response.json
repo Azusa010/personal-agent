@@ -1,0 +1,41 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-8",
+  "result": {
+    "ok": true,
+    "query": "用户的饮食偏好与禁忌",
+    "totalFound": 1,
+    "items": [
+      {
+        "card": {
+          "id": "c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c",
+          "memoryType": "semantic",
+          "category": "preference",
+          "subject": "饮食偏好",
+          "person": "本人",
+          "relationship": "本人",
+          "content": {
+            "dietary": "vegetarian",
+            "allergies": ["peanut"]
+          },
+          "backstory": "2026年9月预订商务午餐时说明过素食和花生过敏要求",
+          "sourceTaskId": "task-lunch-001",
+          "confidence": 0.98,
+          "occurredAt": "2026-09-20T12:00:00Z",
+          "validFrom": "2026-09-20T12:00:00Z",
+          "supersededBy": null,
+          "supersedeReason": null,
+          "accessCount": 4,
+          "lastAccessedAt": "2026-09-24T10:00:00Z",
+          "isSanitized": true,
+          "createdAt": "2026-09-20T12:00:00Z",
+          "updatedAt": "2026-09-24T10:00:00Z"
+        },
+        "score": 0.945,
+        "denseRank": 1,
+        "sparseRank": 2,
+        "matchedText": "饮食偏好: dietary = vegetarian, allergies = [peanut]"
+      }
+    ]
+  }
+}

@@ -60,6 +60,10 @@ import {
   KnowledgeSearchParams,
   KnowledgeSearchResult,
 } from "../schemas/knowledge.js";
+import {
+  UserMemorySearchParams,
+  UserMemorySearchResult,
+} from "../schemas/memory.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, "../fixtures");
@@ -256,6 +260,25 @@ const legalCases = [
     file: "host-knowledge-search.response.json",
     envelope: HostExecuteToolResponse,
     payload: KnowledgeSearchResult,
+    field: "result",
+  },
+  // user_memory_search (Phase 5)
+  {
+    file: "host-user-memory-search.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-user-memory-search.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: UserMemorySearchParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-user-memory-search.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: UserMemorySearchResult,
     field: "result",
   },
   {
