@@ -118,15 +118,13 @@ Content:{document_text}
 </document>"""
     messages.append({"role": "system", "content": system_content})
     user_content = f"""
-Here is the chunk we want to situate within the whole document:    
+以下是我们想要置于整个文档中的片段：
 <heading_path>{heading_path or "正文"}</heading_path>
 <chunk>
 {chunk_raw_text}
 </chunk>
 
-Please give a short succinct context (1-2 sentences) to situate this chunk within the 
-overall document for the purposes of improving search retrieval of the chunk. 
-Answer only with the succinct context and nothing else.
+请提供一个简短精炼的上下文（1-2句话），将该片段置于整体文档中，以便提升该片段的搜索检索效果。只回答这个简洁上下文，不要其他内容。
 """
     messages.append({"role": "user", "content": user_content})
     return messages
