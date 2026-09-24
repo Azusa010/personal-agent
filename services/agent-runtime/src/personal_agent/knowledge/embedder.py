@@ -164,25 +164,12 @@ def get_embedder(
     if target_mode == "mock":
         logger.info("使用 MockEmbedder 模式")
         return MockEmbedder()
-    elif target_mode == "local":
-        logger.info("使用 BgeM3Embedder 模式，模型路径: %s", path)
+
+    if target_mode == "local":
         return BgeM3Embedder(model_path=path)
-    elif target_mode == "auto":
-        if path.exists() and path.is_dir():
-            try:
-                import FlagEmbedding  # noqa: F401
-                logger.info("自动模式：检测到本地 bge-m3 模型和 FlagEmbedding 库，使用 BgeM3Embedder")
-                return BgeM3Embedder(model_path=path)
-            except ImportError:
-                logger.warning(
-                    "自动模式：检测到本地 bge-m3 模型，但未安装 FlagEmbedding 库"
-                )
-                raise RuntimeError(
-                    "未安装 FlagEmbedding 库。请执行 `uv add FlagEmbedding` 安装，"
-                    "或设置环境变量 KNOWLEDGE_EMBEDDER_MODE=mock 使用 Mock 模式。"
-                )
-        else:
-            logger.warning(
-                "自动模式：未检测到本地 bge-m3 模型目录 (%s)，降级为 MockEmbedder", path
-            )
-            raise FileNotFoundError(f"bge-m3 模型目录不存在: {path}")
+
+    # 生产/本地模式：严禁静默降级为 Mock，避免生成假向量污染数据库
+    if not path.exists() or not path.is_dir():
+        raise FileNotFoundError(f"bge-m3 模型目录不存在: {path}")
+
+    return BgeM3Embedder(model_path=path)

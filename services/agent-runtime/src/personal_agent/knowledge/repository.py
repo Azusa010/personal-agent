@@ -3,6 +3,7 @@
 负责 documents 与 chunks 表的增删改查、事务原子性与中文全文检索探测。
 """
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -64,13 +65,16 @@ async def batch_insert_chunks(
     document_id: UUID,
     chunks: list[DocumentChunk],
 ) -> int:
-    """批量插入文档分块，fts_vector 列由 PostgreSQL jiebacfg 表达式自动计算。"""
+    """批量插入文档分块，支持稠密向量与稀疏向量，fts_vector 列由 PostgreSQL jiebacfg 表达式自动计算。"""
     if not chunks:
         return 0
 
     query = """
-    INSERT INTO chunks (document_id, chunk_index, page_numbers, heading_path, raw_text, token_count)
-    VALUES ($1, $2, $3, $4, $5, $6);
+    INSERT INTO chunks (
+        document_id, chunk_index, page_numbers, heading_path, raw_text, token_count,
+        dense_embedding, sparse_vector
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
     """
     records = [
         (
@@ -80,6 +84,8 @@ async def batch_insert_chunks(
             c.heading_path,
             c.raw_text,
             c.token_count,
+            c.dense_embedding,
+            json.dumps(c.sparse_vector) if c.sparse_vector else None,
         )
         for c in chunks
     ]
@@ -103,7 +109,8 @@ async def get_chunks_by_document_id(
 ) -> list[dict[str, Any]]:
     """查询指定文档下的全部切块，按 chunk_index 升序排序。"""
     query = """
-    SELECT id, document_id, chunk_index, page_numbers, heading_path, raw_text, token_count, created_at
+    SELECT id, document_id, chunk_index, page_numbers, heading_path, raw_text, token_count,
+           dense_embedding, sparse_vector, created_at
     FROM chunks
     WHERE document_id = $1
     ORDER BY chunk_index ASC;

@@ -49,6 +49,8 @@ class DocumentChunk(BaseModel):
     heading_path: str | None = None
     raw_text: str
     token_count: int
+    dense_embedding: list[float] | None = None
+    sparse_vector: dict[str, float] | None = None
 
 
 class DocumentRecord(BaseModel):

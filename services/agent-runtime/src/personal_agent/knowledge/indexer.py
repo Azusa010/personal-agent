@@ -11,6 +11,7 @@ import asyncpg
 
 from personal_agent.db.postgres import get_pg_pool
 from personal_agent.knowledge.chunker import StructureAwareChunker
+from personal_agent.knowledge.embedder import BaseEmbedder, get_embedder
 from personal_agent.knowledge.models import DocumentRecord, IndexResult
 from personal_agent.knowledge.parser import get_parser
 from personal_agent.knowledge.repository import (
@@ -39,9 +40,11 @@ class KnowledgeIndexer:
         self,
         pool: asyncpg.Pool | None = None,
         chunker: StructureAwareChunker | None = None,
+        embedder: BaseEmbedder | None = None,
     ):
         self._pool = pool
         self.chunker = chunker or StructureAwareChunker()
+        self.embedder = embedder
 
     async def _get_pool(self) -> asyncpg.Pool:
         if self._pool is None:
@@ -90,7 +93,16 @@ class KnowledgeIndexer:
         chunks = self.chunker.chunk(parsed_doc)
         total_tokens = sum(c.token_count for c in chunks)
 
-        # 3. 持久化至 documents 表
+        # 3. 向量特征嵌入计算 (Phase 3)
+        if chunks:
+            embedder_inst = self.embedder or get_embedder()
+            texts = [c.raw_text for c in chunks]
+            embeddings = await embedder_inst.embed_documents(texts)
+            for chunk, emb in zip(chunks, embeddings, strict=False):
+                chunk.dense_embedding = emb.dense
+                chunk.sparse_vector = emb.sparse
+
+        # 4. 持久化至 documents 表
         doc_record = DocumentRecord(
             id=existing["id"] if existing else None,
             source_path=str(path),
@@ -102,7 +114,7 @@ class KnowledgeIndexer:
         )
         doc_id = await upsert_document(pool, doc_record)
 
-        # 4. 清理旧分块并批量写入新分块
+        # 5. 清理旧分块并批量写入新分块
         if existing:
             await delete_chunks_by_document(pool, doc_id)
 

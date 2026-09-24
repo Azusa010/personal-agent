@@ -10,6 +10,7 @@ import {
   createExecutor,
   type CapabilityOutcome,
   type ExecutorIdempotencyWiring,
+  type ExecutorKnowledgeWiring,
   type ExecutorPermissionWiring,
   type ExecutorSchedulerWiring
 } from './executor'
@@ -36,6 +37,7 @@ export interface HostExecutorWiring {
   readonly permission?: ExecutorPermissionWiring
   readonly idempotency?: ExecutorIdempotencyWiring
   readonly scheduler?: ExecutorSchedulerWiring
+  readonly knowledge?: ExecutorKnowledgeWiring
 }
 
 let wiring: HostExecutorWiring = {}
@@ -50,9 +52,6 @@ export function resetHostExecutorWiring(): void {
 }
 
 const retriever = new RuleBasedToolRetriever()
-
-// renderer 那条没有任务上下文，固定只读 Scope（保持 TASK-019 以来的行为）。
-const uiExecutor = createExecutor(readOnlyScope(BOOTSTRAP_TASK_ID), UI_ORIGIN, retriever)
 
 let ipcCounter = 0
 
@@ -90,7 +89,8 @@ export async function executeHostTool(params: HostExecuteToolParams): Promise<Ca
     retriever,
     wiring.permission,
     wiring.idempotency,
-    wiring.scheduler
+    wiring.scheduler,
+    wiring.knowledge
   )(params)
 }
 
@@ -113,5 +113,13 @@ export async function executeCapability(
       reason: `capability 或 arguments 不符合契约: ${parsed.error.message}`
     }
   }
-  return uiExecutor(parsed.data)
+  return createExecutor(
+    readOnlyScope(BOOTSTRAP_TASK_ID),
+    UI_ORIGIN,
+    retriever,
+    wiring.permission,
+    wiring.idempotency,
+    wiring.scheduler,
+    wiring.knowledge
+  )(parsed.data)
 }

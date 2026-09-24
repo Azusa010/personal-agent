@@ -6,13 +6,16 @@ import { CAPABILITIES, listByKind } from './registry'
 const retriever = new RuleBasedToolRetriever()
 
 describe('RuleBasedToolRetriever', () => {
-  it('不可见门：Phase 1 Scope 下只暴露两个 READ Capability', () => {
+  it('不可见门：readOnlyScope 下只暴露 READ Capability', () => {
     const visible = retriever.listVisible(readOnlyScope('t-1'))
 
-    // Phase 1 Exit Checklist 第 3 条
-    expect(visible.map((c) => c.name)).toEqual(['filesystem_list', 'document_extract_pdf'])
+    expect(visible.map((c) => c.name)).toEqual([
+      'filesystem_list',
+      'document_extract_pdf',
+      'knowledge_search'
+    ])
     expect(visible.every((c) => c.kind === 'READ')).toBe(true)
-    // 四个 WRITE 一个都看不见
+    // 所有 WRITE 一个都看不见
     expect(visible).toHaveLength(listByKind('READ').length)
   })
 
@@ -83,9 +86,13 @@ describe('RuleBasedToolRetriever', () => {
       expect(retriever.authorize(scope, write.name).allowed, `${write.name} 不应被放行`).toBe(false)
     }
 
-    // 放行的必须恰好是 Scope 里那两个，不多不少
+    // 放行的必须恰好是 Scope 里那三个，不多不少
     const allowed = CAPABILITIES.filter((c) => retriever.authorize(scope, c.name).allowed)
-    expect(allowed.map((c) => c.name)).toEqual(['filesystem_list', 'document_extract_pdf'])
+    expect(allowed.map((c) => c.name)).toEqual([
+      'filesystem_list',
+      'document_extract_pdf',
+      'knowledge_search'
+    ])
   })
 
   it('Scope 无法被运行时扩权：push 在编译期即被拒', () => {
@@ -98,7 +105,7 @@ describe('RuleBasedToolRetriever', () => {
     // 只取不调用 —— 调了就真的扩权了，测试意图反过来。
     expect(typeof pushFn).toBe('function')
 
-    expect(scope.capabilities).toHaveLength(2)
+    expect(scope.capabilities).toHaveLength(3)
     expect(retriever.authorize(scope, 'filesystem_move').allowed).toBe(false)
   })
 })

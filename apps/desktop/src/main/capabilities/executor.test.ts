@@ -13,7 +13,13 @@ import {
 } from '@personal-agent/protocol'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createExecutor, REMINDER_CREATED_EVENT, type ExecutorSchedulerWiring } from './executor'
+import {
+  createExecutor,
+  KNOWLEDGE_ISOLATION_FOOTER,
+  KNOWLEDGE_ISOLATION_HEADER,
+  REMINDER_CREATED_EVENT,
+  type ExecutorSchedulerWiring
+} from './executor'
 import type { ReminderRecord } from '../../shared/domain'
 import type {
   NotificationOutcome,
@@ -805,5 +811,75 @@ describe('scheduler_create → timer → 到时发送一次（TASK-024 验收链
     // failed 只允许显式重试：timer 不自动重挂
     expect(failingService.isArmed('r-fail')).toBe(false)
     failingService.dispose()
+  })
+})
+
+describe('executor：knowledge_search', () => {
+  it('未接线检索端口 -> 回 NOT_IMPLEMENTED', async () => {
+    const run = createExecutor(readOnlyScope('task-1'), UI_ORIGIN)
+    const out = await run(params('knowledge_search', { query: 'PersonalAgent' }))
+    expect(out['ok']).toBe(false)
+    expect(out['code']).toBe(ERROR_CODE.NOT_IMPLEMENTED)
+    expect(out['reason']).toContain('knowledge_search 没有接线知识库检索端口')
+  })
+
+  it('检索端口抛出异常 -> 回 RUNTIME_INTERNAL', async () => {
+    const run = createExecutor(
+      readOnlyScope('task-1'),
+      UI_ORIGIN,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      {
+        search: async () => {
+          throw new Error('数据库连接失败')
+        }
+      }
+    )
+    const out = await run(params('knowledge_search', { query: 'test' }))
+    expect(out['ok']).toBe(false)
+    expect(out['code']).toBe(ERROR_CODE.HOST_HANDLER_FAILED)
+    expect(out['reason']).toContain('数据库连接失败')
+  })
+
+  it('检索成功 -> 返回结果并对 rawText 包裹防 Prompt 注入隔离标头', async () => {
+    const mockKnowledge = {
+      search: async (args: Record<string, unknown>) => ({
+        ok: true,
+        query: args['query'],
+        totalFound: 1,
+        chunks: [
+          {
+            id: 'c-1',
+            documentId: 'd-1',
+            fileName: 'doc.md',
+            sourcePath: '/doc.md',
+            chunkIndex: 0,
+            pageNumbers: [1],
+            headingPath: '概述',
+            rawText: '这是知识库中的文本内容',
+            score: 0.85
+          }
+        ]
+      })
+    }
+    const run = createExecutor(
+      readOnlyScope('task-1'),
+      UI_ORIGIN,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      mockKnowledge
+    )
+    const out = await run(params('knowledge_search', { query: 'PersonalAgent' }))
+    expect(out['ok']).toBe(true)
+    expect(out['totalFound']).toBe(1)
+    const chunks = out['chunks'] as Array<{ rawText: string }>
+    expect(chunks).toHaveLength(1)
+    expect(chunks[0].rawText).toContain(KNOWLEDGE_ISOLATION_HEADER)
+    expect(chunks[0].rawText).toContain('这是知识库中的文本内容')
+    expect(chunks[0].rawText).toContain(KNOWLEDGE_ISOLATION_FOOTER)
   })
 })

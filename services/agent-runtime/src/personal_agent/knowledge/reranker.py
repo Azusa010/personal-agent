@@ -100,7 +100,6 @@ class BgeReranker(BaseReranker):
         self.use_fp16 = use_fp16
         self.device = device
         self._model: Any = None
-        self._fallback = MockReranker()
 
     def _get_model(self) -> Any:
         if self._model is None:
@@ -131,23 +130,19 @@ class BgeReranker(BaseReranker):
         if not candidates:
             return []
 
-        try:
-            model = self._get_model()
-            pairs = [[query, c.raw_text] for c in candidates]
-            scores = model.compute_score(pairs, normalize=True)
-            # scores 可以是单个 float（若只有1条）或 list
-            if isinstance(scores, (float, int)):
-                scores = [scores]
+        model = self._get_model()
+        pairs = [[query, c.raw_text] for c in candidates]
+        scores = model.compute_score(pairs, normalize=True)
+        # scores 可以是单个 float（若只有1条）或 list
+        if isinstance(scores, (float, int)):
+            scores = [scores]
 
-            for chunk, score in zip(candidates, scores, strict=False):
-                chunk.rerank_score = float(score)
-                chunk.score = float(score)
+        for chunk, score in zip(candidates, scores, strict=False):
+            chunk.rerank_score = float(score)
+            chunk.score = float(score)
 
-            candidates.sort(key=lambda c: (c.rerank_score or 0.0), reverse=True)
-            return candidates[:top_k]
-        except (RuntimeError, OSError, ValueError, TypeError, KeyError) as exc:
-            logger.warning("BgeReranker 计算异常，平滑降级至 MockReranker: %s", exc)
-            return await self._fallback.rerank(query, candidates, top_k)
+        candidates.sort(key=lambda c: (c.rerank_score or 0.0), reverse=True)
+        return candidates[:top_k]
 
 
 def get_reranker(
@@ -171,5 +166,10 @@ def get_reranker(
             return BgeReranker(model_path=path)
         except ImportError:
             logger.warning("FlagEmbedding 未安装，降级为 MockReranker")
-            return MockReranker()
-    return MockReranker()
+            raise RuntimeError(
+                "未安装 FlagEmbedding 库。请执行 `uv add FlagEmbedding` 安装，"
+                "或设置环境变量 KNOWLEDGE_RERANKER_MODE=mock 使用 Mock 模式。"
+            )
+    raise RuntimeError(
+        f"未找到 bge-reranker 模型目录: {path}，请检查环境变量 BGE_RERANKER_PATH 或传入 model_path 参数。"
+    )

@@ -41,6 +41,12 @@ class HostChannel:
         self._write_msg = write_msg
         self._counter = 0
         self.inbox: deque[str] = deque()
+        self._request_handler: Callable[[dict], dict | None] | None = None
+
+    def set_request_handler(
+        self, handler: Callable[[dict], dict | None]
+    ) -> None:
+        self._request_handler = handler
 
     def call_host(self, params: HostExecuteToolParams):
         self._counter += 1
@@ -68,7 +74,15 @@ class HostChannel:
             except json.JSONDecodeError:
                 log.warning("等 host 响应时读到非法 JSON，丢弃: %.200s", text)
                 continue
-            if raw.get("id") != rpc_id or "method" in raw:
+            if "method" in raw:
+                if self._request_handler is not None:
+                    resp = self._request_handler(raw)
+                    if resp is not None:
+                        self._write_msg(resp)
+                    continue
+                self.inbox.append(text)
+                continue
+            if raw.get("id") != rpc_id:
                 self.inbox.append(text)
                 continue
             try:

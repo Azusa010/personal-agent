@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -21,6 +22,7 @@ from personal_agent.protocol.models import (
     CapabilityDescriptor,
     InitializeParams,
     InitializeResult,
+    KnowledgeSearchParams,
     MakePlanParams,
     MakePlanResult,
     Request,
@@ -63,6 +65,8 @@ SCRIPT_ENV = "PERSONAL_AGENT_SCRIPT"
 PLAN_MODEL_FAILED = "PLAN_MODEL_FAILED"
 
 WORKFLOW_NOT_FOUND = "WORKFLOW_NOT_FOUND"
+
+KNOWLEDGE_SEARCH = "knowledge.search"
 
 
 WORKFLOW_REGISTRY: dict[str, Callable[[Sequence[str]], WorkflowDefinition]] = {
@@ -125,6 +129,9 @@ def dispatch(raw, deps: RuntimeDeps | None = None) -> dict:
 
     if req.method == AGENT_RUN_WORKFLOW:
         return handle_run_workflow(req, deps)
+
+    if req.method == KNOWLEDGE_SEARCH:
+        return handle_knowledge_search(req, deps)
 
     return build_error(
         req_id=req.id, code="METHOD_NOT_FOUND", message=f"未知方法:{req.method}"
@@ -289,6 +296,31 @@ def handle_run_workflow(req: Request, deps: RuntimeDeps | None = None) -> dict:
         jsonrpc="2.0", id=req.id, result=outcome.model_dump(exclude_none=True)
     ).model_dump(exclude_none=True)
 
+
+def handle_knowledge_search(req: Request, deps: RuntimeDeps | None = None) -> dict:
+    """处理来自 Host 的 knowledge.search 请求，调用 HybridRetriever。"""
+    try:
+        params = KnowledgeSearchParams.model_validate(req.params)
+    except ValidationError:
+        return build_error(
+            req.id, "PROTOCOL_INVALID_REQUEST", "knowledge.search 参数不符合契约"
+        )
+
+    try:
+        from personal_agent.knowledge.retriever import HybridRetriever
+
+        retriever = HybridRetriever()
+        result = asyncio.run(retriever.search(params))
+        return Response(
+            jsonrpc="2.0",
+            id=req.id,
+            result=result.model_dump(exclude_none=True),
+        ).model_dump(exclude_none=True)
+    except Exception as exc:
+        log.exception("knowledge.search 执行异常 (id=%s)", req.id)
+        return build_error(req.id, "RUNTIME_INTERNAL", f"知识库检索执行失败: {exc}")
+
+
 # ====== I/O 层 ========
 def write(msg: dict) -> None:
     sys.stdout.write(json.dumps(msg, ensure_ascii=False) + "\n")
@@ -386,6 +418,7 @@ def run(channel: HostChannel | None = None) -> None:
         strategy=resolve_strategy(),
         notify=write,
     )
+    ch.set_request_handler(lambda r: dispatch(r, deps))
     log.info("runtime started")
     while True:
         line = ch.next_line()

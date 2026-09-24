@@ -18,6 +18,11 @@ export const CAPABILITIES = [
     description: '提取 PDF 每页文本与页码'
   },
   {
+    name: 'knowledge_search',
+    kind: 'READ',
+    description: '在知识库中进行混合语义与关键词全文检索'
+  },
+  {
     name: 'filesystem_create_dir',
     kind: 'WRITE',
     description: '在授权根目录下创建子目录'

@@ -31,6 +31,11 @@ from personal_agent.knowledge.reranker import (
     ScoredChunk,
     get_reranker,
 )
+from personal_agent.knowledge.retriever import (
+    HybridRetriever,
+    clean_fts_query,
+    fuse_rrf,
+)
 
 __all__ = [
     "BaseEmbedder",
@@ -43,6 +48,7 @@ __all__ = [
     "EmbeddingOutput",
     "FallbackPdfParser",
     "FileType",
+    "HybridRetriever",
     "IndexResult",
     "KnowledgeIndexer",
     "MinerUParser",
@@ -53,6 +59,8 @@ __all__ = [
     "ScoredChunk",
     "StructureAwareChunker",
     "TextMarkdownParser",
+    "clean_fts_query",
+    "fuse_rrf",
     "get_embedder",
     "get_parser",
     "get_reranker",

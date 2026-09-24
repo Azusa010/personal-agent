@@ -846,3 +846,62 @@ def test_make_plan_hands_the_profile_to_the_planner():
     assert planner.received_profile.name == "小助手"
     assert planner.received_profile.persona == "热情友好"
 
+
+def test_knowledge_search_invalid_params():
+    deps = RuntimeDeps(channel=StubChannel())
+    line = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": "ks-1",
+            "method": "knowledge.search",
+            "params": {"query": ""},
+        }
+    )
+    resp = handle_line(line, deps)
+    assert resp["error"]["code"] == "PROTOCOL_INVALID_REQUEST"
+
+
+def test_knowledge_search_dispatch_success(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from personal_agent.protocol.models import KnowledgeChunkItem, KnowledgeSearchResult
+
+    mock_result = KnowledgeSearchResult(
+        ok=True,
+        query="智能体",
+        totalFound=1,
+        chunks=[
+            KnowledgeChunkItem(
+                id="c-1",
+                documentId="d-1",
+                fileName="agent.md",
+                sourcePath="/agent.md",
+                chunkIndex=0,
+                pageNumbers=[1],
+                headingPath="第3章",
+                rawText="知识库与混合检索",
+                score=0.92,
+            )
+        ],
+    )
+
+    class FakeRetriever:
+        search = AsyncMock(return_value=mock_result)
+
+    monkeypatch.setattr("personal_agent.knowledge.retriever.HybridRetriever", FakeRetriever)
+
+    deps = RuntimeDeps(channel=StubChannel())
+    line = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": "ks-2",
+            "method": "knowledge.search",
+            "params": {"query": "智能体", "topK": 3},
+        }
+    )
+    resp = handle_line(line, deps)
+    assert resp["result"]["ok"] is True
+    assert resp["result"]["totalFound"] == 1
+    assert resp["result"]["chunks"][0]["rawText"] == "知识库与混合检索"
+
+

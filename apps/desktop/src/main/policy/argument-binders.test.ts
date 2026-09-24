@@ -603,3 +603,76 @@ describe('bindArguments：terminal_execute', () => {
     }
   })
 })
+
+describe('bindArguments：knowledge_search', () => {
+  it('合法 query -> 成功绑定，返回默认 topK=5，paths 为空', async () => {
+    const out = await bindArguments('knowledge_search', { query: 'PersonalAgent 混合检索' })
+    expect(out.ok).toBe(true)
+    if (out.ok) {
+      expect(out.bound.args).toEqual({
+        query: 'PersonalAgent 混合检索',
+        topK: 5
+      })
+      expect(out.bound.paths).toEqual({})
+    }
+  })
+
+  it('自定义合法参数（topK, denseLimit, sparseLimit, fileTypes, minScore） -> 成功绑定', async () => {
+    const out = await bindArguments('knowledge_search', {
+      query: 'RRF 融合',
+      topK: 10,
+      denseLimit: 50,
+      sparseLimit: 50,
+      fileTypes: ['pdf', 'md'],
+      minScore: 0.5
+    })
+    expect(out.ok).toBe(true)
+    if (out.ok) {
+      expect(out.bound.args).toEqual({
+        query: 'RRF 融合',
+        topK: 10,
+        denseLimit: 50,
+        sparseLimit: 50,
+        fileTypes: ['pdf', 'md'],
+        minScore: 0.5
+      })
+      expect(out.bound.paths).toEqual({})
+    }
+  })
+
+  it('缺 query 或 query 为空 -> INVALID_ARGUMENT', async () => {
+    for (const bad of [{}, { query: '' }, { query: 123 }]) {
+      const out = await bindArguments('knowledge_search', bad)
+      expect(out.ok, JSON.stringify(bad)).toBe(false)
+      if (!out.ok) {
+        expect(out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
+        expect(out.reason).toContain('knowledge_search')
+      }
+    }
+  })
+
+  it('超出范围的 topK（0 或 >50） -> INVALID_ARGUMENT', async () => {
+    for (const bad of [
+      { query: 'test', topK: 0 },
+      { query: 'test', topK: 51 }
+    ]) {
+      const out = await bindArguments('knowledge_search', bad)
+      expect(out.ok, JSON.stringify(bad)).toBe(false)
+      if (!out.ok) {
+        expect(out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
+      }
+    }
+  })
+
+  it('剥离未定义的多余字段', async () => {
+    const out = await bindArguments('knowledge_search', {
+      query: 'test',
+      malicious: 'drop database'
+    })
+    expect(out.ok).toBe(true)
+    if (out.ok) {
+      expect(out.bound.args).toEqual({ query: 'test', topK: 5 })
+      expect('malicious' in out.bound.args).toBe(false)
+    }
+  })
+})

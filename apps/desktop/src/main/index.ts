@@ -243,6 +243,10 @@ app.whenReady().then(() => {
         events,
         notifications,
         armTimer: (reminder) => timer.arm(reminder)
+      },
+      knowledge: {
+        search: (args) =>
+          requestRuntime('knowledge.search', args) as Promise<Record<string, unknown>>
       }
     })
 

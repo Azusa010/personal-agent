@@ -41,7 +41,6 @@ def test_mock_embedder_deterministic():
         out2 = await embedder.embed_query(t2)
         out3 = await embedder.embed_query(t3)
 
-        # TODO(你填)[验证与质量]: 断言 —— 期望：验证 out1 与 out2 的 dense 向量逐元素完全相同，而与 out3 的向量不同，且 out1 的 L2 范数为 1.0 (容差 1e-4)
         assert out1.dense == out2.dense
         assert out1.dense != out3.dense
         norm1 = math.sqrt(sum(x * x for x in out1.dense))

@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import UUID
 
 from personal_agent.db.postgres import close_pg_pool, get_pg_pool
+from personal_agent.knowledge.embedder import MockEmbedder
 from personal_agent.knowledge.indexer import KnowledgeIndexer
 from personal_agent.knowledge.repository import (
     delete_document,
@@ -42,7 +43,7 @@ def test_indexer_markdown_end_to_end(tmp_path: Path):
 """
             sample_file.write_text(content, encoding="utf-8")
 
-            indexer = KnowledgeIndexer(pool=pool)
+            indexer = KnowledgeIndexer(pool=pool, embedder=MockEmbedder())
 
             # 1. 首次索引
             res = await indexer.index_file(sample_file)
@@ -61,6 +62,9 @@ def test_indexer_markdown_end_to_end(tmp_path: Path):
             chunks = await get_chunks_by_document_id(pool, doc_id)
             assert len(chunks) == res.chunk_count
             assert any("记忆机制" in (c["heading_path"] or "") for c in chunks)
+            # Phase 3: 校验稠密向量与稀疏向量已成功写入
+            assert all(c["dense_embedding"] is not None for c in chunks)
+            assert all(len(c["dense_embedding"].to_list()) == 1024 for c in chunks)
 
             # 4. 全文检索 FTS 命中验证 (pg_jieba jiebacfg)
             search_results = await search_chunks_fts(pool, "记忆 & 检索")
@@ -94,7 +98,7 @@ def test_indexer_real_pdf_fixture():
         pool = await get_pg_pool()
         doc_id = None
         try:
-            indexer = KnowledgeIndexer(pool=pool)
+            indexer = KnowledgeIndexer(pool=pool, embedder=MockEmbedder())
 
             res = await indexer.index_file(FIXTURES_PDF, force=True)
             assert res.status in ["indexed", "updated"]
