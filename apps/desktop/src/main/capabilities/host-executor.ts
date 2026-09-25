@@ -11,6 +11,7 @@ import {
   type CapabilityOutcome,
   type ExecutorIdempotencyWiring,
   type ExecutorKnowledgeWiring,
+  type ExecutorMemoryWiring,
   type ExecutorPermissionWiring,
   type ExecutorSchedulerWiring
 } from './executor'
@@ -38,6 +39,7 @@ export interface HostExecutorWiring {
   readonly idempotency?: ExecutorIdempotencyWiring
   readonly scheduler?: ExecutorSchedulerWiring
   readonly knowledge?: ExecutorKnowledgeWiring
+  readonly memory?: ExecutorMemoryWiring
 }
 
 let wiring: HostExecutorWiring = {}
@@ -90,7 +92,8 @@ export async function executeHostTool(params: HostExecuteToolParams): Promise<Ca
     wiring.permission,
     wiring.idempotency,
     wiring.scheduler,
-    wiring.knowledge
+    wiring.knowledge,
+    wiring.memory
   )(params)
 }
 
@@ -120,6 +123,7 @@ export async function executeCapability(
     wiring.permission,
     wiring.idempotency,
     wiring.scheduler,
-    wiring.knowledge
+    wiring.knowledge,
+    wiring.memory
   )(parsed.data)
 }

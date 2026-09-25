@@ -18,6 +18,8 @@ import {
   KNOWLEDGE_ISOLATION_FOOTER,
   KNOWLEDGE_ISOLATION_HEADER,
   REMINDER_CREATED_EVENT,
+  USER_MEMORY_ISOLATION_FOOTER,
+  USER_MEMORY_ISOLATION_HEADER,
   type ExecutorSchedulerWiring
 } from './executor'
 import type { ReminderRecord } from '../../shared/domain'
@@ -881,5 +883,82 @@ describe('executor：knowledge_search', () => {
     expect(chunks[0].rawText).toContain(KNOWLEDGE_ISOLATION_HEADER)
     expect(chunks[0].rawText).toContain('这是知识库中的文本内容')
     expect(chunks[0].rawText).toContain(KNOWLEDGE_ISOLATION_FOOTER)
+  })
+})
+
+describe('executor：user_memory_search', () => {
+  it('未接线检索端口 -> 回 NOT_IMPLEMENTED', async () => {
+    const run = createExecutor(readOnlyScope('task-1'), UI_ORIGIN)
+    const out = await run(params('user_memory_search', { query: '咖啡习惯' }))
+    expect(out['ok']).toBe(false)
+    expect(out['code']).toBe(ERROR_CODE.NOT_IMPLEMENTED)
+    expect(out['reason']).toContain('user_memory_search 没有接线用户记忆检索端口')
+  })
+
+  it('检索端口抛出异常 -> 回 HOST_HANDLER_FAILED', async () => {
+    const run = createExecutor(
+      readOnlyScope('task-1'),
+      UI_ORIGIN,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      {
+        search: async () => {
+          throw new Error('数据库连接失败')
+        }
+      }
+    )
+    const out = await run(params('user_memory_search', { query: 'test' }))
+    expect(out['ok']).toBe(false)
+    expect(out['code']).toBe(ERROR_CODE.HOST_HANDLER_FAILED)
+    expect(out['reason']).toContain('数据库连接失败')
+  })
+
+  it('检索成功 -> 返回结果并对 matchedText 包裹防 Prompt 注入隔离标头', async () => {
+    const mockMemory = {
+      search: async (args: Record<string, unknown>) => ({
+        ok: true,
+        query: args['query'],
+        totalFound: 1,
+        items: [
+          {
+            card: {
+              id: 'a1b2c3d4-e5f6-4a8b-9c0d-1e2f3a4b5c6d',
+              memoryType: 'semantic',
+              category: 'preference',
+              subject: '咖啡习惯',
+              person: '本人',
+              relationship: '本人',
+              content: { favorite: 'latte' },
+              validFrom: '2026-09-25T00:00:00Z',
+              createdAt: '2026-09-25T00:00:00Z',
+              updatedAt: '2026-09-25T00:00:00Z'
+            },
+            score: 0.085,
+            matchedText: '咖啡习惯: {"favorite": "latte"}'
+          }
+        ]
+      })
+    }
+    const run = createExecutor(
+      readOnlyScope('task-1'),
+      UI_ORIGIN,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      mockMemory
+    )
+    const out = await run(params('user_memory_search', { query: '咖啡习惯' }))
+    expect(out['ok']).toBe(true)
+    expect(out['totalFound']).toBe(1)
+    const items = out['items'] as Array<{ matchedText: string }>
+    expect(items).toHaveLength(1)
+    expect(items[0].matchedText).toContain(USER_MEMORY_ISOLATION_HEADER)
+    expect(items[0].matchedText).toContain('咖啡习惯: {"favorite": "latte"}')
+    expect(items[0].matchedText).toContain(USER_MEMORY_ISOLATION_FOOTER)
   })
 })

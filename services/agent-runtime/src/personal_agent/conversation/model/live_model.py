@@ -65,6 +65,10 @@ TOOL_SPECS: dict[str, str] = {
         '在本地知识库中进行混合语义检索与关键词检索。参数 {"query": "<查询文本>", '
         '"topK": <可选返回条数，默认5>}'
     ),
+    "user_memory_search": (
+        '在长期用户记忆中检索相关事实、偏好与历史经历。参数 {"query": "<查询文本>", '
+        '"topK": <可选返回条数，默认5>, "category": <可选分类>, "person": <可选人物>}'
+    ),
 }
 
 # 标准 OpenAI Function Calling 工具参数定义
@@ -195,6 +199,39 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
                     "topK": {
                         "type": "integer",
                         "description": "可选返回的最优候选条数（默认 5）",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    "user_memory_search": {
+        "type": "function",
+        "function": {
+            "name": "user_memory_search",
+            "description": "在长期用户记忆中检索相关事实、偏好、习惯与历史经历",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "要检索的问题、偏好或事实关键词",
+                    },
+                    "topK": {
+                        "type": "integer",
+                        "description": "可选返回的最优候选条数（默认 5）",
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "可选的记忆分类：identity, preference, event, skill, routine",
+                    },
+                    "person": {
+                        "type": "string",
+                        "description": "可选的人物实体，如 本人",
+                    },
+                    "relationship": {
+                        "type": "string",
+                        "description": "可选的关系，如 本人、配偶、主管",
                     },
                 },
                 "required": ["query"],

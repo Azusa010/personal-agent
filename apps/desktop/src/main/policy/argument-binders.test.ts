@@ -676,3 +676,84 @@ describe('bindArguments：knowledge_search', () => {
     }
   })
 })
+
+describe('bindArguments：user_memory_search', () => {
+  it('合法 query -> 成功绑定，返回默认 topK=5，paths 为空', async () => {
+    const out = await bindArguments('user_memory_search', { query: '咖啡习惯' })
+    expect(out.ok).toBe(true)
+    if (out.ok) {
+      expect(out.bound.args).toEqual({
+        query: '咖啡习惯',
+        topK: 5,
+        includeSuperseded: false
+      })
+      expect(out.bound.paths).toEqual({})
+    }
+  })
+
+  it('自定义合法元数据过滤参数 -> 成功绑定', async () => {
+    const out = await bindArguments('user_memory_search', {
+      query: '家庭住址',
+      memoryType: 'semantic',
+      category: 'identity',
+      person: '本人',
+      relationship: '本人',
+      occurredAfter: '2026-01-01T00:00:00Z',
+      topK: 10
+    })
+    expect(out.ok).toBe(true)
+    if (out.ok) {
+      expect(out.bound.args).toEqual({
+        query: '家庭住址',
+        memoryType: 'semantic',
+        category: 'identity',
+        person: '本人',
+        relationship: '本人',
+        occurredAfter: '2026-01-01T00:00:00Z',
+        topK: 10,
+        includeSuperseded: false
+      })
+      expect(out.bound.paths).toEqual({})
+    }
+  })
+
+  it('缺 query 或 query 为空 -> INVALID_ARGUMENT', async () => {
+    for (const bad of [{}, { query: '' }, { query: 123 }]) {
+      const out = await bindArguments('user_memory_search', bad)
+      expect(out.ok, JSON.stringify(bad)).toBe(false)
+      if (!out.ok) {
+        expect(out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
+        expect(out.reason).toContain('user_memory_search')
+      }
+    }
+  })
+
+  it('超出范围的 topK（0 或 >50） -> INVALID_ARGUMENT', async () => {
+    for (const bad of [
+      { query: 'test', topK: 0 },
+      { query: 'test', topK: 51 }
+    ]) {
+      const out = await bindArguments('user_memory_search', bad)
+      expect(out.ok, JSON.stringify(bad)).toBe(false)
+      if (!out.ok) {
+        expect(out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
+      }
+    }
+  })
+
+  it('剥离未定义的多余注入字段', async () => {
+    const out = await bindArguments('user_memory_search', {
+      query: 'test',
+      injectedField: 'malicious prompt'
+    })
+    expect(out.ok).toBe(true)
+    if (out.ok) {
+      expect(out.bound.args).toEqual({
+        query: 'test',
+        topK: 5,
+        includeSuperseded: false
+      })
+      expect('injectedField' in out.bound.args).toBe(false)
+    }
+  })
+})

@@ -8,6 +8,7 @@ import {
   NotificationSendParams,
   SchedulerCreateParams,
   TerminalExecuteParams,
+  UserMemorySearchParams,
   type CapabilityId
 } from '@personal-agent/protocol'
 
@@ -195,6 +196,18 @@ const bindKnowledgeSearch: Binder = async (args) => {
   }
 }
 
+const bindUserMemorySearch: Binder = async (args) => {
+  const parsed = UserMemorySearchParams.safeParse(args)
+  if (!parsed.success) return invalid('user_memory_search', parsed.error.message)
+  return {
+    ok: true,
+    bound: {
+      args: parsed.data as Record<string, unknown>,
+      paths: {}
+    }
+  }
+}
+
 /** 每个能力的参数绑定器。没有登记的能力回 NOT_IMPLEMENTED：
  */
 const BINDERS: Partial<Record<CapabilityId, Binder>> = {
@@ -205,7 +218,8 @@ const BINDERS: Partial<Record<CapabilityId, Binder>> = {
   scheduler_create: bindSchedulerCreate,
   notification_send: bindNotificationSend,
   terminal_execute: bindTerminalExecute,
-  knowledge_search: bindKnowledgeSearch
+  knowledge_search: bindKnowledgeSearch,
+  user_memory_search: bindUserMemorySearch
 }
 
 export async function bindArguments(

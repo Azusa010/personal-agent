@@ -22,14 +22,15 @@ const ALL_CAPABILITY_NAMES = [
   'scheduler_create',
   'notification_send',
   'terminal_execute',
-  'knowledge_search'
+  'knowledge_search',
+  'user_memory_search'
 ]
 
 describe('CapabilityRegistry', () => {
-  it('恰好注册 8 个能力，不多不少', () => {
+  it('恰好注册 9 个能力，不多不少', () => {
     const names = listCapabilities().map((c) => c.name)
     expect([...names].sort()).toEqual([...ALL_CAPABILITY_NAMES].sort())
-    expect(CAPABILITIES).toHaveLength(8)
+    expect(CAPABILITIES).toHaveLength(9)
 
     // SEC-007 的禁止类名字必须查不到
     for (const forbidden of ['shell.exec', 'process.spawn', 'filesystem.delete', 'http.fetch']) {
@@ -37,11 +38,12 @@ describe('CapabilityRegistry', () => {
     }
   })
 
-  it('分类为 3 READ + 5 WRITE', () => {
+  it('分类为 4 READ + 5 WRITE', () => {
     expect(listByKind('READ').map((c) => c.name)).toEqual([
       'filesystem_list',
       'document_extract_pdf',
-      'knowledge_search'
+      'knowledge_search',
+      'user_memory_search'
     ])
     expect(listByKind('WRITE').map((c) => c.name)).toEqual([
       'filesystem_create_dir',
@@ -54,13 +56,14 @@ describe('CapabilityRegistry', () => {
     expect(listByKind('READ').length + listByKind('WRITE').length).toBe(CAPABILITIES.length)
   })
 
-  it('readOnlyScope 恰好含 3 个 READ，不含任何 WRITE', () => {
+  it('readOnlyScope 恰好含 4 个 READ，不含任何 WRITE', () => {
     const scope = readOnlyScope('t-1')
     expect(scope.taskId).toBe('t-1')
     expect([...scope.capabilities].sort()).toEqual([
       'document_extract_pdf',
       'filesystem_list',
-      'knowledge_search'
+      'knowledge_search',
+      'user_memory_search'
     ])
 
     // Phase 1 Exit 第 3 条：Agent 只能看到 Scope 中两个 READ Capability

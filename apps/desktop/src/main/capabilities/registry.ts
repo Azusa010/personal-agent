@@ -23,6 +23,11 @@ export const CAPABILITIES = [
     description: '在知识库中进行混合语义与关键词全文检索'
   },
   {
+    name: 'user_memory_search',
+    kind: 'READ',
+    description: '在用户记忆库中进行语义与全文检索（支持时间切片与实体消歧）'
+  },
+  {
     name: 'filesystem_create_dir',
     kind: 'WRITE',
     description: '在授权根目录下创建子目录'
