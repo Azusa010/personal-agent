@@ -1,0 +1,15 @@
+{
+  "proposalId": "e3f1a2b4-5c6d-4e7f-8a9b-0c1d2e3f4a5b",
+  "reviewerModel": "gpt-4o",
+  "verdict": "approved",
+  "critiques": [
+    {
+      "opIndex": 0,
+      "verdict": "pass",
+      "explanation": "更新内容与原始对话证据 c1d2e3f4 中的航司偏好及护照日期完全吻合，已正确补充适用场景限定",
+      "evidenceRef": "c1d2e3f4-a5b6-7c8d-9e0f-1a2b3c4d5e6f"
+    }
+  ],
+  "reviewComments": "该 PR 证据链完整，限定条件清晰，同意合入主库",
+  "reviewedAt": "2026-09-26T12:05:00.000Z"
+}

@@ -12,3 +12,4 @@ export * from "./workflow";
 export * from "./knowledge";
 export * from "./memory";
 export * from "./viking";
+export * from "./knowledge_update";

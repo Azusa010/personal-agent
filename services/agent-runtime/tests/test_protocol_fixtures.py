@@ -20,6 +20,8 @@ from personal_agent.protocol.models import (
     HostExecuteToolResponse,
     InitializeParams,
     InitializeResult,
+    KnowledgeProposal,
+    KnowledgeReviewOutcome,
     KnowledgeSearchParams,
     KnowledgeSearchResult,
     MakePlanParams,
@@ -988,4 +990,25 @@ def test_profile_dto_constraints():
         }
     )
     assert rp.profile is not None and rp.profile.name == "a"
+
+
+def test_knowledge_proposal_fixture():
+    raw = _load("knowledge-proposal.json")
+    proposal = KnowledgeProposal.model_validate(raw)
+    assert str(proposal.id) == "e3f1a2b4-5c6d-4e7f-8a9b-0c1d2e3f4a5b"
+    assert proposal.targetLayer == "user_memory"
+    assert len(proposal.operations) == 1
+    assert proposal.operations[0].op == "UPDATE"
+    assert proposal.operations[0].qualification == "限公务出差场景，私人旅行不在此限"
+    assert proposal.status == "pending"
+
+
+def test_knowledge_review_fixture():
+    raw = _load("knowledge-review.json")
+    review = KnowledgeReviewOutcome.model_validate(raw)
+    assert str(review.proposalId) == "e3f1a2b4-5c6d-4e7f-8a9b-0c1d2e3f4a5b"
+    assert review.reviewerModel == "gpt-4o"
+    assert review.verdict == "approved"
+    assert len(review.critiques) == 1
+    assert review.critiques[0].verdict == "pass"
 

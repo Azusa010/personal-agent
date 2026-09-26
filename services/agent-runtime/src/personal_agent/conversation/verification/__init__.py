@@ -2,14 +2,18 @@
 
 from personal_agent.conversation.verification.summary import (
     EXTRACT_PDF_CAPABILITY,
+    RetrievedEvidence,
     SummaryRejected,
     collect_extracted_pages,
+    collect_retrieved_evidence,
     verify_summary,
 )
 
 __all__ = [
     "EXTRACT_PDF_CAPABILITY",
+    "RetrievedEvidence",
     "SummaryRejected",
     "collect_extracted_pages",
+    "collect_retrieved_evidence",
     "verify_summary",
 ]

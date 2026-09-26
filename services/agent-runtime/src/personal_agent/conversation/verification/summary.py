@@ -7,7 +7,9 @@
 """
 
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 from typing import Any
+from uuid import UUID
 
 from pydantic import ValidationError
 
@@ -15,6 +17,75 @@ from personal_agent.model_gateway import Observation
 from personal_agent.protocol.models import SummaryFact
 
 EXTRACT_PDF_CAPABILITY = "document_extract_pdf"
+KNOWLEDGE_SEARCH_CAPABILITY = "knowledge_search"
+USER_MEMORY_SEARCH_CAPABILITY = "user_memory_search"
+VIKING_READ_CAPABILITIES = frozenset(
+    {"viking_read_l0", "viking_read_l1", "viking_read_l2"}
+)
+
+
+@dataclass
+class RetrievedEvidence:
+    """会话过程中所有成功调用的只读能力所沉淀的真实证据索引集合。"""
+
+    pages: frozenset[int] = field(default_factory=frozenset)
+    chunk_ids: frozenset[UUID] = field(default_factory=frozenset)
+    memory_ids: frozenset[UUID] = field(default_factory=frozenset)
+    viking_uris: frozenset[str] = field(default_factory=frozenset)
+
+
+def collect_retrieved_evidence(
+    observations: Sequence[Observation],
+) -> RetrievedEvidence:
+    """从会话观测历史中聚合所有经校验的真实证据集合（PDF页码、知识块UUID、记忆UUID、维基URI）。
+
+    # Contract:
+    #   - Input: Sequence[Observation] 历史观察
+    #   - Output: RetrievedEvidence 包含四类证据的不可变集合
+    #   - Invariants: 仅收集 ok=True 的成功工具返回；忽略非法数据结构；防御注入伪造；
+    #   - Boundary conditions:
+    #       - payload 缺少字段或格式异常时静默跳过，不抛异常（Fail-safe）；
+    #       - id 必须为合法 UUID（非合法 UUID 格式忽略）；
+    #   - Test file: tests/test_summary.py
+    """
+    pages = collect_extracted_pages(observations)
+    chunk_ids: set[UUID] = set()
+    memory_ids: set[UUID] = set()
+    viking_uris: set[str] = set()
+
+    for observation in observations:
+        if not observation.ok:
+            continue
+        if observation.capability == KNOWLEDGE_SEARCH_CAPABILITY:
+            raw_chunks = observation.payload.get("chunks")
+            if isinstance(raw_chunks, list):
+                for chunk in raw_chunks:
+                    if isinstance(chunk, dict):
+                        c_id = chunk.get("id")
+                        try:
+                            chunk_ids.add(UUID(str(c_id)))
+                        except (ValueError, TypeError):
+                            continue
+        if observation.capability == USER_MEMORY_SEARCH_CAPABILITY:
+            raw_items = observation.payload.get("items")
+            if isinstance(raw_items, list):
+                for item in raw_items:
+                    if isinstance(item, dict):
+                        item_id = item.get("id") or item.get("card", {}).get("id") or item.get("note", {}).get("id") or item.get("item", {}).get("id")
+                        try:
+                            memory_ids.add(UUID(str(item_id)))
+                        except (ValueError, TypeError):
+                            continue
+        if observation.capability in VIKING_READ_CAPABILITIES:
+            raw_uri = observation.payload.get("uri")
+            if isinstance(raw_uri, str) and raw_uri.strip():
+                viking_uris.add(raw_uri.strip())
+    return RetrievedEvidence(
+        pages=pages,
+        chunk_ids=frozenset(chunk_ids),
+        memory_ids=frozenset(memory_ids),
+        viking_uris=frozenset(viking_uris),
+    )
 
 
 class SummaryRejected(Exception):

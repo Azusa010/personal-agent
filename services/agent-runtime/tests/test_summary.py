@@ -4,14 +4,18 @@
 另外钉两条边界：参照集合怎么从观察历史里挖出来，以及验证器**不做**语义判定。
 """
 
+from uuid import UUID
+
 import pytest
 
 from personal_agent.model_gateway import Observation
 from personal_agent.protocol.models import SummaryFact
 from personal_agent.summary import (
     EXTRACT_PDF_CAPABILITY,
+    RetrievedEvidence,
     SummaryRejected,
     collect_extracted_pages,
+    collect_retrieved_evidence,
     verify_summary,
 )
 
@@ -367,3 +371,89 @@ def test_verify_accepts_refless_facts_when_pages_are_not_required():
 
     assert [f.text for f in facts] == ["Downloads 里有 3 个 PDF"]
     assert facts[0].pageRefs == []
+
+
+# ---- collect_retrieved_evidence (Phase 6 多源证据聚合) ----
+
+
+def test_collect_retrieved_evidence_empty():
+    evidence = collect_retrieved_evidence([])
+    assert isinstance(evidence, RetrievedEvidence)
+    assert evidence.pages == frozenset()
+    assert evidence.chunk_ids == frozenset()
+    assert evidence.memory_ids == frozenset()
+    assert evidence.viking_uris == frozenset()
+
+
+def test_collect_retrieved_evidence_knowledge_search():
+    cid1 = "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+    cid2 = "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e"
+    k_obs = obs(
+        capability="knowledge_search",
+        payload={
+            "chunks": [
+                {"id": cid1, "fileName": "law.pdf"},
+                {"id": cid2, "fileName": "law.pdf"},
+                {"id": "invalid-uuid"},  # 非法格式应静默跳过
+            ]
+        },
+    )
+    evidence = collect_retrieved_evidence([k_obs])
+    assert evidence.chunk_ids == {UUID(cid1), UUID(cid2)}
+
+
+def test_collect_retrieved_evidence_user_memory_search():
+    mid1 = "c1d2e3f4-a5b6-7c8d-9e0f-1a2b3c4d5e6f"
+    mid2 = "d2e3f4a5-b6c7-8d9e-0f1a-2b3c4d5e6f7a"
+    m_obs = obs(
+        capability="user_memory_search",
+        payload={
+            "items": [
+                {"card": {"id": mid1, "subject": "出差"}},
+                {"note": {"id": mid2, "title": "偏好"}},
+                {"item": {"id": "invalid-uuid"}},
+            ]
+        },
+    )
+    evidence = collect_retrieved_evidence([m_obs])
+    assert evidence.memory_ids == {UUID(mid1), UUID(mid2)}
+
+
+def test_collect_retrieved_evidence_viking_read():
+    v0 = obs(capability="viking_read_l0", payload={"uri": "viking://pref"})
+    v1 = obs(capability="viking_read_l1", payload={"uri": "viking://projects"})
+    v2 = obs(capability="viking_read_l2", payload={"uri": "viking://projects/pa"})
+    evidence = collect_retrieved_evidence([v0, v1, v2])
+    assert evidence.viking_uris == {
+        "viking://pref",
+        "viking://projects",
+        "viking://projects/pa",
+    }
+
+
+def test_collect_retrieved_evidence_ignores_failures():
+    failed_k = obs(
+        capability="knowledge_search",
+        ok=False,
+        payload={"chunks": [{"id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"}]},
+    )
+    failed_m = obs(
+        capability="user_memory_search",
+        ok=False,
+        payload={"items": [{"card": {"id": "c1d2e3f4-a5b6-7c8d-9e0f-1a2b3c4d5e6f"}}]},
+    )
+    evidence = collect_retrieved_evidence([failed_k, failed_m])
+    assert evidence.chunk_ids == frozenset()
+    assert evidence.memory_ids == frozenset()
+
+
+def test_collect_retrieved_evidence_combines_pdf_and_retrieval():
+    p_obs = pdf_obs(1, 2)
+    cid = "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+    k_obs = obs(
+        capability="knowledge_search",
+        payload={"chunks": [{"id": cid}]},
+    )
+    evidence = collect_retrieved_evidence([p_obs, k_obs])
+    assert evidence.pages == {1, 2}
+    assert evidence.chunk_ids == {UUID(cid)}

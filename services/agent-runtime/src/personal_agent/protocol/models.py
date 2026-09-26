@@ -1,4 +1,5 @@
 from typing import Annotated, Any, Literal, Self
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -678,3 +679,63 @@ class VikingWriteL2Result(BaseModel):
     ok: Literal[True] = True
     uri: str
     bytesWritten: int = Field(ge=0)
+
+
+# ---- Knowledge Update & PR (Phase 6) ----
+
+KnowledgeDiffOpType = Literal["ADD", "UPDATE", "INVALIDATE", "QUALIFY"]
+KnowledgeTargetType = Literal["user_memory", "document_chunk", "viking_wiki"]
+KnowledgePrStatus = Literal["pending", "approved", "rejected", "revision_requested"]
+ReviewVerdict = Literal["approved", "rejected", "revision_requested"]
+CritiqueVerdict = Literal["pass", "reject", "revise"]
+CritiqueIssueType = Literal[
+    "lacks_evidence", "over_broad_deletion", "missing_qualification", "format_error"
+]
+
+
+class KnowledgeDiffOp(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    op: KnowledgeDiffOpType
+    targetType: KnowledgeTargetType
+    targetId: UUID | None = None
+    payload: dict[str, Any] = Field(default_factory=dict)
+    evidenceRefs: list[UUID] = Field(min_length=1)
+    qualification: str | None = None
+
+
+class KnowledgeProposal(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: UUID
+    title: str = Field(min_length=1)
+    targetLayer: KnowledgeTargetType
+    proposerModel: str = Field(min_length=1)
+    operations: list[KnowledgeDiffOp] = Field(min_length=1)
+    evidenceIds: list[UUID] = Field(min_length=1)
+    status: KnowledgePrStatus = "pending"
+    iterationCount: int = Field(default=1, ge=1)
+    createdAt: str
+    updatedAt: str
+
+
+class KnowledgeReviewCritique(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    opIndex: int = Field(ge=0)
+    verdict: CritiqueVerdict
+    issueType: CritiqueIssueType | None = None
+    explanation: str = Field(min_length=1)
+    requiredCorrection: str | None = None
+    evidenceRef: UUID | None = None
+
+
+class KnowledgeReviewOutcome(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    proposalId: UUID
+    reviewerModel: str = Field(min_length=1)
+    verdict: ReviewVerdict
+    critiques: list[KnowledgeReviewCritique] = Field(default_factory=list)
+    reviewComments: str
+    reviewedAt: str

@@ -1,0 +1,29 @@
+{
+  "id": "e3f1a2b4-5c6d-4e7f-8a9b-0c1d2e3f4a5b",
+  "title": "更新差旅预订偏好与护照有效期限定",
+  "targetLayer": "user_memory",
+  "proposerModel": "claude-3-5-sonnet",
+  "operations": [
+    {
+      "op": "UPDATE",
+      "targetType": "user_memory",
+      "targetId": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+      "payload": {
+        "airline": "国航",
+        "seatPreference": "靠窗",
+        "passportExpiry": "2028-06-15"
+      },
+      "evidenceRefs": [
+        "c1d2e3f4-a5b6-7c8d-9e0f-1a2b3c4d5e6f"
+      ],
+      "qualification": "限公务出差场景，私人旅行不在此限"
+    }
+  ],
+  "evidenceIds": [
+    "c1d2e3f4-a5b6-7c8d-9e0f-1a2b3c4d5e6f"
+  ],
+  "status": "pending",
+  "iterationCount": 1,
+  "createdAt": "2026-09-26T12:00:00.000Z",
+  "updatedAt": "2026-09-26T12:00:00.000Z"
+}
