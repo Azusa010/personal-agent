@@ -6,9 +6,12 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { resolveVikingUriWithinRoot } from '../capabilities/path-guard'
 import { toPosix } from '../capabilities/roots'
 
-export const VIKING_L0_FILE = '.abstract'
-export const VIKING_L1_FILE = '.overview'
+export const VIKING_L0_FILE = '.abstract.md'
+export const VIKING_L0_LEGACY_FILE = '.abstract'
+export const VIKING_L1_FILE = '.overview.md'
+export const VIKING_L1_LEGACY_FILE = '.overview'
 export const VIKING_INDEX_FILE = 'INDEX.md'
+export const VIKING_RELATIONS_FILE = 'relations.jsonl'
 
 export const DEFAULT_VIKING_CATEGORIES = [
   'identity',
@@ -99,7 +102,6 @@ export function validateAbstractLengthAndKeywords(content: string): boolean {
   }
 
   return tag.size >= 3
-
 }
 
 /**
@@ -146,18 +148,20 @@ export async function initVikingStore(storeRoot: string): Promise<void> {
 
     const tmpl = categoryTemplates[cat]
     const l0Path = join(catDir, VIKING_L0_FILE)
-    if (!existsSync(l0Path)) {
+    const legacyL0Path = join(catDir, VIKING_L0_LEGACY_FILE)
+    if (!existsSync(l0Path) && !existsSync(legacyL0Path)) {
       await writeFile(l0Path, tmpl.abstractText, 'utf-8')
     }
 
     const l1Path = join(catDir, VIKING_L1_FILE)
-    if (!existsSync(l1Path)) {
+    const legacyL1Path = join(catDir, VIKING_L1_LEGACY_FILE)
+    if (!existsSync(l1Path) && !existsSync(legacyL1Path)) {
       await writeFile(l1Path, tmpl.overviewText, 'utf-8')
     }
 
     const indexPath = join(catDir, VIKING_INDEX_FILE)
     if (!existsSync(indexPath)) {
-      const indexContent = `# ${tmpl.title}\n\n- [.abstract](.abstract) - L0 摘要\n- [.overview](.overview) - L1 概览\n`
+      const indexContent = `# ${tmpl.title}\n\n- [${VIKING_L0_FILE}](${VIKING_L0_FILE}) - L0 摘要\n- [${VIKING_L1_FILE}](${VIKING_L1_FILE}) - L1 概览\n`
       await writeFile(indexPath, indexContent, 'utf-8')
     }
   }
@@ -181,19 +185,31 @@ async function resolveTierFilePath(
 
   if (tier === 'L0') {
     if (isDir) {
-      return join(resolvedTarget, VIKING_L0_FILE)
+      const p = join(resolvedTarget, VIKING_L0_FILE)
+      if (existsSync(p)) return p
+      const leg = join(resolvedTarget, VIKING_L0_LEGACY_FILE)
+      if (existsSync(leg)) return leg
+      return p
     }
-    const companion = `${resolvedTarget}.abstract`
+    const companion = `${resolvedTarget}.abstract.md`
     if (existsSync(companion)) return companion
+    const legacyCompanion = `${resolvedTarget}.abstract`
+    if (existsSync(legacyCompanion)) return legacyCompanion
     return join(dirname(resolvedTarget), VIKING_L0_FILE)
   }
 
   if (tier === 'L1') {
     if (isDir) {
-      return join(resolvedTarget, VIKING_L1_FILE)
+      const p = join(resolvedTarget, VIKING_L1_FILE)
+      if (existsSync(p)) return p
+      const leg = join(resolvedTarget, VIKING_L1_LEGACY_FILE)
+      if (existsSync(leg)) return leg
+      return p
     }
-    const companion = `${resolvedTarget}.overview`
+    const companion = `${resolvedTarget}.overview.md`
     if (existsSync(companion)) return companion
+    const legacyCompanion = `${resolvedTarget}.overview`
+    if (existsSync(legacyCompanion)) return legacyCompanion
     return join(dirname(resolvedTarget), VIKING_L1_FILE)
   }
 
@@ -294,13 +310,23 @@ export async function listVikingTree(
     }
 
     const entries = await readdir(currentPath, { withFileTypes: true })
-    const hasL0 = existsSync(join(currentPath, VIKING_L0_FILE))
-    const hasL1 = existsSync(join(currentPath, VIKING_L1_FILE))
+    const hasL0 =
+      existsSync(join(currentPath, VIKING_L0_FILE)) ||
+      existsSync(join(currentPath, VIKING_L0_LEGACY_FILE))
+    const hasL1 =
+      existsSync(join(currentPath, VIKING_L1_FILE)) ||
+      existsSync(join(currentPath, VIKING_L1_LEGACY_FILE))
     const hasL2 = existsSync(join(currentPath, VIKING_INDEX_FILE))
 
     const children: VikingTreeNode[] = []
     for (const entry of entries) {
-      if (entry.name === VIKING_L0_FILE || entry.name === VIKING_L1_FILE) {
+      if (
+        entry.name === VIKING_L0_FILE ||
+        entry.name === VIKING_L0_LEGACY_FILE ||
+        entry.name === VIKING_L1_FILE ||
+        entry.name === VIKING_L1_LEGACY_FILE ||
+        entry.name === VIKING_RELATIONS_FILE
+      ) {
         continue
       }
       const childPath = join(currentPath, entry.name)
