@@ -8,6 +8,7 @@
 
 import json
 import logging
+import os
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -280,11 +281,15 @@ class KnowledgeProposer:
 
     def __init__(
         self,
-        proposer_model: str = "model-proposer-gpt4o",
+        proposer_model: str | None = None,
         client: Any | None = None,
         env: KnowledgeEnvironment | None = None,
     ) -> None:
-        self.proposer_model = proposer_model
+        self.proposer_model = (
+            proposer_model
+            or os.environ.get("PERSONAL_AGENT_PROPOSER_MODEL")
+            or "model-proposer-gpt4o"
+        )
         self.client = client
         self.env = env or KnowledgeEnvironment()
         self.system_prompt = PROPOSER_SYSTEM_PROMPT

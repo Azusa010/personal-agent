@@ -171,7 +171,7 @@ describe('memory-context：assembleWorkingMemoryPrompt 完整装配', () => {
 // ==============================================================================
 // 陪练 TODO 5 验收测试：验证与质量断言
 // ==============================================================================
-describe('陪练 TODO(你填)[验证与质量]: memory-context 事实消歧与主动服务断言', () => {
+describe('memory-context 事实消歧与主动服务断言', () => {
   it('时效事实消歧：新事实完全压制旧事实', () => {
     const oldFact = createFakeCard({
       id: 'old-job',

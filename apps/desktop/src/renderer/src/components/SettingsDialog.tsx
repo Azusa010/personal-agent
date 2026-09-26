@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import {
+  BookOpen,
   Bot,
   Cpu,
+  Database,
   FileText,
   KeyRound,
   Save,
@@ -28,7 +30,7 @@ export interface SettingsDialogProps {
   onSaved: () => void
 }
 
-type SettingsTab = 'profile' | 'model' | 'typesafe' | 'mineru'
+type SettingsTab = 'profile' | 'model' | 'knowledge' | 'storage' | 'typesafe' | 'mineru'
 
 interface NavItem {
   id: SettingsTab
@@ -49,6 +51,18 @@ const NAV_ITEMS: NavItem[] = [
     label: '通用大模型',
     description: 'OpenAI 兼容接口',
     icon: KeyRound
+  },
+  {
+    id: 'knowledge',
+    label: '知识库与 RAG',
+    description: 'Embedding, Reranker 与评审',
+    icon: BookOpen
+  },
+  {
+    id: 'storage',
+    label: '存储与维基',
+    description: 'PostgreSQL 与 Viking 存储',
+    icon: Database
   },
   {
     id: 'typesafe',
@@ -87,6 +101,20 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
   const [mineruApiUrl, setMineruApiUrl] = useState('')
   const [mineruApiKey, setMineruApiKey] = useState('')
 
+  // 知识库与 RAG 配置
+  const [bgeM3Path, setBgeM3Path] = useState('')
+  const [bgeRerankerPath, setBgeRerankerPath] = useState('')
+  const [proposerModel, setProposerModel] = useState('')
+  const [reviewerModel, setReviewerModel] = useState('')
+
+  // 存储与维基配置
+  const [postgresHost, setPostgresHost] = useState('')
+  const [postgresPort, setPostgresPort] = useState('')
+  const [postgresUser, setPostgresUser] = useState('')
+  const [postgresPassword, setPostgresPassword] = useState('')
+  const [postgresDatabase, setPostgresDatabase] = useState('')
+  const [vikingStoreRoot, setVikingStoreRoot] = useState('')
+
   // 人设配置
   const [name, setName] = useState('')
   const [persona, setPersona] = useState('')
@@ -116,6 +144,18 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
 
       setMineruApiUrl(modelRes.settings.mineruApiUrl ?? '')
       setMineruApiKey('')
+
+      setBgeM3Path(modelRes.settings.bgeM3Path ?? '')
+      setBgeRerankerPath(modelRes.settings.bgeRerankerPath ?? '')
+      setProposerModel(modelRes.settings.proposerModel ?? '')
+      setReviewerModel(modelRes.settings.reviewerModel ?? '')
+
+      setPostgresHost(modelRes.settings.postgresHost ?? '')
+      setPostgresPort(modelRes.settings.postgresPort ? String(modelRes.settings.postgresPort) : '')
+      setPostgresUser(modelRes.settings.postgresUser ?? '')
+      setPostgresPassword('')
+      setPostgresDatabase(modelRes.settings.postgresDatabase ?? '')
+      setVikingStoreRoot(modelRes.settings.vikingStoreRoot ?? '')
     } else {
       setLoadError(`[${modelRes.code}] ${modelRes.message}`)
     }
@@ -207,6 +247,8 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
   const handleSave = (): void => {
     const parsedWindow = parseInt(contextWindow.trim(), 10)
     const validWindow = Number.isInteger(parsedWindow) && parsedWindow > 0 ? parsedWindow : 128000
+    const parsedPgPort = parseInt(postgresPort.trim(), 10)
+    const validPgPort = Number.isInteger(parsedPgPort) && parsedPgPort > 0 ? parsedPgPort : null
 
     void submit(
       {
@@ -219,7 +261,17 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
         typesafeBaseUrl: typesafeBaseUrl.trim() === '' ? null : typesafeBaseUrl.trim(),
         typesafeApiKey: typesafeApiKey.trim() === '' ? undefined : typesafeApiKey.trim(),
         mineruApiUrl: mineruApiUrl.trim() === '' ? null : mineruApiUrl.trim(),
-        mineruApiKey: mineruApiKey.trim() === '' ? undefined : mineruApiKey.trim()
+        mineruApiKey: mineruApiKey.trim() === '' ? undefined : mineruApiKey.trim(),
+        bgeM3Path: bgeM3Path.trim() === '' ? null : bgeM3Path.trim(),
+        bgeRerankerPath: bgeRerankerPath.trim() === '' ? null : bgeRerankerPath.trim(),
+        proposerModel: proposerModel.trim() === '' ? null : proposerModel.trim(),
+        reviewerModel: reviewerModel.trim() === '' ? null : reviewerModel.trim(),
+        postgresHost: postgresHost.trim() === '' ? null : postgresHost.trim(),
+        postgresPort: validPgPort,
+        postgresUser: postgresUser.trim() === '' ? null : postgresUser.trim(),
+        postgresPassword: postgresPassword.trim() === '' ? undefined : postgresPassword.trim(),
+        postgresDatabase: postgresDatabase.trim() === '' ? null : postgresDatabase.trim(),
+        vikingStoreRoot: vikingStoreRoot.trim() === '' ? null : vikingStoreRoot.trim()
       },
       {
         name: name.trim() || 'PersonalAgent',
@@ -254,6 +306,17 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
   const handleClearMineruKey = (): void => {
     void submit(
       { clearMineruApiKey: true },
+      {
+        name: name.trim() || 'PersonalAgent',
+        persona: persona.trim(),
+        reasoningSummary
+      }
+    )
+  }
+
+  const handleClearPostgresPassword = (): void => {
+    void submit(
+      { clearPostgresPassword: true },
       {
         name: name.trim() || 'PersonalAgent',
         persona: persona.trim(),
@@ -336,6 +399,26 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
               </h3>
               <p className="m-0 mt-0.5 text-[12px] text-muted-foreground">
                 配置通用大模型接入点、认证凭证与协议模式。保存后自动重启 runtime 刷新生效。
+              </p>
+            </div>
+          ) : activeTab === 'knowledge' ? (
+            <div>
+              <h3 className="m-0 flex items-center gap-2 text-[14px] font-semibold text-foreground">
+                <BookOpen size={16} className="text-primary" />
+                知识库与 RAG 检索模型
+              </h3>
+              <p className="m-0 mt-0.5 text-[12px] text-muted-foreground">
+                配置 BGE 稠密嵌入模型、重排序 Reranker 以及维基自主进化的提案与审核 Agent 模型。
+              </p>
+            </div>
+          ) : activeTab === 'storage' ? (
+            <div>
+              <h3 className="m-0 flex items-center gap-2 text-[14px] font-semibold text-foreground">
+                <Database size={16} className="text-primary" />
+                存储与 OpenViking 维基
+              </h3>
+              <p className="m-0 mt-0.5 text-[12px] text-muted-foreground">
+                配置 PostgreSQL 关系及向量数据库连接凭证与 OpenViking 本地存储根路径。
               </p>
             </div>
           ) : activeTab === 'typesafe' ? (
@@ -521,6 +604,154 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
                 </p>
               </div>
             </div>
+          ) : activeTab === 'knowledge' ? (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="settings-bge-m3">BGE-M3 嵌入模型路径或标识</Label>
+                <Input
+                  id="settings-bge-m3"
+                  value={bgeM3Path}
+                  onChange={(e) => setBgeM3Path(e.target.value)}
+                  placeholder="BAAI/bge-m3 (留空使用默认)"
+                  spellCheck={false}
+                />
+                <p className="m-0 text-[11px] text-muted-foreground">
+                  对应环境变量 BGE_M3_PATH。可填写本地模型权重绝对路径或 HuggingFace / ModelScope
+                  标识。
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="settings-bge-reranker">BGE-Reranker 重排模型路径或标识</Label>
+                <Input
+                  id="settings-bge-reranker"
+                  value={bgeRerankerPath}
+                  onChange={(e) => setBgeRerankerPath(e.target.value)}
+                  placeholder="BAAI/bge-reranker-v2-m3 (留空使用默认)"
+                  spellCheck={false}
+                />
+                <p className="m-0 text-[11px] text-muted-foreground">
+                  对应环境变量 BGE_RERANKER_PATH。用于多路召回后的精准 Cross-Encoder 重排序。
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="settings-proposer-model">
+                  知识提案 Agent 模型 (Proposer Model)
+                </Label>
+                <Input
+                  id="settings-proposer-model"
+                  value={proposerModel}
+                  onChange={(e) => setProposerModel(e.target.value)}
+                  placeholder="留空自动继承通用大模型"
+                  spellCheck={false}
+                />
+                <p className="m-0 text-[11px] text-muted-foreground">
+                  对应环境变量
+                  PERSONAL_AGENT_PROPOSER_MODEL。从会话历史与任务交付物中提取候选维基更新。
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="settings-reviewer-model">
+                  知识审核 Agent 模型 (Reviewer Model)
+                </Label>
+                <Input
+                  id="settings-reviewer-model"
+                  value={reviewerModel}
+                  onChange={(e) => setReviewerModel(e.target.value)}
+                  placeholder="留空自动继承通用大模型"
+                  spellCheck={false}
+                />
+                <p className="m-0 text-[11px] text-muted-foreground">
+                  对应环境变量
+                  PERSONAL_AGENT_REVIEWER_MODEL。独立审查提案真实性与冲突检测（防幻觉）。
+                </p>
+              </div>
+            </div>
+          ) : activeTab === 'storage' ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2 space-y-1.5">
+                  <Label htmlFor="settings-postgres-host">PostgreSQL 主机 / Host</Label>
+                  <Input
+                    id="settings-postgres-host"
+                    value={postgresHost}
+                    onChange={(e) => setPostgresHost(e.target.value)}
+                    placeholder="localhost"
+                    spellCheck={false}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="settings-postgres-port">端口 / Port</Label>
+                  <Input
+                    id="settings-postgres-port"
+                    type="number"
+                    value={postgresPort}
+                    onChange={(e) => setPostgresPort(e.target.value)}
+                    placeholder="5432"
+                    spellCheck={false}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="settings-postgres-user">数据库用户 / User</Label>
+                  <Input
+                    id="settings-postgres-user"
+                    value={postgresUser}
+                    onChange={(e) => setPostgresUser(e.target.value)}
+                    placeholder="postgres"
+                    spellCheck={false}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="settings-postgres-db">数据库名 / Database</Label>
+                  <Input
+                    id="settings-postgres-db"
+                    value={postgresDatabase}
+                    onChange={(e) => setPostgresDatabase(e.target.value)}
+                    placeholder="personal_agent"
+                    spellCheck={false}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="settings-postgres-password">PostgreSQL 密码</Label>
+                <Input
+                  id="settings-postgres-password"
+                  type="password"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={postgresPassword}
+                  onChange={(e) => setPostgresPassword(e.target.value)}
+                  placeholder={
+                    modelView.postgresPasswordSet
+                      ? '已配置，留空保持不变'
+                      : '未配置，输入数据库密码'
+                  }
+                />
+                <p className="m-0 text-[11px] text-muted-foreground">
+                  以系统密钥库加密保存在本机，已保存的密码不回显。对应环境变量 POSTGRES_PASSWORD。
+                </p>
+              </div>
+
+              <div className="space-y-1.5 pt-1 border-t border-border/40">
+                <Label htmlFor="settings-viking-root">OpenViking 本地存储根目录</Label>
+                <Input
+                  id="settings-viking-root"
+                  value={vikingStoreRoot}
+                  onChange={(e) => setVikingStoreRoot(e.target.value)}
+                  placeholder="留空使用工作区默认 .viking 目录"
+                  spellCheck={false}
+                />
+                <p className="m-0 text-[11px] text-muted-foreground">
+                  对应环境变量 PERSONAL_AGENT_VIKING_ROOT。L0/L1/L2 知识维基的实际持久化根路径。
+                </p>
+              </div>
+            </div>
           ) : activeTab === 'typesafe' ? (
             <div className="space-y-4">
               <div className="space-y-1.5">
@@ -639,6 +870,18 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
                 清除已存的 OpenAI Key
               </Button>
             )}
+            {activeTab === 'storage' && modelView?.postgresPasswordSet && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={saving}
+                onClick={handleClearPostgresPassword}
+              >
+                <Database size={14} />
+                清除已存的数据库密码
+              </Button>
+            )}
             {activeTab === 'typesafe' && modelView?.typesafeApiKeySet && (
               <Button
                 type="button"
@@ -681,7 +924,7 @@ export function SettingsDialog({
 }: SettingsDialogProps): React.JSX.Element {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[540px] max-w-2xl overflow-hidden p-0 gap-0 sm:max-w-3xl">
+      <DialogContent className="h-[560px] max-w-2xl overflow-hidden p-0 gap-0 sm:max-w-3xl">
         <DialogTitle className="sr-only">系统设置</DialogTitle>
         <DialogDescription className="sr-only">
           管理助手人设口吻与模型服务接口。人设保存后即时生效。

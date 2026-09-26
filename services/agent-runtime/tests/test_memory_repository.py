@@ -127,16 +127,7 @@ def test_fuse_memory_scores_hippocampal_reinforcement():
 
 
 def test_fuse_memory_scores_owner_challenge():
-    """陪练 TODO(你填)[验证与质量]: 混合检索融合得分断言
-
-    业务背景：
-    根据《深入理解 AI Agent》第三章 Mem0 v3 纯追加写入原则，
-    系统依靠混合检索融合多维信号给出最终排序。
-
-    期望：
-    针对新事实（1 天前，access_count=2）和旧事实（90 天前，access_count=0），
-    请你写出断言，验证新事实的胜出与具体得分边界。
-    """
+    """混合检索融合得分断言：验证新事实得分严格大于旧事实且达到置信门槛。"""
     score_new = fuse_memory_scores(
         dense_rank=1,
         sparse_rank=1,
@@ -150,6 +141,6 @@ def test_fuse_memory_scores_owner_challenge():
         access_count=0,
     )
 
-    # TODO(你填)[验证与质量]: 断言 —— 期望：score_new 严格大于 score_old，且 score_new > 0.03
-    # 提示：用 assert score_new > score_old 等断言表达
-    assert score_new >= score_old
+    assert score_new > score_old
+    assert score_new > 0.03
+

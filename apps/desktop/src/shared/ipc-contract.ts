@@ -107,6 +107,16 @@ export interface ModelSettingsView {
   contextWindow: number | null
   mineruApiUrl: string | null
   mineruApiKeySet: boolean
+  bgeM3Path: string | null
+  bgeRerankerPath: string | null
+  proposerModel: string | null
+  reviewerModel: string | null
+  postgresHost: string | null
+  postgresPort: number | null
+  postgresUser: string | null
+  postgresDatabase: string | null
+  postgresPasswordSet: boolean
+  vikingStoreRoot: string | null
 }
 
 export type GetModelSettingsResult =
@@ -129,6 +139,17 @@ export interface SetModelSettingsInput {
   mineruApiUrl?: string | null
   mineruApiKey?: string
   clearMineruApiKey?: boolean
+  bgeM3Path?: string | null
+  bgeRerankerPath?: string | null
+  proposerModel?: string | null
+  reviewerModel?: string | null
+  postgresHost?: string | null
+  postgresPort?: number | null
+  postgresUser?: string | null
+  postgresPassword?: string
+  clearPostgresPassword?: boolean
+  postgresDatabase?: string | null
+  vikingStoreRoot?: string | null
 }
 
 /** applied 区分「已经重启生效」与「有任务在跑、留到下次启动」——两种都算保存成功，

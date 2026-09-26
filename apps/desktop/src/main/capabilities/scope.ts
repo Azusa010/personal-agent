@@ -37,6 +37,19 @@ export function agentTaskScope(taskId: string): TaskScope {
   return { taskId, capabilities: AGENT_TASK_CAPABILITIES }
 }
 
+/**
+ * 基于基础任务能力扩展额外授权能力（如知识库检索、维基读写等）。
+ */
+export function extendedScope(
+  taskId: string,
+  extraCapabilities: readonly CapabilityName[]
+): TaskScope {
+  return {
+    taskId,
+    capabilities: Array.from(new Set([...AGENT_TASK_CAPABILITIES, ...extraCapabilities]))
+  }
+}
+
 export function isInScope(scope: TaskScope, name: string): boolean {
   return (scope.capabilities as readonly string[]).includes(name)
 }

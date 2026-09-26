@@ -26,6 +26,8 @@ import {
   type PermissionNotice,
   type PermissionRequestInput
 } from './permission-broker'
+import { resolveVikingStoreRoot } from '../viking/viking-store'
+import { toPosix } from '../capabilities/roots'
 
 const T0 = '2026-09-14T09:00:00.000Z'
 const TASK_ID = 't-1'
@@ -738,5 +740,45 @@ describe('broker.verify：组装入参', () => {
     ).toEqual({
       ok: true
     })
+  })
+
+  it('viking_write_l2 能力使用 Viking 根复查，不会被判定为 downloads 根外', async () => {
+    const vikingStoreDir = join(tmpRoot, 'viking_store')
+    mkdirSync(join(vikingStoreDir, 'knowledge'), { recursive: true })
+    const oldEnv = process.env.PERSONAL_AGENT_VIKING_ROOT
+    process.env.PERSONAL_AGENT_VIKING_ROOT = vikingStoreDir
+
+    try {
+      const vikingStoreRoot = resolveVikingStoreRoot()
+      const targetFile = `${toPosix(vikingStoreRoot)}/knowledge/test-note.md`
+      const vikingInput: PermissionRequestInput = {
+        taskId: TASK_ID,
+        toolCallId: 'tc-viking-write',
+        capability: 'viking_write_l2',
+        bound: {
+          args: { uri: 'viking://knowledge/test-note.md', content: '测试内容' },
+          paths: { path: targetFile }
+        }
+      }
+
+      const waiting = broker!.request(vikingInput)
+      await Promise.resolve()
+      broker!.respond('perm-1', 'approved')
+      await waiting
+
+      const verifyResult = await broker!.verify({
+        taskId: TASK_ID,
+        toolCallId: 'tc-viking-write',
+        bound: vikingInput.bound
+      })
+
+      expect(verifyResult).toEqual({ ok: true })
+    } finally {
+      if (oldEnv !== undefined) {
+        process.env.PERSONAL_AGENT_VIKING_ROOT = oldEnv
+      } else {
+        delete process.env.PERSONAL_AGENT_VIKING_ROOT
+      }
+    }
   })
 })

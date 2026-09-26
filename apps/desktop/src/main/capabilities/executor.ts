@@ -36,11 +36,10 @@ import { resolveRoot } from './roots'
 import type { TaskScope } from './scope'
 import { fireReminder } from '../scheduler/fire-reminder'
 import {
-  readVikingL0,
-  readVikingL1,
-  readVikingL2,
-  writeVikingL2,
-  resolveVikingStoreRoot
+  readVikingL0ByTarget,
+  readVikingL1ByTarget,
+  readVikingL2ByTarget,
+  writeVikingL2ByTarget
 } from '../viking/viking-store'
 
 export type CapabilityOutcome = Record<string, unknown>
@@ -512,9 +511,9 @@ async function runUserMemorySearch(
 
 async function runVikingReadL0(call: AuthorizedCall): Promise<CapabilityOutcome> {
   try {
-    const root = resolveVikingStoreRoot()
+    const targetPath = call.bound.paths['path']
     const uri = String(call.bound.args['uri'])
-    const { abstractText, isValid } = await readVikingL0(root, uri)
+    const { abstractText, isValid } = await readVikingL0ByTarget(targetPath, uri)
     const wrappedAbstract = wrapExternalSource(
       abstractText,
       VIKING_ISOLATION_HEADER,
@@ -528,9 +527,9 @@ async function runVikingReadL0(call: AuthorizedCall): Promise<CapabilityOutcome>
 
 async function runVikingReadL1(call: AuthorizedCall): Promise<CapabilityOutcome> {
   try {
-    const root = resolveVikingStoreRoot()
+    const targetPath = call.bound.paths['path']
     const uri = String(call.bound.args['uri'])
-    const overviewText = await readVikingL1(root, uri)
+    const overviewText = await readVikingL1ByTarget(targetPath, uri)
     const wrappedOverview = wrapExternalSource(
       overviewText,
       VIKING_ISOLATION_HEADER,
@@ -544,9 +543,9 @@ async function runVikingReadL1(call: AuthorizedCall): Promise<CapabilityOutcome>
 
 async function runVikingReadL2(call: AuthorizedCall): Promise<CapabilityOutcome> {
   try {
-    const root = resolveVikingStoreRoot()
+    const targetPath = call.bound.paths['path']
     const uri = String(call.bound.args['uri'])
-    const content = await readVikingL2(root, uri)
+    const content = await readVikingL2ByTarget(targetPath, uri)
     const wrappedContent = wrapExternalSource(
       content,
       VIKING_ISOLATION_HEADER,
@@ -560,10 +559,10 @@ async function runVikingReadL2(call: AuthorizedCall): Promise<CapabilityOutcome>
 
 async function runVikingWriteL2(call: AuthorizedCall): Promise<CapabilityOutcome> {
   try {
-    const root = resolveVikingStoreRoot()
+    const targetPath = call.bound.paths['path']
     const uri = String(call.bound.args['uri'])
     const content = String(call.bound.args['content'])
-    const res = await writeVikingL2(root, uri, content)
+    const res = await writeVikingL2ByTarget(targetPath, content)
     return { ok: true, uri, bytesWritten: res.bytesWritten, path: res.path }
   } catch (e) {
     return fail(ERROR_CODE.HOST_HANDLER_FAILED, `viking_write_l2 写入失败: ${describe(e)}`)

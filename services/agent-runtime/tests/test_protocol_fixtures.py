@@ -52,6 +52,14 @@ from personal_agent.protocol.models import (
     Turn,
     UserMemorySearchParams,
     UserMemorySearchResult,
+    VikingReadL0Params,
+    VikingReadL0Result,
+    VikingReadL1Params,
+    VikingReadL1Result,
+    VikingReadL2Params,
+    VikingReadL2Result,
+    VikingWriteL2Params,
+    VikingWriteL2Result,
 )
 
 FIXTURES_DIR = (
@@ -255,6 +263,82 @@ def _pick(raw: dict, path: str):
             "host-user-memory-search.response.json",
             HostExecuteToolResponse,
             UserMemorySearchResult,
+            "result",
+        ),
+        # viking_read_l0 (Phase 5)
+        (
+            "host-viking-read-l0.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-viking-read-l0.request.json",
+            HostExecuteToolRequest,
+            VikingReadL0Params,
+            "params.arguments",
+        ),
+        (
+            "host-viking-read-l0.response.json",
+            HostExecuteToolResponse,
+            VikingReadL0Result,
+            "result",
+        ),
+        # viking_read_l1 (Phase 5)
+        (
+            "host-viking-read-l1.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-viking-read-l1.request.json",
+            HostExecuteToolRequest,
+            VikingReadL1Params,
+            "params.arguments",
+        ),
+        (
+            "host-viking-read-l1.response.json",
+            HostExecuteToolResponse,
+            VikingReadL1Result,
+            "result",
+        ),
+        # viking_read_l2 (Phase 5)
+        (
+            "host-viking-read-l2.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-viking-read-l2.request.json",
+            HostExecuteToolRequest,
+            VikingReadL2Params,
+            "params.arguments",
+        ),
+        (
+            "host-viking-read-l2.response.json",
+            HostExecuteToolResponse,
+            VikingReadL2Result,
+            "result",
+        ),
+        # viking_write_l2 (Phase 5)
+        (
+            "host-viking-write-l2.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-viking-write-l2.request.json",
+            HostExecuteToolRequest,
+            VikingWriteL2Params,
+            "params.arguments",
+        ),
+        (
+            "host-viking-write-l2.response.json",
+            HostExecuteToolResponse,
+            VikingWriteL2Result,
             "result",
         ),
         (

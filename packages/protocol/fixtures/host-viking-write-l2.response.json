@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-12",
+  "result": {
+    "ok": true,
+    "uri": "viking://notes/meeting.md",
+    "bytesWritten": 64
+  }
+}

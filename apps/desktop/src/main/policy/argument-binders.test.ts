@@ -757,3 +757,94 @@ describe('bindArguments：user_memory_search', () => {
     }
   })
 })
+
+describe('bindArguments：viking_* (L0/L1/L2)', () => {
+  const VIKING_ENV_NAME = 'PERSONAL_AGENT_VIKING_ROOT'
+
+  beforeEach(() => {
+    vi.stubEnv(VIKING_ENV_NAME, dir)
+  })
+
+  it('viking_read_l0: 合法 URI 绑定成功且 paths.path 为规范化绝对路径', async () => {
+    const out = await bindArguments('viking_read_l0', { uri: 'viking://identity' })
+    expect(out.ok).toBe(true)
+    if (out.ok) {
+      expect(out.bound.args['uri']).toBe('viking://identity')
+      expect(out.bound.paths['path']).toBe(`${realRoot}/identity`)
+    }
+  })
+
+  it('viking_read_l1: 合法 URI 绑定成功', async () => {
+    const out = await bindArguments('viking_read_l1', { uri: 'viking://knowledge' })
+    expect(out.ok).toBe(true)
+    if (out.ok) {
+      expect(out.bound.args['uri']).toBe('viking://knowledge')
+      expect(out.bound.paths['path']).toBe(`${realRoot}/knowledge`)
+    }
+  })
+
+  it('viking_read_l2: 合法 URI 绑定成功', async () => {
+    const out = await bindArguments('viking_read_l2', { uri: 'viking://knowledge/cpu.md' })
+    expect(out.ok).toBe(true)
+    if (out.ok) {
+      expect(out.bound.args['uri']).toBe('viking://knowledge/cpu.md')
+      expect(out.bound.paths['path']).toBe(`${realRoot}/knowledge/cpu.md`)
+    }
+  })
+
+  it('viking_write_l2: 合法参数绑定成功', async () => {
+    const out = await bindArguments('viking_write_l2', {
+      uri: 'viking://notes/test.md',
+      content: '# Test'
+    })
+    expect(out.ok).toBe(true)
+    if (out.ok) {
+      expect(out.bound.args['uri']).toBe('viking://notes/test.md')
+      expect(out.bound.args['content']).toBe('# Test')
+      expect(out.bound.paths['path']).toBe(`${realRoot}/notes/test.md`)
+    }
+  })
+
+  it('路径逃逸尝试 (..) -> PATH_OUT_OF_ROOT', async () => {
+    const out = await bindArguments('viking_read_l0', { uri: 'viking://../secret.txt' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) {
+      expect(out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+      expect(out.reason).toContain('viking_read_l0')
+    }
+  })
+
+  it('根内 junction 指向根外 -> PATH_OUT_OF_ROOT / 逃逸拦截', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'pa-outside-'))
+    try {
+      await symlink(outside, join(dir, 'link-out'), 'junction')
+      const out = await bindArguments('viking_read_l2', {
+        uri: 'viking://link-out/secret.md'
+      })
+      expect(out.ok).toBe(false)
+      if (!out.ok) {
+        expect(out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+        expect(out.reason).toContain('viking_read_l2')
+      }
+    } finally {
+      await rm(outside, { recursive: true, force: true })
+    }
+  })
+
+  it('UNC / 网络共享路径尝试 -> INVALID_ARGUMENT', async () => {
+    const out = await bindArguments('viking_read_l2', { uri: 'viking:////evil-server/share.md' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) {
+      expect(out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
+      expect(out.reason).toContain('UNC')
+    }
+  })
+
+  it('缺失必填字段 (如 write_l2 缺 content) -> INVALID_ARGUMENT', async () => {
+    const out = await bindArguments('viking_write_l2', { uri: 'viking://notes/test.md' })
+    expect(out.ok).toBe(false)
+    if (!out.ok) {
+      expect(out.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
+    }
+  })
+})

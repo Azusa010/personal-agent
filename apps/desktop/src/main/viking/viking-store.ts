@@ -221,6 +221,22 @@ async function resolveTierFilePath(
 }
 
 /**
+ * 基于已校验解析的目标物理路径直接读取 L0 摘要 (.abstract)
+ */
+export async function readVikingL0ByTarget(
+  resolvedTarget: string,
+  uri?: string
+): Promise<{ abstractText: string; isValid: boolean }> {
+  const targetFile = await resolveTierFilePath(resolvedTarget, 'L0')
+  if (!existsSync(targetFile)) {
+    throw new Error(`Viking L0 摘要文件不存在: ${uri || resolvedTarget} (文件: ${targetFile})`)
+  }
+  const text = await readFile(targetFile, 'utf-8')
+  const isValid = validateAbstractLengthAndKeywords(text)
+  return { abstractText: text, isValid }
+}
+
+/**
  * 读取 Viking 维基条目的 L0 摘要 (.abstract)
  */
 export async function readVikingL0(
@@ -228,15 +244,18 @@ export async function readVikingL0(
   uri: string
 ): Promise<{ abstractText: string; isValid: boolean }> {
   const resolvedTarget = resolveVikingUriWithinRoot(uri, storeRoot)
-  const targetFile = await resolveTierFilePath(resolvedTarget, 'L0')
+  return readVikingL0ByTarget(resolvedTarget, uri)
+}
 
+/**
+ * 基于已校验解析的目标物理路径直接读取 L1 概览 (.overview)
+ */
+export async function readVikingL1ByTarget(resolvedTarget: string, uri?: string): Promise<string> {
+  const targetFile = await resolveTierFilePath(resolvedTarget, 'L1')
   if (!existsSync(targetFile)) {
-    throw new Error(`Viking L0 摘要文件不存在: ${uri} (文件: ${targetFile})`)
+    throw new Error(`Viking L1 概览文件不存在: ${uri || resolvedTarget} (文件: ${targetFile})`)
   }
-
-  const text = await readFile(targetFile, 'utf-8')
-  const isValid = validateAbstractLengthAndKeywords(text)
-  return { abstractText: text, isValid }
+  return await readFile(targetFile, 'utf-8')
 }
 
 /**
@@ -244,12 +263,17 @@ export async function readVikingL0(
  */
 export async function readVikingL1(storeRoot: string, uri: string): Promise<string> {
   const resolvedTarget = resolveVikingUriWithinRoot(uri, storeRoot)
-  const targetFile = await resolveTierFilePath(resolvedTarget, 'L1')
+  return readVikingL1ByTarget(resolvedTarget, uri)
+}
 
+/**
+ * 基于已校验解析的目标物理路径直接读取 L2 原始正文 (*.md / INDEX.md)
+ */
+export async function readVikingL2ByTarget(resolvedTarget: string, uri?: string): Promise<string> {
+  const targetFile = await resolveTierFilePath(resolvedTarget, 'L2')
   if (!existsSync(targetFile)) {
-    throw new Error(`Viking L1 概览文件不存在: ${uri} (文件: ${targetFile})`)
+    throw new Error(`Viking L2 正文文件不存在: ${uri || resolvedTarget} (文件: ${targetFile})`)
   }
-
   return await readFile(targetFile, 'utf-8')
 }
 
@@ -258,13 +282,21 @@ export async function readVikingL1(storeRoot: string, uri: string): Promise<stri
  */
 export async function readVikingL2(storeRoot: string, uri: string): Promise<string> {
   const resolvedTarget = resolveVikingUriWithinRoot(uri, storeRoot)
+  return readVikingL2ByTarget(resolvedTarget, uri)
+}
+
+/**
+ * 基于已校验解析的目标物理路径直接写入 L2 全文 (*.md)
+ */
+export async function writeVikingL2ByTarget(
+  resolvedTarget: string,
+  content: string
+): Promise<{ bytesWritten: number; path: string }> {
   const targetFile = await resolveTierFilePath(resolvedTarget, 'L2')
-
-  if (!existsSync(targetFile)) {
-    throw new Error(`Viking L2 正文文件不存在: ${uri} (文件: ${targetFile})`)
-  }
-
-  return await readFile(targetFile, 'utf-8')
+  await mkdir(dirname(targetFile), { recursive: true })
+  await writeFile(targetFile, content, 'utf-8')
+  const bytes = Buffer.byteLength(content, 'utf-8')
+  return { bytesWritten: bytes, path: toPosix(targetFile) }
 }
 
 /**
@@ -276,13 +308,7 @@ export async function writeVikingL2(
   content: string
 ): Promise<{ bytesWritten: number; path: string }> {
   const resolvedTarget = resolveVikingUriWithinRoot(uri, storeRoot)
-  const targetFile = await resolveTierFilePath(resolvedTarget, 'L2')
-
-  await mkdir(dirname(targetFile), { recursive: true })
-  await writeFile(targetFile, content, 'utf-8')
-  const bytes = Buffer.byteLength(content, 'utf-8')
-
-  return { bytesWritten: bytes, path: toPosix(targetFile) }
+  return writeVikingL2ByTarget(resolvedTarget, content)
 }
 
 /**

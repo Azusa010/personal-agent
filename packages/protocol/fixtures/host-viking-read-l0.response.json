@@ -1,0 +1,10 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-9",
+  "result": {
+    "ok": true,
+    "uri": "viking://identity",
+    "abstractText": "用户身份画像摘要 #profile #identity #settings",
+    "isValid": true
+  }
+}

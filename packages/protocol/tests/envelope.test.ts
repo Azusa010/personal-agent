@@ -64,6 +64,16 @@ import {
   UserMemorySearchParams,
   UserMemorySearchResult,
 } from "../schemas/memory.js";
+import {
+  VikingReadL0Params,
+  VikingReadL0Result,
+  VikingReadL1Params,
+  VikingReadL1Result,
+  VikingReadL2Params,
+  VikingReadL2Result,
+  VikingWriteL2Params,
+  VikingWriteL2Result,
+} from "../schemas/viking.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, "../fixtures");
@@ -279,6 +289,82 @@ const legalCases = [
     file: "host-user-memory-search.response.json",
     envelope: HostExecuteToolResponse,
     payload: UserMemorySearchResult,
+    field: "result",
+  },
+  // viking_read_l0 (Phase 5)
+  {
+    file: "host-viking-read-l0.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-viking-read-l0.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: VikingReadL0Params,
+    field: "params.arguments",
+  },
+  {
+    file: "host-viking-read-l0.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: VikingReadL0Result,
+    field: "result",
+  },
+  // viking_read_l1 (Phase 5)
+  {
+    file: "host-viking-read-l1.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-viking-read-l1.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: VikingReadL1Params,
+    field: "params.arguments",
+  },
+  {
+    file: "host-viking-read-l1.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: VikingReadL1Result,
+    field: "result",
+  },
+  // viking_read_l2 (Phase 5)
+  {
+    file: "host-viking-read-l2.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-viking-read-l2.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: VikingReadL2Params,
+    field: "params.arguments",
+  },
+  {
+    file: "host-viking-read-l2.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: VikingReadL2Result,
+    field: "result",
+  },
+  // viking_write_l2 (Phase 5)
+  {
+    file: "host-viking-write-l2.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-viking-write-l2.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: VikingWriteL2Params,
+    field: "params.arguments",
+  },
+  {
+    file: "host-viking-write-l2.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: VikingWriteL2Result,
     field: "result",
   },
   {

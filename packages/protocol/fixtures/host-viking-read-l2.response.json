@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-11",
+  "result": {
+    "ok": true,
+    "uri": "viking://knowledge/cpu_arch.md",
+    "content": "# CPU 架构\n包含 x86 与 ARM 指令集细节。"
+  }
+}

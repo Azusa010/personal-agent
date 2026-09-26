@@ -6,20 +6,24 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 METHOD_PATTERN = r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$"
 
 
-class JsonRpcError(BaseModel):
+class ProtocolModel(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+
+class JsonRpcError(ProtocolModel):
     code: str
     message: str
     data: Any | None = None
 
 
-class Request(BaseModel):
+class Request(ProtocolModel):
     jsonrpc: Literal["2.0"]
     id: str = Field(min_length=1)
     method: str = Field(pattern=METHOD_PATTERN)
     params: Any = None
 
 
-class Response(BaseModel):
+class Response(ProtocolModel):
     jsonrpc: Literal["2.0"]
     id: str = Field(min_length=1)
     result: Any | None = None
@@ -32,44 +36,44 @@ class Response(BaseModel):
         return self
 
 
-class Notification(BaseModel):
+class Notification(ProtocolModel):
     jsonrpc: Literal["2.0"]
     method: str = Field(pattern=METHOD_PATTERN)
     params: Any = None
 
 
 # ---- PDF ----
-class PdfEntry(BaseModel):
+class PdfEntry(ProtocolModel):
     name: str
     absolutePath: str
     modifiedAt: str
     sizeBytes: int = Field(ge=0)
 
 
-class FilesystemListParams(BaseModel):
+class FilesystemListParams(ProtocolModel):
     rootId: Literal["downloads"]
 
 
-class FilesystemListResult(BaseModel):
+class FilesystemListResult(ProtocolModel):
     entries: list[PdfEntry]
 
 
-class FilesystemCreateDirParams(BaseModel):
+class FilesystemCreateDirParams(ProtocolModel):
     path: str = Field(min_length=1)
 
 
-class FilesystemMoveParams(BaseModel):
+class FilesystemMoveParams(ProtocolModel):
     source: str = Field(min_length=1)
     target: str = Field(min_length=1)
 
 
 # ---- system.initialize 的载荷模型 ----
-class ClientInfo(BaseModel):
+class ClientInfo(ProtocolModel):
     name: str
     version: str
 
 
-class ServerInfo(BaseModel):
+class ServerInfo(ProtocolModel):
     name: str
     version: str
 
@@ -95,26 +99,26 @@ CapabilityId = Literal[
 ]
 
 
-class HostExecuteToolParams(BaseModel):
+class HostExecuteToolParams(ProtocolModel):
     callId: str = Field(min_length=1)
     capability: CapabilityId
     arguments: dict[str, Any] = Field(default_factory=dict)
 
 
-class HostExecuteToolResult(BaseModel):
+class HostExecuteToolResult(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     ok: bool
 
 
-class HostExecuteToolRequest(BaseModel):
+class HostExecuteToolRequest(ProtocolModel):
     jsonrpc: Literal["2.0"]
     id: str = Field(pattern=HOST_CALL_ID_PATTERN)
     method: Literal["host.execute_tool"]
     params: HostExecuteToolParams
 
 
-class HostExecuteToolResponse(BaseModel):
+class HostExecuteToolResponse(ProtocolModel):
     jsonrpc: Literal["2.0"]
     id: str = Field(pattern=HOST_CALL_ID_PATTERN)
     result: HostExecuteToolResult | None = None
@@ -127,22 +131,22 @@ class HostExecuteToolResponse(BaseModel):
         return self
 
 
-class CapabilityFailure(BaseModel):
+class CapabilityFailure(ProtocolModel):
     ok: Literal[False]
     code: str
     reason: str
 
 
-class PageText(BaseModel):
+class PageText(ProtocolModel):
     pageNumber: int = Field(ge=1)
     text: str
 
 
-class DocumentExtractPdfParams(BaseModel):
+class DocumentExtractPdfParams(ProtocolModel):
     path: str = Field(min_length=1)
 
 
-class DocumentExtractPdfResult(BaseModel):
+class DocumentExtractPdfResult(ProtocolModel):
     ok: Literal[True]
     pages: list[PageText]
 
@@ -152,7 +156,7 @@ DocumentExtractPdfOutcome = Annotated[
 ]
 
 
-class FilesystemCreateDirResult(BaseModel):
+class FilesystemCreateDirResult(ProtocolModel):
     ok: Literal[True]
     path: str = Field(min_length=1)
     created: bool
@@ -163,7 +167,7 @@ FilesystemCreateDirOutcome = Annotated[
 ]
 
 
-class FilesystemMoveResult(BaseModel):
+class FilesystemMoveResult(ProtocolModel):
     ok: Literal[True]
     source: str = Field(min_length=1)
     target: str = Field(min_length=1)
@@ -181,7 +185,7 @@ FilesystemMoveOutcome = Annotated[
 ReminderStatus = Literal["scheduled", "firing", "fired", "failed"]
 
 
-class SchedulerCreateParams(BaseModel):
+class SchedulerCreateParams(ProtocolModel):
     """remindAt 是模型把「今晚」解析后的具体时间（ISO-8601），message 是通知正文。
 
     契约层只钉形状；能否解析、是否在未来由 host 侧 binder 判定
@@ -194,7 +198,7 @@ class SchedulerCreateParams(BaseModel):
     message: str = Field(min_length=1)
 
 
-class SchedulerCreateResult(BaseModel):
+class SchedulerCreateResult(ProtocolModel):
     """created 区分「本次新建」与「命中同任务已有 Reminder 的幂等返回」。
 
     remindAt 是 binder 规范化后的 UTC ISO（毫秒三位 + Z），与 reminders.remind_at、
@@ -217,7 +221,7 @@ SchedulerCreateOutcome = Annotated[
 
 # ---- notification.send（TASK-024）----
 # 与 packages/protocol/schemas/notification.ts 逐字段镜像。
-class NotificationSendParams(BaseModel):
+class NotificationSendParams(ProtocolModel):
     """仅由持久化 Reminder 触发（PRD 3.2）：参数只有 reminderId 引用。
 
     通知正文来自落库的 reminders.message，模型传不进自由文本。存在性、归属、
@@ -230,7 +234,7 @@ class NotificationSendParams(BaseModel):
     reminderId: str = Field(min_length=1)
 
 
-class NotificationSendResult(BaseModel):
+class NotificationSendResult(ProtocolModel):
     """sent 区分「本次真的发送了」与「幂等命中已 fired 的 Reminder」。
 
     sentAt 是翻到 fired 的时刻（reminders.fired_at）。status 在 ok:true 时
@@ -253,7 +257,7 @@ NotificationSendOutcome = Annotated[
 
 
 # ---- terminal.execute ----
-class TerminalExecuteParams(BaseModel):
+class TerminalExecuteParams(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     command: str = Field(min_length=1)
@@ -261,7 +265,7 @@ class TerminalExecuteParams(BaseModel):
     timeoutMs: int | None = Field(default=None, gt=0)
 
 
-class TerminalExecuteResult(BaseModel):
+class TerminalExecuteResult(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     ok: Literal[True]
@@ -276,7 +280,7 @@ TerminalExecuteOutcome = Annotated[
 
 
 # ---- knowledge.search (Phase 3) ----
-class KnowledgeSearchParams(BaseModel):
+class KnowledgeSearchParams(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     query: str = Field(min_length=1)
@@ -288,7 +292,7 @@ class KnowledgeSearchParams(BaseModel):
     minScore: float | None = None
 
 
-class KnowledgeChunkItem(BaseModel):
+class KnowledgeChunkItem(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     id: str = Field(min_length=1)
@@ -305,7 +309,7 @@ class KnowledgeChunkItem(BaseModel):
     sparseRank: int | None = Field(default=None, ge=1)
 
 
-class KnowledgeSearchResult(BaseModel):
+class KnowledgeSearchResult(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     ok: Literal[True]
@@ -332,7 +336,7 @@ MemoryCategory = Literal[
 ]
 
 
-class UserMemoryCard(BaseModel):
+class UserMemoryCard(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     entryFormat: Literal["card"] = "card"
@@ -357,7 +361,7 @@ class UserMemoryCard(BaseModel):
     updatedAt: str
 
 
-class UserMemoryNote(BaseModel):
+class UserMemoryNote(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     entryFormat: Literal["note"] = "note"
@@ -381,7 +385,7 @@ UserMemoryItem = Annotated[
 ]
 
 
-class UserMemorySearchParams(BaseModel):
+class UserMemorySearchParams(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     query: str = Field(min_length=1)
@@ -398,7 +402,7 @@ class UserMemorySearchParams(BaseModel):
     minScore: float | None = None
 
 
-class UserMemorySearchItem(BaseModel):
+class UserMemorySearchItem(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     card: UserMemoryCard | None = None
@@ -410,7 +414,7 @@ class UserMemorySearchItem(BaseModel):
     matchedText: str
 
 
-class UserMemorySearchResult(BaseModel):
+class UserMemorySearchResult(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     ok: Literal[True]
@@ -427,18 +431,18 @@ UserMemorySearchOutcome = Annotated[
 CapabilityKind = Literal["READ", "WRITE"]
 
 
-class CapabilityDescriptor(BaseModel):
+class CapabilityDescriptor(ProtocolModel):
     name: CapabilityId
     kind: CapabilityKind
     description: str = Field(min_length=1)
 
 
-class InitializeResult(BaseModel):
+class InitializeResult(ProtocolModel):
     protocolVersion: Literal["0.1"]
     server: ServerInfo
 
 
-class InitializeParams(BaseModel):
+class InitializeParams(ProtocolModel):
     protocolVersion: Literal["0.1"]  # 字段名直接用 JSON 里的 key，保持两端一致
     capabilities: list[CapabilityDescriptor]
     client: ClientInfo
@@ -449,23 +453,23 @@ AGENT_RUN_TASK = "agent.run_task"
 OCCURRED_AT_PATTERN = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$"
 
 
-class PlanStepDto(BaseModel):
+class PlanStepDto(ProtocolModel):
     description: str = Field(min_length=1)
     capability: CapabilityId | None = None
 
 
-class RunTaskEvent(BaseModel):
+class RunTaskEvent(ProtocolModel):
     type: str = Field(min_length=1)
     payload: Any
     occurredAt: str = Field(min_length=1, pattern=OCCURRED_AT_PATTERN)
 
 
-class SummaryFact(BaseModel):
+class SummaryFact(ProtocolModel):
     text: str = Field(min_length=1)
     pageRefs: list[Annotated[int, Field(ge=1)]]
 
 
-class RunTaskCompleted(BaseModel):
+class RunTaskCompleted(ProtocolModel):
     status: Literal["completed"]
     # reply 是这一轮要说给用户的话：进 task_completed 事件与 completed 回包，
     # 是 UI 上助手气泡的正文。facts 是带页码引用的证据，零工具轮次允许为空。
@@ -474,7 +478,7 @@ class RunTaskCompleted(BaseModel):
     events: list[RunTaskEvent]
 
 
-class RunTaskFailed(BaseModel):
+class RunTaskFailed(ProtocolModel):
     status: Literal["failed"]
     reason: str = Field(min_length=1)
     events: list[RunTaskEvent]
@@ -485,7 +489,7 @@ RunTaskResult = Annotated[
 ]
 
 
-class RunTaskResponse(BaseModel):
+class RunTaskResponse(ProtocolModel):
     jsonrpc: Literal["2.0"]
     id: str = Field(min_length=1)
     result: RunTaskResult | None = None
@@ -505,12 +509,12 @@ class RunTaskResponse(BaseModel):
 AGENT_MAKE_PLAN = "agent.make_plan"
 
 
-class Turn(BaseModel):
+class Turn(ProtocolModel):
     role: Literal["user", "assistant"]
     text: str = Field(min_length=1)
 
 
-class ProfileDto(BaseModel):
+class ProfileDto(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     name: str = Field(min_length=1, max_length=40)
@@ -518,14 +522,14 @@ class ProfileDto(BaseModel):
     reasoningSummary: bool | None = None
 
 
-class MakePlanParams(BaseModel):
+class MakePlanParams(ProtocolModel):
     taskId: str = Field(min_length=1)
     goal: str = Field(min_length=1)
     history: list[Turn] = Field(default_factory=list)
     profile: ProfileDto | None = None
 
 
-class RunTaskParams(BaseModel):
+class RunTaskParams(ProtocolModel):
     taskId: str = Field(min_length=1)
     goal: str = Field(min_length=1)
     plan: list[PlanStepDto] = Field(min_length=1)
@@ -533,26 +537,26 @@ class RunTaskParams(BaseModel):
     profile: ProfileDto | None = None
 
 
-class RunTaskRequest(BaseModel):
+class RunTaskRequest(ProtocolModel):
     jsonrpc: Literal["2.0"]
     id: str = Field(min_length=1)
     method: Literal["agent.run_task"]
     params: RunTaskParams
 
 
-class MakePlanResult(BaseModel):
+class MakePlanResult(ProtocolModel):
     # 至少一步：空计划会让 Main 侧的 ActionAlignment 没有比对基准。
     steps: list[PlanStepDto] = Field(min_length=1)
 
 
-class MakePlanRequest(BaseModel):
+class MakePlanRequest(ProtocolModel):
     jsonrpc: Literal["2.0"]
     id: str = Field(min_length=1)
     method: Literal["agent.make_plan"]
     params: MakePlanParams
 
 
-class MakePlanResponse(BaseModel):
+class MakePlanResponse(ProtocolModel):
     jsonrpc: Literal["2.0"]
     id: str = Field(min_length=1)
     result: MakePlanResult | None = None
@@ -569,7 +573,7 @@ class MakePlanResponse(BaseModel):
 AGENT_STREAM = "agent.stream"
 
 
-class AgentStreamEvent(BaseModel):
+class AgentStreamEvent(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     kind: Literal["event"]
@@ -577,7 +581,7 @@ class AgentStreamEvent(BaseModel):
     event: RunTaskEvent
 
 
-class AgentStreamThinking(BaseModel):
+class AgentStreamThinking(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     kind: Literal["thinking"]
@@ -590,7 +594,7 @@ AgentStreamParams = Annotated[
 ]
 
 
-class AgentStreamNotification(BaseModel):
+class AgentStreamNotification(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     jsonrpc: Literal["2.0"]
@@ -602,7 +606,7 @@ class AgentStreamNotification(BaseModel):
 AGENT_RUN_WORKFLOW = "agent.run_workflow"
 
 
-class RunWorkflowParams(BaseModel):
+class RunWorkflowParams(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     taskId: str = Field(min_length=1)
@@ -610,14 +614,14 @@ class RunWorkflowParams(BaseModel):
     inputs: dict[str, Any] = Field(default_factory=dict)
 
 
-class RunWorkflowRequest(BaseModel):
+class RunWorkflowRequest(ProtocolModel):
     jsonrpc: Literal["2.0"]
     id: str = Field(min_length=1)
     method: Literal["agent.run_workflow"]
     params: RunWorkflowParams
 
 
-class RunWorkflowResponse(BaseModel):
+class RunWorkflowResponse(ProtocolModel):
     jsonrpc: Literal["2.0"]
     id: str = Field(min_length=1)
     result: RunTaskResult | None = None
@@ -631,12 +635,12 @@ class RunWorkflowResponse(BaseModel):
 
 
 # ---- OpenViking Wiki Storage (Phase 5) ----
-class VikingReadL0Params(BaseModel):
+class VikingReadL0Params(ProtocolModel):
     model_config = ConfigDict(extra="allow")
     uri: str = Field(min_length=1)
 
 
-class VikingReadL0Result(BaseModel):
+class VikingReadL0Result(ProtocolModel):
     model_config = ConfigDict(extra="allow")
     ok: Literal[True] = True
     uri: str
@@ -644,37 +648,37 @@ class VikingReadL0Result(BaseModel):
     isValid: bool
 
 
-class VikingReadL1Params(BaseModel):
+class VikingReadL1Params(ProtocolModel):
     model_config = ConfigDict(extra="allow")
     uri: str = Field(min_length=1)
 
 
-class VikingReadL1Result(BaseModel):
+class VikingReadL1Result(ProtocolModel):
     model_config = ConfigDict(extra="allow")
     ok: Literal[True] = True
     uri: str
     overviewText: str
 
 
-class VikingReadL2Params(BaseModel):
+class VikingReadL2Params(ProtocolModel):
     model_config = ConfigDict(extra="allow")
     uri: str = Field(min_length=1)
 
 
-class VikingReadL2Result(BaseModel):
+class VikingReadL2Result(ProtocolModel):
     model_config = ConfigDict(extra="allow")
     ok: Literal[True] = True
     uri: str
     content: str
 
 
-class VikingWriteL2Params(BaseModel):
+class VikingWriteL2Params(ProtocolModel):
     model_config = ConfigDict(extra="allow")
     uri: str = Field(min_length=1)
     content: str
 
 
-class VikingWriteL2Result(BaseModel):
+class VikingWriteL2Result(ProtocolModel):
     model_config = ConfigDict(extra="allow")
     ok: Literal[True] = True
     uri: str
@@ -693,7 +697,7 @@ CritiqueIssueType = Literal[
 ]
 
 
-class KnowledgeDiffOp(BaseModel):
+class KnowledgeDiffOp(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     op: KnowledgeDiffOpType
@@ -704,7 +708,7 @@ class KnowledgeDiffOp(BaseModel):
     qualification: str | None = None
 
 
-class KnowledgeProposal(BaseModel):
+class KnowledgeProposal(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     id: UUID
@@ -719,7 +723,7 @@ class KnowledgeProposal(BaseModel):
     updatedAt: str
 
 
-class KnowledgeReviewCritique(BaseModel):
+class KnowledgeReviewCritique(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     opIndex: int = Field(ge=0)
@@ -730,7 +734,7 @@ class KnowledgeReviewCritique(BaseModel):
     evidenceRef: UUID | None = None
 
 
-class KnowledgeReviewOutcome(BaseModel):
+class KnowledgeReviewOutcome(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     proposalId: UUID

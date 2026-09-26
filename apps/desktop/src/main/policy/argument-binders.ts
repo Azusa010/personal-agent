@@ -18,7 +18,7 @@ import {
 
 import { resolve } from 'node:path'
 
-import { resolveVikingUriWithinRoot, resolveWithinRootReal } from '../capabilities/path-guard'
+import { resolveVikingUriWithinRootReal, resolveWithinRootReal } from '../capabilities/path-guard'
 import { resolveRoot, toPosix } from '../capabilities/roots'
 import { resolveVikingStoreRoot } from '../viking/viking-store'
 
@@ -218,7 +218,7 @@ const bindVikingReadL0: Binder = async (args) => {
   if (!parsed.success) return invalid('viking_read_l0', parsed.error.message)
   try {
     const root = resolveVikingStoreRoot()
-    const guardedPath = resolveVikingUriWithinRoot(parsed.data.uri, root)
+    const guardedPath = await resolveVikingUriWithinRootReal(parsed.data.uri, root)
     return {
       ok: true,
       bound: {
@@ -227,10 +227,17 @@ const bindVikingReadL0: Binder = async (args) => {
       }
     }
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    const code =
+      msg.includes('VIKING_SANDBOX_ESCAPE') ||
+      msg.includes('PATH_OUT_OF_ROOT') ||
+      msg.includes('PATH_ESCAPES_ROOT_VIA_LINK')
+        ? ERROR_CODE.PATH_OUT_OF_ROOT
+        : ERROR_CODE.INVALID_ARGUMENT
     return {
       ok: false,
-      code: ERROR_CODE.INVALID_ARGUMENT,
-      reason: `viking_read_l0 URI 校验失败: ${err instanceof Error ? err.message : String(err)}`
+      code,
+      reason: `viking_read_l0 URI 校验失败: ${msg}`
     }
   }
 }
@@ -240,7 +247,7 @@ const bindVikingReadL1: Binder = async (args) => {
   if (!parsed.success) return invalid('viking_read_l1', parsed.error.message)
   try {
     const root = resolveVikingStoreRoot()
-    const guardedPath = resolveVikingUriWithinRoot(parsed.data.uri, root)
+    const guardedPath = await resolveVikingUriWithinRootReal(parsed.data.uri, root)
     return {
       ok: true,
       bound: {
@@ -249,10 +256,17 @@ const bindVikingReadL1: Binder = async (args) => {
       }
     }
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    const code =
+      msg.includes('VIKING_SANDBOX_ESCAPE') ||
+      msg.includes('PATH_OUT_OF_ROOT') ||
+      msg.includes('PATH_ESCAPES_ROOT_VIA_LINK')
+        ? ERROR_CODE.PATH_OUT_OF_ROOT
+        : ERROR_CODE.INVALID_ARGUMENT
     return {
       ok: false,
-      code: ERROR_CODE.INVALID_ARGUMENT,
-      reason: `viking_read_l1 URI 校验失败: ${err instanceof Error ? err.message : String(err)}`
+      code,
+      reason: `viking_read_l1 URI 校验失败: ${msg}`
     }
   }
 }
@@ -262,7 +276,7 @@ const bindVikingReadL2: Binder = async (args) => {
   if (!parsed.success) return invalid('viking_read_l2', parsed.error.message)
   try {
     const root = resolveVikingStoreRoot()
-    const guardedPath = resolveVikingUriWithinRoot(parsed.data.uri, root)
+    const guardedPath = await resolveVikingUriWithinRootReal(parsed.data.uri, root)
     return {
       ok: true,
       bound: {
@@ -271,10 +285,17 @@ const bindVikingReadL2: Binder = async (args) => {
       }
     }
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    const code =
+      msg.includes('VIKING_SANDBOX_ESCAPE') ||
+      msg.includes('PATH_OUT_OF_ROOT') ||
+      msg.includes('PATH_ESCAPES_ROOT_VIA_LINK')
+        ? ERROR_CODE.PATH_OUT_OF_ROOT
+        : ERROR_CODE.INVALID_ARGUMENT
     return {
       ok: false,
-      code: ERROR_CODE.INVALID_ARGUMENT,
-      reason: `viking_read_l2 URI 校验失败: ${err instanceof Error ? err.message : String(err)}`
+      code,
+      reason: `viking_read_l2 URI 校验失败: ${msg}`
     }
   }
 }
@@ -284,7 +305,7 @@ const bindVikingWriteL2: Binder = async (args) => {
   if (!parsed.success) return invalid('viking_write_l2', parsed.error.message)
   try {
     const root = resolveVikingStoreRoot()
-    const guardedPath = resolveVikingUriWithinRoot(parsed.data.uri, root)
+    const guardedPath = await resolveVikingUriWithinRootReal(parsed.data.uri, root)
     return {
       ok: true,
       bound: {
@@ -293,10 +314,17 @@ const bindVikingWriteL2: Binder = async (args) => {
       }
     }
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    const code =
+      msg.includes('VIKING_SANDBOX_ESCAPE') ||
+      msg.includes('PATH_OUT_OF_ROOT') ||
+      msg.includes('PATH_ESCAPES_ROOT_VIA_LINK')
+        ? ERROR_CODE.PATH_OUT_OF_ROOT
+        : ERROR_CODE.INVALID_ARGUMENT
     return {
       ok: false,
-      code: ERROR_CODE.INVALID_ARGUMENT,
-      reason: `viking_write_l2 URI 校验失败: ${err instanceof Error ? err.message : String(err)}`
+      code,
+      reason: `viking_write_l2 URI 校验失败: ${msg}`
     }
   }
 }

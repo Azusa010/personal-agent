@@ -13,6 +13,17 @@ export const CONTEXT_WINDOW_ENV_KEY = 'PERSONAL_AGENT_MAX_WINDOW_TOKENS'
 export const MINERU_API_URL_ENV_KEY = 'MINERU_API_URL'
 export const MINERU_API_KEY_ENV_KEY = 'MINERU_API_KEY'
 
+export const BGE_M3_PATH_ENV_KEY = 'BGE_M3_PATH'
+export const BGE_RERANKER_PATH_ENV_KEY = 'BGE_RERANKER_PATH'
+export const PROPOSER_MODEL_ENV_KEY = 'PERSONAL_AGENT_PROPOSER_MODEL'
+export const REVIEWER_MODEL_ENV_KEY = 'PERSONAL_AGENT_REVIEWER_MODEL'
+export const POSTGRES_HOST_ENV_KEY = 'POSTGRES_HOST'
+export const POSTGRES_PORT_ENV_KEY = 'POSTGRES_PORT'
+export const POSTGRES_USER_ENV_KEY = 'POSTGRES_USER'
+export const POSTGRES_PASSWORD_ENV_KEY = 'POSTGRES_PASSWORD'
+export const POSTGRES_DB_ENV_KEY = 'POSTGRES_DB'
+export const VIKING_ROOT_ENV_KEY = 'PERSONAL_AGENT_VIKING_ROOT'
+
 /** 用户级模型配置的内存形状。apiKey 和 typesafeApiKey 是解密后的明文，只允许活在主进程
  *  字段可变：设置面板是「读出现状 → 改了哪几个字段 → 整体回写」，
  *  与 shared/domain.ts 的 TaskRecord / PermissionRecord 同一种写法。 */
@@ -27,6 +38,16 @@ export interface ModelSettings {
   contextWindow: number | null
   mineruApiUrl: string | null
   mineruApiKey: string | null
+  bgeM3Path?: string | null
+  bgeRerankerPath?: string | null
+  proposerModel?: string | null
+  reviewerModel?: string | null
+  postgresHost?: string | null
+  postgresPort?: number | null
+  postgresUser?: string | null
+  postgresPassword?: string | null
+  postgresDatabase?: string | null
+  vikingStoreRoot?: string | null
 }
 
 /** settings 文件在 userData 下的文件名。 */
@@ -58,6 +79,16 @@ interface StoredSettings {
   contextWindow?: number | null
   mineruApiUrl?: string | null
   mineruApiKeyEncrypted?: string | null
+  bgeM3Path?: string | null
+  bgeRerankerPath?: string | null
+  proposerModel?: string | null
+  reviewerModel?: string | null
+  postgresHost?: string | null
+  postgresPort?: number | null
+  postgresUser?: string | null
+  postgresPasswordEncrypted?: string | null
+  postgresDatabase?: string | null
+  vikingStoreRoot?: string | null
 }
 
 /** 系统密钥库的薄封装。生产接线是 Electron safeStorage（Windows 走 DPAPI，密文
@@ -198,6 +229,32 @@ export function loadModelSettings(deps: ModelSettingsStoreDeps): ModelSettings |
       ? record.contextWindow
       : null
 
+  const bgeM3Path = asNullableString(record.bgeM3Path) ?? null
+  const bgeRerankerPath = asNullableString(record.bgeRerankerPath) ?? null
+  const proposerModel = asNullableString(record.proposerModel) ?? null
+  const reviewerModel = asNullableString(record.reviewerModel) ?? null
+  const postgresHost = asNullableString(record.postgresHost) ?? null
+  const postgresPort =
+    typeof record.postgresPort === 'number' &&
+    Number.isInteger(record.postgresPort) &&
+    record.postgresPort > 0
+      ? record.postgresPort
+      : null
+  const postgresUser = asNullableString(record.postgresUser) ?? null
+  const postgresDatabase = asNullableString(record.postgresDatabase) ?? null
+  const vikingStoreRoot = asNullableString(record.vikingStoreRoot) ?? null
+
+  const postgresPasswordEncrypted = asNullableString(record.postgresPasswordEncrypted) ?? null
+  let postgresPassword: string | null = null
+  if (postgresPasswordEncrypted !== null) {
+    if (!deps.codec.isAvailable()) return null
+    try {
+      postgresPassword = deps.codec.decrypt(postgresPasswordEncrypted)
+    } catch {
+      return null
+    }
+  }
+
   return {
     model,
     baseUrl,
@@ -208,7 +265,17 @@ export function loadModelSettings(deps: ModelSettingsStoreDeps): ModelSettings |
     typesafeBaseUrl,
     contextWindow,
     mineruApiUrl,
-    mineruApiKey
+    mineruApiKey,
+    bgeM3Path,
+    bgeRerankerPath,
+    proposerModel,
+    reviewerModel,
+    postgresHost,
+    postgresPort,
+    postgresUser,
+    postgresPassword,
+    postgresDatabase,
+    vikingStoreRoot
   }
 }
 
@@ -266,6 +333,22 @@ export function saveModelSettings(settings: ModelSettings, deps: ModelSettingsSt
     }
   }
 
+  const postgresPassword = normalize(settings.postgresPassword)
+  let postgresPasswordEncrypted: string | null = null
+  if (postgresPassword !== null) {
+    if (!deps.codec.isAvailable()) {
+      throw new SettingsSaveError(
+        SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE,
+        '系统密钥库不可用，PostgreSQL 密码无法加密保存'
+      )
+    }
+    try {
+      postgresPasswordEncrypted = deps.codec.encrypt(postgresPassword)
+    } catch (e) {
+      throw new SettingsSaveError(SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE, describe(e))
+    }
+  }
+
   const stored: StoredSettings = {
     version: SETTINGS_VERSION,
     model: normalize(settings.model),
@@ -280,7 +363,20 @@ export function saveModelSettings(settings: ModelSettings, deps: ModelSettingsSt
         ? settings.contextWindow
         : null,
     mineruApiUrl: normalize(settings.mineruApiUrl),
-    mineruApiKeyEncrypted
+    mineruApiKeyEncrypted,
+    bgeM3Path: normalize(settings.bgeM3Path),
+    bgeRerankerPath: normalize(settings.bgeRerankerPath),
+    proposerModel: normalize(settings.proposerModel),
+    reviewerModel: normalize(settings.reviewerModel),
+    postgresHost: normalize(settings.postgresHost),
+    postgresPort:
+      typeof settings.postgresPort === 'number' && settings.postgresPort > 0
+        ? settings.postgresPort
+        : null,
+    postgresUser: normalize(settings.postgresUser),
+    postgresPasswordEncrypted,
+    postgresDatabase: normalize(settings.postgresDatabase),
+    vikingStoreRoot: normalize(settings.vikingStoreRoot)
   }
 
   try {
@@ -358,6 +454,39 @@ export function buildRuntimeEnv(
   }
   if (settings.mineruApiKey?.trim()) {
     env[MINERU_API_KEY_ENV_KEY] = settings.mineruApiKey
+  }
+
+  if (settings.bgeM3Path?.trim()) {
+    env[BGE_M3_PATH_ENV_KEY] = settings.bgeM3Path.trim()
+  }
+  if (settings.bgeRerankerPath?.trim()) {
+    env[BGE_RERANKER_PATH_ENV_KEY] = settings.bgeRerankerPath.trim()
+  }
+  if (settings.proposerModel?.trim()) {
+    env[PROPOSER_MODEL_ENV_KEY] = settings.proposerModel.trim()
+  }
+  if (settings.reviewerModel?.trim()) {
+    env[REVIEWER_MODEL_ENV_KEY] = settings.reviewerModel.trim()
+  }
+
+  if (settings.postgresHost?.trim()) {
+    env[POSTGRES_HOST_ENV_KEY] = settings.postgresHost.trim()
+  }
+  if (typeof settings.postgresPort === 'number' && settings.postgresPort > 0) {
+    env[POSTGRES_PORT_ENV_KEY] = String(settings.postgresPort)
+  }
+  if (settings.postgresUser?.trim()) {
+    env[POSTGRES_USER_ENV_KEY] = settings.postgresUser.trim()
+  }
+  if (settings.postgresPassword?.trim()) {
+    env[POSTGRES_PASSWORD_ENV_KEY] = settings.postgresPassword.trim()
+  }
+  if (settings.postgresDatabase?.trim()) {
+    env[POSTGRES_DB_ENV_KEY] = settings.postgresDatabase.trim()
+  }
+
+  if (settings.vikingStoreRoot?.trim()) {
+    env[VIKING_ROOT_ENV_KEY] = settings.vikingStoreRoot.trim()
   }
 
   return env

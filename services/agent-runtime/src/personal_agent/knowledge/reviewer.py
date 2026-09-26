@@ -201,12 +201,16 @@ class KnowledgeReviewer:
 
     def __init__(
         self,
-        reviewer_model: str = "model-reviewer-claude",
+        reviewer_model: str | None = None,
         client: Any | None = None,
         jev_client: Any | None = None,
         env: KnowledgeEnvironment | None = None,
     ) -> None:
-        self.reviewer_model = reviewer_model
+        self.reviewer_model = (
+            reviewer_model
+            or os.environ.get("PERSONAL_AGENT_REVIEWER_MODEL")
+            or "model-reviewer-claude"
+        )
         self.client = client
         self.jev_client = jev_client
         self.env = env or KnowledgeEnvironment()

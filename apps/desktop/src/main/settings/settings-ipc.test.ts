@@ -20,6 +20,7 @@ import {
 const SECRET = 'sk-secret-key-0123456789'
 const TS_SECRET = 'ts-secret-key-0123456789'
 const MINERU_SECRET = 'mineru-secret-key-0123456789'
+const PG_SECRET = 'pg-password-123'
 
 const SAVED: ModelSettings = {
   model: 'gpt-4o-mini',
@@ -31,7 +32,17 @@ const SAVED: ModelSettings = {
   typesafeBaseUrl: 'https://relay.example.com/typesafe/v1',
   contextWindow: 128000,
   mineruApiUrl: 'https://mineru.example.com/api/v4',
-  mineruApiKey: MINERU_SECRET
+  mineruApiKey: MINERU_SECRET,
+  bgeM3Path: '/models/bge-m3',
+  bgeRerankerPath: '/models/bge-reranker',
+  proposerModel: 'gpt-4o',
+  reviewerModel: 'claude-3-5-sonnet',
+  postgresHost: '127.0.0.1',
+  postgresPort: 5432,
+  postgresUser: 'postgres',
+  postgresPassword: PG_SECRET,
+  postgresDatabase: 'personal_agent',
+  vikingStoreRoot: '/data/viking_store'
 }
 
 interface FakeOptions {
@@ -81,7 +92,17 @@ describe('getModelSettingsView', () => {
         typesafeBaseUrl: null,
         contextWindow: 128000,
         mineruApiUrl: null,
-        mineruApiKeySet: false
+        mineruApiKeySet: false,
+        bgeM3Path: null,
+        bgeRerankerPath: null,
+        proposerModel: null,
+        reviewerModel: null,
+        postgresHost: null,
+        postgresPort: null,
+        postgresUser: null,
+        postgresPasswordSet: false,
+        postgresDatabase: null,
+        vikingStoreRoot: null
       }
     })
   })
@@ -103,7 +124,17 @@ describe('getModelSettingsView', () => {
       typesafeBaseUrl: 'https://relay.example.com/typesafe/v1',
       contextWindow: 128000,
       mineruApiUrl: 'https://mineru.example.com/api/v4',
-      mineruApiKeySet: true
+      mineruApiKeySet: true,
+      bgeM3Path: '/models/bge-m3',
+      bgeRerankerPath: '/models/bge-reranker',
+      proposerModel: 'gpt-4o',
+      reviewerModel: 'claude-3-5-sonnet',
+      postgresHost: '127.0.0.1',
+      postgresPort: 5432,
+      postgresUser: 'postgres',
+      postgresPasswordSet: true,
+      postgresDatabase: 'personal_agent',
+      vikingStoreRoot: '/data/viking_store'
     })
   })
 
@@ -116,6 +147,7 @@ describe('getModelSettingsView', () => {
     expect(JSON.stringify(result)).not.toContain(SECRET)
     expect(JSON.stringify(result)).not.toContain(TS_SECRET)
     expect(JSON.stringify(result)).not.toContain(MINERU_SECRET)
+    expect(JSON.stringify(result)).not.toContain(PG_SECRET)
   })
 
   it('只存了 model、没存 Key → apiKeySet 和 typesafeApiKeySet 为 false', () => {
@@ -308,7 +340,49 @@ describe('setModelSettings: 合并语义', () => {
       typesafeBaseUrl: null,
       contextWindow: null,
       mineruApiUrl: null,
-      mineruApiKey: null
+      mineruApiKey: null,
+      bgeM3Path: null,
+      bgeRerankerPath: null,
+      proposerModel: null,
+      reviewerModel: null,
+      postgresHost: null,
+      postgresPort: null,
+      postgresUser: null,
+      postgresPassword: null,
+      postgresDatabase: null,
+      vikingStoreRoot: null
+    })
+  })
+
+  it('postgresPassword 与 knowledge / storage 配置可以更新或清除', async () => {
+    const { deps, store } = fakeDeps({ current: SAVED })
+
+    await setModelSettings(
+      {
+        postgresPassword: 'new-pg-password',
+        postgresHost: 'pg.internal',
+        bgeM3Path: '/custom/bge-m3'
+      },
+      deps
+    )
+    expect(store.save).toHaveBeenCalledWith({
+      ...SAVED,
+      postgresPassword: 'new-pg-password',
+      postgresHost: 'pg.internal',
+      bgeM3Path: '/custom/bge-m3'
+    })
+
+    await setModelSettings(
+      {
+        clearPostgresPassword: true,
+        postgresHost: null
+      },
+      deps
+    )
+    expect(store.save).toHaveBeenCalledWith({
+      ...SAVED,
+      postgresPassword: null,
+      postgresHost: null
     })
   })
 

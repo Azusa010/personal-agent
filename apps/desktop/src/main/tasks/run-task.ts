@@ -13,7 +13,13 @@ import {
 } from '@personal-agent/protocol'
 import type { IpcErrorCode, RunTaskIpcResult } from '../../shared/ipc-contract'
 import type { PlanStep } from '../../shared/domain'
-import { beginTask, endTask, TaskBusyError, updateActiveTaskPlan } from '../policy/task-context'
+import {
+  beginTask,
+  currentTask,
+  endTask,
+  TaskBusyError,
+  updateActiveTaskPlan
+} from '../policy/task-context'
 import type { SqliteDatabase } from '../product-state/database'
 import type { EventRepository } from '../product-state/event-repository'
 import type { PlanRepository } from '../product-state/plan-repository'
@@ -62,6 +68,7 @@ export interface RunTaskDeps {
   send: RuntimeSend
   verify: CompletionVerifier
   profile?: () => AgentProfile | null
+  workingMemory?: () => Promise<string> | string
   /** 默认 new Date().toISOString()，格式与 RunTaskEvent.occurredAt 一致 */
   now?: () => string
   /** 默认 node:crypto 的 randomUUID */
@@ -104,17 +111,38 @@ export async function runTask(
   deps: RunTaskDeps,
   history: Turn[] = []
 ): Promise<RunTaskIpcResult> {
+  const current = currentTask()
+  if (current !== null) {
+    return {
+      ok: false,
+      code: RUNTIME_ERROR_CODE.TASK_BUSY,
+      message: `已有任务在跑: ${current.taskId}`
+    }
+  }
+
   const taskId = deps.newId?.() ?? crypto.randomUUID()
   const planId = deps.newId?.() ?? crypto.randomUUID()
 
   const currentProfile = deps.profile?.() ?? null
-  const profileDto: ProfileDto | undefined = currentProfile
-    ? {
-        name: currentProfile.name,
-        persona: currentProfile.persona,
-        reasoningSummary: currentProfile.reasoningSummary
-      }
-    : undefined
+  const workingMemoryPrompt = (await deps.workingMemory?.()) ?? ''
+  let combinedPersona = currentProfile?.persona ?? ''
+  if (workingMemoryPrompt) {
+    combinedPersona = combinedPersona
+      ? `${combinedPersona}\n\n${workingMemoryPrompt}`
+      : workingMemoryPrompt
+  }
+  if (combinedPersona.length > 2000) {
+    combinedPersona = combinedPersona.slice(0, 2000)
+  }
+
+  const profileDto: ProfileDto | undefined =
+    currentProfile || workingMemoryPrompt
+      ? {
+          name: currentProfile?.name ?? 'PersonalAgent',
+          persona: combinedPersona,
+          reasoningSummary: currentProfile?.reasoningSummary
+        }
+      : undefined
 
   const parsedPlanParams = MakePlanParams.safeParse({
     taskId,

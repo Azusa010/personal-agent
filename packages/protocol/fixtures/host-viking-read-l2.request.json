@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-11",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-viking-l2-1",
+    "capability": "viking_read_l2",
+    "arguments": {
+      "uri": "viking://knowledge/cpu_arch.md"
+    }
+  }
+}

@@ -22,7 +22,7 @@ function conversationOf(texts: Array<['user' | 'assistant', string]>): MessageRe
   return texts.map(([role, text], i) => message(i + 1, role, text))
 }
 
-describe('buildHistory（陪练点：TODO(你填)[边界与异常]）', () => {
+describe('buildHistory 历史消息裁剪', () => {
   it('空消息 → 空历史（第一轮）', () => {
     expect(buildHistory([], BUDGET)).toEqual([])
   })

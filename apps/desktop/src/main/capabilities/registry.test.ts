@@ -6,7 +6,7 @@ import {
   findCapability,
   type CapabilityName
 } from './registry'
-import { readOnlyScope, isInScope } from './scope'
+import { readOnlyScope, isInScope, extendedScope } from './scope'
 import { CapabilityId } from '@personal-agent/protocol'
 
 /**
@@ -127,5 +127,16 @@ describe('契约层与 registry 的能力清单一致', () => {
         .map((c) => c.name)
         .sort()
     )
+  })
+})
+
+describe('extendedScope 扩展能力', () => {
+  it('在基础任务能力集上叠加额外能力且去重', () => {
+    const scope = extendedScope('task-ext', ['knowledge_search', 'viking_write_l2'])
+    expect(scope.taskId).toBe('task-ext')
+    expect(isInScope(scope, 'filesystem_list')).toBe(true)
+    expect(isInScope(scope, 'knowledge_search')).toBe(true)
+    expect(isInScope(scope, 'viking_write_l2')).toBe(true)
+    expect(isInScope(scope, 'viking_read_l0')).toBe(false)
   })
 })

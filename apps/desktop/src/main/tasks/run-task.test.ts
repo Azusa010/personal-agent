@@ -994,4 +994,24 @@ describe('runTask：任务槽位（ActionAlignment 的比对基准）', () => {
     expect(allPlans[1].version).toBe(2)
     expect(allPlans[1].steps).toEqual(newPlanSteps)
   })
+
+  it('workingMemory 提供的常驻记忆与预警提示被注入到 profile.persona', async () => {
+    const memoryPrompt = '[用户常驻工作记忆]\n- [个人偏好] 咖啡: 美式\n[常驻记忆结束]'
+    const send = sendReturning(completedResult())
+    const h = openHarness(send)
+    h.workingMemory = () => memoryPrompt
+
+    const out = await runTask(GOAL, h)
+
+    expect(out.ok).toBe(true)
+    const planCall = send.calls.find((c) => c.method === AGENT_MAKE_PLAN)
+    expect(planCall).toBeDefined()
+    const planParams = planCall?.params as { profile?: { persona: string } }
+    expect(planParams.profile?.persona).toContain('美式')
+
+    const runCall = send.calls.find((c) => c.method === 'agent.run_task')
+    expect(runCall).toBeDefined()
+    const runParams = runCall?.params as { profile?: { persona: string } }
+    expect(runParams.profile?.persona).toContain('美式')
+  })
 })

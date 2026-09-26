@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-12",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-viking-write-1",
+    "capability": "viking_write_l2",
+    "arguments": {
+      "uri": "viking://notes/meeting.md",
+      "content": "# 会议记录\n讨论了系统规范与测试门禁。"
+    }
+  }
+}

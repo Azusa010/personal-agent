@@ -33,6 +33,9 @@ import type {
   RunWorkflowIpcResult
 } from '../shared/ipc-contract'
 import { getDb, closeDb } from './db/database'
+import { getPgPool, closePgPool } from './db/postgres'
+import { fetchActiveMemories } from './db/user-memory-repository'
+import { assembleWorkingMemoryPrompt } from './tasks/memory-context'
 import { upsertMany, findAll } from './db/pdf-repository'
 import { getStore, closeStore, type SqliteDatabase } from './product-state/database'
 import { SqliteTaskRepository } from './product-state/task-repository'
@@ -65,6 +68,7 @@ import { sendMessage, SendMessageInput } from './tasks/send-message'
 import { onAgentStream } from './runtime/stream-fanout'
 import { AGENT_PROFILE_FILE_NAME, createAgentProfileStore } from './settings/agent-profile'
 import { getAgentProfileView, setAgentProfile } from './settings/agent-profile-ipc'
+import { initVikingStore, resolveVikingStoreRoot } from './viking/viking-store'
 
 const PRELOAD_PATH = join(__dirname, '../preload/index.js')
 
@@ -85,17 +89,22 @@ const AGENT_PROFILE_SET_CHANNEL = 'personal-agent:set-agent-profile'
 
 // null = 库没打开，批准通道不可用。
 let permissionBroker: PermissionBroker | null = null
+let reminderTimer: ReminderTimerService | null = null
 
 // 推给所有窗口。当前只有一个窗口；多窗口时每个都会收到同一条 notice，
 function broadcastPermissionNotice(notice: PermissionNotice): void {
   for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(PERMISSION_NOTICE_CHANNEL, notice)
+    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send(PERMISSION_NOTICE_CHANNEL, notice)
+    }
   }
 }
 
 function broadcastAgentStream(notice: AgentStreamNotice): void {
   for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(AGENT_STREAM_CHANNEL, notice)
+    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send(AGENT_STREAM_CHANNEL, notice)
+    }
   }
 }
 
@@ -162,6 +171,15 @@ app.whenReady().then(() => {
       plans: new SqlitePlanRepository(store),
       events: new SqliteEventRepository(store),
       profile: () => agentProfileStore.load(),
+      workingMemory: async () => {
+        try {
+          const pool = getPgPool()
+          const cards = await fetchActiveMemories(pool, { limit: 15 })
+          return assembleWorkingMemoryPrompt(cards)
+        } catch {
+          return ''
+        }
+      },
       send: requestRuntime,
       verify: (input) =>
         verifyTaskCompletion(
@@ -227,7 +245,8 @@ app.whenReady().then(() => {
     // timer 到点与启动补发共用同一个「发送一次并记录结果」编排（fire-reminder.ts）。
     const fire = (reminder: ReminderRecord): Promise<FireOutcome> =>
       fireReminder(reminder, { db: store, reminders, events, notifications })
-    const timer = new ReminderTimerService({ fire })
+    reminderTimer = new ReminderTimerService({ fire })
+    const timer = reminderTimer
 
     configureHostExecutor({
       // broker 为 null（库没打开）时整组不接：那时 WRITE 会被拒，
@@ -247,8 +266,17 @@ app.whenReady().then(() => {
       knowledge: {
         search: (args) =>
           requestRuntime('knowledge.search', args) as Promise<Record<string, unknown>>
+      },
+      memory: {
+        search: (args) =>
+          requestRuntime('user_memory.search', args) as Promise<Record<string, unknown>>
       }
     })
+
+    // 初始化 Viking 维基存储骨架（目录与 5 大核心分类 L0/L1 模板）
+    void initVikingStore(resolveVikingStoreRoot()).catch((err) =>
+      console.error('[viking] 初始化维基存储目录失败', err)
+    )
 
     // 启动恢复：扫 reminders 按四状态分流（重挂未来的 / 补发错过的 / 有发送证据只补记 /
     // 终态原样保留）。失败不中断启动——它只影响提醒，不该挡住窗口。
@@ -517,10 +545,12 @@ app.on('before-quit', (event) => {
   if (isQuitting) return
   event.preventDefault()
   isQuitting = true
+  reminderTimer?.dispose()
   void stopRuntime()
     .finally(() => permissionBroker?.dispose())
     .finally(() => closeDb())
     .finally(() => closeStore())
+    .finally(() => closePgPool())
     .finally(() => app.quit())
 })
 

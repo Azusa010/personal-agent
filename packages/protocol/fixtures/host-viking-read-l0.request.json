@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-9",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-viking-l0-1",
+    "capability": "viking_read_l0",
+    "arguments": {
+      "uri": "viking://identity"
+    }
+  }
+}

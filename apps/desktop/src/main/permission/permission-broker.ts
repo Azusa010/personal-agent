@@ -15,6 +15,7 @@ import type { PermissionRepository } from '../product-state/permission-repositor
 import { fingerprintArguments, type ArgumentFingerprint } from './args-hash'
 import { computeExpiresAt, PERMISSION_TTL_MS, permissionState } from './expiry'
 import { resolveWithinRootReal } from '../capabilities/path-guard'
+import { resolveVikingStoreRoot } from '../viking/viking-store'
 
 export const PERMISSION_EVENT = {
   REQUESTED: 'permission_requested',
@@ -91,6 +92,7 @@ function splitPaths(
       }
     }
     case 'filesystem_create_dir':
+    case 'viking_write_l2':
       return { sourcePaths: [], targetPath: bound.paths['path'] ?? null }
     default:
       return { sourcePaths: Object.values(bound.paths), targetPath: null }
@@ -245,12 +247,16 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
     },
 
     async verify({ taskId, toolCallId, bound }) {
+      const permission = deps.permissions.findByTaskAndToolCall(taskId, toolCallId)
+      const effectiveRoot = permission?.capability.startsWith('viking_')
+        ? resolveVikingStoreRoot()
+        : root()
       return verifyPermission({
-        permission: deps.permissions.findByTaskAndToolCall(taskId, toolCallId),
+        permission,
         fingerprint: fingerprintArguments(bound),
         toolCallId,
         now: now(),
-        root: root()
+        root: effectiveRoot
       })
     },
 

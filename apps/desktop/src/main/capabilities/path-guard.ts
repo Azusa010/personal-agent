@@ -177,3 +177,19 @@ export function resolveVikingUriWithinRoot(uri: string, storeRoot: string): stri
   }
   return candidate
 }
+
+/**
+ * 带有底层真实符号链接/Junction 穿透检测的 Viking URI 路径安全解析。
+ */
+export async function resolveVikingUriWithinRootReal(
+  uri: string,
+  storeRoot: string
+): Promise<string> {
+  const candidate = resolveVikingUriWithinRoot(uri, storeRoot)
+  const base = toPosix(resolve(storeRoot))
+  const realCheck = await resolveWithinRootReal(base, candidate)
+  if (realCheck.ok === false) {
+    throw new Error(`VIKING_SANDBOX_ESCAPE: ${realCheck.reason}`)
+  }
+  return realCheck.path
+}

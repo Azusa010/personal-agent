@@ -17,16 +17,26 @@ import {
   API_KEY_ENV_KEY,
   API_PROTOCOL_ENV_KEY,
   BASE_URL_ENV_KEY,
+  BGE_M3_PATH_ENV_KEY,
+  BGE_RERANKER_PATH_ENV_KEY,
   CONTEXT_WINDOW_ENV_KEY,
   MINERU_API_KEY_ENV_KEY,
   MINERU_API_URL_ENV_KEY,
   MODEL_ENV_KEY,
+  POSTGRES_DB_ENV_KEY,
+  POSTGRES_HOST_ENV_KEY,
+  POSTGRES_PASSWORD_ENV_KEY,
+  POSTGRES_PORT_ENV_KEY,
+  POSTGRES_USER_ENV_KEY,
+  PROPOSER_MODEL_ENV_KEY,
+  REVIEWER_MODEL_ENV_KEY,
   SCRIPT_ENV_KEY,
   SETTINGS_VERSION,
   SettingsSaveError,
   TYPESAFE_API_KEY_ENV_KEY,
   TYPESAFE_BASE_URL_ENV_KEY,
   TYPESAFE_MODEL_ENV_KEY,
+  VIKING_ROOT_ENV_KEY,
   buildRuntimeEnv,
   loadModelSettings,
   saveModelSettings,
@@ -81,7 +91,17 @@ describe('model-settings: 读写往返', () => {
       typesafeBaseUrl: 'https://typesafe.example.com/v1',
       contextWindow: 128000,
       mineruApiUrl: 'https://mineru.example.com/api/v4',
-      mineruApiKey: 'mineru-secret-123'
+      mineruApiKey: 'mineru-secret-123',
+      bgeM3Path: '/models/bge-m3',
+      bgeRerankerPath: '/models/bge-reranker',
+      proposerModel: 'gpt-4o',
+      reviewerModel: 'claude-3-5-sonnet',
+      postgresHost: '127.0.0.1',
+      postgresPort: 5432,
+      postgresUser: 'postgres',
+      postgresPassword: 'pg-password-123',
+      postgresDatabase: 'personal_agent',
+      vikingStoreRoot: '/data/viking_store'
     }
 
     saveModelSettings(settings, { filePath, codec: fakeCodec() })
@@ -149,7 +169,17 @@ describe('model-settings: 读写往返', () => {
       typesafeBaseUrl: null,
       contextWindow: null,
       mineruApiUrl: null,
-      mineruApiKey: null
+      mineruApiKey: null,
+      bgeM3Path: null,
+      bgeRerankerPath: null,
+      proposerModel: null,
+      reviewerModel: null,
+      postgresHost: null,
+      postgresPort: null,
+      postgresUser: null,
+      postgresPassword: null,
+      postgresDatabase: null,
+      vikingStoreRoot: null
     })
   })
 
@@ -175,7 +205,17 @@ describe('model-settings: 读写往返', () => {
       typesafeBaseUrl: null,
       contextWindow: null,
       mineruApiUrl: null,
-      mineruApiKey: null
+      mineruApiKey: null,
+      bgeM3Path: null,
+      bgeRerankerPath: null,
+      proposerModel: null,
+      reviewerModel: null,
+      postgresHost: null,
+      postgresPort: null,
+      postgresUser: null,
+      postgresPassword: null,
+      postgresDatabase: null,
+      vikingStoreRoot: null
     })
   })
 
@@ -315,7 +355,17 @@ describe('model-settings: 读写往返', () => {
       typesafeBaseUrl: null,
       contextWindow: null,
       mineruApiUrl: 'https://mineru.example.com/api/v4',
-      mineruApiKey: null
+      mineruApiKey: null,
+      bgeM3Path: null,
+      bgeRerankerPath: null,
+      proposerModel: null,
+      reviewerModel: null,
+      postgresHost: null,
+      postgresPort: null,
+      postgresUser: null,
+      postgresPassword: null,
+      postgresDatabase: null,
+      vikingStoreRoot: null
     })
   })
 
@@ -348,8 +398,56 @@ describe('model-settings: 读写往返', () => {
       typesafeBaseUrl: null,
       contextWindow: null,
       mineruApiUrl: null,
-      mineruApiKey: null
+      mineruApiKey: null,
+      bgeM3Path: null,
+      bgeRerankerPath: null,
+      proposerModel: null,
+      reviewerModel: null,
+      postgresHost: null,
+      postgresPort: null,
+      postgresUser: null,
+      postgresPassword: null,
+      postgresDatabase: null,
+      vikingStoreRoot: null
     })
+  })
+
+  it('Postgres 密码只以密文落盘，读回能解密（SEC-008）', () => {
+    const pgSecret = 'super-secret-pg-pass'
+    saveModelSettings(
+      {
+        model: null,
+        baseUrl: null,
+        apiKey: null,
+        apiProtocol: null,
+        typesafeApiKey: null,
+        typesafeModel: null,
+        typesafeBaseUrl: null,
+        contextWindow: null,
+        mineruApiUrl: null,
+        mineruApiKey: null,
+        bgeM3Path: null,
+        bgeRerankerPath: null,
+        proposerModel: null,
+        reviewerModel: null,
+        postgresHost: null,
+        postgresPort: null,
+        postgresUser: null,
+        postgresPassword: pgSecret,
+        postgresDatabase: null,
+        vikingStoreRoot: null
+      },
+      { filePath, codec: fakeCodec() }
+    )
+
+    const raw = readFileSync(filePath, 'utf8')
+    expect(raw).not.toContain(pgSecret)
+    expect(JSON.parse(raw)).toMatchObject({
+      postgresPasswordEncrypted: `enc:${Buffer.from(pgSecret, 'utf8').toString('base64')}`
+    })
+
+    const loaded = loadModelSettings({ filePath, codec: fakeCodec() })
+    expect(loaded?.postgresPassword).toBe(pgSecret)
   })
 })
 
@@ -371,7 +469,17 @@ describe('buildRuntimeEnv（陪练点）', () => {
     typesafeBaseUrl: 'https://relay.example.com/typesafe/v1',
     contextWindow: 128000,
     mineruApiUrl: 'https://mineru.example.com/api/v4',
-    mineruApiKey: 'mineru-secret-123'
+    mineruApiKey: 'mineru-secret-123',
+    bgeM3Path: '/models/bge-m3',
+    bgeRerankerPath: '/models/bge-reranker',
+    proposerModel: 'gpt-4o',
+    reviewerModel: 'claude-3-5-sonnet',
+    postgresHost: '127.0.0.1',
+    postgresPort: 5432,
+    postgresUser: 'postgres',
+    postgresPassword: 'pg-password-123',
+    postgresDatabase: 'personal_agent',
+    vikingStoreRoot: '/data/viking_store'
   }
 
   it('settings 为 null：整份拷贝继承环境，且是新对象', () => {
@@ -404,6 +512,18 @@ describe('buildRuntimeEnv（陪练点）', () => {
 
     expect(env[MINERU_API_URL_ENV_KEY]).toBe('https://mineru.example.com/api/v4')
     expect(env[MINERU_API_KEY_ENV_KEY]).toBe('mineru-secret-123')
+
+    expect(env[BGE_M3_PATH_ENV_KEY]).toBe('/models/bge-m3')
+    expect(env[BGE_RERANKER_PATH_ENV_KEY]).toBe('/models/bge-reranker')
+    expect(env[PROPOSER_MODEL_ENV_KEY]).toBe('gpt-4o')
+    expect(env[REVIEWER_MODEL_ENV_KEY]).toBe('claude-3-5-sonnet')
+
+    expect(env[POSTGRES_HOST_ENV_KEY]).toBe('127.0.0.1')
+    expect(env[POSTGRES_PORT_ENV_KEY]).toBe('5432')
+    expect(env[POSTGRES_USER_ENV_KEY]).toBe('postgres')
+    expect(env[POSTGRES_PASSWORD_ENV_KEY]).toBe('pg-password-123')
+    expect(env[POSTGRES_DB_ENV_KEY]).toBe('personal_agent')
+    expect(env[VIKING_ROOT_ENV_KEY]).toBe('/data/viking_store')
   })
 
   it('设置的 null 字段不注入：继承值原样保留（开发态 shell 的 export 照旧可用）', () => {

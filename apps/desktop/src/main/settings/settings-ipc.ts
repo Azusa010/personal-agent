@@ -42,7 +42,18 @@ const SetSettingsInput = z.object({
   contextWindow: z.number().int().positive().nullable().optional(),
   mineruApiUrl: z.string().nullable().optional(),
   mineruApiKey: z.string('mineruApiKey 必须是字符串').optional(),
-  clearMineruApiKey: z.boolean('clearMineruApiKey 必须是布尔值').optional()
+  clearMineruApiKey: z.boolean('clearMineruApiKey 必须是布尔值').optional(),
+  bgeM3Path: z.string().nullable().optional(),
+  bgeRerankerPath: z.string().nullable().optional(),
+  proposerModel: z.string().nullable().optional(),
+  reviewerModel: z.string().nullable().optional(),
+  postgresHost: z.string().nullable().optional(),
+  postgresPort: z.number().int().positive().nullable().optional(),
+  postgresUser: z.string().nullable().optional(),
+  postgresPassword: z.string('postgresPassword 必须是字符串').optional(),
+  clearPostgresPassword: z.boolean('clearPostgresPassword 必须是布尔值').optional(),
+  postgresDatabase: z.string().nullable().optional(),
+  vikingStoreRoot: z.string().nullable().optional()
 })
 
 const EMPTY_SETTINGS: ModelSettings = {
@@ -55,7 +66,17 @@ const EMPTY_SETTINGS: ModelSettings = {
   typesafeBaseUrl: null,
   contextWindow: null,
   mineruApiUrl: null,
-  mineruApiKey: null
+  mineruApiKey: null,
+  bgeM3Path: null,
+  bgeRerankerPath: null,
+  proposerModel: null,
+  reviewerModel: null,
+  postgresHost: null,
+  postgresPort: null,
+  postgresUser: null,
+  postgresPassword: null,
+  postgresDatabase: null,
+  vikingStoreRoot: null
 }
 
 function invalid(message: string): { ok: false; code: IpcErrorCode; message: string } {
@@ -92,7 +113,17 @@ export function getModelSettingsView(deps: SettingsIpcDeps): GetModelSettingsRes
       typesafeBaseUrl: settings?.typesafeBaseUrl ?? null,
       contextWindow: settings?.contextWindow ?? 128000,
       mineruApiUrl: settings?.mineruApiUrl ?? null,
-      mineruApiKeySet: settings !== null && settings.mineruApiKey !== null
+      mineruApiKeySet: settings !== null && settings.mineruApiKey !== null,
+      bgeM3Path: settings?.bgeM3Path ?? null,
+      bgeRerankerPath: settings?.bgeRerankerPath ?? null,
+      proposerModel: settings?.proposerModel ?? null,
+      reviewerModel: settings?.reviewerModel ?? null,
+      postgresHost: settings?.postgresHost ?? null,
+      postgresPort: settings?.postgresPort ?? null,
+      postgresUser: settings?.postgresUser ?? null,
+      postgresDatabase: settings?.postgresDatabase ?? null,
+      postgresPasswordSet: settings !== null && Boolean(settings.postgresPassword),
+      vikingStoreRoot: settings?.vikingStoreRoot ?? null
     }
   }
 }
@@ -147,6 +178,23 @@ export async function setModelSettings(
     next.mineruApiKey = patch.mineruApiKey
   }
   if (patch.mineruApiUrl !== undefined) next.mineruApiUrl = patch.mineruApiUrl
+
+  if (patch.bgeM3Path !== undefined) next.bgeM3Path = patch.bgeM3Path
+  if (patch.bgeRerankerPath !== undefined) next.bgeRerankerPath = patch.bgeRerankerPath
+  if (patch.proposerModel !== undefined) next.proposerModel = patch.proposerModel
+  if (patch.reviewerModel !== undefined) next.reviewerModel = patch.reviewerModel
+
+  if (patch.postgresHost !== undefined) next.postgresHost = patch.postgresHost
+  if (patch.postgresPort !== undefined) next.postgresPort = patch.postgresPort
+  if (patch.postgresUser !== undefined) next.postgresUser = patch.postgresUser
+  if (patch.clearPostgresPassword === true) {
+    next.postgresPassword = null
+  } else if (patch.postgresPassword !== undefined && patch.postgresPassword.trim() !== '') {
+    next.postgresPassword = patch.postgresPassword
+  }
+  if (patch.postgresDatabase !== undefined) next.postgresDatabase = patch.postgresDatabase
+
+  if (patch.vikingStoreRoot !== undefined) next.vikingStoreRoot = patch.vikingStoreRoot
 
   try {
     deps.store.save(next)
