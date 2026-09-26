@@ -20,6 +20,7 @@ import {
   resetHostExecutorWiring
 } from './host-executor'
 import { beginTask, endTask } from '../policy/task-context'
+import { extendedScope } from './scope'
 import type { BoundArgs } from '../policy/argument-binders'
 import type { PermissionGateOutcome, PermissionVerifyOutcome } from '../policy/execution-policy'
 import type { PlanStep } from '../../shared/domain'
@@ -303,4 +304,20 @@ describe('configureHostExecutor: 生产接线', () => {
     expect(out['code']).toBe(ERROR_CODE.CAPABILITY_OUT_OF_SCOPE)
     expect(requests).toEqual([])
   })
+
+  it('动态 Scope 生效：当任务显式绑定 extendedScope 时，executeHostTool 遵循该 Scope 放行扩展能力', async () => {
+    // 默认 agentTaskScope 只有 5 个能力，不包含 terminal_execute
+    // 给任务赋予包含 terminal_execute 的 customScope
+    const customScope = extendedScope('task-dynamic', ['terminal_execute'])
+    const plan: PlanStep[] = [{ description: '受限执行命令', capability: 'terminal_execute' }]
+    beginTask('task-dynamic', '执行终端命令', plan, customScope)
+
+    const out = await executeHostTool(
+      hostParams('tc-dyn-1', 'terminal_execute', { command: 'echo hello' })
+    )
+
+    // 不应当被第一关 Scope 拦截为 CAPABILITY_OUT_OF_SCOPE
+    expect(out['code']).not.toBe(ERROR_CODE.CAPABILITY_OUT_OF_SCOPE)
+  })
 })
+

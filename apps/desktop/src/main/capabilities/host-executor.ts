@@ -84,7 +84,8 @@ export async function executeHostTool(params: HostExecuteToolParams): Promise<Ca
   //
   // 没有当前任务时这里传哨兵 id，让 policy 的第一关（有没有任务、是否对齐计划）
   // 去拒——它是这条路径唯一该拒的地方，不在这里抢答。
-  const scope = agentTaskScope(currentTask()?.taskId ?? BOOTSTRAP_TASK_ID)
+  const task = currentTask()
+  const scope = task?.scope ?? agentTaskScope(task?.taskId ?? BOOTSTRAP_TASK_ID)
   return createExecutor(
     scope,
     AGENT_ORIGIN,

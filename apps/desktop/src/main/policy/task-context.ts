@@ -1,4 +1,5 @@
 import type { PlanStep } from '../../shared/domain'
+import type { TaskScope } from '../capabilities/scope'
 
 /**
  * 一个正在跑的任务在策略眼里的样子。
@@ -7,6 +8,7 @@ export interface ActiveTask {
   readonly taskId: string
   readonly goal: string
   readonly plan: readonly PlanStep[]
+  readonly scope?: TaskScope
   executedCalls: number
 }
 
@@ -23,11 +25,16 @@ export class TaskBusyError extends Error {
 // 当前正在跑的任务
 let current: ActiveTask | null = null
 
-export function beginTask(taskId: string, goal: string, plan: readonly PlanStep[]): ActiveTask {
+export function beginTask(
+  taskId: string,
+  goal: string,
+  plan: readonly PlanStep[],
+  scope?: TaskScope
+): ActiveTask {
   if (current !== null) {
     throw new TaskBusyError(current.taskId)
   }
-  current = { taskId, goal, plan, executedCalls: 0 }
+  current = { taskId, goal, plan, scope, executedCalls: 0 }
   return current
 }
 

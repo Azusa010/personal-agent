@@ -137,3 +137,21 @@ describe('task-context：放行计数', () => {
     expect(recordExecutedCall()).toBe(2)
   })
 })
+
+describe('task-context：TaskScope 动态绑定', () => {
+  it('未提供 scope 时保持 undefined', () => {
+    const task = beginTask('task-1', '整理 PDF', PLAN)
+    expect(task.scope).toBeUndefined()
+  })
+
+  it('显式传入 scope 时被完整保留在当前任务上下文中', () => {
+    const customScope = {
+      taskId: 'task-custom',
+      capabilities: ['filesystem_list', 'terminal_execute'] as const
+    }
+    const task = beginTask('task-custom', '执行任务', PLAN, customScope)
+    expect(task.scope).toBe(customScope)
+    expect(currentTask()?.scope).toEqual(customScope)
+  })
+})
+

@@ -20,6 +20,7 @@ import {
   TaskBusyError,
   updateActiveTaskPlan
 } from '../policy/task-context'
+import type { TaskScope } from '../capabilities/scope'
 import type { SqliteDatabase } from '../product-state/database'
 import type { EventRepository } from '../product-state/event-repository'
 import type { PlanRepository } from '../product-state/plan-repository'
@@ -109,7 +110,8 @@ function persistRuntimeFailure(
 export async function runTask(
   goal: unknown,
   deps: RunTaskDeps,
-  history: Turn[] = []
+  history: Turn[] = [],
+  scope?: TaskScope
 ): Promise<RunTaskIpcResult> {
   const current = currentTask()
   if (current !== null) {
@@ -195,7 +197,7 @@ export async function runTask(
   const request = parsedParams.data
 
   try {
-    beginTask(taskId, request.goal, steps)
+    beginTask(taskId, request.goal, steps, scope)
   } catch (e) {
     if (e instanceof TaskBusyError) {
       return { ok: false, code: RUNTIME_ERROR_CODE.TASK_BUSY, message: e.message }
