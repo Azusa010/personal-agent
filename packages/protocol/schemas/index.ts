@@ -11,3 +11,4 @@ export * from "./terminal";
 export * from "./workflow";
 export * from "./knowledge";
 export * from "./memory";
+export * from "./viking";

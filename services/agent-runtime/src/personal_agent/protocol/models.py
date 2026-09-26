@@ -87,6 +87,10 @@ CapabilityId = Literal[
     "terminal_execute",
     "knowledge_search",
     "user_memory_search",
+    "viking_read_l0",
+    "viking_read_l1",
+    "viking_read_l2",
+    "viking_write_l2",
 ]
 
 
@@ -315,6 +319,7 @@ KnowledgeSearchOutcome = Annotated[
 
 
 # ---- user_memory (Phase 5) ----
+MemoryEntryFormat = Literal["card", "note"]
 MemoryType = Literal["semantic", "episodic", "procedural"]
 MemoryCategory = Literal[
     "preference",
@@ -329,6 +334,7 @@ MemoryCategory = Literal[
 class UserMemoryCard(BaseModel):
     model_config = ConfigDict(extra="allow")
 
+    entryFormat: Literal["card"] = "card"
     id: str = Field(min_length=1)
     memoryType: MemoryType
     category: MemoryCategory
@@ -350,10 +356,35 @@ class UserMemoryCard(BaseModel):
     updatedAt: str
 
 
+class UserMemoryNote(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    entryFormat: Literal["note"] = "note"
+    id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    noteText: str = Field(min_length=1)
+    tags: list[str] = Field(default_factory=list)
+    sourceTaskId: str | None = None
+    confidence: float = Field(default=0.8, ge=0.0, le=1.0)
+    occurredAt: str | None = None
+    validFrom: str
+    accessCount: int = Field(default=0, ge=0)
+    lastAccessedAt: str | None = None
+    isSanitized: bool = False
+    createdAt: str
+    updatedAt: str
+
+
+UserMemoryItem = Annotated[
+    UserMemoryCard | UserMemoryNote, Field(discriminator="entryFormat")
+]
+
+
 class UserMemorySearchParams(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     query: str = Field(min_length=1)
+    entryFormat: MemoryEntryFormat | None = None
     memoryType: MemoryType | None = None
     category: MemoryCategory | None = None
     subject: str | None = None
@@ -369,7 +400,9 @@ class UserMemorySearchParams(BaseModel):
 class UserMemorySearchItem(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    card: UserMemoryCard
+    card: UserMemoryCard | None = None
+    note: UserMemoryNote | None = None
+    item: UserMemoryItem | None = None
     score: float
     denseRank: int | None = Field(default=None, ge=1)
     sparseRank: int | None = Field(default=None, ge=1)
@@ -594,3 +627,54 @@ class RunWorkflowResponse(BaseModel):
         if (self.result is None) == (self.error is None):
             raise ValueError("result and error must not be present at the same time")
         return self
+
+
+# ---- OpenViking Wiki Storage (Phase 5) ----
+class VikingReadL0Params(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    uri: str = Field(min_length=1)
+
+
+class VikingReadL0Result(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    ok: Literal[True] = True
+    uri: str
+    abstractText: str
+    isValid: bool
+
+
+class VikingReadL1Params(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    uri: str = Field(min_length=1)
+
+
+class VikingReadL1Result(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    ok: Literal[True] = True
+    uri: str
+    overviewText: str
+
+
+class VikingReadL2Params(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    uri: str = Field(min_length=1)
+
+
+class VikingReadL2Result(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    ok: Literal[True] = True
+    uri: str
+    content: str
+
+
+class VikingWriteL2Params(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    uri: str = Field(min_length=1)
+    content: str
+
+
+class VikingWriteL2Result(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    ok: Literal[True] = True
+    uri: str
+    bytesWritten: int = Field(ge=0)

@@ -69,6 +69,18 @@ TOOL_SPECS: dict[str, str] = {
         '在长期用户记忆中检索相关事实、偏好与历史经历。参数 {"query": "<查询文本>", '
         '"topK": <可选返回条数，默认5>, "category": <可选分类>, "person": <可选人物>}'
     ),
+    "viking_read_l0": (
+        '读取 Viking 维基条目的 L0 摘要 (.abstract)。参数 {"uri": "<viking:// URI>"}'
+    ),
+    "viking_read_l1": (
+        '读取 Viking 维基目录的 L1 概览 (.overview)。参数 {"uri": "<viking:// URI>"}'
+    ),
+    "viking_read_l2": (
+        '读取 Viking 维基条目的 L2 全文 (*.md)。参数 {"uri": "<viking:// URI>"}'
+    ),
+    "viking_write_l2": (
+        '写入或更新 Viking 维基条目的 L2 全文 (*.md)。参数 {"uri": "<viking:// URI>", "content": "<Markdown文本>"}'
+    ),
 }
 
 # 标准 OpenAI Function Calling 工具参数定义
@@ -235,6 +247,63 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
                     },
                 },
                 "required": ["query"],
+            },
+        },
+    },
+    "viking_read_l0": {
+        "type": "function",
+        "function": {
+            "name": "viking_read_l0",
+            "description": "读取 Viking 维基条目的 L0 摘要 (.abstract)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "uri": {"type": "string", "description": "Viking 虚拟 URI，以 viking:// 开头"},
+                },
+                "required": ["uri"],
+            },
+        },
+    },
+    "viking_read_l1": {
+        "type": "function",
+        "function": {
+            "name": "viking_read_l1",
+            "description": "读取 Viking 维基目录的 L1 概览 (.overview)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "uri": {"type": "string", "description": "Viking 虚拟 URI，以 viking:// 开头"},
+                },
+                "required": ["uri"],
+            },
+        },
+    },
+    "viking_read_l2": {
+        "type": "function",
+        "function": {
+            "name": "viking_read_l2",
+            "description": "读取 Viking 维基条目的 L2 全文 (*.md)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "uri": {"type": "string", "description": "Viking 虚拟 URI，以 viking:// 开头"},
+                },
+                "required": ["uri"],
+            },
+        },
+    },
+    "viking_write_l2": {
+        "type": "function",
+        "function": {
+            "name": "viking_write_l2",
+            "description": "写入或更新 Viking 维基条目的 L2 全文 (*.md)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "uri": {"type": "string", "description": "Viking 虚拟 URI，以 viking:// 开头"},
+                    "content": {"type": "string", "description": "要写入的 Markdown 文档正文内容"},
+                },
+                "required": ["uri", "content"],
             },
         },
     },

@@ -1,9 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   UserMemoryCard,
+  UserMemoryNote,
+  UserMemoryItem,
   UserMemorySearchParams,
   UserMemorySearchResult,
   UserMemorySearchOutcome,
+  MEMORY_ENTRY_FORMATS,
   MEMORY_TYPES,
   MEMORY_CATEGORIES,
 } from "../schemas/memory.js";
@@ -178,7 +181,7 @@ describe("UserMemorySearchOutcome schema", () => {
     expect(outcome.ok).toBe(true);
     if (outcome.ok) {
       expect(outcome.items).toHaveLength(1);
-      expect(outcome.items[0].card.subject).toBe("饮食");
+      expect(outcome.items[0].card?.subject).toBe("饮食");
     }
   });
 
@@ -210,5 +213,95 @@ describe("UserMemorySearchOutcome schema", () => {
         reason: "x",
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("UserMemoryNote schema", () => {
+  it("接受合法的 Simple Note 并填充默认值", () => {
+    const note = UserMemoryNote.parse({
+      id: "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      title: "关于 Docker 容器构建网络超时的排查记录",
+      noteText: "在构建 pgvector 镜像时，偶尔会因为境外源超时导致 pip 安装失败，需要使用国内镜像源。",
+      validFrom: "2026-09-25T12:00:00Z",
+      createdAt: "2026-09-25T12:00:00Z",
+      updatedAt: "2026-09-25T12:00:00Z",
+    });
+
+    expect(note.entryFormat).toBe("note");
+    expect(note.title).toContain("Docker");
+    expect(note.confidence).toBe(0.8);
+    expect(note.tags).toEqual([]);
+    expect(note.accessCount).toBe(0);
+    expect(note.isSanitized).toBe(false);
+  });
+
+  it("带 tags 与自定义置信度的 Note 解析成功", () => {
+    const note = UserMemoryNote.parse({
+      entryFormat: "note",
+      id: "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      title: "终端快捷命令别名",
+      noteText: "用户习惯使用 gs 替代 git status，使用 ll 替代 ls -l。",
+      tags: ["shell", "alias", "git"],
+      confidence: 0.9,
+      validFrom: "2026-09-25T12:00:00Z",
+      createdAt: "2026-09-25T12:00:00Z",
+      updatedAt: "2026-09-25T12:00:00Z",
+    });
+
+    expect(note.tags).toHaveLength(3);
+    expect(note.confidence).toBe(0.9);
+  });
+});
+
+describe("UserMemoryItem 判别式联合 (Discriminated Union)", () => {
+  it("根据 entryFormat 正确分流为 UserMemoryCard", () => {
+    const item = UserMemoryItem.parse({
+      entryFormat: "card",
+      id: "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+      memoryType: "semantic",
+      category: "preference",
+      subject: "代码格式偏好",
+      content: { indent: 2, semicolons: false },
+      validFrom: "2026-09-25T00:00:00Z",
+      createdAt: "2026-09-25T00:00:00Z",
+      updatedAt: "2026-09-25T00:00:00Z",
+    });
+
+    expect(item.entryFormat).toBe("card");
+    if (item.entryFormat === "card") {
+      expect(item.subject).toBe("代码格式偏好");
+      expect(item.content).toEqual({ indent: 2, semicolons: false });
+    }
+  });
+
+  it("根据 entryFormat 正确分流为 UserMemoryNote", () => {
+    const item = UserMemoryItem.parse({
+      entryFormat: "note",
+      id: "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      title: "日常备忘",
+      noteText: "下周三下午有技术评审会。",
+      tags: ["meeting", "work"],
+      validFrom: "2026-09-25T00:00:00Z",
+      createdAt: "2026-09-25T00:00:00Z",
+      updatedAt: "2026-09-25T00:00:00Z",
+    });
+
+    expect(item.entryFormat).toBe("note");
+    if (item.entryFormat === "note") {
+      expect(item.title).toBe("日常备忘");
+      expect(item.noteText).toContain("技术评审");
+    }
+  });
+
+  it("非法 entryFormat 被严格拦截", () => {
+    const result = UserMemoryItem.safeParse({
+      entryFormat: "unknown_format",
+      id: "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      validFrom: "2026-09-25T00:00:00Z",
+      createdAt: "2026-09-25T00:00:00Z",
+      updatedAt: "2026-09-25T00:00:00Z",
+    });
+
+    expect(result.success).toBe(false);
   });
 });

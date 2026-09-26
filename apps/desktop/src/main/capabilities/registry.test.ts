@@ -23,14 +23,18 @@ const ALL_CAPABILITY_NAMES = [
   'notification_send',
   'terminal_execute',
   'knowledge_search',
-  'user_memory_search'
+  'user_memory_search',
+  'viking_read_l0',
+  'viking_read_l1',
+  'viking_read_l2',
+  'viking_write_l2'
 ]
 
 describe('CapabilityRegistry', () => {
-  it('恰好注册 9 个能力，不多不少', () => {
+  it('恰好注册 13 个能力，不多不少', () => {
     const names = listCapabilities().map((c) => c.name)
     expect([...names].sort()).toEqual([...ALL_CAPABILITY_NAMES].sort())
-    expect(CAPABILITIES).toHaveLength(9)
+    expect(CAPABILITIES).toHaveLength(13)
 
     // SEC-007 的禁止类名字必须查不到
     for (const forbidden of ['shell.exec', 'process.spawn', 'filesystem.delete', 'http.fetch']) {
@@ -38,32 +42,39 @@ describe('CapabilityRegistry', () => {
     }
   })
 
-  it('分类为 4 READ + 5 WRITE', () => {
+  it('分类为 7 READ + 6 WRITE', () => {
     expect(listByKind('READ').map((c) => c.name)).toEqual([
       'filesystem_list',
       'document_extract_pdf',
       'knowledge_search',
-      'user_memory_search'
+      'user_memory_search',
+      'viking_read_l0',
+      'viking_read_l1',
+      'viking_read_l2'
     ])
     expect(listByKind('WRITE').map((c) => c.name)).toEqual([
       'filesystem_create_dir',
       'filesystem_move',
       'scheduler_create',
       'notification_send',
-      'terminal_execute'
+      'terminal_execute',
+      'viking_write_l2'
     ])
     // 两类不重不漏
     expect(listByKind('READ').length + listByKind('WRITE').length).toBe(CAPABILITIES.length)
   })
 
-  it('readOnlyScope 恰好含 4 个 READ，不含任何 WRITE', () => {
+  it('readOnlyScope 恰好含 7 个 READ，不含任何 WRITE', () => {
     const scope = readOnlyScope('t-1')
     expect(scope.taskId).toBe('t-1')
     expect([...scope.capabilities].sort()).toEqual([
       'document_extract_pdf',
       'filesystem_list',
       'knowledge_search',
-      'user_memory_search'
+      'user_memory_search',
+      'viking_read_l0',
+      'viking_read_l1',
+      'viking_read_l2'
     ])
 
     // Phase 1 Exit 第 3 条：Agent 只能看到 Scope 中两个 READ Capability

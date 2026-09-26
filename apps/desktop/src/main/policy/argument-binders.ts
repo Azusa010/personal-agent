@@ -9,13 +9,18 @@ import {
   SchedulerCreateParams,
   TerminalExecuteParams,
   UserMemorySearchParams,
+  VikingReadL0Params,
+  VikingReadL1Params,
+  VikingReadL2Params,
+  VikingWriteL2Params,
   type CapabilityId
 } from '@personal-agent/protocol'
 
 import { resolve } from 'node:path'
 
-import { resolveWithinRootReal } from '../capabilities/path-guard'
+import { resolveVikingUriWithinRoot, resolveWithinRootReal } from '../capabilities/path-guard'
 import { resolveRoot, toPosix } from '../capabilities/roots'
+import { resolveVikingStoreRoot } from '../viking/viking-store'
 
 /** 契约校验 + 路径规范化之后的一次调用参数。 */
 export interface BoundArgs {
@@ -208,6 +213,94 @@ const bindUserMemorySearch: Binder = async (args) => {
   }
 }
 
+const bindVikingReadL0: Binder = async (args) => {
+  const parsed = VikingReadL0Params.safeParse(args)
+  if (!parsed.success) return invalid('viking_read_l0', parsed.error.message)
+  try {
+    const root = resolveVikingStoreRoot()
+    const guardedPath = resolveVikingUriWithinRoot(parsed.data.uri, root)
+    return {
+      ok: true,
+      bound: {
+        args: parsed.data as Record<string, unknown>,
+        paths: { path: guardedPath }
+      }
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      code: ERROR_CODE.INVALID_ARGUMENT,
+      reason: `viking_read_l0 URI 校验失败: ${err instanceof Error ? err.message : String(err)}`
+    }
+  }
+}
+
+const bindVikingReadL1: Binder = async (args) => {
+  const parsed = VikingReadL1Params.safeParse(args)
+  if (!parsed.success) return invalid('viking_read_l1', parsed.error.message)
+  try {
+    const root = resolveVikingStoreRoot()
+    const guardedPath = resolveVikingUriWithinRoot(parsed.data.uri, root)
+    return {
+      ok: true,
+      bound: {
+        args: parsed.data as Record<string, unknown>,
+        paths: { path: guardedPath }
+      }
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      code: ERROR_CODE.INVALID_ARGUMENT,
+      reason: `viking_read_l1 URI 校验失败: ${err instanceof Error ? err.message : String(err)}`
+    }
+  }
+}
+
+const bindVikingReadL2: Binder = async (args) => {
+  const parsed = VikingReadL2Params.safeParse(args)
+  if (!parsed.success) return invalid('viking_read_l2', parsed.error.message)
+  try {
+    const root = resolveVikingStoreRoot()
+    const guardedPath = resolveVikingUriWithinRoot(parsed.data.uri, root)
+    return {
+      ok: true,
+      bound: {
+        args: parsed.data as Record<string, unknown>,
+        paths: { path: guardedPath }
+      }
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      code: ERROR_CODE.INVALID_ARGUMENT,
+      reason: `viking_read_l2 URI 校验失败: ${err instanceof Error ? err.message : String(err)}`
+    }
+  }
+}
+
+const bindVikingWriteL2: Binder = async (args) => {
+  const parsed = VikingWriteL2Params.safeParse(args)
+  if (!parsed.success) return invalid('viking_write_l2', parsed.error.message)
+  try {
+    const root = resolveVikingStoreRoot()
+    const guardedPath = resolveVikingUriWithinRoot(parsed.data.uri, root)
+    return {
+      ok: true,
+      bound: {
+        args: parsed.data as Record<string, unknown>,
+        paths: { path: guardedPath }
+      }
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      code: ERROR_CODE.INVALID_ARGUMENT,
+      reason: `viking_write_l2 URI 校验失败: ${err instanceof Error ? err.message : String(err)}`
+    }
+  }
+}
+
 /** 每个能力的参数绑定器。没有登记的能力回 NOT_IMPLEMENTED：
  */
 const BINDERS: Partial<Record<CapabilityId, Binder>> = {
@@ -219,7 +312,11 @@ const BINDERS: Partial<Record<CapabilityId, Binder>> = {
   notification_send: bindNotificationSend,
   terminal_execute: bindTerminalExecute,
   knowledge_search: bindKnowledgeSearch,
-  user_memory_search: bindUserMemorySearch
+  user_memory_search: bindUserMemorySearch,
+  viking_read_l0: bindVikingReadL0,
+  viking_read_l1: bindVikingReadL1,
+  viking_read_l2: bindVikingReadL2,
+  viking_write_l2: bindVikingWriteL2
 }
 
 export async function bindArguments(

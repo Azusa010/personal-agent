@@ -99,6 +99,7 @@ describe('user-memory-repository (Desktop Main)', () => {
     const fakePool = { query: mockQuery } as unknown as Pool
 
     const testCard: UserMemoryCard = {
+      entryFormat: 'card',
       id: 'a1b2c3d4-e5f6-4a8b-9c0d-1e2f3a4b5c6d',
       memoryType: 'procedural',
       category: 'routine',

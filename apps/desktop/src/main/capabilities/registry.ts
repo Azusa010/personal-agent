@@ -28,6 +28,21 @@ export const CAPABILITIES = [
     description: '在用户记忆库中进行语义与全文检索（支持时间切片与实体消歧）'
   },
   {
+    name: 'viking_read_l0',
+    kind: 'READ',
+    description: '读取 Viking 维基条目的 L0 摘要 (.abstract)'
+  },
+  {
+    name: 'viking_read_l1',
+    kind: 'READ',
+    description: '读取 Viking 维基目录的 L1 概览 (.overview)'
+  },
+  {
+    name: 'viking_read_l2',
+    kind: 'READ',
+    description: '读取 Viking 维基条目的 L2 全文 (*.md)'
+  },
+  {
     name: 'filesystem_create_dir',
     kind: 'WRITE',
     description: '在授权根目录下创建子目录'
@@ -51,6 +66,11 @@ export const CAPABILITIES = [
     name: 'terminal_execute',
     kind: 'WRITE',
     description: '在安全工作目录下执行终端命令行'
+  },
+  {
+    name: 'viking_write_l2',
+    kind: 'WRITE',
+    description: '写入或更新 Viking 维基条目的 L2 全文 (*.md)'
   }
 ] as const satisfies readonly CapabilityDescriptor[]
 

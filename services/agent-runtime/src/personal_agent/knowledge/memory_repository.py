@@ -16,6 +16,8 @@ import asyncpg
 
 from personal_agent.protocol.models import (
     UserMemoryCard,
+    UserMemoryItem,
+    UserMemoryNote,
     UserMemorySearchItem,
     UserMemorySearchParams,
 )
@@ -37,6 +39,61 @@ def clean_fts_query(query_text: str) -> str:
     return " ".join(cleaned.split()) or " "
 
 
+def _row_to_memory_item(row: dict[str, Any] | asyncpg.Record) -> UserMemoryItem:
+    """将数据库行转换为 UserMemoryCard 或 UserMemoryNote。"""
+    entry_format = row.get("entry_format", "card")
+
+    def to_iso(val: Any) -> str | None:
+        if val is None:
+            return None
+        if isinstance(val, datetime):
+            return val.isoformat()
+        return str(val)
+
+    if entry_format == "note":
+        return UserMemoryNote(
+            entryFormat="note",
+            id=str(row["id"]),
+            title=row.get("title") or row.get("subject") or "",
+            noteText=row.get("note_text") or "",
+            tags=list(row.get("tags") or []),
+            sourceTaskId=row.get("source_task_id"),
+            confidence=float(row.get("confidence") if row.get("confidence") is not None else 0.8),
+            occurredAt=to_iso(row.get("occurred_at")),
+            validFrom=to_iso(row["valid_from"]) or datetime.now(UTC).isoformat(),
+            accessCount=int(row.get("access_count") or 0),
+            lastAccessedAt=to_iso(row.get("last_accessed_at")),
+            isSanitized=bool(row.get("is_sanitized", False)),
+            createdAt=to_iso(row["created_at"]) or datetime.now(UTC).isoformat(),
+            updatedAt=to_iso(row["updated_at"]) or datetime.now(UTC).isoformat(),
+        )
+
+    raw_content = row["content"]
+    content_dict = json.loads(raw_content) if isinstance(raw_content, str) else dict(raw_content or {})
+    return UserMemoryCard(
+        entryFormat="card",
+        id=str(row["id"]),
+        memoryType=row["memory_type"],
+        category=row["category"],
+        subject=row["subject"] or "",
+        person=row.get("person"),
+        relationship=row.get("relationship"),
+        content=content_dict,
+        backstory=row.get("backstory"),
+        sourceTaskId=row.get("source_task_id"),
+        confidence=float(row.get("confidence") if row.get("confidence") is not None else 1.0),
+        occurredAt=to_iso(row.get("occurred_at")),
+        validFrom=to_iso(row["valid_from"]) or datetime.now(UTC).isoformat(),
+        supersededBy=str(row["superseded_by"]) if row.get("superseded_by") else None,
+        supersedeReason=row.get("supersede_reason"),
+        accessCount=int(row.get("access_count") or 0),
+        lastAccessedAt=to_iso(row.get("last_accessed_at")),
+        isSanitized=bool(row.get("is_sanitized", False)),
+        createdAt=to_iso(row["created_at"]) or datetime.now(UTC).isoformat(),
+        updatedAt=to_iso(row["updated_at"]) or datetime.now(UTC).isoformat(),
+    )
+
+
 def _row_to_memory_card(row: dict[str, Any] | asyncpg.Record) -> UserMemoryCard:
     """将数据库行转换为 UserMemoryCard 领域模型。"""
     raw_content = row["content"]
@@ -50,6 +107,7 @@ def _row_to_memory_card(row: dict[str, Any] | asyncpg.Record) -> UserMemoryCard:
         return str(val)
 
     return UserMemoryCard(
+        entryFormat="card",
         id=str(row["id"]),
         memoryType=row["memory_type"],
         category=row["category"],
@@ -74,53 +132,95 @@ def _row_to_memory_card(row: dict[str, Any] | asyncpg.Record) -> UserMemoryCard:
 
 async def insert_user_memory(
     pool: asyncpg.Pool,
-    card: UserMemoryCard,
+    item: UserMemoryCard | UserMemoryNote | None = None,
     dense_embedding: list[float] | None = None,
+    *,
+    card: UserMemoryCard | None = None,
 ) -> UUID:
-    """插入一条用户记忆记录。"""
+    """插入一条用户记忆记录（支持 Card 与 Note 双轨格式）。"""
+    target = item or card
+    if target is None:
+        raise ValueError("必须提供待插入的 memory item 或 card")
+
     query = """
     INSERT INTO user_memories (
-        id, memory_type, category, subject, person, relationship,
+        id, entry_format, memory_type, category, subject, person, relationship,
         content, backstory, source_task_id, confidence, occurred_at,
         valid_from, superseded_by, supersede_reason, access_count,
-        last_accessed_at, is_sanitized, dense_embedding, created_at, updated_at
+        last_accessed_at, is_sanitized, title, note_text, tags, dense_embedding, created_at, updated_at
     )
     VALUES (
-        $1, $2, $3, $4, $5, $6,
-        $7, $8, $9, $10, $11,
-        $12, $13, $14, $15,
-        $16, $17, $18, $19, $20
+        $1, $2, $3, $4, $5, $6, $7,
+        $8, $9, $10, $11, $12,
+        $13, $14, $15, $16,
+        $17, $18, $19, $20, $21, $22, $23, $24
     )
     RETURNING id;
     """
-    mem_id = UUID(card.id) if card.id else uuid4()
-    superseded_by_uuid = UUID(card.supersededBy) if card.supersededBy else None
-    occurred_at_dt = datetime.fromisoformat(card.occurredAt) if card.occurredAt else None
-    valid_from_dt = datetime.fromisoformat(card.validFrom) if card.validFrom else datetime.now(UTC)
-    last_accessed_at_dt = datetime.fromisoformat(card.lastAccessedAt) if card.lastAccessedAt else None
-    created_at_dt = datetime.fromisoformat(card.createdAt) if card.createdAt else datetime.now(UTC)
-    updated_at_dt = datetime.fromisoformat(card.updatedAt) if card.updatedAt else datetime.now(UTC)
+    mem_id = UUID(target.id) if target.id else uuid4()
+    occurred_at_dt = datetime.fromisoformat(target.occurredAt) if target.occurredAt else None
+    valid_from_dt = datetime.fromisoformat(target.validFrom) if target.validFrom else datetime.now(UTC)
+    last_accessed_at_dt = datetime.fromisoformat(target.lastAccessedAt) if target.lastAccessedAt else None
+    created_at_dt = datetime.fromisoformat(target.createdAt) if target.createdAt else datetime.now(UTC)
+    updated_at_dt = datetime.fromisoformat(target.updatedAt) if target.updatedAt else datetime.now(UTC)
+
+    if isinstance(target, UserMemoryNote) or getattr(target, "entryFormat", "card") == "note":
+        entry_format = "note"
+        memory_type = "episodic"
+        category = "general"
+        subject = target.title
+        person = None
+        relationship = None
+        content_json = json.dumps({"note": target.noteText})
+        backstory = None
+        source_task_id = target.sourceTaskId
+        confidence = target.confidence
+        superseded_by_uuid = None
+        supersede_reason = None
+        title = target.title
+        note_text = target.noteText
+        tags = target.tags
+    else:
+        entry_format = "card"
+        memory_type = target.memoryType
+        category = target.category
+        subject = target.subject
+        person = target.person
+        relationship = target.relationship
+        content_json = json.dumps(target.content)
+        backstory = target.backstory
+        source_task_id = target.sourceTaskId
+        confidence = target.confidence
+        superseded_by_uuid = UUID(target.supersededBy) if target.supersededBy else None
+        supersede_reason = target.supersedeReason
+        title = None
+        note_text = None
+        tags = None
 
     async with pool.acquire() as conn:
         res_id = await conn.fetchval(
             query,
             mem_id,
-            card.memoryType,
-            card.category,
-            card.subject,
-            card.person,
-            card.relationship,
-            json.dumps(card.content),
-            card.backstory,
-            card.sourceTaskId,
-            card.confidence,
+            entry_format,
+            memory_type,
+            category,
+            subject,
+            person,
+            relationship,
+            content_json,
+            backstory,
+            source_task_id,
+            confidence,
             occurred_at_dt,
             valid_from_dt,
             superseded_by_uuid,
-            card.supersedeReason,
-            card.accessCount,
+            supersede_reason,
+            target.accessCount,
             last_accessed_at_dt,
-            card.isSanitized,
+            target.isSanitized,
+            title,
+            note_text,
+            tags,
             dense_embedding,
             created_at_dt,
             updated_at_dt,

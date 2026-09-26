@@ -35,6 +35,13 @@ import { RuleBasedToolRetriever, type ToolRetriever } from './retriever'
 import { resolveRoot } from './roots'
 import type { TaskScope } from './scope'
 import { fireReminder } from '../scheduler/fire-reminder'
+import {
+  readVikingL0,
+  readVikingL1,
+  readVikingL2,
+  writeVikingL2,
+  resolveVikingStoreRoot
+} from '../viking/viking-store'
 
 export type CapabilityOutcome = Record<string, unknown>
 
@@ -164,6 +171,14 @@ async function runCapability(
       return runKnowledgeSearch(call, knowledge)
     case 'user_memory_search':
       return runUserMemorySearch(call, memory)
+    case 'viking_read_l0':
+      return runVikingReadL0(call)
+    case 'viking_read_l1':
+      return runVikingReadL1(call)
+    case 'viking_read_l2':
+      return runVikingReadL2(call)
+    case 'viking_write_l2':
+      return runVikingWriteL2(call)
     default:
       // BINDERS 与这个 switch 是两张必须同步的表。加了 binder 忘了执行体，
       // 会走到这里而不是崩掉——这是故意留的兜底。
@@ -475,6 +490,51 @@ async function runUserMemorySearch(
     }
   } catch (e) {
     return fail(ERROR_CODE.HOST_HANDLER_FAILED, `用户记忆检索执行失败: ${describe(e)}`)
+  }
+}
+
+async function runVikingReadL0(call: AuthorizedCall): Promise<CapabilityOutcome> {
+  try {
+    const root = resolveVikingStoreRoot()
+    const uri = String(call.bound.args['uri'])
+    const { abstractText, isValid } = await readVikingL0(root, uri)
+    return { ok: true, uri, abstractText, isValid }
+  } catch (e) {
+    return fail(ERROR_CODE.HOST_HANDLER_FAILED, `viking_read_l0 读取失败: ${describe(e)}`)
+  }
+}
+
+async function runVikingReadL1(call: AuthorizedCall): Promise<CapabilityOutcome> {
+  try {
+    const root = resolveVikingStoreRoot()
+    const uri = String(call.bound.args['uri'])
+    const overviewText = await readVikingL1(root, uri)
+    return { ok: true, uri, overviewText }
+  } catch (e) {
+    return fail(ERROR_CODE.HOST_HANDLER_FAILED, `viking_read_l1 读取失败: ${describe(e)}`)
+  }
+}
+
+async function runVikingReadL2(call: AuthorizedCall): Promise<CapabilityOutcome> {
+  try {
+    const root = resolveVikingStoreRoot()
+    const uri = String(call.bound.args['uri'])
+    const content = await readVikingL2(root, uri)
+    return { ok: true, uri, content }
+  } catch (e) {
+    return fail(ERROR_CODE.HOST_HANDLER_FAILED, `viking_read_l2 读取失败: ${describe(e)}`)
+  }
+}
+
+async function runVikingWriteL2(call: AuthorizedCall): Promise<CapabilityOutcome> {
+  try {
+    const root = resolveVikingStoreRoot()
+    const uri = String(call.bound.args['uri'])
+    const content = String(call.bound.args['content'])
+    const res = await writeVikingL2(root, uri, content)
+    return { ok: true, uri, bytesWritten: res.bytesWritten, path: res.path }
+  } catch (e) {
+    return fail(ERROR_CODE.HOST_HANDLER_FAILED, `viking_write_l2 写入失败: ${describe(e)}`)
   }
 }
 

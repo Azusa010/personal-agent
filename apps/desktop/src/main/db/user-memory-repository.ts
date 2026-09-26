@@ -43,6 +43,7 @@ export function mapRowToMemoryCard(row: DbMemoryRow): UserMemoryCard {
       : (rawContent as Record<string, unknown>) || {}
 
   return {
+    entryFormat: 'card',
     id: row.id,
     memoryType: row.memory_type as MemoryType,
     category: row.category as MemoryCategory,
