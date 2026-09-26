@@ -13,11 +13,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_BGE_RERANKER_PATH = Path(
-    os.environ.get(
-        "BGE_RERANKER_PATH",
-        r"D:\Tools\bge-reranker\models\bge-reranker-v2-m3",
-    )
+DEFAULT_BGE_RERANKER_PATH = (
+    Path(os.environ["BGE_RERANKER_PATH"])
+    if os.environ.get("BGE_RERANKER_PATH")
+    else (Path.home() / ".personal-agent" / "models" / "bge-reranker-v2-m3")
 )
 
 
@@ -158,18 +157,21 @@ def get_reranker(
     if target_mode == "local":
         return BgeReranker(model_path=path)
 
-    # auto 模式下探测
-    if path.exists():
+    # auto 模式下探测模型
+    effective_path = path
+    if not effective_path.exists():
+        legacy_path = Path(r"D:\Tools\bge-reranker\models\bge-reranker-v2-m3")
+        if legacy_path.exists():
+            effective_path = legacy_path
+
+    if effective_path.exists():
         try:
             import FlagEmbedding  # noqa: F401
 
-            return BgeReranker(model_path=path)
+            return BgeReranker(model_path=effective_path)
         except ImportError:
-            logger.warning("FlagEmbedding 未安装，降级为 MockReranker")
-            raise RuntimeError(
-                "未安装 FlagEmbedding 库。请执行 `uv add FlagEmbedding` 安装，"
-                "或设置环境变量 KNOWLEDGE_RERANKER_MODE=mock 使用 Mock 模式。"
-            )
-    raise RuntimeError(
-        f"未找到 bge-reranker 模型目录: {path}，请检查环境变量 BGE_RERANKER_PATH 或传入 model_path 参数。"
-    )
+            logger.warning("FlagEmbedding 未安装，auto 模式自动降级为 MockReranker")
+            return MockReranker()
+
+    logger.info("未找到本地 bge-reranker 模型 (%s)，auto 模式自适应启用 MockReranker", path)
+    return MockReranker()

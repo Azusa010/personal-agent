@@ -89,6 +89,10 @@ export async function fireReminder(
             return { kind: 'sent', sentAt: stamp }
           } catch (error) {
             console.error('Error occurred while committing transaction:', error)
+            return {
+              kind: 'send_failed',
+              reason: `提醒落库事务提交失败：${error instanceof Error ? error.message : String(error)}`
+            }
           }
         }
         if (outcome.ok === false) {
@@ -109,6 +113,10 @@ export async function fireReminder(
             return { kind: 'send_failed', reason: outcome.reason }
           } catch (error) {
             console.error('Error occurred while committing transaction:', error)
+            return {
+              kind: 'send_failed',
+              reason: `提醒失败状态落库事务提交失败：${error instanceof Error ? error.message : String(error)}`
+            }
           }
         }
       }

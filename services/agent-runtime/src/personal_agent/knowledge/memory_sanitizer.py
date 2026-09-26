@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 # 正则表达式预编译
 REGEX_PHONE = re.compile(r"(?<!\d)(1[3-9]\d)(\d{4})(\d{4})(?!\d)")
 REGEX_ID_CARD = re.compile(
-    r"(?<!\d)([1-9]\d)(?:\d{14})([\dXx])(?!\d)"
+    r"(?<!\d)([1-9]\d)(?:\d{15})([\dXx])(?!\d)"
 )
 REGEX_BANK_CARD = re.compile(r"(?<!\d)(?:[4-6]\d{15,18})(?!\d)")
 REGEX_SECRET = re.compile(

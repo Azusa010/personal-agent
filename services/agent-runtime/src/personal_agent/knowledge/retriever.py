@@ -192,25 +192,30 @@ class HybridRetriever:
         # 1. 生成查询嵌入向量
         emb_output = await self.embedder.embed_query(params.query)
 
-        # 2. 并行双路召回
-        async with pool.acquire() as conn:
-            dense_task = self.search_dense(
-                conn,
-                emb_output.dense,
-                limit=dense_limit,
-                document_ids=params.documentIds,
-                file_types=params.fileTypes,
-            )
-            sparse_task = self.search_sparse(
-                conn,
-                params.query,
-                limit=sparse_limit,
-                document_ids=params.documentIds,
-                file_types=params.fileTypes,
-            )
-            dense_candidates, sparse_candidates = await asyncio.gather(
-                dense_task, sparse_task
-            )
+        # 2. 并行双路召回（使用独立连接隔离并发）
+        async def _run_dense() -> list[ScoredChunk]:
+            async with pool.acquire() as conn:
+                return await self.search_dense(
+                    conn,
+                    emb_output.dense,
+                    limit=dense_limit,
+                    document_ids=params.documentIds,
+                    file_types=params.fileTypes,
+                )
+
+        async def _run_sparse() -> list[ScoredChunk]:
+            async with pool.acquire() as conn:
+                return await self.search_sparse(
+                    conn,
+                    params.query,
+                    limit=sparse_limit,
+                    document_ids=params.documentIds,
+                    file_types=params.fileTypes,
+                )
+
+        dense_candidates, sparse_candidates = await asyncio.gather(
+            _run_dense(), _run_sparse()
+        )
 
         # 3. 第二阶段：RRF 倒数排名融合
         fused = fuse_rrf(dense_candidates, sparse_candidates, k=60)

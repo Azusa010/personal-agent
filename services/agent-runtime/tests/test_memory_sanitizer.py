@@ -17,11 +17,19 @@ def test_mask_string_pii_phone():
 
 def test_mask_string_pii_id_card():
     """验证居民身份证号确定性脱敏 (保留前2后1，中间掩码)。"""
-    raw = "身份证号码: 11010119900307239X，需留档。"
-    masked, changed = mask_string_pii(raw)
-    assert changed is True
-    assert "11****X" in masked or "11****" in masked
-    assert "11010119900307239X" not in masked
+    # 1. 验证末位为 X 的 18 位身份证
+    raw_x = "身份证号码: 11010119900307239X，需留档。"
+    masked_x, changed_x = mask_string_pii(raw_x)
+    assert changed_x is True
+    assert "11****X" in masked_x
+    assert "11010119900307239X" not in masked_x
+
+    # 2. 验证末位为纯数字的标准 18 位身份证
+    raw_num = "身份证号码: 110101199003072398，已核实。"
+    masked_num, changed_num = mask_string_pii(raw_num)
+    assert changed_num is True
+    assert "11****8" in masked_num
+    assert "110101199003072398" not in masked_num
 
 
 def test_mask_string_pii_bank_card():

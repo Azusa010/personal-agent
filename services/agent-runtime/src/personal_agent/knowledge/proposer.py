@@ -558,9 +558,11 @@ class KnowledgeProposer:
         for fact in candidate_facts:
             text = str(fact.get("text", "")).strip()
 
-            # 主动调用环境工具探索知识库和用户记忆
-            related_k = self.env.search_knowledge(text, str(target_layer))
-            related_m = self.env.search_user_memory(text)
+            # 主动调用环境工具探索知识库和用户记忆（离线确定性模式允许兜底以模拟语义命中）
+            related_k = self.env.search_knowledge(
+                text, str(target_layer), fallback_on_empty=True
+            )
+            related_m = self.env.search_user_memory(text, fallback_on_empty=True)
 
             op_type = fact.get("op")
             qualification = fact.get("qualification")

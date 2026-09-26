@@ -16,7 +16,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_BGE_M3_PATH = Path(os.environ.get("BGE_M3_PATH", r"D:\Tools\bge"))
+DEFAULT_BGE_M3_PATH = (
+    Path(os.environ["BGE_M3_PATH"])
+    if os.environ.get("BGE_M3_PATH")
+    else (Path.home() / ".personal-agent" / "models" / "bge-m3")
+)
 EMBEDDING_DIM = 1024
 
 
@@ -168,8 +172,18 @@ def get_embedder(
     if target_mode == "local":
         return BgeM3Embedder(model_path=path)
 
-    # 生产/本地模式：严禁静默降级为 Mock，避免生成假向量污染数据库
-    if not path.exists() or not path.is_dir():
-        raise FileNotFoundError(f"bge-m3 模型目录不存在: {path}")
+    # auto 模式下探测模型
+    effective_path = path
+    if not effective_path.exists() or not effective_path.is_dir():
+        legacy_path = Path(r"D:\Tools\bge")
+        if legacy_path.exists() and legacy_path.is_dir():
+            effective_path = legacy_path
 
-    return BgeM3Embedder(model_path=path)
+    if not effective_path.exists() or not effective_path.is_dir():
+        raise FileNotFoundError(
+            f"bge-m3 模型目录不存在: {path}。请设置环境变量 BGE_M3_PATH，"
+            "或将权重下载到 ~/.personal-agent/models/bge-m3，"
+            "或设置环境变量 KNOWLEDGE_EMBEDDER_MODE=mock 使用测试模式。"
+        )
+
+    return BgeM3Embedder(model_path=effective_path)

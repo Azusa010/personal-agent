@@ -39,7 +39,9 @@ class KnowledgeEnvironment:
             return {"id": str(uid), "content": self.evidence_store[uid]}
         return None
 
-    def search_evidence(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
+    def search_evidence(
+        self, query: str, limit: int = 5, fallback_on_empty: bool = False
+    ) -> list[dict[str, Any]]:
         """在原始证据库中按关键词检索相关的原始证据。"""
         terms = [t.lower() for t in query.split() if t.strip()]
         matched: list[dict[str, Any]] = []
@@ -49,14 +51,17 @@ class KnowledgeEnvironment:
                 matched.append({"id": str(uid), "content": text})
             if len(matched) >= limit:
                 break
-        if not matched and self.evidence_store:
-            # 兜底返回前 limit 条
+        if not matched and fallback_on_empty and self.evidence_store:
             for uid, text in list(self.evidence_store.items())[:limit]:
                 matched.append({"id": str(uid), "content": text})
         return matched
 
     def search_knowledge(
-        self, query: str, target_layer: str = "document_chunk", limit: int = 5
+        self,
+        query: str,
+        target_layer: str = "document_chunk",
+        limit: int = 5,
+        fallback_on_empty: bool = False,
     ) -> list[dict[str, Any]]:
         """在知识库（文档切块/法条）中检索相关条目，用于查重与多文档对比。"""
         terms = [t.lower() for t in query.split() if t.strip()]
@@ -67,7 +72,7 @@ class KnowledgeEnvironment:
                 matched.append(item)
             if len(matched) >= limit:
                 break
-        if not matched and self.knowledge_store:
+        if not matched and fallback_on_empty and self.knowledge_store:
             matched = list(self.knowledge_store[:limit])
         return matched
 
@@ -81,7 +86,9 @@ class KnowledgeEnvironment:
                 return item
         return None
 
-    def search_user_memory(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
+    def search_user_memory(
+        self, query: str, limit: int = 5, fallback_on_empty: bool = False
+    ) -> list[dict[str, Any]]:
         """在长期用户记忆库中检索用户偏好、身份与历史约定。"""
         terms = [t.lower() for t in query.split() if t.strip()]
         matched: list[dict[str, Any]] = []
@@ -97,7 +104,7 @@ class KnowledgeEnvironment:
                 matched.append(item)
             if len(matched) >= limit:
                 break
-        if not matched and self.memory_store:
+        if not matched and fallback_on_empty and self.memory_store:
             matched = list(self.memory_store[:limit])
         return matched
 

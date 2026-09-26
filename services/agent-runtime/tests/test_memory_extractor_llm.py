@@ -50,7 +50,9 @@ def test_build_memory_distill_prompt():
 def test_is_transient_fact_with_jev_client():
     """验证使用 Jev (TypeSafeClient) 判定瞬时事实成功。"""
     mock_jev = MagicMock()
-    mock_jev.system_one.return_value = {"is_transient": "True"}
+    mock_resp_true = MagicMock()
+    mock_resp_true.answers = {"is_transient": MagicMock(choice="True")}
+    mock_jev.system_one.return_value = mock_resp_true
 
     fact = DistilledFact(
         subject="自定义临时文件",
@@ -60,7 +62,9 @@ def test_is_transient_fact_with_jev_client():
     assert is_transient_fact(fact, client=mock_jev) is True
     mock_jev.system_one.assert_called_once()
 
-    mock_jev.system_one.return_value = {"is_transient": "False"}
+    mock_resp_false = MagicMock()
+    mock_resp_false.answers = {"is_transient": MagicMock(choice="False")}
+    mock_jev.system_one.return_value = mock_resp_false
     assert is_transient_fact(fact, client=mock_jev) is False
 
 

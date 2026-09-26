@@ -246,18 +246,26 @@ describe('fireReminder：失败记录，不伪造成功', () => {
     expect(row?.failureReason).toContain('适配器炸了')
   })
 
-  it('失败后再触发（未到重试条件时）不自动重发', async () => {
-    // failed 只允许显式重试：同一 fireReminder 入口在未到点时同样拒绝。
-    portOutcome = { ok: false, reason: '通道忙' }
-    seedReminder({ remindAt: FUTURE })
-    // 手动构出 failed 态（模拟上次到点失败后时间仍在未来是不可能的，
-    // 这里直接落状态钉「failed + 未到点」的组合行为）
-    reminders.transition('r-1', 'firing', T0)
-    reminders.transition('r-1', 'failed', T0, { failureReason: '通道忙' })
+  it('事务提交异常时 → 返回 send_failed，不穿透到 rejected 未到触发时间', async () => {
+    seedReminder()
+    const brokenDeps = makeDeps()
+    // 模拟数据库事务在 commit 时抛错
+    const failingDb = {
+      ...brokenDeps.db,
+      transaction: () => () => {
+        throw new Error('磁盘 I/O 错误或死锁')
+      }
+    } as unknown as typeof brokenDeps.db
 
-    const outcome = await fireReminder(reminders.findById('r-1')!, makeDeps())
+    const outcome = await fireReminder(reminders.findById('r-1')!, {
+      ...brokenDeps,
+      db: failingDb
+    })
 
-    expect(outcome.kind).toBe('rejected')
-    expect(portCalls).toBe(0)
+    expect(outcome.kind).toBe('send_failed')
+    if (outcome.kind === 'send_failed') {
+      expect(outcome.reason).toContain('提醒落库事务提交失败')
+      expect(outcome.reason).toContain('磁盘 I/O 错误或死锁')
+    }
   })
 })

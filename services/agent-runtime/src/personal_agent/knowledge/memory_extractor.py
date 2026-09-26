@@ -275,9 +275,13 @@ def is_transient_fact(fact: DistilledFact, client: Any | None = None) -> bool:
                     )
                 },
             )
-            is_transient = response.get("is_transient")
-            if isinstance(is_transient, str):
-                return is_transient.lower() == "true"
+            if hasattr(response, "answers") and "is_transient" in response.answers:
+                choice = response.answers["is_transient"].choice
+                return str(choice).lower() == "true"
+            if isinstance(response, dict):
+                is_transient = response.get("is_transient")
+                if is_transient is not None:
+                    return str(is_transient).lower() == "true"
         except Exception as err:  # noqa: BLE001
             logger.warning(
                 "[memory_extractor] TypeSafeClient 判定瞬时事实失败，降级为关键词规则: %s",
