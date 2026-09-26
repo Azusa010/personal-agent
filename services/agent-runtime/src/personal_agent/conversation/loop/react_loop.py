@@ -24,8 +24,12 @@ from personal_agent.conversation.model.gateway import (
 from personal_agent.conversation.verification.summary import (
     EXTRACT_PDF_CAPABILITY,
     SummaryRejected,
-    collect_extracted_pages,
+    collect_retrieved_evidence,
     verify_summary,
+)
+from personal_agent.knowledge.agentic_search import (
+    SEARCH_CAPABILITIES,
+    QueryLoopDetector,
 )
 from personal_agent.protocol.models import (
     HostExecuteToolParams,
@@ -76,12 +80,14 @@ class ReActLoop:
         context: ContextManager,
         budget: Budget,
         stream: StreamSink | None = None,
+        loop_detector: QueryLoopDetector | None = None,
     ) -> None:
         self._model = model
         self._channel = channel
         self._context = context
         self._budget = budget
         self._stream = stream
+        self._loop_detector = loop_detector or QueryLoopDetector()
 
     def run(
         self,
@@ -144,6 +150,39 @@ class ReActLoop:
                         "arguments": decision.arguments,
                     },
                 )
+
+                # 智能体化 RAG: 检索类能力连续死循环检测与反思拦截
+                if decision.capability in SEARCH_CAPABILITIES:
+                    query_arg = decision.arguments.get("query")
+                    if isinstance(query_arg, str) and query_arg.strip():
+                        is_loop, reflection = self._loop_detector.check_and_record(
+                            decision.capability, query_arg
+                        )
+                        if is_loop:
+                            synthetic_obs = Observation(
+                                callId=decision.callId,
+                                capability=decision.capability,
+                                ok=False,
+                                payload={
+                                    "warning": "query_loop_detected",
+                                    "reason": reflection
+                                    or "连续多次发起高度相似检索，请更换关键词或推进作答。",
+                                },
+                                arguments=decision.arguments,
+                            )
+                            self._emit(
+                                events,
+                                EVENT_TOOL_RESULT,
+                                {
+                                    "callId": synthetic_obs.callId,
+                                    "capability": synthetic_obs.capability,
+                                    "ok": synthetic_obs.ok,
+                                },
+                            )
+                            self._context.record(synthetic_obs)
+                            tool_calls_used += 1
+                            continue
+
                 try:
                     observation = self._execute(decision)
                 except HostRequestFailed as e:
@@ -169,10 +208,12 @@ class ReActLoop:
 
             elif isinstance(decision, SummaryDecision):
                 try:
+                    evidence = collect_retrieved_evidence(self._context.observations)
                     facts = verify_summary(
                         decision.facts,
-                        collect_extracted_pages(self._context.observations),
+                        evidence.pages,
                         require_page_refs=self._plan_requires_grounded_summary(),
+                        evidence=evidence,
                     )
                 except SummaryRejected as e:
                     return self._fail(events, e.reason, steps_used, tool_calls_used)

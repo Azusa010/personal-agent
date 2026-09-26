@@ -2,7 +2,6 @@ from personal_agent.knowledge.source_tagger import (
     UNTRUSTED_CONTENT_FOOTER,
     UNTRUSTED_CONTENT_HEADER,
     is_injection_suspicious,
-    sanitize_external_content,
     unwrap_external_content,
     wrap_external_content,
 )
@@ -95,3 +94,21 @@ def test_unwrap_external_content():
     wrapped = wrap_external_content(text, "chunk", "c-1")
     unwrapped = unwrap_external_content(wrapped)
     assert unwrapped == text
+
+
+def test_is_injection_suspicious_jev_client_mock():
+    from unittest.mock import MagicMock
+
+    # 1. 模拟 JEV 客户端判定为攻击 (yes)
+    mock_client = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.answers = {"injection_suspicious": MagicMock(choice="yes")}
+    mock_client.system_one.return_value = mock_resp
+
+    # 一段表面上没有关键词但由语义模型判定为注入的内容
+    assert is_injection_suspicious("某种语义上的潜在引导", client=mock_client) is True
+
+    # 2. 模拟 JEV 客户端判定为正常 (no)
+    mock_resp.answers = {"injection_suspicious": MagicMock(choice="no")}
+    assert is_injection_suspicious("正常普通的纯文本讨论", client=mock_client) is False
+

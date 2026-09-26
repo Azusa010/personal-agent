@@ -7,7 +7,7 @@
 import logging
 import os
 import re
-from typing import Final, Any
+from typing import Any, Final
 
 # 统一外部不可信内容边界标头与注脚
 UNTRUSTED_CONTENT_HEADER: Final[str] = (
@@ -35,7 +35,7 @@ INJECTION_OVERRIDE_PATTERNS: Final[list[re.Pattern[str]]] = [
         re.IGNORECASE,
     ),
     re.compile(
-        r"(忽略|无视|覆盖)\s*(先前|前文|以上|所有)\s*(指令|规则|要求|提示)",
+        r"(忽略|无视|覆盖)\s*(?:先前|前文|以上|所有|\s)*(指令|规则|要求|提示)",
         re.IGNORECASE,
     ),
     re.compile(r"(system|系统)\s*(prompt|指令|提示)\s*[:：]", re.IGNORECASE),
@@ -108,11 +108,6 @@ def is_injection_suspicious(text: str, client: Any | None = None) -> bool:
     if not text or not text.strip():
         return False
 
-    # TODO(你填)[边界与异常]: 实现 is_injection_suspicious 核心模式匹配与边界逃逸过滤
-    # 1. 遍历 CONTROL_TAG_PATTERNS，若任一正则匹配成功（search），返回 True
-    # 2. 遍历 INJECTION_OVERRIDE_PATTERNS，若任一正则匹配成功（search），返回 True
-    # 3. 检查文本中是否伪造了 UNTRUSTED_CONTENT_FOOTER 尝试逃逸，若含有且未转义，返回 True
-    # 4. 若以上均未命中，返回 False
     for pattern in CONTROL_TAG_PATTERNS:
         if pattern.search(text):
             return True

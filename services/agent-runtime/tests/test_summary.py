@@ -457,3 +457,70 @@ def test_collect_retrieved_evidence_combines_pdf_and_retrieval():
     evidence = collect_retrieved_evidence([p_obs, k_obs])
     assert evidence.pages == {1, 2}
     assert evidence.chunk_ids == {UUID(cid)}
+
+
+def test_verify_summary_valid_multi_source_refs():
+    cid = "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+    mid = "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e"
+    vuri = "viking://statute/133"
+    evidence = RetrievedEvidence(
+        pages=frozenset({1}),
+        chunk_ids=frozenset({UUID(cid)}),
+        memory_ids=frozenset({UUID(mid)}),
+        viking_uris=frozenset({vuri}),
+    )
+
+    facts = [
+        {
+            "text": "刑法第一百三十三条规定了交通肇事罪",
+            "pageRefs": [1],
+            "chunkRefs": [cid],
+            "memoryRefs": [mid],
+            "vikingRefs": [vuri],
+        }
+    ]
+    verified = verify_summary(facts, evidence.pages, evidence=evidence)
+    assert len(verified) == 1
+    assert verified[0].text == "刑法第一百三十三条规定了交通肇事罪"
+
+
+def test_verify_summary_rejects_missing_chunk_ref():
+    cid_real = "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+    cid_fake = "f1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+    evidence = RetrievedEvidence(
+        pages=frozenset({1}),
+        chunk_ids=frozenset({UUID(cid_real)}),
+    )
+    facts = [{"text": "法条事实", "pageRefs": [1], "chunkRefs": [cid_fake]}]
+    with pytest.raises(SummaryRejected, match="引用了不存在的知识块"):
+        verify_summary(facts, evidence.pages, evidence=evidence)
+
+
+def test_verify_summary_rejects_missing_memory_ref():
+    mid_real = "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e"
+    mid_fake = "c2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e"
+    evidence = RetrievedEvidence(
+        pages=frozenset({1}),
+        memory_ids=frozenset({UUID(mid_real)}),
+    )
+    facts = [{"text": "记忆事实", "pageRefs": [1], "memoryRefs": [mid_fake]}]
+    with pytest.raises(SummaryRejected, match="引用了不存在的用户记忆"):
+        verify_summary(facts, evidence.pages, evidence=evidence)
+
+
+def test_verify_summary_rejects_missing_viking_ref():
+    evidence = RetrievedEvidence(
+        pages=frozenset({1}),
+        viking_uris=frozenset({"viking://real"}),
+    )
+    facts = [{"text": "维基事实", "pageRefs": [1], "vikingRefs": ["viking://fake"]}]
+    with pytest.raises(SummaryRejected, match="引用了不存在的维基资源"):
+        verify_summary(facts, evidence.pages, evidence=evidence)
+
+
+def test_verify_summary_rejects_malformed_uuid_ref():
+    evidence = RetrievedEvidence(pages=frozenset({1}))
+    facts = [{"text": "格式错误事实", "pageRefs": [1], "chunkRefs": ["invalid-uuid"]}]
+    with pytest.raises(SummaryRejected, match="知识块引用不是合法 UUID"):
+        verify_summary(facts, evidence.pages, evidence=evidence)
+

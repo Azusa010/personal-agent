@@ -970,6 +970,14 @@ describe('executor：wrapExternalSource 通用防注入打标与转义', () => {
   it('正确包裹内容并带上标头与注脚', () => {
     const wrapped = wrapExternalSource('示例文本', '[BEGIN]', '[END]')
     expect(wrapped).toBe('[BEGIN]\n示例文本\n[END]')
+
+    const vikingWrapped = wrapExternalSource(
+      '维基内容',
+      VIKING_ISOLATION_HEADER,
+      VIKING_ISOLATION_FOOTER
+    )
+    expect(vikingWrapped).toContain(VIKING_ISOLATION_HEADER)
+    expect(vikingWrapped).toContain(VIKING_ISOLATION_FOOTER)
   })
 
   it('转义内容中伪造的闭合标头，防止逃逸', () => {

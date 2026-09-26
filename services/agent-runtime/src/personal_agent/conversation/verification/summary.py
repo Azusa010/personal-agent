@@ -128,13 +128,14 @@ def verify_summary(
     available_pages: frozenset[int],
     *,
     require_page_refs: bool = True,
+    evidence: RetrievedEvidence | None = None,
 ) -> list[SummaryFact]:
     if not facts:
         if require_page_refs:
             raise SummaryRejected("模型没有给出任何 fact，不构成完成证据")
         return []
     verified: list[SummaryFact] = []
-    for index, raw_fact in enumerate(facts,start=1):
+    for index, raw_fact in enumerate(facts, start=1):
         try:
             fact = SummaryFact.model_validate(raw_fact)
         except ValidationError as e:
@@ -149,6 +150,45 @@ def verify_summary(
                 f"第 {index} 条 fact 引用了不存在的页码 {missing[0]}"
                 f"{_page_scope_clause(available_pages)}"
             )
+
+        # 多源证据（知识块、用户记忆、维基）真实性核验
+        if evidence is not None:
+            chunk_refs = raw_fact.get("chunkRefs") or raw_fact.get("chunk_refs")
+            if chunk_refs:
+                for c_ref in chunk_refs:
+                    try:
+                        u = UUID(str(c_ref))
+                        if u not in evidence.chunk_ids:
+                            raise SummaryRejected(
+                                f"第 {index} 条 fact 引用了不存在的知识块 {c_ref}"
+                            )
+                    except (ValueError, TypeError):
+                        raise SummaryRejected(
+                            f"第 {index} 条 fact 的知识块引用不是合法 UUID: {c_ref}"
+                        )
+
+            memory_refs = raw_fact.get("memoryRefs") or raw_fact.get("memory_refs")
+            if memory_refs:
+                for m_ref in memory_refs:
+                    try:
+                        u = UUID(str(m_ref))
+                        if u not in evidence.memory_ids:
+                            raise SummaryRejected(
+                                f"第 {index} 条 fact 引用了不存在的用户记忆 {m_ref}"
+                            )
+                    except (ValueError, TypeError):
+                        raise SummaryRejected(
+                            f"第 {index} 条 fact 的用户记忆引用不是合法 UUID: {m_ref}"
+                        )
+
+            viking_refs = raw_fact.get("vikingRefs") or raw_fact.get("viking_refs")
+            if viking_refs:
+                for v_ref in viking_refs:
+                    if str(v_ref).strip() not in evidence.viking_uris:
+                        raise SummaryRejected(
+                            f"第 {index} 条 fact 引用了不存在的维基资源 {v_ref}"
+                        )
+
         verified.append(fact)
     return verified
 
