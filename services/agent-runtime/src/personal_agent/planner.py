@@ -24,6 +24,7 @@ class Planner(Protocol):
         history: Sequence[Turn] = (),
         on_thinking: ThinkingSink | None = None,
         profile: ProfileDto | None = None,
+        user_memories: Sequence[str] = (),
     ) -> list[PlanStep]:
         """按目标产出一份有序计划。
 
@@ -46,6 +47,7 @@ class DeterministicPlanner:
         history: Sequence[Turn] = (),
         on_thinking: ThinkingSink | None = None,
         profile: ProfileDto | None = None,
+        user_memories: Sequence[str] = (),
     ) -> list[PlanStep]:
         # 固定计划不思考：接住 sink 只为端口签名统一。
         return make_plan(goal, visibleCapabilities)

@@ -33,6 +33,7 @@ class ModelContext(BaseModel):
     profile: ProfileDto | None = None
     progressDocument: str | None = None
     statusBar: str | None = None
+    userMemories: list[str] = Field(default_factory=list)
 
 
 class ToolCallDecision(BaseModel):

@@ -76,6 +76,7 @@ class ContextManager:
         task_goal: str = "",
         max_window_chars: int | None = None,
         status_bar_manager: StatusBarManager | None = None,
+        user_memories: Sequence[str] = (),
     ) -> None:
         if maxCharsPerString < 1:
             raise ValueError(f"maxCharsPerString 必须 >= 1，收到 {maxCharsPerString}")
@@ -84,6 +85,7 @@ class ContextManager:
         self._observations: list[Observation] = []
         self._history: list[Turn] = list(history)
         self._profile = profile
+        self._user_memories: list[str] = list(user_memories)
         self._current_step: PlanStepDto | None = None
         self._step_observations: list[Observation] = []
         if max_window_chars is not None:
@@ -120,6 +122,13 @@ class ContextManager:
     @property
     def distiller(self) -> ObservationDistiller:
         return self._distiller
+
+    @property
+    def user_memories(self) -> list[str]:
+        return list(self._user_memories)
+
+    def set_user_memories(self, memories: Sequence[str]) -> None:
+        self._user_memories = list(memories)
 
     @property
     def observations(self) -> tuple[Observation, ...]:
@@ -270,4 +279,5 @@ class ContextManager:
             profile=self._profile,
             progressDocument=doc_content,
             statusBar=sb_text if sb_text else None,
+            userMemories=list(self._user_memories),
         )

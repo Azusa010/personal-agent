@@ -905,3 +905,76 @@ def test_knowledge_search_dispatch_success(monkeypatch):
     assert resp["result"]["chunks"][0]["rawText"] == "知识库与混合检索"
 
 
+def test_user_memory_search_invalid_params():
+    deps = RuntimeDeps(channel=StubChannel())
+    line = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": "ums-1",
+            "method": "user_memory.search",
+            "params": {"query": ""},
+        }
+    )
+    resp = handle_line(line, deps)
+    assert resp["error"]["code"] == "PROTOCOL_INVALID_REQUEST"
+
+
+def test_user_memory_search_dispatch_success(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from personal_agent.protocol.models import (
+        UserMemoryCard,
+        UserMemorySearchItem,
+        UserMemorySearchResult,
+    )
+
+    mock_card = UserMemoryCard(
+        id="c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c",
+        memoryType="semantic",
+        category="preference",
+        subject="饮食偏好",
+        content={"dietary": "vegetarian"},
+        validFrom="2026-09-20T12:00:00Z",
+        createdAt="2026-09-20T12:00:00Z",
+        updatedAt="2026-09-24T10:00:00Z",
+    )
+
+    mock_result = UserMemorySearchResult(
+        ok=True,
+        query="饮食偏好",
+        totalFound=1,
+        items=[
+            UserMemorySearchItem(
+                card=mock_card,
+                score=0.95,
+                denseRank=1,
+                sparseRank=1,
+                matchedText="饮食偏好: dietary = vegetarian",
+            )
+        ],
+    )
+
+    class FakeRetriever:
+        search = AsyncMock(return_value=mock_result)
+
+    monkeypatch.setattr(
+        "personal_agent.knowledge.retriever.UserMemoryRetriever", FakeRetriever
+    )
+
+    deps = RuntimeDeps(channel=StubChannel())
+    line = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": "ums-2",
+            "method": "user_memory.search",
+            "params": {"query": "饮食偏好", "topK": 5},
+        }
+    )
+    resp = handle_line(line, deps)
+    assert resp["result"]["ok"] is True
+    assert resp["result"]["totalFound"] == 1
+    assert resp["result"]["items"][0]["matchedText"] == "饮食偏好: dietary = vegetarian"
+    assert resp["result"]["items"][0]["card"]["subject"] == "饮食偏好"
+
+
+

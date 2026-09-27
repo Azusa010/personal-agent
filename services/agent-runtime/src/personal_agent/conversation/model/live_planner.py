@@ -51,20 +51,29 @@ PLAN_OUTPUT_SCHEMA: dict[str, Any] = PLAN_OUTPUT_ADAPTER.json_schema()
 
 
 def render_plan_input(
-    goal: str, visibleCapabilities: Sequence[str], history: Sequence[Turn] = ()
+    goal: str,
+    visibleCapabilities: Sequence[str],
+    history: Sequence[Turn] = (),
+    user_memories: Sequence[str] = (),
 ) -> str:
     """把目标与可用能力渲染成一次规划请求的输入文本。
 
     只列 visibleCapabilities 里的能力（Scope 外的能力不下发给模型）——与
     live_model.render_input 同一条规矩。
     """
-    lines = [f"目标：{goal}", "", "可用能力："]
+    lines: list[str] = []
     if history:
         lines.append("之前的对话（供理解本轮目标中的指代）：")
         for turn in history:
             lines.append(f"[{turn.role}] {turn.text}")
         lines.append("")
-    lines.extend([f"目标：{goal}", "", "可用能力："])
+    lines.append(f"目标：{goal}")
+    if user_memories:
+        lines.append("")
+        lines.append("【相关用户记忆与偏好】：")
+        for mem in user_memories:
+            lines.append(f"- {mem}")
+    lines.extend(["", "可用能力："])
     visible = [c for c in visibleCapabilities if c in TOOL_SPECS]
     if visible:
         lines.append("<available_capabilities>")
@@ -134,6 +143,7 @@ class LivePlanner:
         history: Sequence[Turn] = (),
         on_thinking: ThinkingSink | None = None,
         profile: ProfileDto | None = None,
+        user_memories: Sequence[str] = (),
     ):
         client = self._client_or_create()
         text: ResponseTextConfigParam = {
@@ -151,12 +161,18 @@ class LivePlanner:
             else self._reasoning_summary
         )
         streamed_chunks = 0
+        plan_input = render_plan_input(
+            goal=goal,
+            visibleCapabilities=visibleCapabilities,
+            history=history,
+            user_memories=user_memories,
+        )
         try:
             if enable_reasoning:
                 with client.responses.stream(
                     model=self._model,
                     instructions=instructions,
-                    input=render_plan_input(goal, visibleCapabilities, history),
+                    input=plan_input,
                     text=text,
                     store=False,
                     reasoning={"summary": "auto"},
@@ -177,7 +193,7 @@ class LivePlanner:
                 response = client.responses.create(
                     model=self._model,
                     instructions=instructions,
-                    input=render_plan_input(goal, visibleCapabilities, history),
+                    input=plan_input,
                     text=text,
                     store=False,
                 )

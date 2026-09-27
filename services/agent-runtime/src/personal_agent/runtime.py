@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 from pydantic import ValidationError
 
+from personal_agent.conversation.sidecar import intercept_query_memories
 from personal_agent.engine import Budget
 from personal_agent.host_channel import HostChannel
 from personal_agent.live_model import LIVE_MODEL_ENV, LiveModel
@@ -30,6 +31,7 @@ from personal_agent.protocol.models import (
     RunTaskParams,
     RunWorkflowParams,
     ServerInfo,
+    UserMemorySearchParams,
 )
 from personal_agent.scripted_model import ScriptedModel, ScriptLoadError, load_script
 from personal_agent.strategy import (
@@ -68,6 +70,7 @@ WORKFLOW_NOT_FOUND = "WORKFLOW_NOT_FOUND"
 
 KNOWLEDGE_SEARCH = "knowledge.search"
 
+USER_MEMORY_SEARCH = "user_memory.search"
 
 WORKFLOW_REGISTRY: dict[str, Callable[[Sequence[str]], WorkflowDefinition]] = {
     "golden_path": build_golden_path_workflow,
@@ -132,7 +135,9 @@ def dispatch(raw, deps: RuntimeDeps | None = None) -> dict:
 
     if req.method == KNOWLEDGE_SEARCH:
         return handle_knowledge_search(req, deps)
-
+    
+    if req.method == USER_MEMORY_SEARCH:
+        return handle_user_memory_search(req, deps)
     return build_error(
         req_id=req.id, code="METHOD_NOT_FOUND", message=f"未知方法:{req.method}"
     )
@@ -182,27 +187,19 @@ def handle_make_plan(req: Request, deps: RuntimeDeps | None = None) -> dict:
     visible = [c.name for c in deps.capabilities] if deps is not None else []
     planner = deps.planner_factory() if deps is not None else DeterministicPlanner()
     emitter = _stream_emitter(deps, params.taskId)
+    memories = intercept_query_memories(params.goal)
     try:
-        if emitter is None:
-            if params.profile is not None:
-                steps = planner.plan(
-                    params.goal, visible, params.history, profile=params.profile
-                )
-            else:
-                steps = planner.plan(params.goal, visible, params.history)
-        else:
-            if params.profile is not None:
-                steps = planner.plan(
-                    params.goal,
-                    visible,
-                    params.history,
-                    emitter.thinking,
-                    profile=params.profile,
-                )
-            else:
-                steps = planner.plan(
-                    params.goal, visible, params.history, emitter.thinking
-                )
+        import inspect
+
+        sig = inspect.signature(planner.plan)
+        kwargs = {}
+        if "on_thinking" in sig.parameters and emitter is not None:
+            kwargs["on_thinking"] = emitter.thinking
+        if "profile" in sig.parameters and params.profile is not None:
+            kwargs["profile"] = params.profile
+        if "user_memories" in sig.parameters and memories:
+            kwargs["user_memories"] = memories
+        steps = planner.plan(params.goal, visible, params.history, **kwargs)
     except PlanError as e:
         return build_error(req.id, PLAN_NOT_BUILDABLE, str(e))
     except ModelCallFailed as e:
@@ -233,6 +230,7 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
 
     visible_capabilities = [c.name for c in deps.capabilities]
     emitter = _stream_emitter(deps, params.taskId)
+    memories = intercept_query_memories(params.goal)
     try:
         outcome = deps.strategy.execute(
             model=deps.model_factory(),
@@ -245,6 +243,7 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
             budget=Budget(),
             stream=emitter,
             planner=deps.planner_factory(),
+            user_memories=memories,
         )
     except Exception:
         log.exception("agent.run_task 未预期异常 (id=%s)", req.id)
@@ -320,6 +319,28 @@ def handle_knowledge_search(req: Request, deps: RuntimeDeps | None = None) -> di
         log.exception("knowledge.search 执行异常 (id=%s)", req.id)
         return build_error(req.id, "RUNTIME_INTERNAL", f"知识库检索执行失败: {exc}")
 
+def handle_user_memory_search(req: Request, deps: RuntimeDeps | None = None) -> dict:
+    """处理来自 Host 的 user_memory.search 请求，调用 UserMemoryRetriever。"""
+    try:
+        params = UserMemorySearchParams.model_validate(req.params)
+    except ValidationError:
+        return build_error(
+            req.id, "PROTOCOL_INVALID_REQUEST", "user_memory.search 参数不符合契约"
+        )
+
+    try:
+        from personal_agent.knowledge.retriever import UserMemoryRetriever
+
+        retriever = UserMemoryRetriever()
+        result = asyncio.run(retriever.search(params))
+        return Response(
+            jsonrpc="2.0",
+            id=req.id,
+            result=result.model_dump(exclude_none=True),
+        ).model_dump(exclude_none=True)
+    except Exception as exc:
+        log.exception("user_memory.search 执行异常 (id=%s)", req.id)
+        return build_error(req.id, "RUNTIME_INTERNAL", f"用户记忆检索执行失败: {exc}")
 
 # ====== I/O 层 ========
 def write(msg: dict) -> None:

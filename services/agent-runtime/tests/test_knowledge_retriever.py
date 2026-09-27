@@ -66,3 +66,72 @@ def test_fuse_rrf_scoring_and_ranking():
     # 检查第二、三名
     other_ids = {fused[1].id, fused[2].id}
     assert other_ids == {"ca", "cb"}
+
+
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from personal_agent.knowledge.retriever import UserMemoryRetriever
+from personal_agent.protocol.models import (
+    UserMemoryCard,
+    UserMemorySearchItem,
+    UserMemorySearchParams,
+)
+
+
+@pytest.mark.asyncio
+async def test_user_memory_retriever_search_flow():
+    """验证 UserMemoryRetriever 能够正确调用 search_memories_hybrid 并打包结果。"""
+    mock_card = UserMemoryCard(
+        id="c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c",
+        memoryType="semantic",
+        category="preference",
+        subject="咖啡习惯",
+        content={"favorite": "latte"},
+        validFrom="2026-09-20T12:00:00Z",
+        createdAt="2026-09-20T12:00:00Z",
+        updatedAt="2026-09-24T10:00:00Z",
+    )
+    mock_items = [
+        UserMemorySearchItem(
+            card=mock_card,
+            score=0.9,
+            denseRank=1,
+            sparseRank=1,
+            matchedText="咖啡习惯: favorite = latte",
+        )
+    ]
+
+    class FakeEmbedder:
+        async def embed_query(self, text: str):
+            class Out:
+                dense = [0.1] * 1024
+
+            return Out()
+
+    fake_pool = object()
+    retriever = UserMemoryRetriever(pool=fake_pool, embedder=FakeEmbedder())
+
+    with patch(
+        "personal_agent.knowledge.memory_repository.search_memories_hybrid",
+        new_callable=AsyncMock,
+    ) as mock_search:
+        mock_search.return_value = mock_items
+
+        params = UserMemorySearchParams(query="咖啡", topK=5)
+        res = await retriever.search(params)
+
+        assert res.ok is True
+        assert res.totalFound == 1
+        assert res.query == "咖啡"
+        assert len(res.items) == 1
+        assert res.items[0].card.subject == "咖啡习惯"
+        mock_search.assert_awaited_once_with(
+            pool=fake_pool,
+            query_text="咖啡",
+            dense_vector=[0.1] * 1024,
+            params=params,
+            limit=5,
+        )
+

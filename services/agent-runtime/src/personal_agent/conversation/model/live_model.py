@@ -172,9 +172,14 @@ def render_messages(context: ModelContext) -> list[dict[str, Any]]:
     # 3. 本轮信息
     user_lines = [
         f"任务目标：{context.taskGoal}",
-        "",
-        "本轮计划（按顺序执行，不跳步、不加步）：",
     ]
+    if context.userMemories:
+        user_lines.append("")
+        user_lines.append("【相关用户记忆与偏好】：")
+        for mem in context.userMemories:
+            user_lines.append(f"- {mem}")
+    user_lines.append("")
+    user_lines.append("本轮计划（按顺序执行，不跳步、不加步）：")
     if not context.plan:
         user_lines.append("（空）")
     else:
@@ -630,6 +635,11 @@ def render_input(context: ModelContext) -> str:
             lines.append(f"[{turn.role}] {turn.text}")
         lines.append("")
     lines.append(f"任务目标：{context.taskGoal}")
+    if context.userMemories:
+        lines.append("")
+        lines.append("【相关用户记忆与偏好】：")
+        for mem in context.userMemories:
+            lines.append(f"- {mem}")
     lines.append("")
     lines.append("本轮计划（按顺序执行，不跳步、不加步）：")
     if not context.plan:

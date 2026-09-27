@@ -16,6 +16,7 @@ from personal_agent.conversation.model.gateway import (
     ModelUsage,  # noqa: F401
     UsageReporting,
 )
+from personal_agent.conversation.sidecar import intercept_query_memories
 from personal_agent.planner import Planner
 from personal_agent.protocol.models import (
     PlanStepDto,
@@ -58,6 +59,7 @@ class AgentStrategy(Protocol):
         budget: Budget,
         stream: StreamSink | None,
         planner: Planner | None = None,
+        user_memories: Sequence[str] = (),
     ) -> RunTaskCompleted | RunTaskFailed: ...
 
 
@@ -76,12 +78,14 @@ class ClassicStrategy:
         budget: Budget,
         stream: StreamSink | None,
         planner: Planner | None = None,
+        user_memories: Sequence[str] = (),
     ) -> RunTaskCompleted | RunTaskFailed:
         context = ContextManager(
             plan=plan,
             history=history,
             profile=profile,
             task_goal=goal,
+            user_memories=user_memories,
         )
         engine = AgentEngine(
             model=model,
@@ -124,12 +128,15 @@ class ReActStrategy:
         budget: Budget,
         stream: StreamSink | None,
         planner: Planner | None = None,
+        user_memories: Sequence[str] = (),
     ) -> RunTaskCompleted | RunTaskFailed:
+        mems = list(user_memories) if user_memories else intercept_query_memories(goal)
         context = ContextManager(
             plan=plan,
             history=history,
             profile=profile,
             task_goal=goal,
+            user_memories=mems,
         )
         loop = ReActLoop(
             model=model,
@@ -174,12 +181,15 @@ class PlanAndExecuteStrategy:
         budget: Budget,
         stream: StreamSink | None,
         planner: Planner | None = None,
+        user_memories: Sequence[str] = (),
     ) -> RunTaskCompleted | RunTaskFailed:
+        mems = list(user_memories) if user_memories else intercept_query_memories(goal)
         context = ContextManager(
             plan=plan,
             history=history,
             profile=profile,
             task_goal=goal,
+            user_memories=mems,
         )
         total_steps = 0
         total_tools = 0

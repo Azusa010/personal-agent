@@ -7,6 +7,8 @@
    并保留 raw_output_path 让主 Agent 明确知晓可按需深挖，同时在执行轨迹中完整保留。
 """
 
+import asyncio
+import concurrent.futures
 import json
 import logging
 import os
@@ -169,6 +171,8 @@ def filter_relevant_memories(
         for cand in candidates:
             cand_text = extract_candidate_text(cand)
             score = compute_heuristic_relevance(goal, cand_text)
+            if score == 0.0 and isinstance(cand, dict) and cand.get("retriever_score"):
+                score = round(float(cand["retriever_score"]) * 60.0, 1)
             scored_candidates.append((score, cand))
     scored_memories:list[tuple[float, dict]] = []
     for score, cand in scored_candidates:
@@ -239,6 +243,159 @@ def enrich_working_memory_persona(
 
     parts = [p for p in (prefix, reconstructed_block, suffix) if p]
     return "\n\n".join(parts)
+
+
+CATEGORY_TAG_MAP: dict[str, str] = {
+    "identity": "身份画像",
+    "preference": "个人偏好",
+    "routine": "流程惯例",
+    "event": "重要情景",
+    "skill": "技能经验",
+    "general": "通用事实",
+    "relationship": "人际关系",
+    "work": "工作背景",
+}
+
+
+def format_memory_entry(card: Any) -> str:
+    """将单条 UserMemoryCard 或记忆字典格式化为易读的文本提示词条目。"""
+    if isinstance(card, str):
+        return card
+    category = (
+        getattr(card, "category", "")
+        or (card.get("category", "") if isinstance(card, dict) else "")
+        or "通用"
+    )
+    tag = CATEGORY_TAG_MAP.get(category, category)
+    subject = (
+        getattr(card, "subject", "")
+        or (card.get("subject", "") if isinstance(card, dict) else "")
+        or "未命名事实"
+    )
+    content = getattr(card, "content", None) or (
+        card.get("content", "") if isinstance(card, dict) else ""
+    )
+    if isinstance(content, dict):
+        content_str = ", ".join(f"{k}: {v}" for k, v in content.items())
+    elif isinstance(content, str):
+        content_str = content
+    else:
+        content_str = str(content)
+
+    person = getattr(card, "person", None) or (
+        card.get("person", None) if isinstance(card, dict) else None
+    )
+    person_suffix = f" (关联人: {person})" if person and person != "本人" else ""
+    return f"[{tag}] {subject}: {content_str}{person_suffix}"
+
+
+def enrich_query_memories(
+    query: str,
+    candidates: list[dict[str, Any]] | list[str] | None = None,
+    retriever: Any | None = None,
+    threshold: float = DEFAULT_MEMORY_RELEVANCE_THRESHOLD,
+    top_k: int = DEFAULT_MEMORY_TOP_K,
+    client: Any | None = None,
+) -> list[str]:
+    """在用户发送 query 时拦截请求，通过 Sidecar 检索并显式调用 filter_relevant_memories 精选黄金记忆。
+
+    处理链路：
+    1. 候选收集：优先使用传入的 candidates；若未提供，则尝试调用 UserMemoryRetriever 从数据库混合召回。
+    2. Sidecar 精选 (核心)：显式调用 filter_relevant_memories 进行多维评分与降噪，淘汰低于 threshold 的低分/闲聊条目。
+    3. 格式化输出：将保留的高分黄金记忆转换为标准文本行返回，供注入 ModelContext.userMemories。
+    """
+    if not query or not query.strip():
+        return []
+
+    try:
+        raw_candidates: list[dict[str, Any]] | list[str] = []
+        if candidates is not None:
+            raw_candidates = list(candidates)
+        else:
+            if retriever is None:
+                import socket
+
+                from personal_agent.db.postgres import get_postgres_config
+
+                cfg = get_postgres_config()
+                try:
+                    with socket.create_connection(
+                        (cfg["host"], cfg["port"]), timeout=0.05
+                    ):
+                        pass
+                except OSError:
+                    return []
+
+            from personal_agent.knowledge.retriever import UserMemoryRetriever
+            from personal_agent.protocol.models import UserMemorySearchParams
+
+            mem_retriever = retriever or UserMemoryRetriever()
+            # 召回阶段放宽 topK (如 10 条) 供 Sidecar 精选
+            params = UserMemorySearchParams(query=query.strip(), topK=max(top_k * 3, 10))
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop and loop.is_running():
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    res = executor.submit(
+                        lambda: asyncio.run(mem_retriever.search(params))
+                    ).result()
+            else:
+                res = asyncio.run(mem_retriever.search(params))
+
+            if not res or not res.items:
+                return []
+
+            for item in res.items:
+                if hasattr(item, "card") and item.card:
+                    c = item.card
+                    raw_candidates.append({
+                        "id": getattr(c, "id", ""),
+                        "category": getattr(c, "category", ""),
+                        "subject": getattr(c, "subject", ""),
+                        "content": format_memory_entry(c),
+                        "retriever_score": getattr(item, "score", None),
+                        "raw_card": c,
+                    })
+                elif hasattr(item, "matchedText") and item.matchedText:
+                    raw_candidates.append(str(item.matchedText))
+
+        if not raw_candidates:
+            return []
+
+        # 核心：必须调用 filter_relevant_memories 进行多维打分、降噪与 Top-K 截断
+        filtered = filter_relevant_memories(
+            goal=query.strip(),
+            candidates=raw_candidates,
+            threshold=threshold,
+            top_k=top_k,
+            client=client,
+        )
+
+        formatted: list[str] = []
+        for item in filtered:
+            if isinstance(item, str):
+                formatted.append(item)
+            elif isinstance(item, dict):
+                if item.get("content"):
+                    formatted.append(str(item["content"]))
+                elif item.get("raw_card"):
+                    formatted.append(format_memory_entry(item["raw_card"]))
+                else:
+                    formatted.append(format_memory_entry(item))
+            else:
+                formatted.append(format_memory_entry(item))
+
+        return formatted
+    except Exception as err:  # noqa: BLE001
+        log.warning("Sidecar 记忆检索与精选异常，降级为空列表: %s", err)
+        return []
+
+
+intercept_query_memories = enrich_query_memories
 
 
 def compact_and_persist_observation(

@@ -18,6 +18,8 @@ from personal_agent.protocol.models import (
     KnowledgeChunkItem,
     KnowledgeSearchParams,
     KnowledgeSearchResult,
+    UserMemorySearchParams,
+    UserMemorySearchResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -263,4 +265,52 @@ class HybridRetriever:
             query=params.query,
             totalFound=len(chunk_items),
             chunks=chunk_items,
+        )
+
+class UserMemoryRetriever:
+    """用户记忆混合检索器（检索层 L2）。"""
+
+    def __init__(
+        self,
+        pool: asyncpg.Pool | None = None,
+        embedder: BaseEmbedder | None = None,
+    ):
+        self._pool = pool
+        self.embedder = embedder or get_embedder()
+
+    async def _get_pool(self) -> asyncpg.Pool:
+        if self._pool is None:
+            self._pool = await get_pg_pool()
+        return self._pool
+
+    async def search(
+        self,
+        params: UserMemorySearchParams,
+    ) -> UserMemorySearchResult:
+        pool = await self._get_pool()
+        dense_vector: list[float] | None = None
+        try:
+            emb_output = await self.embedder.embed_query(params.query)
+            dense_vector = emb_output.dense
+        except Exception as e:  # noqa: BLE001
+            logger.warning("用户记忆查询向量生成失败，降级为纯全文检索: %s", e)
+
+        from personal_agent.knowledge.memory_repository import search_memories_hybrid
+
+        items = await search_memories_hybrid(
+            pool=pool,
+            query_text=params.query,
+            dense_vector=dense_vector,
+            params=params,
+            limit=params.topK,
+        )
+
+        if params.minScore is not None:
+            items = [item for item in items if item.score >= params.minScore]
+
+        return UserMemorySearchResult(
+            ok=True,
+            query=params.query,
+            totalFound=len(items),
+            items=items,
         )
