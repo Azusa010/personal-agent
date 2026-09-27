@@ -9,6 +9,7 @@
 """
 
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from personal_agent.context import ContextManager
@@ -353,5 +354,65 @@ def test_react_loop_with_sidecar_escalate_halts():
     assert outcome.kind == "failed"
     assert "高风险操作需人工审批" in (outcome.reason or "")
     assert len(channel.calls) == 0
+
+
+def test_react_loop_with_sidecar_compaction_and_persistence():
+    """场景：工具执行返回超长输出（>1200 字符），自动落盘本地临时文件，轨迹事件记录 rawOutputPath，上下文记录精简 Observation。"""
+    mock_llm = MagicMock()
+    mock_llm.compact_observation.return_value = MagicMock(
+        summary="提取了大量表格数据",
+        keyFacts=["共 1500 行"],
+        originalChars=2000,
+        compactedChars=80,
+    )
+
+    huge_content = "DATA_" * 400
+    huge_result = {
+        "ok": True,
+        "content": huge_content,
+    }
+
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId="call-huge",
+            capability="terminal_execute",
+            arguments={"cmd": "dump.sh"},
+        ),
+        SummaryDecision(
+            kind="summary",
+            reply="任务完成",
+            facts=[],
+        ),
+    ]
+    channel = FakeChannel([huge_result])
+    model = ScriptedModel(decisions)
+    context = ContextManager(plan=())
+    loop = ReActLoop(
+        model=model,
+        channel=channel,
+        context=context,
+        budget=Budget(maxSteps=5, maxToolCalls=3),
+        sidecar_llm=mock_llm,
+    )
+
+    outcome = loop.run("导出长数据", ["terminal_execute"])
+
+    assert outcome.kind == "completed"
+    # 验证上下文中的 Observation 是精炼后的且携带 raw_output_path
+    obs = context.observations[0]
+    assert obs.payload.get("compacted") is True
+    assert obs.payload.get("summary") == "提取了大量表格数据"
+    raw_path = obs.payload.get("raw_output_path")
+    assert raw_path is not None
+    assert Path(raw_path).exists()
+    assert huge_content in Path(raw_path).read_text(encoding="utf-8")
+
+    # 验证轨迹事件中的 EVENT_TOOL_RESULT 记录了 rawOutputPath
+    tool_res_events = [e for e in outcome.events if e.type == "tool_result"]
+    assert len(tool_res_events) == 1
+    assert tool_res_events[0].payload.get("compacted") is True
+    assert tool_res_events[0].payload.get("rawOutputPath") == raw_path
+
 
 

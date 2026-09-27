@@ -25,6 +25,7 @@ from personal_agent.conversation.sidecar import (
     RejectionCircuitBreaker,
     SidecarLlmClient,
     StreamBarrier,
+    compact_and_persist_observation,
     evaluate_sidecar_gate,
 )
 from personal_agent.conversation.verification.summary import (
@@ -271,14 +272,25 @@ class ReActLoop:
                         steps_used,
                         tool_calls_used,
                     )
+                # Sidecar 超长工具输出动态压缩与本地临时文件落盘
+                observation, raw_output_path = compact_and_persist_observation(
+                    observation=observation,
+                    sidecar_llm=self._sidecar_llm,
+                )
+
+                tool_result_payload = {
+                    "callId": observation.callId,
+                    "capability": observation.capability,
+                    "ok": observation.ok,
+                }
+                if raw_output_path is not None:
+                    tool_result_payload["rawOutputPath"] = str(raw_output_path)
+                    tool_result_payload["compacted"] = True
+
                 self._emit(
                     events,
                     EVENT_TOOL_RESULT,
-                    {
-                        "callId": observation.callId,
-                        "capability": observation.capability,
-                        "ok": observation.ok,
-                    },
+                    tool_result_payload,
                 )
                 self._context.record(observation)
                 tool_calls_used += 1

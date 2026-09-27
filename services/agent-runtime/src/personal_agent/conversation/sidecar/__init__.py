@@ -16,6 +16,10 @@ from personal_agent.conversation.sidecar.classifier import (
     JevSafetyClassifier,
     classify_heuristic,
 )
+from personal_agent.conversation.sidecar.enricher import (
+    compact_and_persist_observation,
+    filter_relevant_memories,
+)
 from personal_agent.conversation.sidecar.gating import (
     SidecarGateResult,
     evaluate_sidecar_gate,
@@ -30,5 +34,7 @@ __all__ = [
     "SidecarLlmClient",
     "StreamBarrier",
     "classify_heuristic",
+    "compact_and_persist_observation",
     "evaluate_sidecar_gate",
+    "filter_relevant_memories",
 ]
