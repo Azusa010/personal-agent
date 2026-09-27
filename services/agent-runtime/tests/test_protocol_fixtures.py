@@ -70,6 +70,8 @@ from personal_agent.protocol.models import (
     VikingReadL2Result,
     VikingWriteL2Params,
     VikingWriteL2Result,
+    WebSearchParams,
+    WebSearchResult,
 )
 
 FIXTURES_DIR = (
@@ -330,6 +332,25 @@ def _pick(raw: dict, path: str):
             "host-skill-read.response.json",
             HostExecuteToolResponse,
             SkillReadResult,
+            "result",
+        ),
+        # web_search (Tavily)
+        (
+            "host-web-search.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-web-search.request.json",
+            HostExecuteToolRequest,
+            WebSearchParams,
+            "params.arguments",
+        ),
+        (
+            "host-web-search.response.json",
+            HostExecuteToolResponse,
+            WebSearchResult,
             "result",
         ),
         # knowledge_search (Phase 3)

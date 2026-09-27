@@ -1,0 +1,15 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-web-search-1",
+    "capability": "web_search",
+    "arguments": {
+      "query": "PersonalAgent architecture",
+      "maxResults": 5,
+      "searchDepth": "basic",
+      "includeAnswer": true
+    }
+  }
+}

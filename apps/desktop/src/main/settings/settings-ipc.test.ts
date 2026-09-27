@@ -21,6 +21,7 @@ const SECRET = 'sk-secret-key-0123456789'
 const TS_SECRET = 'ts-secret-key-0123456789'
 const MINERU_SECRET = 'mineru-secret-key-0123456789'
 const PG_SECRET = 'pg-password-123'
+const TVLY_SECRET = 'tvly-secret-key-0123456789'
 
 const SAVED: ModelSettings = {
   model: 'gpt-4o-mini',
@@ -42,7 +43,9 @@ const SAVED: ModelSettings = {
   postgresUser: 'postgres',
   postgresPassword: PG_SECRET,
   postgresDatabase: 'personal_agent',
-  vikingStoreRoot: '/data/viking_store'
+  vikingStoreRoot: '/data/viking_store',
+  tavilyApiKey: TVLY_SECRET,
+  tavilyEndpoint: 'https://api.tavily.com/search'
 }
 
 interface FakeOptions {
@@ -102,7 +105,9 @@ describe('getModelSettingsView', () => {
         postgresUser: null,
         postgresPasswordSet: false,
         postgresDatabase: null,
-        vikingStoreRoot: null
+        vikingStoreRoot: null,
+        tavilyApiKeySet: false,
+        tavilyEndpoint: null
       }
     })
   })
@@ -134,7 +139,9 @@ describe('getModelSettingsView', () => {
       postgresUser: 'postgres',
       postgresPasswordSet: true,
       postgresDatabase: 'personal_agent',
-      vikingStoreRoot: '/data/viking_store'
+      vikingStoreRoot: '/data/viking_store',
+      tavilyApiKeySet: true,
+      tavilyEndpoint: 'https://api.tavily.com/search'
     })
   })
 
@@ -148,6 +155,7 @@ describe('getModelSettingsView', () => {
     expect(JSON.stringify(result)).not.toContain(TS_SECRET)
     expect(JSON.stringify(result)).not.toContain(MINERU_SECRET)
     expect(JSON.stringify(result)).not.toContain(PG_SECRET)
+    expect(JSON.stringify(result)).not.toContain(TVLY_SECRET)
   })
 
   it('只存了 model、没存 Key → apiKeySet 和 typesafeApiKeySet 为 false', () => {
@@ -350,7 +358,9 @@ describe('setModelSettings: 合并语义', () => {
       postgresUser: null,
       postgresPassword: null,
       postgresDatabase: null,
-      vikingStoreRoot: null
+      vikingStoreRoot: null,
+      tavilyApiKey: null,
+      tavilyEndpoint: null
     })
   })
 
@@ -415,6 +425,27 @@ describe('setModelSettings: 合并语义', () => {
 
     await setModelSettings({ contextWindow: null }, deps)
     expect(store.save).toHaveBeenCalledWith({ ...SAVED, contextWindow: null })
+  })
+
+  it('tavilyApiKey 与 tavilyEndpoint 可以更新或清除', async () => {
+    const { deps, store } = fakeDeps({ current: SAVED })
+
+    await setModelSettings(
+      { tavilyApiKey: 'new-tvly-key', tavilyEndpoint: 'https://custom.tavily.com' },
+      deps
+    )
+    expect(store.save).toHaveBeenCalledWith({
+      ...SAVED,
+      tavilyApiKey: 'new-tvly-key',
+      tavilyEndpoint: 'https://custom.tavily.com'
+    })
+
+    await setModelSettings({ clearTavilyApiKey: true, tavilyEndpoint: null }, deps)
+    expect(store.save).toHaveBeenCalledWith({
+      ...SAVED,
+      tavilyApiKey: null,
+      tavilyEndpoint: null
+    })
   })
 })
 

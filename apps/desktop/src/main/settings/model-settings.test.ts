@@ -33,6 +33,8 @@ import {
   SCRIPT_ENV_KEY,
   SETTINGS_VERSION,
   SettingsSaveError,
+  TAVILY_API_KEY_ENV_KEY,
+  TAVILY_ENDPOINT_ENV_KEY,
   TYPESAFE_API_KEY_ENV_KEY,
   TYPESAFE_BASE_URL_ENV_KEY,
   TYPESAFE_MODEL_ENV_KEY,
@@ -101,7 +103,9 @@ describe('model-settings: 读写往返', () => {
       postgresUser: 'postgres',
       postgresPassword: 'pg-password-123',
       postgresDatabase: 'personal_agent',
-      vikingStoreRoot: '/data/viking_store'
+      vikingStoreRoot: '/data/viking_store',
+      tavilyApiKey: 'tvly-secret-123',
+      tavilyEndpoint: 'https://api.tavily.com/search'
     }
 
     saveModelSettings(settings, { filePath, codec: fakeCodec() })
@@ -112,6 +116,7 @@ describe('model-settings: 读写往返', () => {
   it('Key 只以密文落盘：文件里搜不到明文（SEC-008）', () => {
     const tsSecret = 'ts-secret-456'
     const mineruSecret = 'mineru-secret-789'
+    const tvlySecret = 'tvly-secret-abc'
     saveModelSettings(
       {
         model: null,
@@ -123,7 +128,8 @@ describe('model-settings: 读写往返', () => {
         typesafeBaseUrl: null,
         contextWindow: null,
         mineruApiUrl: 'https://mineru.example.com/api/v4',
-        mineruApiKey: mineruSecret
+        mineruApiKey: mineruSecret,
+        tavilyApiKey: tvlySecret
       },
       { filePath, codec: fakeCodec() }
     )
@@ -132,12 +138,14 @@ describe('model-settings: 读写往返', () => {
     expect(raw).not.toContain(SECRET)
     expect(raw).not.toContain(tsSecret)
     expect(raw).not.toContain(mineruSecret)
+    expect(raw).not.toContain(tvlySecret)
     expect(JSON.parse(raw)).toMatchObject({
       version: SETTINGS_VERSION,
       apiKeyEncrypted: `enc:${Buffer.from(SECRET, 'utf8').toString('base64')}`,
       typesafeApiKeyEncrypted: `enc:${Buffer.from(tsSecret, 'utf8').toString('base64')}`,
       mineruApiKeyEncrypted: `enc:${Buffer.from(mineruSecret, 'utf8').toString('base64')}`,
       mineruApiUrl: 'https://mineru.example.com/api/v4',
+      tavilyApiKeyEncrypted: `enc:${Buffer.from(tvlySecret, 'utf8').toString('base64')}`,
       apiProtocol: null
     })
   })
@@ -154,7 +162,9 @@ describe('model-settings: 读写往返', () => {
         typesafeBaseUrl: '   ',
         contextWindow: null,
         mineruApiUrl: '   ',
-        mineruApiKey: '  '
+        mineruApiKey: '  ',
+        tavilyApiKey: '   ',
+        tavilyEndpoint: '  '
       },
       { filePath, codec: fakeCodec() }
     )
@@ -179,7 +189,9 @@ describe('model-settings: 读写往返', () => {
       postgresUser: null,
       postgresPassword: null,
       postgresDatabase: null,
-      vikingStoreRoot: null
+      vikingStoreRoot: null,
+      tavilyApiKey: null,
+      tavilyEndpoint: null
     })
   })
 
@@ -215,7 +227,9 @@ describe('model-settings: 读写往返', () => {
       postgresUser: null,
       postgresPassword: null,
       postgresDatabase: null,
-      vikingStoreRoot: null
+      vikingStoreRoot: null,
+      tavilyApiKey: null,
+      tavilyEndpoint: null
     })
   })
 
@@ -365,7 +379,9 @@ describe('model-settings: 读写往返', () => {
       postgresUser: null,
       postgresPassword: null,
       postgresDatabase: null,
-      vikingStoreRoot: null
+      vikingStoreRoot: null,
+      tavilyApiKey: null,
+      tavilyEndpoint: null
     })
   })
 
@@ -408,7 +424,9 @@ describe('model-settings: 读写往返', () => {
       postgresUser: null,
       postgresPassword: null,
       postgresDatabase: null,
-      vikingStoreRoot: null
+      vikingStoreRoot: null,
+      tavilyApiKey: null,
+      tavilyEndpoint: null
     })
   })
 
@@ -435,7 +453,9 @@ describe('model-settings: 读写往返', () => {
         postgresUser: null,
         postgresPassword: pgSecret,
         postgresDatabase: null,
-        vikingStoreRoot: null
+        vikingStoreRoot: null,
+        tavilyApiKey: null,
+        tavilyEndpoint: null
       },
       { filePath, codec: fakeCodec() }
     )
@@ -479,7 +499,9 @@ describe('buildRuntimeEnv（陪练点）', () => {
     postgresUser: 'postgres',
     postgresPassword: 'pg-password-123',
     postgresDatabase: 'personal_agent',
-    vikingStoreRoot: '/data/viking_store'
+    vikingStoreRoot: '/data/viking_store',
+    tavilyApiKey: 'tvly-secret-123',
+    tavilyEndpoint: 'https://api.tavily.com/search'
   }
 
   it('settings 为 null：整份拷贝继承环境，且是新对象', () => {
@@ -524,6 +546,8 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[POSTGRES_PASSWORD_ENV_KEY]).toBe('pg-password-123')
     expect(env[POSTGRES_DB_ENV_KEY]).toBe('personal_agent')
     expect(env[VIKING_ROOT_ENV_KEY]).toBe('/data/viking_store')
+    expect(env[TAVILY_API_KEY_ENV_KEY]).toBe('tvly-secret-123')
+    expect(env[TAVILY_ENDPOINT_ENV_KEY]).toBe('https://api.tavily.com/search')
   })
 
   it('设置的 null 字段不注入：继承值原样保留（开发态 shell 的 export 照旧可用）', () => {
@@ -552,6 +576,8 @@ describe('buildRuntimeEnv（陪练点）', () => {
 
     expect(env[MINERU_API_URL_ENV_KEY]).toBeUndefined()
     expect(env[MINERU_API_KEY_ENV_KEY]).toBeUndefined()
+    expect(env[TAVILY_API_KEY_ENV_KEY]).toBeUndefined()
+    expect(env[TAVILY_ENDPOINT_ENV_KEY]).toBeUndefined()
   })
 
   it('部分设置：只覆盖填了的字段，其余保留继承值', () => {
@@ -640,6 +666,8 @@ describe('buildRuntimeEnv（陪练点）', () => {
 
     expect(env[MINERU_API_URL_ENV_KEY]).toBeUndefined()
     expect(env[MINERU_API_KEY_ENV_KEY]).toBeUndefined()
+    expect(env[TAVILY_API_KEY_ENV_KEY]).toBeUndefined()
+    expect(env[TAVILY_ENDPOINT_ENV_KEY]).toBeUndefined()
   })
 
   it('任何分支都带上继承环境里的非模型变量（spawn 的 env 是整份替换）', () => {

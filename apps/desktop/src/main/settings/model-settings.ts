@@ -23,6 +23,8 @@ export const POSTGRES_USER_ENV_KEY = 'POSTGRES_USER'
 export const POSTGRES_PASSWORD_ENV_KEY = 'POSTGRES_PASSWORD'
 export const POSTGRES_DB_ENV_KEY = 'POSTGRES_DB'
 export const VIKING_ROOT_ENV_KEY = 'PERSONAL_AGENT_VIKING_ROOT'
+export const TAVILY_API_KEY_ENV_KEY = 'TAVILY_API_KEY'
+export const TAVILY_ENDPOINT_ENV_KEY = 'TAVILY_ENDPOINT'
 
 /** 用户级模型配置的内存形状。apiKey 和 typesafeApiKey 是解密后的明文，只允许活在主进程
  *  字段可变：设置面板是「读出现状 → 改了哪几个字段 → 整体回写」，
@@ -48,6 +50,8 @@ export interface ModelSettings {
   postgresPassword?: string | null
   postgresDatabase?: string | null
   vikingStoreRoot?: string | null
+  tavilyApiKey?: string | null
+  tavilyEndpoint?: string | null
 }
 
 /** settings 文件在 userData 下的文件名。 */
@@ -89,6 +93,8 @@ interface StoredSettings {
   postgresPasswordEncrypted?: string | null
   postgresDatabase?: string | null
   vikingStoreRoot?: string | null
+  tavilyApiKeyEncrypted?: string | null
+  tavilyEndpoint?: string | null
 }
 
 /** 系统密钥库的薄封装。生产接线是 Electron safeStorage（Windows 走 DPAPI，密文
@@ -255,6 +261,18 @@ export function loadModelSettings(deps: ModelSettingsStoreDeps): ModelSettings |
     }
   }
 
+  const tavilyEndpoint = asNullableString(record.tavilyEndpoint) ?? null
+  const tavilyApiKeyEncrypted = asNullableString(record.tavilyApiKeyEncrypted) ?? null
+  let tavilyApiKey: string | null = null
+  if (tavilyApiKeyEncrypted !== null) {
+    if (!deps.codec.isAvailable()) return null
+    try {
+      tavilyApiKey = deps.codec.decrypt(tavilyApiKeyEncrypted)
+    } catch {
+      return null
+    }
+  }
+
   return {
     model,
     baseUrl,
@@ -275,7 +293,9 @@ export function loadModelSettings(deps: ModelSettingsStoreDeps): ModelSettings |
     postgresUser,
     postgresPassword,
     postgresDatabase,
-    vikingStoreRoot
+    vikingStoreRoot,
+    tavilyApiKey,
+    tavilyEndpoint
   }
 }
 
@@ -349,6 +369,22 @@ export function saveModelSettings(settings: ModelSettings, deps: ModelSettingsSt
     }
   }
 
+  const tavilyApiKey = normalize(settings.tavilyApiKey)
+  let tavilyApiKeyEncrypted: string | null = null
+  if (tavilyApiKey !== null) {
+    if (!deps.codec.isAvailable()) {
+      throw new SettingsSaveError(
+        SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE,
+        '系统密钥库不可用，Tavily API Key 无法加密保存'
+      )
+    }
+    try {
+      tavilyApiKeyEncrypted = deps.codec.encrypt(tavilyApiKey)
+    } catch (e) {
+      throw new SettingsSaveError(SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE, describe(e))
+    }
+  }
+
   const stored: StoredSettings = {
     version: SETTINGS_VERSION,
     model: normalize(settings.model),
@@ -376,7 +412,9 @@ export function saveModelSettings(settings: ModelSettings, deps: ModelSettingsSt
     postgresUser: normalize(settings.postgresUser),
     postgresPasswordEncrypted,
     postgresDatabase: normalize(settings.postgresDatabase),
-    vikingStoreRoot: normalize(settings.vikingStoreRoot)
+    vikingStoreRoot: normalize(settings.vikingStoreRoot),
+    tavilyApiKeyEncrypted,
+    tavilyEndpoint: normalize(settings.tavilyEndpoint)
   }
 
   try {
@@ -487,6 +525,13 @@ export function buildRuntimeEnv(
 
   if (settings.vikingStoreRoot?.trim()) {
     env[VIKING_ROOT_ENV_KEY] = settings.vikingStoreRoot.trim()
+  }
+
+  if (settings.tavilyApiKey?.trim()) {
+    env[TAVILY_API_KEY_ENV_KEY] = settings.tavilyApiKey.trim()
+  }
+  if (settings.tavilyEndpoint?.trim()) {
+    env[TAVILY_ENDPOINT_ENV_KEY] = settings.tavilyEndpoint.trim()
   }
 
   return env

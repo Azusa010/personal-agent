@@ -28,6 +28,7 @@ from personal_agent.protocol.models import (
     VikingReadL1Params,
     VikingReadL2Params,
     VikingWriteL2Params,
+    WebSearchParams,
 )
 
 # 能力与入参 Pydantic 模型映射
@@ -50,10 +51,12 @@ TOOL_PARAM_MODELS: dict[str, type[BaseModel]] = {
     "file_search": FileSearchParams,
     "skill_search": SkillSearchParams,
     "skill_read": SkillReadParams,
+    "web_search": WebSearchParams,
 }
 
 # 工具层级高阶描述说明（对齐 ACI 目标导向）
 TOOL_DESCRIPTIONS: dict[str, str] = {
+    "web_search": "使用 Tavily 搜索引擎在互联网上实时检索最新网页资讯与事实答案",
     "filesystem_list": "列出指定授权根目录下的文件与子目录条目",
     "document_extract_pdf": "解析并提取 PDF 文件的逐页文本与页码",
     "read_document": "多格式统一文档读取器，支持分页、文本截断控制与结构化提取 (PDF/Word/Markdown/Text)",
@@ -135,6 +138,12 @@ PROPERTY_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "searchMode": "搜索模式：filename (文件名), content_plain (纯文本内容), content_regex (正则内容)",
         "relativeRoot": "可选的子目录相对路径",
         "maxMatches": "最大匹配条数（默认 50）",
+    },
+    "web_search": {
+        "query": "搜索关键词或自然语言问题",
+        "maxResults": "可选返回网页条数，默认5，最大20",
+        "searchDepth": "可选检索深度：'basic' (快速) 或 'advanced' (高精度深入)",
+        "includeAnswer": "可选是否包含 Tavily AI 提取的直接答案",
     },
 }
 

@@ -197,7 +197,7 @@ describe('executeHostTool: supervisor 网关', () => {
 })
 
 describe('listVisibleCapabilities: 握手时下发的清单', () => {
-  it('包含全部 17 个暴露给 Agent 的能力，且排除了内部 notification_send', () => {
+  it('包含全部 18 个暴露给 Agent 的能力，且排除了内部 notification_send', () => {
     expect(listVisibleCapabilities().map((c) => c.name)).toEqual([
       'filesystem_list',
       'document_extract_pdf',
@@ -210,6 +210,7 @@ describe('listVisibleCapabilities: 握手时下发的清单', () => {
       'viking_read_l2',
       'skill_search',
       'skill_read',
+      'web_search',
       'filesystem_create_dir',
       'filesystem_move',
       'scheduler_create',

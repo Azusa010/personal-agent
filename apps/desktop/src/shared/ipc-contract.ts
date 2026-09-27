@@ -117,6 +117,8 @@ export interface ModelSettingsView {
   postgresDatabase: string | null
   postgresPasswordSet: boolean
   vikingStoreRoot: string | null
+  tavilyApiKeySet: boolean
+  tavilyEndpoint: string | null
 }
 
 export type GetModelSettingsResult =
@@ -150,6 +152,9 @@ export interface SetModelSettingsInput {
   clearPostgresPassword?: boolean
   postgresDatabase?: string | null
   vikingStoreRoot?: string | null
+  tavilyApiKey?: string
+  clearTavilyApiKey?: boolean
+  tavilyEndpoint?: string | null
 }
 
 /** applied 区分「已经重启生效」与「有任务在跑、留到下次启动」——两种都算保存成功，

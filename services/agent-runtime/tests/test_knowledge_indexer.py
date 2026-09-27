@@ -1,10 +1,26 @@
 """知识库端到端入库与全文检索集成测试。"""
 
 import asyncio
+import socket
 from pathlib import Path
 from uuid import UUID
 
-from personal_agent.db.postgres import close_pg_pool, get_pg_pool
+import pytest
+
+from personal_agent.db.postgres import close_pg_pool, get_pg_pool, get_postgres_config
+
+
+def _is_pg_reachable() -> bool:
+    cfg = get_postgres_config()
+    try:
+        with socket.create_connection((cfg["host"], cfg["port"]), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
+pytestmark = pytest.mark.skipif(not _is_pg_reachable(), reason="PostgreSQL 未运行 (127.0.0.1:5432)")
+
 from personal_agent.knowledge.contextualizer import MockContextualizer
 from personal_agent.knowledge.embedder import MockEmbedder
 from personal_agent.knowledge.indexer import KnowledgeIndexer

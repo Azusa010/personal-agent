@@ -13,6 +13,7 @@ import {
 import { codeInterpreterPlugin } from './code-interpreter'
 import { fileSearchPlugin } from './file-search'
 import { skillReadPlugin, skillSearchPlugin } from './skills'
+import { webSearchPlugin } from './web-search'
 
 export * from '../plugin'
 export * from './helpers'
@@ -25,6 +26,7 @@ export * from './viking'
 export * from './code-interpreter'
 export * from './file-search'
 export * from './skills'
+export * from './web-search'
 
 const BUILTIN_PLUGINS: readonly CapabilityPlugin[] = [
   filesystemListPlugin,
@@ -38,6 +40,7 @@ const BUILTIN_PLUGINS: readonly CapabilityPlugin[] = [
   vikingReadL2Plugin,
   skillSearchPlugin,
   skillReadPlugin,
+  webSearchPlugin,
   filesystemCreateDirPlugin,
   filesystemMovePlugin,
   schedulerCreatePlugin,

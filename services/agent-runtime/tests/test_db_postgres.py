@@ -1,9 +1,30 @@
 """PostgreSQL 基础设施与 pgvector / pg_jieba 集成测试。"""
 
 import asyncio
+import socket
 import time
 
-from personal_agent.db.postgres import check_pg_health, close_pg_pool, get_pg_pool
+import pytest
+
+from personal_agent.db.postgres import (
+    check_pg_health,
+    close_pg_pool,
+    get_pg_pool,
+    get_postgres_config,
+)
+
+
+def _is_pg_reachable() -> bool:
+    cfg = get_postgres_config()
+    try:
+        with socket.create_connection((cfg["host"], cfg["port"]), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
+pytestmark = pytest.mark.skipif(not _is_pg_reachable(), reason="PostgreSQL 未运行 (127.0.0.1:5432)")
+
 
 
 def test_postgres_health_and_extensions():

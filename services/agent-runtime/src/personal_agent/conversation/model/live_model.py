@@ -98,6 +98,11 @@ TOOL_SPECS: dict[str, str] = {
     "skill_read": (
         '按需加载指定 Skill 的完整说明正文。参数 {"name": "<技能唯一名称>"}'
     ),
+    "web_search": (
+        '使用 Tavily 搜索引擎执行实时网络搜索，返回结构化网页标题、链接、摘要及答案。'
+        '参数 {"query": "<查询关键词>", "maxResults": <可选返回条数，默认5>, '
+        '"searchDepth": <可选"basic"|"advanced">, "includeAnswer": <可选布尔，默认false>}'
+    ),
 }
 
 # 标准 OpenAI Function Calling 工具参数定义（由 Pydantic 契约模型动态推导生成，单一事实来源）

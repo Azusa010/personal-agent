@@ -49,6 +49,10 @@ import {
   SkillReadResult,
 } from "../schemas/skills.js";
 import {
+  WebSearchParams,
+  WebSearchResult,
+} from "../schemas/web-search.js";
+import {
   AgentStreamNotification,
   MakePlanParams,
   MakePlanRequest,
@@ -359,6 +363,25 @@ const legalCases = [
     file: "host-skill-read.response.json",
     envelope: HostExecuteToolResponse,
     payload: SkillReadResult,
+    field: "result",
+  },
+  // web_search
+  {
+    file: "host-web-search.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-web-search.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: WebSearchParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-web-search.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: WebSearchResult,
     field: "result",
   },
   // knowledge_search

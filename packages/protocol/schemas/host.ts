@@ -23,7 +23,9 @@ export const CapabilityId = z.enum([
   "file_search",
   "skill_search",
   "skill_read",
+  "web_search",
 ]);
+export const WEB_SEARCH_CAPABILITY = CapabilityId.enum["web_search"];
 export const EXTRACT_PDF_CAPABILITY = CapabilityId.enum["document_extract_pdf"];
 export const READ_DOCUMENT_CAPABILITY = CapabilityId.enum["read_document"];
 export const TERMINAL_EXECUTE_CAPABILITY =

@@ -20,7 +20,8 @@ describe('RuleBasedToolRetriever', () => {
       'viking_read_l1',
       'viking_read_l2',
       'skill_search',
-      'skill_read'
+      'skill_read',
+      'web_search'
     ])
     expect(visible.every((c) => c.kind === 'READ')).toBe(true)
     // 所有 WRITE 一个都看不见
@@ -107,7 +108,8 @@ describe('RuleBasedToolRetriever', () => {
       'viking_read_l1',
       'viking_read_l2',
       'skill_search',
-      'skill_read'
+      'skill_read',
+      'web_search'
     ])
   })
 
@@ -121,7 +123,7 @@ describe('RuleBasedToolRetriever', () => {
     // 只取不调用 —— 调了就真的扩权了，测试意图反过来。
     expect(typeof pushFn).toBe('function')
 
-    expect(scope.capabilities).toHaveLength(11)
+    expect(scope.capabilities).toHaveLength(12)
     expect(retriever.authorize(scope, 'filesystem_move').allowed).toBe(false)
   })
 })

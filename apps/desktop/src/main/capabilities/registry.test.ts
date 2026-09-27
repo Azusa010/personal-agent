@@ -32,14 +32,15 @@ const ALL_CAPABILITY_NAMES = [
   'viking_read_l2',
   'viking_write_l2',
   'skill_search',
-  'skill_read'
+  'skill_read',
+  'web_search'
 ]
 
 describe('CapabilityRegistry', () => {
-  it('恰好注册 18 个能力，不多不少', () => {
+  it('恰好注册 19 个能力，不多不少', () => {
     const names = listCapabilities().map((c) => c.name)
     expect([...names].sort()).toEqual([...ALL_CAPABILITY_NAMES].sort())
-    expect(CAPABILITIES).toHaveLength(18)
+    expect(CAPABILITIES).toHaveLength(19)
 
     // SEC-007 的禁止类名字必须查不到
     for (const forbidden of ['shell.exec', 'process.spawn', 'filesystem.delete', 'http.fetch']) {
@@ -47,7 +48,7 @@ describe('CapabilityRegistry', () => {
     }
   })
 
-  it('分类为 11 READ + 7 WRITE', () => {
+  it('分类为 12 READ + 7 WRITE', () => {
     expect(listByKind('READ').map((c) => c.name)).toEqual([
       'filesystem_list',
       'document_extract_pdf',
@@ -59,7 +60,8 @@ describe('CapabilityRegistry', () => {
       'viking_read_l1',
       'viking_read_l2',
       'skill_search',
-      'skill_read'
+      'skill_read',
+      'web_search'
     ])
     expect(listByKind('WRITE').map((c) => c.name)).toEqual([
       'filesystem_create_dir',
@@ -74,7 +76,7 @@ describe('CapabilityRegistry', () => {
     expect(listByKind('READ').length + listByKind('WRITE').length).toBe(CAPABILITIES.length)
   })
 
-  it('readOnlyScope 恰好含 11 个 READ，不含任何 WRITE', () => {
+  it('readOnlyScope 恰好含 12 个 READ，不含任何 WRITE', () => {
     const scope = readOnlyScope('t-1')
     expect(scope.taskId).toBe('t-1')
     expect([...scope.capabilities].sort()).toEqual([
@@ -88,7 +90,8 @@ describe('CapabilityRegistry', () => {
       'user_memory_search',
       'viking_read_l0',
       'viking_read_l1',
-      'viking_read_l2'
+      'viking_read_l2',
+      'web_search'
     ])
 
     // Phase 1 Exit 第 3 条：Agent 只能看到 Scope 中两个 READ Capability

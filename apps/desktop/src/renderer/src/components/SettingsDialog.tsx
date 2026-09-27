@@ -5,6 +5,7 @@ import {
   Cpu,
   Database,
   FileText,
+  Globe,
   KeyRound,
   Save,
   Settings as SettingsIcon,
@@ -30,7 +31,7 @@ export interface SettingsDialogProps {
   onSaved: () => void
 }
 
-type SettingsTab = 'profile' | 'model' | 'knowledge' | 'storage' | 'typesafe' | 'mineru'
+type SettingsTab = 'profile' | 'model' | 'knowledge' | 'storage' | 'typesafe' | 'mineru' | 'tavily'
 
 interface NavItem {
   id: SettingsTab
@@ -75,6 +76,12 @@ const NAV_ITEMS: NavItem[] = [
     label: 'MinerU 解析',
     description: 'PDF 高精度版面识别',
     icon: FileText
+  },
+  {
+    id: 'tavily',
+    label: '联网搜索',
+    description: 'Tavily 搜索 API 与端点',
+    icon: Globe
   }
 ]
 
@@ -114,6 +121,10 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
   const [postgresPassword, setPostgresPassword] = useState('')
   const [postgresDatabase, setPostgresDatabase] = useState('')
   const [vikingStoreRoot, setVikingStoreRoot] = useState('')
+
+  // Tavily 搜索配置
+  const [tavilyApiKey, setTavilyApiKey] = useState('')
+  const [tavilyEndpoint, setTavilyEndpoint] = useState('')
 
   // 人设配置
   const [name, setName] = useState('')
@@ -156,6 +167,9 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
       setPostgresPassword('')
       setPostgresDatabase(modelRes.settings.postgresDatabase ?? '')
       setVikingStoreRoot(modelRes.settings.vikingStoreRoot ?? '')
+
+      setTavilyApiKey('')
+      setTavilyEndpoint(modelRes.settings.tavilyEndpoint ?? '')
     } else {
       setLoadError(`[${modelRes.code}] ${modelRes.message}`)
     }
@@ -271,7 +285,9 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
         postgresUser: postgresUser.trim() === '' ? null : postgresUser.trim(),
         postgresPassword: postgresPassword.trim() === '' ? undefined : postgresPassword.trim(),
         postgresDatabase: postgresDatabase.trim() === '' ? null : postgresDatabase.trim(),
-        vikingStoreRoot: vikingStoreRoot.trim() === '' ? null : vikingStoreRoot.trim()
+        vikingStoreRoot: vikingStoreRoot.trim() === '' ? null : vikingStoreRoot.trim(),
+        tavilyApiKey: tavilyApiKey.trim() === '' ? undefined : tavilyApiKey.trim(),
+        tavilyEndpoint: tavilyEndpoint.trim() === '' ? null : tavilyEndpoint.trim()
       },
       {
         name: name.trim() || 'PersonalAgent',
@@ -306,6 +322,17 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
   const handleClearMineruKey = (): void => {
     void submit(
       { clearMineruApiKey: true },
+      {
+        name: name.trim() || 'PersonalAgent',
+        persona: persona.trim(),
+        reasoningSummary
+      }
+    )
+  }
+
+  const handleClearTavilyKey = (): void => {
+    void submit(
+      { clearTavilyApiKey: true },
       {
         name: name.trim() || 'PersonalAgent',
         persona: persona.trim(),
@@ -805,7 +832,7 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
                 </p>
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'mineru' ? (
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="settings-mineru-api-key">MinerU API Token (Key)</Label>
@@ -841,6 +868,63 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
                 <p className="m-0 text-[11px] text-muted-foreground">
                   对应运行时环境变量 MINERU_API_URL。留空使用官方云端地址
                   https://mineru.net/api/v4；私有化或本地 Docker 部署时填写实际服务地址。
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-border/60 bg-muted/30 p-3.5 space-y-1">
+                <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                  <Globe size={14} className="text-primary" />
+                  <span>Tavily AI 智能搜索引擎</span>
+                </div>
+                <p className="m-0 text-[11px] text-muted-foreground leading-relaxed">
+                  为 Agent 提供实时的互联网搜索能力（<code>web_search</code> 工具）。 获取 API Key
+                  可访问{' '}
+                  <a
+                    href="https://tavily.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline underline-offset-2"
+                  >
+                    tavily.com
+                  </a>
+                  。
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="settings-tavily-api-key">Tavily API Key</Label>
+                <Input
+                  id="settings-tavily-api-key"
+                  type="password"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={tavilyApiKey}
+                  onChange={(e) => setTavilyApiKey(e.target.value)}
+                  placeholder={
+                    modelView.tavilyApiKeySet ? '已配置，留空保持不变' : '未配置，粘贴 tvly-...'
+                  }
+                />
+                <p className="m-0 text-[11px] text-muted-foreground">
+                  以系统安全密钥库加密保存在本机，已保存的 Key 不回显、不进日志。
+                  {modelView.tavilyApiKeySet &&
+                    ' 需要换掉时直接粘贴新的，需要删除时点下方清除按钮。'}
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="settings-tavily-endpoint">搜索 API 端点 (Endpoint)</Label>
+                <Input
+                  id="settings-tavily-endpoint"
+                  value={tavilyEndpoint}
+                  onChange={(e) => setTavilyEndpoint(e.target.value)}
+                  placeholder="https://api.tavily.com/search"
+                  spellCheck={false}
+                />
+                <p className="m-0 text-[11px] text-muted-foreground">
+                  对应环境变量 TAVILY_ENDPOINT。留空使用官方默认端点
+                  https://api.tavily.com/search；使用代理或中转反代时可自定义。
                 </p>
               </div>
             </div>
@@ -904,6 +988,18 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
               >
                 <FileText size={14} />
                 清除已存的 MinerU Token
+              </Button>
+            )}
+            {activeTab === 'tavily' && modelView?.tavilyApiKeySet && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={saving}
+                onClick={handleClearTavilyKey}
+              >
+                <Globe size={14} />
+                清除已存的 Tavily Key
               </Button>
             )}
             <Button type="button" size="sm" disabled={saving} onClick={handleSave}>

@@ -505,6 +505,14 @@ app.whenReady().then(() => {
   // 设置面板：Key / Model / Base URL。逻辑都在 settings-ipc（纯函数 + 注入 deps），
   // 这里只接线真实存储（userData + safeStorage）与真实重启端口。
   const modelSettingsStore = createModelSettingsStore()
+  const initialModelSettings = modelSettingsStore.load()
+  if (initialModelSettings?.tavilyApiKey && !process.env.TAVILY_API_KEY) {
+    process.env.TAVILY_API_KEY = initialModelSettings.tavilyApiKey
+  }
+  if (initialModelSettings?.tavilyEndpoint && !process.env.TAVILY_ENDPOINT) {
+    process.env.TAVILY_ENDPOINT = initialModelSettings.tavilyEndpoint
+  }
+
   ipcMain.handle(MODEL_SETTINGS_GET_CHANNEL, (): GetModelSettingsResult =>
     getModelSettingsView({ store: modelSettingsStore, runtime: { restart: restartRuntime } })
   )

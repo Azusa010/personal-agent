@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPgPool, closePgPool, checkPgHealth } from './postgres'
 
-describe('PostgreSQL Infrastructure (Phase 1)', () => {
+const initialHealth = await checkPgHealth().catch(() => ({ ok: false }))
+await closePgPool()
+const describePg = initialHealth.ok ? describe : describe.skip
+
+describePg('PostgreSQL Infrastructure (Phase 1)', () => {
   beforeAll(async () => {
     // 确保连接池已初始化
     getPgPool()

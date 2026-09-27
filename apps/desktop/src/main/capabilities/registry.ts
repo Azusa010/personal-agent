@@ -64,6 +64,11 @@ export const CAPABILITIES = [
     description: '按需加载指定 Skill 的完整指令正文 (SKILL.md)，实现渐进式披露'
   },
   {
+    name: 'web_search',
+    kind: 'READ',
+    description: '使用 Tavily 搜索引擎执行实时网络搜索，返回结构化网页标题、链接、摘要及答案'
+  },
+  {
     name: 'filesystem_create_dir',
     kind: 'WRITE',
     description: '在授权根目录下创建子目录'

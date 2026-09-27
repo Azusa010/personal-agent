@@ -103,6 +103,7 @@ CapabilityId = Literal[
     "file_search",
     "skill_search",
     "skill_read",
+    "web_search",
 ]
 
 
@@ -431,6 +432,45 @@ class SkillReadResult(ProtocolModel):
 SkillReadOutcome = Annotated[
     SkillReadResult | CapabilityFailure, Field(discriminator="ok")
 ]
+
+
+# ---- web_search (Tavily) ----
+class WebSearchParams(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    query: str = Field(min_length=1, description="搜索关键词或问题")
+    maxResults: int = Field(default=5, ge=1, le=20, description="最多返回结果数")
+    searchDepth: Literal["basic", "advanced"] = Field(
+        default="basic", description="搜索深度"
+    )
+    includeAnswer: bool = Field(
+        default=False, description="是否包含直接答案"
+    )
+
+
+class WebSearchResultItem(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    title: str
+    url: str
+    content: str
+    score: float | None = None
+    publishedDate: str | None = None
+
+
+class WebSearchResult(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True] = True
+    query: str
+    results: list[WebSearchResultItem]
+    answer: str | None = None
+
+
+WebSearchOutcome = Annotated[
+    WebSearchResult | CapabilityFailure, Field(discriminator="ok")
+]
+
 
 
 # ---- knowledge.search (Phase 3) ----

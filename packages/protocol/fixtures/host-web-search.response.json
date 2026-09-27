@@ -1,0 +1,17 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "result": {
+    "ok": true,
+    "query": "PersonalAgent architecture",
+    "results": [
+      {
+        "title": "PersonalAgent Architecture Overview",
+        "url": "https://example.com/personal-agent",
+        "content": "PersonalAgent uses a modular plugin architecture with five-layer security enforcement.",
+        "score": 0.95
+      }
+    ],
+    "answer": "PersonalAgent is a desktop agent featuring modular capability plugins."
+  }
+}

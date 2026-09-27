@@ -47,7 +47,7 @@ describe('assessRisk：与 registry 对账', () => {
     }
   })
 
-  it('Phase 5 的现状：十一个 READ、七个 WRITE', () => {
+  it('Phase 5 的现状：十二个 READ、七个 WRITE', () => {
     // 钉数量是为了让「有人悄悄把一个 WRITE 改成 READ」这件事变红。
     // 改成 READ 就绕过了 Permission，而 Phase 2 的整个 Exit Gate 建立在它之上。
     expect(listByKind('READ').map((c) => c.name)).toEqual([
@@ -61,7 +61,8 @@ describe('assessRisk：与 registry 对账', () => {
       'viking_read_l1',
       'viking_read_l2',
       'skill_search',
-      'skill_read'
+      'skill_read',
+      'web_search'
     ])
     expect(listByKind('WRITE').map((c) => c.name)).toEqual([
       'filesystem_create_dir',

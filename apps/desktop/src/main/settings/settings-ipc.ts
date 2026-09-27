@@ -53,7 +53,10 @@ const SetSettingsInput = z.object({
   postgresPassword: z.string('postgresPassword 必须是字符串').optional(),
   clearPostgresPassword: z.boolean('clearPostgresPassword 必须是布尔值').optional(),
   postgresDatabase: z.string().nullable().optional(),
-  vikingStoreRoot: z.string().nullable().optional()
+  vikingStoreRoot: z.string().nullable().optional(),
+  tavilyApiKey: z.string('tavilyApiKey 必须是字符串').optional(),
+  clearTavilyApiKey: z.boolean('clearTavilyApiKey 必须是布尔值').optional(),
+  tavilyEndpoint: z.string().nullable().optional()
 })
 
 const EMPTY_SETTINGS: ModelSettings = {
@@ -76,7 +79,9 @@ const EMPTY_SETTINGS: ModelSettings = {
   postgresUser: null,
   postgresPassword: null,
   postgresDatabase: null,
-  vikingStoreRoot: null
+  vikingStoreRoot: null,
+  tavilyApiKey: null,
+  tavilyEndpoint: null
 }
 
 function invalid(message: string): { ok: false; code: IpcErrorCode; message: string } {
@@ -123,7 +128,9 @@ export function getModelSettingsView(deps: SettingsIpcDeps): GetModelSettingsRes
       postgresUser: settings?.postgresUser ?? null,
       postgresDatabase: settings?.postgresDatabase ?? null,
       postgresPasswordSet: settings !== null && Boolean(settings.postgresPassword),
-      vikingStoreRoot: settings?.vikingStoreRoot ?? null
+      vikingStoreRoot: settings?.vikingStoreRoot ?? null,
+      tavilyApiKeySet: settings !== null && Boolean(settings.tavilyApiKey),
+      tavilyEndpoint: settings?.tavilyEndpoint ?? null
     }
   }
 }
@@ -195,6 +202,22 @@ export async function setModelSettings(
   if (patch.postgresDatabase !== undefined) next.postgresDatabase = patch.postgresDatabase
 
   if (patch.vikingStoreRoot !== undefined) next.vikingStoreRoot = patch.vikingStoreRoot
+
+  if (patch.clearTavilyApiKey === true) {
+    next.tavilyApiKey = null
+    delete process.env.TAVILY_API_KEY
+  } else if (patch.tavilyApiKey !== undefined && patch.tavilyApiKey.trim() !== '') {
+    next.tavilyApiKey = patch.tavilyApiKey
+    process.env.TAVILY_API_KEY = next.tavilyApiKey
+  }
+  if (patch.tavilyEndpoint !== undefined) {
+    next.tavilyEndpoint = patch.tavilyEndpoint
+    if (next.tavilyEndpoint) {
+      process.env.TAVILY_ENDPOINT = next.tavilyEndpoint
+    } else {
+      delete process.env.TAVILY_ENDPOINT
+    }
+  }
 
   try {
     deps.store.save(next)
