@@ -415,59 +415,5 @@ def test_react_loop_with_sidecar_compaction_and_persistence():
     assert tool_res_events[0].payload.get("rawOutputPath") == raw_path
 
 
-def test_react_loop_user_memory_search_jev_reranked(monkeypatch):
-    """场景：执行 user_memory_search 工具时，返回的候选记忆被 Sidecar Jev 自动重排与过滤。"""
-    raw_search_result = {
-        "ok": True,
-        "items": [
-            {"id": "m-vitest", "content": "项目中所有测试必须使用 vitest"},
-            {"id": "m-coffee", "content": "用户爱喝美式咖啡"},
-            {"id": "m-indent", "content": "代码缩进使用 2 个空格"},
-        ],
-    }
-
-    decisions = [
-        ToolCallDecision(
-            kind="tool_call",
-            callId="call-mem-1",
-            capability="user_memory_search",
-            arguments={"query": "代码偏好"},
-        ),
-        SummaryDecision(
-            kind="summary",
-            reply="已按照您的规范使用 Vitest 和 2 空格缩进完成重构",
-            facts=[],
-        ),
-    ]
-    channel = FakeChannel([raw_search_result])
-    model = ScriptedModel(decisions)
-    context = ContextManager(plan=(), task_goal="重构认证模块")
-    loop = ReActLoop(
-        model=model,
-        channel=channel,
-        context=context,
-        budget=Budget(maxSteps=5, maxToolCalls=3),
-    )
-
-    # Mock filter_relevant_memories 过滤掉咖啡噪音
-    mock_filtered = [
-        {"id": "m-vitest", "content": "项目中所有测试必须使用 vitest"},
-        {"id": "m-indent", "content": "代码缩进使用 2 个空格"},
-    ]
-    monkeypatch.setattr(
-        "personal_agent.conversation.loop.react_loop.filter_relevant_memories",
-        lambda goal, candidates: mock_filtered,
-    )
-
-    outcome = loop.run("重构认证模块", ["user_memory_search"])
-
-    assert outcome.kind == "completed"
-    obs = context.observations[0]
-    assert obs.capability == "user_memory_search"
-    assert obs.payload.get("filteredByJev") is True
-    assert obs.payload.get("items") == mock_filtered
-    assert len(obs.payload["items"]) == 2
-
-
 
 

@@ -27,7 +27,6 @@ from personal_agent.conversation.sidecar import (
     StreamBarrier,
     compact_and_persist_observation,
     evaluate_sidecar_gate,
-    filter_relevant_memories,
 )
 from personal_agent.conversation.verification.summary import (
     EXTRACT_PDF_CAPABILITY,
@@ -273,42 +272,6 @@ class ReActLoop:
                         steps_used,
                         tool_calls_used,
                     )
-                # Sidecar 记忆检索工具输出重排与噪音过滤 (user_memory_search)
-                if (
-                    decision.capability == "user_memory_search"
-                    and observation.ok
-                    and isinstance(observation.payload, dict)
-                ):
-                    raw_items = observation.payload.get("items")
-                    is_nested = False
-                    if raw_items is None and isinstance(observation.payload.get("payload"), dict):
-                        raw_items = observation.payload["payload"].get("items")
-                        is_nested = True
-
-                    if isinstance(raw_items, list) and raw_items:
-                        try:
-                            filtered_items = filter_relevant_memories(
-                                goal=goal,
-                                candidates=raw_items,
-                            )
-                            new_payload = dict(observation.payload)
-                            if is_nested:
-                                new_payload["payload"] = dict(new_payload["payload"])
-                                new_payload["payload"]["items"] = filtered_items
-                                new_payload["payload"]["filteredByJev"] = True
-                            else:
-                                new_payload["items"] = filtered_items
-                                new_payload["filteredByJev"] = True
-                            observation = Observation(
-                                callId=observation.callId,
-                                capability=observation.capability,
-                                ok=observation.ok,
-                                arguments=observation.arguments,
-                                payload=new_payload,
-                            )
-                        except Exception as err:  # noqa: BLE001
-                            log.warning("user_memory_search Jev 重排异常: %s", err)
-
                 # Sidecar 超长工具输出动态压缩与本地临时文件落盘
                 observation, raw_output_path = compact_and_persist_observation(
                     observation=observation,
