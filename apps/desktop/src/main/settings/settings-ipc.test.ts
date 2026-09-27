@@ -22,6 +22,8 @@ const TS_SECRET = 'ts-secret-key-0123456789'
 const MINERU_SECRET = 'mineru-secret-key-0123456789'
 const PG_SECRET = 'pg-password-123'
 const TVLY_SECRET = 'tvly-secret-key-0123456789'
+const SIDECAR_SECRET = 'sidecar-secret-key-0123456789'
+const SIDECAR_JEV_SECRET = 'sidecar-jev-secret-key-0123456789'
 
 const SAVED: ModelSettings = {
   model: 'gpt-4o-mini',
@@ -45,7 +47,13 @@ const SAVED: ModelSettings = {
   postgresDatabase: 'personal_agent',
   vikingStoreRoot: '/data/viking_store',
   tavilyApiKey: TVLY_SECRET,
-  tavilyEndpoint: 'https://api.tavily.com/search'
+  tavilyEndpoint: 'https://api.tavily.com/search',
+  sidecarModel: 'gpt-4o-mini',
+  sidecarBaseUrl: 'https://sidecar.example.com/v1',
+  sidecarApiKey: SIDECAR_SECRET,
+  sidecarJevModel: 'jev-system-one-v1',
+  sidecarJevBaseUrl: 'https://typesafe.example.com/v1',
+  sidecarJevApiKey: SIDECAR_JEV_SECRET
 }
 
 interface FakeOptions {
@@ -107,7 +115,13 @@ describe('getModelSettingsView', () => {
         postgresDatabase: null,
         vikingStoreRoot: null,
         tavilyApiKeySet: false,
-        tavilyEndpoint: null
+        tavilyEndpoint: null,
+        sidecarModel: null,
+        sidecarBaseUrl: null,
+        sidecarApiKeySet: false,
+        sidecarJevModel: null,
+        sidecarJevBaseUrl: null,
+        sidecarJevApiKeySet: false
       }
     })
   })
@@ -141,7 +155,13 @@ describe('getModelSettingsView', () => {
       postgresDatabase: 'personal_agent',
       vikingStoreRoot: '/data/viking_store',
       tavilyApiKeySet: true,
-      tavilyEndpoint: 'https://api.tavily.com/search'
+      tavilyEndpoint: 'https://api.tavily.com/search',
+      sidecarModel: 'gpt-4o-mini',
+      sidecarBaseUrl: 'https://sidecar.example.com/v1',
+      sidecarApiKeySet: true,
+      sidecarJevModel: 'jev-system-one-v1',
+      sidecarJevBaseUrl: 'https://typesafe.example.com/v1',
+      sidecarJevApiKeySet: true
     })
   })
 
@@ -156,6 +176,8 @@ describe('getModelSettingsView', () => {
     expect(JSON.stringify(result)).not.toContain(MINERU_SECRET)
     expect(JSON.stringify(result)).not.toContain(PG_SECRET)
     expect(JSON.stringify(result)).not.toContain(TVLY_SECRET)
+    expect(JSON.stringify(result)).not.toContain(SIDECAR_SECRET)
+    expect(JSON.stringify(result)).not.toContain(SIDECAR_JEV_SECRET)
   })
 
   it('只存了 model、没存 Key → apiKeySet 和 typesafeApiKeySet 为 false', () => {
@@ -209,7 +231,11 @@ describe('setModelSettings: 入参收窄', () => {
     ['typesafeApiKey 是数字', { typesafeApiKey: 123 }],
     ['clearTypesafeApiKey 是字符串', { clearTypesafeApiKey: 'yes' }],
     ['typesafeModel 是数字', { typesafeModel: 99 }],
-    ['typesafeBaseUrl 是布尔值', { typesafeBaseUrl: true }]
+    ['typesafeBaseUrl 是布尔值', { typesafeBaseUrl: true }],
+    ['sidecarApiKey 是数字', { sidecarApiKey: 123 }],
+    ['clearSidecarApiKey 是字符串', { clearSidecarApiKey: 'yes' }],
+    ['sidecarJevApiKey 是数字', { sidecarJevApiKey: 456 }],
+    ['clearSidecarJevApiKey 是字符串', { clearSidecarJevApiKey: 'yes' }]
   ]
 
   it.each(cases)('%s → PROTOCOL_INVALID_REQUEST，且不写存储', async (_label, input) => {
@@ -241,6 +267,26 @@ describe('setModelSettings: 入参收窄', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.message).not.toContain('54321')
+  })
+
+  it('sidecarApiKey 类型不对时不把收到的值写进错误消息（安全边界）', async () => {
+    const { deps } = fakeDeps()
+
+    const result = await setModelSettings({ sidecarApiKey: 98765 }, deps)
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.message).not.toContain('98765')
+  })
+
+  it('sidecarJevApiKey 类型不对时不把收到的值写进错误消息（安全边界）', async () => {
+    const { deps } = fakeDeps()
+
+    const result = await setModelSettings({ sidecarJevApiKey: 65432 }, deps)
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.message).not.toContain('65432')
   })
 })
 
@@ -360,7 +406,13 @@ describe('setModelSettings: 合并语义', () => {
       postgresDatabase: null,
       vikingStoreRoot: null,
       tavilyApiKey: null,
-      tavilyEndpoint: null
+      tavilyEndpoint: null,
+      sidecarModel: null,
+      sidecarBaseUrl: null,
+      sidecarApiKey: null,
+      sidecarJevModel: null,
+      sidecarJevBaseUrl: null,
+      sidecarJevApiKey: null
     })
   })
 
@@ -445,6 +497,48 @@ describe('setModelSettings: 合并语义', () => {
       ...SAVED,
       tavilyApiKey: null,
       tavilyEndpoint: null
+    })
+  })
+
+  it('sidecar 与 sidecarJev 配置可以更新或清除', async () => {
+    const { deps, store } = fakeDeps({ current: SAVED })
+
+    await setModelSettings(
+      {
+        sidecarModel: 'gpt-4o',
+        sidecarBaseUrl: 'https://new-sidecar.com',
+        sidecarApiKey: 'new-sidecar-key',
+        sidecarJevModel: 'jev-v2',
+        sidecarJevBaseUrl: 'https://new-jev.com',
+        sidecarJevApiKey: 'new-jev-key'
+      },
+      deps
+    )
+    expect(store.save).toHaveBeenCalledWith({
+      ...SAVED,
+      sidecarModel: 'gpt-4o',
+      sidecarBaseUrl: 'https://new-sidecar.com',
+      sidecarApiKey: 'new-sidecar-key',
+      sidecarJevModel: 'jev-v2',
+      sidecarJevBaseUrl: 'https://new-jev.com',
+      sidecarJevApiKey: 'new-jev-key'
+    })
+
+    await setModelSettings(
+      {
+        clearSidecarApiKey: true,
+        clearSidecarJevApiKey: true,
+        sidecarModel: null,
+        sidecarJevModel: null
+      },
+      deps
+    )
+    expect(store.save).toHaveBeenCalledWith({
+      ...SAVED,
+      sidecarApiKey: null,
+      sidecarJevApiKey: null,
+      sidecarModel: null,
+      sidecarJevModel: null
     })
   })
 })

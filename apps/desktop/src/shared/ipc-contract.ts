@@ -119,6 +119,12 @@ export interface ModelSettingsView {
   vikingStoreRoot: string | null
   tavilyApiKeySet: boolean
   tavilyEndpoint: string | null
+  sidecarModel: string | null
+  sidecarBaseUrl: string | null
+  sidecarApiKeySet: boolean
+  sidecarJevModel: string | null
+  sidecarJevBaseUrl: string | null
+  sidecarJevApiKeySet: boolean
 }
 
 export type GetModelSettingsResult =
@@ -155,6 +161,14 @@ export interface SetModelSettingsInput {
   tavilyApiKey?: string
   clearTavilyApiKey?: boolean
   tavilyEndpoint?: string | null
+  sidecarModel?: string | null
+  sidecarBaseUrl?: string | null
+  sidecarApiKey?: string
+  clearSidecarApiKey?: boolean
+  sidecarJevModel?: string | null
+  sidecarJevBaseUrl?: string | null
+  sidecarJevApiKey?: string
+  clearSidecarJevApiKey?: boolean
 }
 
 /** applied 区分「已经重启生效」与「有任务在跑、留到下次启动」——两种都算保存成功，

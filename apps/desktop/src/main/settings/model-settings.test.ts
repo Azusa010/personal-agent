@@ -33,6 +33,12 @@ import {
   SCRIPT_ENV_KEY,
   SETTINGS_VERSION,
   SettingsSaveError,
+  SIDECAR_API_KEY_ENV_KEY,
+  SIDECAR_BASE_URL_ENV_KEY,
+  SIDECAR_JEV_API_KEY_ENV_KEY,
+  SIDECAR_JEV_BASE_URL_ENV_KEY,
+  SIDECAR_JEV_MODEL_ENV_KEY,
+  SIDECAR_MODEL_ENV_KEY,
   TAVILY_API_KEY_ENV_KEY,
   TAVILY_ENDPOINT_ENV_KEY,
   TYPESAFE_API_KEY_ENV_KEY,
@@ -105,7 +111,13 @@ describe('model-settings: 读写往返', () => {
       postgresDatabase: 'personal_agent',
       vikingStoreRoot: '/data/viking_store',
       tavilyApiKey: 'tvly-secret-123',
-      tavilyEndpoint: 'https://api.tavily.com/search'
+      tavilyEndpoint: 'https://api.tavily.com/search',
+      sidecarModel: 'gpt-4o-mini',
+      sidecarBaseUrl: 'https://sidecar.example.com/v1',
+      sidecarApiKey: 'sidecar-secret-123',
+      sidecarJevModel: 'jev-system-one-v1',
+      sidecarJevBaseUrl: 'https://typesafe.example.com/v1',
+      sidecarJevApiKey: 'sidecar-jev-secret-456'
     }
 
     saveModelSettings(settings, { filePath, codec: fakeCodec() })
@@ -117,6 +129,8 @@ describe('model-settings: 读写往返', () => {
     const tsSecret = 'ts-secret-456'
     const mineruSecret = 'mineru-secret-789'
     const tvlySecret = 'tvly-secret-abc'
+    const sidecarSecret = 'sidecar-secret-xyz'
+    const sidecarJevSecret = 'sidecar-jev-secret-uvw'
     saveModelSettings(
       {
         model: null,
@@ -129,7 +143,9 @@ describe('model-settings: 读写往返', () => {
         contextWindow: null,
         mineruApiUrl: 'https://mineru.example.com/api/v4',
         mineruApiKey: mineruSecret,
-        tavilyApiKey: tvlySecret
+        tavilyApiKey: tvlySecret,
+        sidecarApiKey: sidecarSecret,
+        sidecarJevApiKey: sidecarJevSecret
       },
       { filePath, codec: fakeCodec() }
     )
@@ -139,6 +155,8 @@ describe('model-settings: 读写往返', () => {
     expect(raw).not.toContain(tsSecret)
     expect(raw).not.toContain(mineruSecret)
     expect(raw).not.toContain(tvlySecret)
+    expect(raw).not.toContain(sidecarSecret)
+    expect(raw).not.toContain(sidecarJevSecret)
     expect(JSON.parse(raw)).toMatchObject({
       version: SETTINGS_VERSION,
       apiKeyEncrypted: `enc:${Buffer.from(SECRET, 'utf8').toString('base64')}`,
@@ -146,6 +164,8 @@ describe('model-settings: 读写往返', () => {
       mineruApiKeyEncrypted: `enc:${Buffer.from(mineruSecret, 'utf8').toString('base64')}`,
       mineruApiUrl: 'https://mineru.example.com/api/v4',
       tavilyApiKeyEncrypted: `enc:${Buffer.from(tvlySecret, 'utf8').toString('base64')}`,
+      sidecarApiKeyEncrypted: `enc:${Buffer.from(sidecarSecret, 'utf8').toString('base64')}`,
+      sidecarJevApiKeyEncrypted: `enc:${Buffer.from(sidecarJevSecret, 'utf8').toString('base64')}`,
       apiProtocol: null
     })
   })
@@ -191,7 +211,13 @@ describe('model-settings: 读写往返', () => {
       postgresDatabase: null,
       vikingStoreRoot: null,
       tavilyApiKey: null,
-      tavilyEndpoint: null
+      tavilyEndpoint: null,
+      sidecarModel: null,
+      sidecarBaseUrl: null,
+      sidecarApiKey: null,
+      sidecarJevModel: null,
+      sidecarJevBaseUrl: null,
+      sidecarJevApiKey: null
     })
   })
 
@@ -229,7 +255,13 @@ describe('model-settings: 读写往返', () => {
       postgresDatabase: null,
       vikingStoreRoot: null,
       tavilyApiKey: null,
-      tavilyEndpoint: null
+      tavilyEndpoint: null,
+      sidecarModel: null,
+      sidecarBaseUrl: null,
+      sidecarApiKey: null,
+      sidecarJevModel: null,
+      sidecarJevBaseUrl: null,
+      sidecarJevApiKey: null
     })
   })
 
@@ -342,6 +374,56 @@ describe('model-settings: 读写往返', () => {
     expect(loadModelSettings({ filePath, codec: fakeCodec() })).toBeNull()
   })
 
+  it('密钥库不可用时保存 Sidecar Key → ENCRYPTION_UNAVAILABLE，且文件不出现在盘上', () => {
+    const error = catchError(() =>
+      saveModelSettings(
+        {
+          model: 'gpt-4o-mini',
+          baseUrl: null,
+          apiKey: null,
+          apiProtocol: null,
+          typesafeApiKey: null,
+          typesafeModel: null,
+          typesafeBaseUrl: null,
+          contextWindow: null,
+          mineruApiUrl: null,
+          mineruApiKey: null,
+          sidecarApiKey: 'sidecar-secret-key'
+        },
+        { filePath, codec: fakeCodec(false) }
+      )
+    )
+
+    expect(error).toBeInstanceOf(SettingsSaveError)
+    expect((error as SettingsSaveError).code).toBe(SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE)
+    expect(loadModelSettings({ filePath, codec: fakeCodec() })).toBeNull()
+  })
+
+  it('密钥库不可用时保存 Sidecar Jev Key → ENCRYPTION_UNAVAILABLE，且文件不出现在盘上', () => {
+    const error = catchError(() =>
+      saveModelSettings(
+        {
+          model: 'gpt-4o-mini',
+          baseUrl: null,
+          apiKey: null,
+          apiProtocol: null,
+          typesafeApiKey: null,
+          typesafeModel: null,
+          typesafeBaseUrl: null,
+          contextWindow: null,
+          mineruApiUrl: null,
+          mineruApiKey: null,
+          sidecarJevApiKey: 'sidecar-jev-secret-key'
+        },
+        { filePath, codec: fakeCodec(false) }
+      )
+    )
+
+    expect(error).toBeInstanceOf(SettingsSaveError)
+    expect((error as SettingsSaveError).code).toBe(SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE)
+    expect(loadModelSettings({ filePath, codec: fakeCodec() })).toBeNull()
+  })
+
   it('密钥库不可用但没填 Key → 照常保存 model / baseUrl / typesafeModel / mineruApiUrl', () => {
     saveModelSettings(
       {
@@ -381,7 +463,13 @@ describe('model-settings: 读写往返', () => {
       postgresDatabase: null,
       vikingStoreRoot: null,
       tavilyApiKey: null,
-      tavilyEndpoint: null
+      tavilyEndpoint: null,
+      sidecarModel: null,
+      sidecarBaseUrl: null,
+      sidecarApiKey: null,
+      sidecarJevModel: null,
+      sidecarJevBaseUrl: null,
+      sidecarJevApiKey: null
     })
   })
 
@@ -426,7 +514,13 @@ describe('model-settings: 读写往返', () => {
       postgresDatabase: null,
       vikingStoreRoot: null,
       tavilyApiKey: null,
-      tavilyEndpoint: null
+      tavilyEndpoint: null,
+      sidecarModel: null,
+      sidecarBaseUrl: null,
+      sidecarApiKey: null,
+      sidecarJevModel: null,
+      sidecarJevBaseUrl: null,
+      sidecarJevApiKey: null
     })
   })
 
@@ -501,7 +595,13 @@ describe('buildRuntimeEnv（陪练点）', () => {
     postgresDatabase: 'personal_agent',
     vikingStoreRoot: '/data/viking_store',
     tavilyApiKey: 'tvly-secret-123',
-    tavilyEndpoint: 'https://api.tavily.com/search'
+    tavilyEndpoint: 'https://api.tavily.com/search',
+    sidecarModel: 'gpt-4o-mini',
+    sidecarBaseUrl: 'https://sidecar.example.com/v1',
+    sidecarApiKey: 'sidecar-secret-123',
+    sidecarJevModel: 'jev-system-one-v1',
+    sidecarJevBaseUrl: 'https://typesafe.example.com/v1',
+    sidecarJevApiKey: 'sidecar-jev-secret-456'
   }
 
   it('settings 为 null：整份拷贝继承环境，且是新对象', () => {
@@ -548,6 +648,12 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[VIKING_ROOT_ENV_KEY]).toBe('/data/viking_store')
     expect(env[TAVILY_API_KEY_ENV_KEY]).toBe('tvly-secret-123')
     expect(env[TAVILY_ENDPOINT_ENV_KEY]).toBe('https://api.tavily.com/search')
+    expect(env[SIDECAR_MODEL_ENV_KEY]).toBe('gpt-4o-mini')
+    expect(env[SIDECAR_BASE_URL_ENV_KEY]).toBe('https://sidecar.example.com/v1')
+    expect(env[SIDECAR_API_KEY_ENV_KEY]).toBe('sidecar-secret-123')
+    expect(env[SIDECAR_JEV_MODEL_ENV_KEY]).toBe('jev-system-one-v1')
+    expect(env[SIDECAR_JEV_BASE_URL_ENV_KEY]).toBe('https://typesafe.example.com/v1')
+    expect(env[SIDECAR_JEV_API_KEY_ENV_KEY]).toBe('sidecar-jev-secret-456')
   })
 
   it('设置的 null 字段不注入：继承值原样保留（开发态 shell 的 export 照旧可用）', () => {
@@ -578,6 +684,12 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[MINERU_API_KEY_ENV_KEY]).toBeUndefined()
     expect(env[TAVILY_API_KEY_ENV_KEY]).toBeUndefined()
     expect(env[TAVILY_ENDPOINT_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_MODEL_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_BASE_URL_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_API_KEY_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_JEV_MODEL_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_JEV_BASE_URL_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_JEV_API_KEY_ENV_KEY]).toBeUndefined()
   })
 
   it('部分设置：只覆盖填了的字段，其余保留继承值', () => {
@@ -627,6 +739,12 @@ describe('buildRuntimeEnv（陪练点）', () => {
 
     expect(env[MINERU_API_URL_ENV_KEY]).toBeUndefined()
     expect(env[MINERU_API_KEY_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_MODEL_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_BASE_URL_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_API_KEY_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_JEV_MODEL_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_JEV_BASE_URL_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_JEV_API_KEY_ENV_KEY]).toBeUndefined()
   })
 
   it('空串的剧本变量不算剧本模式（空串按没设处理）', () => {
@@ -639,6 +757,8 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[TYPESAFE_API_KEY_ENV_KEY]).toBe('ts-secret-key-0123456789')
     expect(env[MINERU_API_URL_ENV_KEY]).toBe('https://mineru.example.com/api/v4')
     expect(env[MINERU_API_KEY_ENV_KEY]).toBe('mineru-secret-123')
+    expect(env[SIDECAR_MODEL_ENV_KEY]).toBe('gpt-4o-mini')
+    expect(env[SIDECAR_API_KEY_ENV_KEY]).toBe('sidecar-secret-123')
   })
 
   it('设置里的空串字段不注入，也不产生空串的环境变量', () => {
@@ -652,7 +772,13 @@ describe('buildRuntimeEnv（陪练点）', () => {
       typesafeBaseUrl: '',
       contextWindow: null,
       mineruApiUrl: '  ',
-      mineruApiKey: ''
+      mineruApiKey: '',
+      sidecarModel: '  ',
+      sidecarBaseUrl: '',
+      sidecarApiKey: '   ',
+      sidecarJevModel: '',
+      sidecarJevBaseUrl: '  ',
+      sidecarJevApiKey: ''
     })
 
     expect(env[MODEL_ENV_KEY]).toBe('gpt-4o')
@@ -668,6 +794,12 @@ describe('buildRuntimeEnv（陪练点）', () => {
     expect(env[MINERU_API_KEY_ENV_KEY]).toBeUndefined()
     expect(env[TAVILY_API_KEY_ENV_KEY]).toBeUndefined()
     expect(env[TAVILY_ENDPOINT_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_MODEL_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_BASE_URL_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_API_KEY_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_JEV_MODEL_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_JEV_BASE_URL_ENV_KEY]).toBeUndefined()
+    expect(env[SIDECAR_JEV_API_KEY_ENV_KEY]).toBeUndefined()
   })
 
   it('任何分支都带上继承环境里的非模型变量（spawn 的 env 是整份替换）', () => {

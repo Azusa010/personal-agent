@@ -26,6 +26,14 @@ export const VIKING_ROOT_ENV_KEY = 'PERSONAL_AGENT_VIKING_ROOT'
 export const TAVILY_API_KEY_ENV_KEY = 'TAVILY_API_KEY'
 export const TAVILY_ENDPOINT_ENV_KEY = 'TAVILY_ENDPOINT'
 
+export const SIDECAR_MODEL_ENV_KEY = 'PERSONAL_AGENT_SIDECAR_MODEL'
+export const SIDECAR_API_KEY_ENV_KEY = 'PERSONAL_AGENT_SIDECAR_API_KEY'
+export const SIDECAR_BASE_URL_ENV_KEY = 'PERSONAL_AGENT_SIDECAR_BASE_URL'
+
+export const SIDECAR_JEV_MODEL_ENV_KEY = 'PERSONAL_AGENT_SIDECAR_JEV_MODEL'
+export const SIDECAR_JEV_API_KEY_ENV_KEY = 'PERSONAL_AGENT_SIDECAR_JEV_API_KEY'
+export const SIDECAR_JEV_BASE_URL_ENV_KEY = 'PERSONAL_AGENT_SIDECAR_JEV_BASE_URL'
+
 /** 用户级模型配置的内存形状。apiKey 和 typesafeApiKey 是解密后的明文，只允许活在主进程
  *  字段可变：设置面板是「读出现状 → 改了哪几个字段 → 整体回写」，
  *  与 shared/domain.ts 的 TaskRecord / PermissionRecord 同一种写法。 */
@@ -52,6 +60,12 @@ export interface ModelSettings {
   vikingStoreRoot?: string | null
   tavilyApiKey?: string | null
   tavilyEndpoint?: string | null
+  sidecarModel?: string | null
+  sidecarBaseUrl?: string | null
+  sidecarApiKey?: string | null
+  sidecarJevModel?: string | null
+  sidecarJevBaseUrl?: string | null
+  sidecarJevApiKey?: string | null
 }
 
 /** settings 文件在 userData 下的文件名。 */
@@ -95,6 +109,12 @@ interface StoredSettings {
   vikingStoreRoot?: string | null
   tavilyApiKeyEncrypted?: string | null
   tavilyEndpoint?: string | null
+  sidecarModel?: string | null
+  sidecarBaseUrl?: string | null
+  sidecarApiKeyEncrypted?: string | null
+  sidecarJevModel?: string | null
+  sidecarJevBaseUrl?: string | null
+  sidecarJevApiKeyEncrypted?: string | null
 }
 
 /** 系统密钥库的薄封装。生产接线是 Electron safeStorage（Windows 走 DPAPI，密文
@@ -273,6 +293,32 @@ export function loadModelSettings(deps: ModelSettingsStoreDeps): ModelSettings |
     }
   }
 
+  const sidecarModel = asNullableString(record.sidecarModel) ?? null
+  const sidecarBaseUrl = asNullableString(record.sidecarBaseUrl) ?? null
+  const sidecarApiKeyEncrypted = asNullableString(record.sidecarApiKeyEncrypted) ?? null
+  let sidecarApiKey: string | null = null
+  if (sidecarApiKeyEncrypted !== null) {
+    if (!deps.codec.isAvailable()) return null
+    try {
+      sidecarApiKey = deps.codec.decrypt(sidecarApiKeyEncrypted)
+    } catch {
+      return null
+    }
+  }
+
+  const sidecarJevModel = asNullableString(record.sidecarJevModel) ?? null
+  const sidecarJevBaseUrl = asNullableString(record.sidecarJevBaseUrl) ?? null
+  const sidecarJevApiKeyEncrypted = asNullableString(record.sidecarJevApiKeyEncrypted) ?? null
+  let sidecarJevApiKey: string | null = null
+  if (sidecarJevApiKeyEncrypted !== null) {
+    if (!deps.codec.isAvailable()) return null
+    try {
+      sidecarJevApiKey = deps.codec.decrypt(sidecarJevApiKeyEncrypted)
+    } catch {
+      return null
+    }
+  }
+
   return {
     model,
     baseUrl,
@@ -295,7 +341,13 @@ export function loadModelSettings(deps: ModelSettingsStoreDeps): ModelSettings |
     postgresDatabase,
     vikingStoreRoot,
     tavilyApiKey,
-    tavilyEndpoint
+    tavilyEndpoint,
+    sidecarModel,
+    sidecarBaseUrl,
+    sidecarApiKey,
+    sidecarJevModel,
+    sidecarJevBaseUrl,
+    sidecarJevApiKey
   }
 }
 
@@ -385,6 +437,38 @@ export function saveModelSettings(settings: ModelSettings, deps: ModelSettingsSt
     }
   }
 
+  const sidecarApiKey = normalize(settings.sidecarApiKey)
+  let sidecarApiKeyEncrypted: string | null = null
+  if (sidecarApiKey !== null) {
+    if (!deps.codec.isAvailable()) {
+      throw new SettingsSaveError(
+        SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE,
+        '系统密钥库不可用，Sidecar API Key 无法加密保存'
+      )
+    }
+    try {
+      sidecarApiKeyEncrypted = deps.codec.encrypt(sidecarApiKey)
+    } catch (e) {
+      throw new SettingsSaveError(SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE, describe(e))
+    }
+  }
+
+  const sidecarJevApiKey = normalize(settings.sidecarJevApiKey)
+  let sidecarJevApiKeyEncrypted: string | null = null
+  if (sidecarJevApiKey !== null) {
+    if (!deps.codec.isAvailable()) {
+      throw new SettingsSaveError(
+        SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE,
+        '系统密钥库不可用，Sidecar Jev API Key 无法加密保存'
+      )
+    }
+    try {
+      sidecarJevApiKeyEncrypted = deps.codec.encrypt(sidecarJevApiKey)
+    } catch (e) {
+      throw new SettingsSaveError(SETTINGS_ERROR_CODE.ENCRYPTION_UNAVAILABLE, describe(e))
+    }
+  }
+
   const stored: StoredSettings = {
     version: SETTINGS_VERSION,
     model: normalize(settings.model),
@@ -414,7 +498,13 @@ export function saveModelSettings(settings: ModelSettings, deps: ModelSettingsSt
     postgresDatabase: normalize(settings.postgresDatabase),
     vikingStoreRoot: normalize(settings.vikingStoreRoot),
     tavilyApiKeyEncrypted,
-    tavilyEndpoint: normalize(settings.tavilyEndpoint)
+    tavilyEndpoint: normalize(settings.tavilyEndpoint),
+    sidecarModel: normalize(settings.sidecarModel),
+    sidecarBaseUrl: normalize(settings.sidecarBaseUrl),
+    sidecarApiKeyEncrypted,
+    sidecarJevModel: normalize(settings.sidecarJevModel),
+    sidecarJevBaseUrl: normalize(settings.sidecarJevBaseUrl),
+    sidecarJevApiKeyEncrypted
   }
 
   try {
@@ -532,6 +622,26 @@ export function buildRuntimeEnv(
   }
   if (settings.tavilyEndpoint?.trim()) {
     env[TAVILY_ENDPOINT_ENV_KEY] = settings.tavilyEndpoint.trim()
+  }
+
+  if (settings.sidecarModel?.trim()) {
+    env[SIDECAR_MODEL_ENV_KEY] = settings.sidecarModel.trim()
+  }
+  if (settings.sidecarBaseUrl?.trim()) {
+    env[SIDECAR_BASE_URL_ENV_KEY] = settings.sidecarBaseUrl.trim()
+  }
+  if (settings.sidecarApiKey?.trim()) {
+    env[SIDECAR_API_KEY_ENV_KEY] = settings.sidecarApiKey.trim()
+  }
+
+  if (settings.sidecarJevModel?.trim()) {
+    env[SIDECAR_JEV_MODEL_ENV_KEY] = settings.sidecarJevModel.trim()
+  }
+  if (settings.sidecarJevBaseUrl?.trim()) {
+    env[SIDECAR_JEV_BASE_URL_ENV_KEY] = settings.sidecarJevBaseUrl.trim()
+  }
+  if (settings.sidecarJevApiKey?.trim()) {
+    env[SIDECAR_JEV_API_KEY_ENV_KEY] = settings.sidecarJevApiKey.trim()
   }
 
   return env

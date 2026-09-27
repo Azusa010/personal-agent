@@ -9,6 +9,7 @@ import {
   KeyRound,
   Save,
   Settings as SettingsIcon,
+  ShieldCheck,
   Sparkles
 } from 'lucide-react'
 import type {
@@ -31,7 +32,8 @@ export interface SettingsDialogProps {
   onSaved: () => void
 }
 
-type SettingsTab = 'profile' | 'model' | 'knowledge' | 'storage' | 'typesafe' | 'mineru' | 'tavily'
+type SettingsTab =
+  'profile' | 'model' | 'sidecar' | 'knowledge' | 'storage' | 'typesafe' | 'mineru' | 'tavily'
 
 interface NavItem {
   id: SettingsTab
@@ -52,6 +54,12 @@ const NAV_ITEMS: NavItem[] = [
     label: '通用大模型',
     description: 'OpenAI 兼容接口',
     icon: KeyRound
+  },
+  {
+    id: 'sidecar',
+    label: 'Sidecar 安全审查',
+    description: '独立模型与 Jev 门控防护',
+    icon: ShieldCheck
   },
   {
     id: 'knowledge',
@@ -126,6 +134,14 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
   const [tavilyApiKey, setTavilyApiKey] = useState('')
   const [tavilyEndpoint, setTavilyEndpoint] = useState('')
 
+  // Sidecar 独立安全审查配置
+  const [sidecarModel, setSidecarModel] = useState('')
+  const [sidecarBaseUrl, setSidecarBaseUrl] = useState('')
+  const [sidecarApiKey, setSidecarApiKey] = useState('')
+  const [sidecarJevModel, setSidecarJevModel] = useState('')
+  const [sidecarJevBaseUrl, setSidecarJevBaseUrl] = useState('')
+  const [sidecarJevApiKey, setSidecarJevApiKey] = useState('')
+
   // 人设配置
   const [name, setName] = useState('')
   const [persona, setPersona] = useState('')
@@ -170,6 +186,13 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
 
       setTavilyApiKey('')
       setTavilyEndpoint(modelRes.settings.tavilyEndpoint ?? '')
+
+      setSidecarModel(modelRes.settings.sidecarModel ?? '')
+      setSidecarBaseUrl(modelRes.settings.sidecarBaseUrl ?? '')
+      setSidecarApiKey('')
+      setSidecarJevModel(modelRes.settings.sidecarJevModel ?? '')
+      setSidecarJevBaseUrl(modelRes.settings.sidecarJevBaseUrl ?? '')
+      setSidecarJevApiKey('')
     } else {
       setLoadError(`[${modelRes.code}] ${modelRes.message}`)
     }
@@ -287,8 +310,36 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
         postgresDatabase: postgresDatabase.trim() === '' ? null : postgresDatabase.trim(),
         vikingStoreRoot: vikingStoreRoot.trim() === '' ? null : vikingStoreRoot.trim(),
         tavilyApiKey: tavilyApiKey.trim() === '' ? undefined : tavilyApiKey.trim(),
-        tavilyEndpoint: tavilyEndpoint.trim() === '' ? null : tavilyEndpoint.trim()
+        tavilyEndpoint: tavilyEndpoint.trim() === '' ? null : tavilyEndpoint.trim(),
+        sidecarModel: sidecarModel.trim() === '' ? null : sidecarModel.trim(),
+        sidecarBaseUrl: sidecarBaseUrl.trim() === '' ? null : sidecarBaseUrl.trim(),
+        sidecarApiKey: sidecarApiKey.trim() === '' ? undefined : sidecarApiKey.trim(),
+        sidecarJevModel: sidecarJevModel.trim() === '' ? null : sidecarJevModel.trim(),
+        sidecarJevBaseUrl: sidecarJevBaseUrl.trim() === '' ? null : sidecarJevBaseUrl.trim(),
+        sidecarJevApiKey: sidecarJevApiKey.trim() === '' ? undefined : sidecarJevApiKey.trim()
       },
+      {
+        name: name.trim() || 'PersonalAgent',
+        persona: persona.trim(),
+        reasoningSummary
+      }
+    )
+  }
+
+  const handleClearSidecarKey = (): void => {
+    void submit(
+      { clearSidecarApiKey: true },
+      {
+        name: name.trim() || 'PersonalAgent',
+        persona: persona.trim(),
+        reasoningSummary
+      }
+    )
+  }
+
+  const handleClearSidecarJevKey = (): void => {
+    void submit(
+      { clearSidecarJevApiKey: true },
       {
         name: name.trim() || 'PersonalAgent',
         persona: persona.trim(),
@@ -426,6 +477,16 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
               </h3>
               <p className="m-0 mt-0.5 text-[12px] text-muted-foreground">
                 配置通用大模型接入点、认证凭证与协议模式。保存后自动重启 runtime 刷新生效。
+              </p>
+            </div>
+          ) : activeTab === 'sidecar' ? (
+            <div>
+              <h3 className="m-0 flex items-center gap-2 text-[14px] font-semibold text-foreground">
+                <ShieldCheck size={16} className="text-primary" />
+                Sidecar 独立安全审查与 Jev 门控
+              </h3>
+              <p className="m-0 mt-0.5 text-[12px] text-muted-foreground">
+                为工具调用配置独立的旁路审查大模型与 Jev 极速判定模型，实现行为隔离与实时自愈纠偏。
               </p>
             </div>
           ) : activeTab === 'knowledge' ? (
@@ -629,6 +690,130 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
                   Responses API 支持原生结构化决策与思考流（适合官方模型）；Chat Completions API 走
                   Function Calling（适合第三方中转站）。
                 </p>
+              </div>
+            </div>
+          ) : activeTab === 'sidecar' ? (
+            <div className="space-y-6">
+              {/* Section 1: Sidecar 独立语言模型 */}
+              <div className="space-y-4">
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-3.5 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                    <ShieldCheck size={14} className="text-primary" />
+                    <span>Sidecar 独立审查语言模型 (Remediation & Compaction)</span>
+                  </div>
+                  <p className="m-0 text-[11px] text-muted-foreground leading-relaxed">
+                    在每次高危工具调用被拦截时，独立生成建设性自愈修复指引 (Remediation)，指导 Agent
+                    修正参数而非盲目试错；并在工具返回超长内容时执行上下文事实压缩。
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="settings-sidecar-model">Sidecar 语言模型标识 (Model)</Label>
+                  <Input
+                    id="settings-sidecar-model"
+                    value={sidecarModel}
+                    onChange={(e) => setSidecarModel(e.target.value)}
+                    placeholder="留空自动继承通用大模型 (推荐 gpt-4o-mini 或 claude-3-5-haiku)"
+                    spellCheck={false}
+                  />
+                  <p className="m-0 text-[11px] text-muted-foreground">
+                    对应环境变量 PERSONAL_AGENT_SIDECAR_MODEL。建议选择低时延轻量大模型。
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="settings-sidecar-base-url">Sidecar API Base URL</Label>
+                  <Input
+                    id="settings-sidecar-base-url"
+                    value={sidecarBaseUrl}
+                    onChange={(e) => setSidecarBaseUrl(e.target.value)}
+                    placeholder="留空自动继承通用大模型 Base URL"
+                    spellCheck={false}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="settings-sidecar-api-key">Sidecar 独立 API Key</Label>
+                  <Input
+                    id="settings-sidecar-api-key"
+                    type="password"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={sidecarApiKey}
+                    onChange={(e) => setSidecarApiKey(e.target.value)}
+                    placeholder={
+                      modelView.sidecarApiKeySet
+                        ? '已配置，留空保持不变'
+                        : '未配置，留空继承通用 API Key'
+                    }
+                  />
+                  <p className="m-0 text-[11px] text-muted-foreground">
+                    以系统安全密钥库加密保存在本机，已保存的 Key 不回显。
+                    {modelView.sidecarApiKeySet &&
+                      ' 需要换掉时直接粘贴新的，需要删除时点下方清除按钮。'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Section 2: Jev 极速安全决策模型 */}
+              <div className="space-y-4 pt-2 border-t border-border/60">
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-3.5 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                    <Cpu size={14} className="text-primary" />
+                    <span>Jev 毫秒级安全决策模型 (TypeSafe System One)</span>
+                  </div>
+                  <p className="m-0 text-[11px] text-muted-foreground leading-relaxed">
+                    在工具实际执行前并发审查风险，对高危破坏命令、敏感凭据外发与 Prompt
+                    注入进行毫秒级判定与打分拦截。未配置或异常时自动无缝降级至本地确定性正则规则。
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="settings-sidecar-jev-model">Jev 决策模型标识 (Model)</Label>
+                  <Input
+                    id="settings-sidecar-jev-model"
+                    value={sidecarJevModel}
+                    onChange={(e) => setSidecarJevModel(e.target.value)}
+                    placeholder="留空自动继承 TypeSafe 默认决策模型"
+                    spellCheck={false}
+                  />
+                  <p className="m-0 text-[11px] text-muted-foreground">
+                    对应环境变量 PERSONAL_AGENT_SIDECAR_JEV_MODEL。
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="settings-sidecar-jev-base-url">Jev API Base URL</Label>
+                  <Input
+                    id="settings-sidecar-jev-base-url"
+                    value={sidecarJevBaseUrl}
+                    onChange={(e) => setSidecarJevBaseUrl(e.target.value)}
+                    placeholder="留空自动继承 TypeSafe Base URL"
+                    spellCheck={false}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="settings-sidecar-jev-api-key">Jev 独立 API Key</Label>
+                  <Input
+                    id="settings-sidecar-jev-api-key"
+                    type="password"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={sidecarJevApiKey}
+                    onChange={(e) => setSidecarJevApiKey(e.target.value)}
+                    placeholder={
+                      modelView.sidecarJevApiKeySet
+                        ? '已配置，留空保持不变'
+                        : '未配置，留空继承 TypeSafe API Key'
+                    }
+                  />
+                  <p className="m-0 text-[11px] text-muted-foreground">
+                    以系统安全密钥库加密保存在本机。
+                    {modelView.sidecarJevApiKeySet &&
+                      ' 需要换掉时直接粘贴新的，需要删除时点下方清除按钮。'}
+                  </p>
+                </div>
               </div>
             </div>
           ) : activeTab === 'knowledge' ? (
@@ -952,6 +1137,30 @@ function SettingsBody({ onSaved }: { onSaved: () => void }): React.JSX.Element {
               >
                 <KeyRound size={14} />
                 清除已存的 OpenAI Key
+              </Button>
+            )}
+            {activeTab === 'sidecar' && modelView?.sidecarApiKeySet && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={saving}
+                onClick={handleClearSidecarKey}
+              >
+                <ShieldCheck size={14} />
+                清除 Sidecar LLM Key
+              </Button>
+            )}
+            {activeTab === 'sidecar' && modelView?.sidecarJevApiKeySet && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={saving}
+                onClick={handleClearSidecarJevKey}
+              >
+                <Cpu size={14} />
+                清除 Jev API Key
               </Button>
             )}
             {activeTab === 'storage' && modelView?.postgresPasswordSet && (

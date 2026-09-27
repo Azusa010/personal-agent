@@ -56,7 +56,15 @@ const SetSettingsInput = z.object({
   vikingStoreRoot: z.string().nullable().optional(),
   tavilyApiKey: z.string('tavilyApiKey 必须是字符串').optional(),
   clearTavilyApiKey: z.boolean('clearTavilyApiKey 必须是布尔值').optional(),
-  tavilyEndpoint: z.string().nullable().optional()
+  tavilyEndpoint: z.string().nullable().optional(),
+  sidecarModel: z.string().nullable().optional(),
+  sidecarBaseUrl: z.string().nullable().optional(),
+  sidecarApiKey: z.string('sidecarApiKey 必须是字符串').optional(),
+  clearSidecarApiKey: z.boolean('clearSidecarApiKey 必须是布尔值').optional(),
+  sidecarJevModel: z.string().nullable().optional(),
+  sidecarJevBaseUrl: z.string().nullable().optional(),
+  sidecarJevApiKey: z.string('sidecarJevApiKey 必须是字符串').optional(),
+  clearSidecarJevApiKey: z.boolean('clearSidecarJevApiKey 必须是布尔值').optional()
 })
 
 const EMPTY_SETTINGS: ModelSettings = {
@@ -81,7 +89,13 @@ const EMPTY_SETTINGS: ModelSettings = {
   postgresDatabase: null,
   vikingStoreRoot: null,
   tavilyApiKey: null,
-  tavilyEndpoint: null
+  tavilyEndpoint: null,
+  sidecarModel: null,
+  sidecarBaseUrl: null,
+  sidecarApiKey: null,
+  sidecarJevModel: null,
+  sidecarJevBaseUrl: null,
+  sidecarJevApiKey: null
 }
 
 function invalid(message: string): { ok: false; code: IpcErrorCode; message: string } {
@@ -130,7 +144,13 @@ export function getModelSettingsView(deps: SettingsIpcDeps): GetModelSettingsRes
       postgresPasswordSet: settings !== null && Boolean(settings.postgresPassword),
       vikingStoreRoot: settings?.vikingStoreRoot ?? null,
       tavilyApiKeySet: settings !== null && Boolean(settings.tavilyApiKey),
-      tavilyEndpoint: settings?.tavilyEndpoint ?? null
+      tavilyEndpoint: settings?.tavilyEndpoint ?? null,
+      sidecarModel: settings?.sidecarModel ?? null,
+      sidecarBaseUrl: settings?.sidecarBaseUrl ?? null,
+      sidecarApiKeySet: settings !== null && Boolean(settings.sidecarApiKey),
+      sidecarJevModel: settings?.sidecarJevModel ?? null,
+      sidecarJevBaseUrl: settings?.sidecarJevBaseUrl ?? null,
+      sidecarJevApiKeySet: settings !== null && Boolean(settings.sidecarJevApiKey)
     }
   }
 }
@@ -217,6 +237,22 @@ export async function setModelSettings(
     } else {
       delete process.env.TAVILY_ENDPOINT
     }
+  }
+
+  if (patch.sidecarModel !== undefined) next.sidecarModel = patch.sidecarModel
+  if (patch.sidecarBaseUrl !== undefined) next.sidecarBaseUrl = patch.sidecarBaseUrl
+  if (patch.clearSidecarApiKey === true) {
+    next.sidecarApiKey = null
+  } else if (patch.sidecarApiKey !== undefined && patch.sidecarApiKey.trim() !== '') {
+    next.sidecarApiKey = patch.sidecarApiKey
+  }
+
+  if (patch.sidecarJevModel !== undefined) next.sidecarJevModel = patch.sidecarJevModel
+  if (patch.sidecarJevBaseUrl !== undefined) next.sidecarJevBaseUrl = patch.sidecarJevBaseUrl
+  if (patch.clearSidecarJevApiKey === true) {
+    next.sidecarJevApiKey = null
+  } else if (patch.sidecarJevApiKey !== undefined && patch.sidecarJevApiKey.trim() !== '') {
+    next.sidecarJevApiKey = patch.sidecarJevApiKey
   }
 
   try {
