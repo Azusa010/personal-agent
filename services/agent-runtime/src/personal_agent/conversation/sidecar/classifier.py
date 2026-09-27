@@ -119,13 +119,32 @@ class JevSafetyClassifier:
     def _resolve_client(self) -> Any | None:
         if self._client is not None:
             return self._client
-        api_key = os.environ.get("TYPESAFE_API_KEY", "").strip()
+        api_key = (
+            os.environ.get("PERSONAL_AGENT_SIDECAR_JEV_API_KEY")
+            or os.environ.get("TYPESAFE_API_KEY")
+            or ""
+        ).strip()
         if not api_key:
             return None
+        base_url = (
+            os.environ.get("PERSONAL_AGENT_SIDECAR_JEV_BASE_URL")
+            or os.environ.get("TYPESAFE_BASE_URL")
+            or None
+        )
+        model = (
+            os.environ.get("PERSONAL_AGENT_SIDECAR_JEV_MODEL")
+            or os.environ.get("TYPESAFE_DEFAULT_MODEL")
+            or None
+        )
+        kwargs: dict[str, Any] = {"api_key": api_key}
+        if base_url:
+            kwargs["base_url"] = base_url
+        if model:
+            kwargs["model"] = model
         try:
             from typesafe_sdk import TypeSafeClient
 
-            self._client = TypeSafeClient()
+            self._client = TypeSafeClient(**kwargs)
             return self._client
         except Exception as err:  # noqa: BLE001
             log.warning("Sidecar TypeSafeClient 实例化失败: %s", err)

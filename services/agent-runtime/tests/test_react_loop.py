@@ -311,3 +311,47 @@ def test_react_loop_with_sidecar_breaker_trips():
     event_types = [e.type for e in outcome.events]
     assert "circuit_breaker_tripped" in event_types
 
+
+def test_react_loop_with_sidecar_escalate_halts():
+    """场景：Sidecar 判定高危操作需人工审批 (ESCALATE_TO_USER)，ReAct 循环立即中止。"""
+    mock_classifier = MagicMock()
+    mock_classifier.classify.return_value = SidecarAssessment(
+        callId="call-danger",
+        capability="terminal_execute",
+        verdict="ESCALATE_TO_USER",
+        riskCategory="DESTRUCTIVE_COMMAND",
+        reason="检测到高危系统指令",
+        assessedBy="mock",
+        occurredAt="2026-09-27T00:00:00.000Z",
+    )
+    barrier = StreamBarrier(classifier=mock_classifier)
+    cb = RejectionCircuitBreaker(task_id="task-sidecar-esc", threshold=3)
+
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId="call-danger",
+            capability="terminal_execute",
+            arguments={"cmd": "rm -rf /"},
+        ),
+    ]
+    channel = FakeChannel([])
+    model = ScriptedModel(decisions)
+    context = ContextManager(plan=())
+    loop = ReActLoop(
+        model=model,
+        channel=channel,
+        context=context,
+        budget=Budget(maxSteps=5, maxToolCalls=3),
+        sidecar_barrier=barrier,
+        circuit_breaker=cb,
+    )
+
+    outcome = loop.run("执行危险命令", ["terminal_execute"])
+    barrier.close()
+
+    assert outcome.kind == "failed"
+    assert "高风险操作需人工审批" in (outcome.reason or "")
+    assert len(channel.calls) == 0
+
+
