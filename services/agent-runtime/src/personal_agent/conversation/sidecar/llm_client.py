@@ -58,11 +58,14 @@ class SidecarLlmClient:
         goal: str,
         capability: str,
         arguments: dict[str, Any],
-        rejection_reason: str,
+        rejection_reason: str = "",
+        *,
+        reason: str = "",
     ) -> str:
         """根据当前拦截原因，生成给主模型的修复纠偏指导。"""
+        effective_reason = rejection_reason or reason
         client = self._get_client()
-        fallback = f"参数未通过安全检查: {rejection_reason}，请修正后重试"
+        fallback = f"参数未通过安全检查: {effective_reason}，请修正后重试"
         if client is None:
             return fallback
 
@@ -70,7 +73,7 @@ class SidecarLlmClient:
             prompt = (
                 f"你是一个工具调用自愈指导专家。主 Agent 正在执行目标: '{goal}'。\n"
                 f"它发起了工具调用 `{capability}`，参数为: {json.dumps(arguments, ensure_ascii=False)}。\n"
-                f"该调用被安全侧拦截，理由为: {rejection_reason}。\n"
+                f"该调用被安全侧拦截，理由为: {effective_reason}。\n"
                 f"请用一两句话给出精炼、明确、具有建设性的参数修改或自愈建议，不要输出额外废话。"
             )
             response = client.chat.completions.create(

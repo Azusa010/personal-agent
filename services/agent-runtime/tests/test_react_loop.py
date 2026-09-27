@@ -9,7 +9,13 @@
 """
 
 
+from unittest.mock import MagicMock
+
 from personal_agent.context import ContextManager
+from personal_agent.conversation.sidecar import (
+    RejectionCircuitBreaker,
+    StreamBarrier,
+)
 from personal_agent.engine import Budget
 from personal_agent.model_gateway import (
     StepCompleteDecision,
@@ -19,6 +25,7 @@ from personal_agent.model_gateway import (
 from personal_agent.protocol.models import (
     HostExecuteToolParams,
     HostExecuteToolResult,
+    SidecarAssessment,
 )
 from personal_agent.react_loop import ReActLoop, ReActOutcome
 from personal_agent.scripted_model import ScriptedModel
@@ -142,4 +149,165 @@ def test_react_loop_triggers_budget_exhaustion():
     assert isinstance(outcome, ReActOutcome)
     assert outcome.kind == "budget_exhausted"
     assert "预算耗尽" in (outcome.reason or "")
+
+
+def test_react_loop_with_sidecar_allow():
+    """场景：配置了 StreamBarrier，Sidecar 放行后正常执行工具，发出 sidecar_inspected 事件。"""
+    barrier = StreamBarrier()
+    cb = RejectionCircuitBreaker(task_id="task-sidecar-1", threshold=3)
+
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId="call-1",
+            capability="filesystem_list",
+            arguments={"rootId": "downloads"},
+        ),
+        SummaryDecision(
+            kind="summary",
+            reply="扫描完成",
+            facts=[],
+        ),
+    ]
+    channel = FakeChannel([list_result()])
+    model = ScriptedModel(decisions)
+    context = ContextManager(plan=())
+    loop = ReActLoop(
+        model=model,
+        channel=channel,
+        context=context,
+        budget=Budget(maxSteps=5, maxToolCalls=3),
+        sidecar_barrier=barrier,
+        circuit_breaker=cb,
+    )
+
+    outcome = loop.run("扫描安全目录", VISIBLE)
+    barrier.close()
+
+    assert outcome.kind == "completed"
+    assert outcome.steps_used == 2
+    assert outcome.tool_calls_used == 1
+    event_types = [e.type for e in outcome.events]
+    assert "sidecar_inspected" in event_types
+    assert cb.consecutive_rejections == 0
+
+
+def test_react_loop_with_sidecar_reject_and_self_heal():
+    """场景：Sidecar 拦截危险操作，门控自愈喂回 Observation，模型调整决策并完成。"""
+    mock_classifier = MagicMock()
+    mock_classifier.classify.side_effect = [
+        SidecarAssessment(
+            callId="call-bad",
+            capability="filesystem_list",
+            verdict="REJECT_WITH_FEEDBACK",
+            riskCategory="DESTRUCTIVE_COMMAND",
+            reason="高风险调用",
+            remediation="请仅查询安全路径",
+            assessedBy="mock",
+            occurredAt="2026-09-27T00:00:00.000Z",
+        ),
+        SidecarAssessment(
+            callId="call-good",
+            capability="filesystem_list",
+            verdict="ALLOW",
+            reason="安全通过",
+            assessedBy="mock",
+            occurredAt="2026-09-27T00:00:00.000Z",
+        ),
+    ]
+    barrier = StreamBarrier(classifier=mock_classifier)
+    cb = RejectionCircuitBreaker(task_id="task-sidecar-2", threshold=3)
+
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId="call-bad",
+            capability="filesystem_list",
+            arguments={"rootId": "root"},
+        ),
+        ToolCallDecision(
+            kind="tool_call",
+            callId="call-good",
+            capability="filesystem_list",
+            arguments={"rootId": "downloads"},
+        ),
+        SummaryDecision(
+            kind="summary",
+            reply="自愈重试后成功",
+            facts=[],
+        ),
+    ]
+    channel = FakeChannel([list_result()])
+    model = ScriptedModel(decisions)
+    context = ContextManager(plan=())
+    loop = ReActLoop(
+        model=model,
+        channel=channel,
+        context=context,
+        budget=Budget(maxSteps=5, maxToolCalls=3),
+        sidecar_barrier=barrier,
+        circuit_breaker=cb,
+    )
+
+    outcome = loop.run("自愈测试", VISIBLE)
+    barrier.close()
+
+    assert outcome.kind == "completed"
+    assert outcome.tool_calls_used == 2
+    # 宿主 channel 只实际被调用了 1 次（第一次被拦截未下发）
+    assert len(channel.calls) == 1
+    # 上下文中记录了失败的合成 Observation
+    failed_obs = context.observations[0]
+    assert failed_obs.ok is False
+    assert failed_obs.payload.get("error") == "sidecar_rejection"
+
+
+def test_react_loop_with_sidecar_breaker_trips():
+    """场景：连续违规达到阈值，熔断器跳闸，ReAct 循环终止并发出 circuit_breaker_tripped 事件。"""
+    mock_classifier = MagicMock()
+    mock_classifier.classify.return_value = SidecarAssessment(
+        callId="call-bad",
+        capability="filesystem_list",
+        verdict="REJECT_WITH_FEEDBACK",
+        riskCategory="DESTRUCTIVE_COMMAND",
+        reason="高风险调用",
+        assessedBy="mock",
+        occurredAt="2026-09-27T00:00:00.000Z",
+    )
+    barrier = StreamBarrier(classifier=mock_classifier)
+    cb = RejectionCircuitBreaker(task_id="task-sidecar-3", threshold=2)
+
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId="call-1",
+            capability="filesystem_list",
+            arguments={},
+        ),
+        ToolCallDecision(
+            kind="tool_call",
+            callId="call-2",
+            capability="filesystem_list",
+            arguments={},
+        ),
+    ]
+    channel = FakeChannel([])
+    model = ScriptedModel(decisions)
+    context = ContextManager(plan=())
+    loop = ReActLoop(
+        model=model,
+        channel=channel,
+        context=context,
+        budget=Budget(maxSteps=5, maxToolCalls=3),
+        sidecar_barrier=barrier,
+        circuit_breaker=cb,
+    )
+
+    outcome = loop.run("熔断测试", VISIBLE)
+    barrier.close()
+
+    assert outcome.kind == "failed"
+    assert cb.state == "OPEN"
+    event_types = [e.type for e in outcome.events]
+    assert "circuit_breaker_tripped" in event_types
 

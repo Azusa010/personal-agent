@@ -21,6 +21,12 @@ from personal_agent.conversation.model.gateway import (
     SummaryDecision,
     ToolCallDecision,
 )
+from personal_agent.conversation.sidecar import (
+    RejectionCircuitBreaker,
+    SidecarLlmClient,
+    StreamBarrier,
+    evaluate_sidecar_gate,
+)
 from personal_agent.conversation.verification.summary import (
     EXTRACT_PDF_CAPABILITY,
     SummaryRejected,
@@ -37,7 +43,9 @@ from personal_agent.protocol.models import (
 )
 from personal_agent.shared import (
     EVENT_BUDGET_EXHAUSTED,
+    EVENT_CIRCUIT_BREAKER_TRIPPED,
     EVENT_MODEL_USAGE,  # noqa: F401
+    EVENT_SIDECAR_INSPECTED,
     EVENT_TASK_COMPLETED,
     EVENT_TASK_FAILED,
     EVENT_TASK_STARTED,
@@ -81,6 +89,9 @@ class ReActLoop:
         budget: Budget,
         stream: StreamSink | None = None,
         loop_detector: QueryLoopDetector | None = None,
+        sidecar_barrier: StreamBarrier | None = None,
+        circuit_breaker: RejectionCircuitBreaker | None = None,
+        sidecar_llm: SidecarLlmClient | None = None,
     ) -> None:
         self._model = model
         self._channel = channel
@@ -88,6 +99,13 @@ class ReActLoop:
         self._budget = budget
         self._stream = stream
         self._loop_detector = loop_detector or QueryLoopDetector()
+        self._barrier = sidecar_barrier
+        self._circuit_breaker = circuit_breaker or (
+            RejectionCircuitBreaker(task_id="default-task")
+            if sidecar_barrier is not None
+            else None
+        )
+        self._sidecar_llm = sidecar_llm
 
     def run(
         self,
@@ -182,6 +200,65 @@ class ReActLoop:
                             self._context.record(synthetic_obs)
                             tool_calls_used += 1
                             continue
+
+                # Sidecar 独立安全审查门控
+                if self._barrier is not None and self._circuit_breaker is not None:
+                    assessment = self._barrier.wait_or_pass(
+                        call_id=decision.callId,
+                        capability=decision.capability,
+                        arguments=decision.arguments,
+                        goal=goal,
+                    )
+                    self._emit(
+                        events,
+                        EVENT_SIDECAR_INSPECTED,
+                        assessment.model_dump(),
+                    )
+                    gate_result = evaluate_sidecar_gate(
+                        assessment=assessment,
+                        circuit_breaker=self._circuit_breaker,
+                        sidecar_llm=self._sidecar_llm,
+                        goal=goal,
+                        capability=decision.capability,
+                        arguments=decision.arguments,
+                    )
+                    if gate_result.tripped_event is not None:
+                        self._emit(
+                            events,
+                            EVENT_CIRCUIT_BREAKER_TRIPPED,
+                            gate_result.tripped_event.model_dump(),
+                        )
+
+                    if gate_result.action == "self_heal":
+                        obs = gate_result.observation or Observation(
+                            callId=decision.callId,
+                            capability=decision.capability,
+                            ok=False,
+                            payload={
+                                "error": "sidecar_rejection",
+                                "reason": assessment.reason,
+                            },
+                            arguments=decision.arguments,
+                        )
+                        self._emit(
+                            events,
+                            EVENT_TOOL_RESULT,
+                            {
+                                "callId": obs.callId,
+                                "capability": obs.capability,
+                                "ok": obs.ok,
+                            },
+                        )
+                        self._context.record(obs)
+                        tool_calls_used += 1
+                        continue
+                    if gate_result.action == "halt":
+                        return self._fail(
+                            events,
+                            gate_result.halt_reason or "Sidecar 安全门控终止任务",
+                            steps_used,
+                            tool_calls_used,
+                        )
 
                 try:
                     observation = self._execute(decision)

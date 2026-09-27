@@ -15,6 +15,8 @@ EVENT_STEP_STARTED = "step_started"
 EVENT_STEP_COMPLETED = "step_completed"
 EVENT_REPLAN_REQUESTED = "replan_requested"
 EVENT_REPLAN_COMPLETED = "replan_completed"
+EVENT_SIDECAR_INSPECTED = "sidecar_inspected"
+EVENT_CIRCUIT_BREAKER_TRIPPED = "circuit_breaker_tripped"
 
 
 def now_occurred_at() -> str:

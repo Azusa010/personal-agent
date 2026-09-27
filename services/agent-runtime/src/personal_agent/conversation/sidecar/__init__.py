@@ -16,13 +16,19 @@ from personal_agent.conversation.sidecar.classifier import (
     JevSafetyClassifier,
     classify_heuristic,
 )
+from personal_agent.conversation.sidecar.gating import (
+    SidecarGateResult,
+    evaluate_sidecar_gate,
+)
 from personal_agent.conversation.sidecar.llm_client import SidecarLlmClient
 
 __all__ = [
     "DEFAULT_CONSECUTIVE_REJECTION_THRESHOLD",
     "JevSafetyClassifier",
     "RejectionCircuitBreaker",
+    "SidecarGateResult",
     "SidecarLlmClient",
     "StreamBarrier",
     "classify_heuristic",
+    "evaluate_sidecar_gate",
 ]
