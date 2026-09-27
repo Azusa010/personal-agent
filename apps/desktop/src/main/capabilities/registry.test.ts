@@ -17,24 +17,29 @@ import { CapabilityId } from '@personal-agent/protocol'
 const ALL_CAPABILITY_NAMES = [
   'filesystem_list',
   'document_extract_pdf',
+  'read_document',
   'filesystem_create_dir',
   'filesystem_move',
   'scheduler_create',
   'notification_send',
   'terminal_execute',
+  'code_interpreter',
+  'file_search',
   'knowledge_search',
   'user_memory_search',
   'viking_read_l0',
   'viking_read_l1',
   'viking_read_l2',
-  'viking_write_l2'
+  'viking_write_l2',
+  'skill_search',
+  'skill_read'
 ]
 
 describe('CapabilityRegistry', () => {
-  it('恰好注册 13 个能力，不多不少', () => {
+  it('恰好注册 18 个能力，不多不少', () => {
     const names = listCapabilities().map((c) => c.name)
     expect([...names].sort()).toEqual([...ALL_CAPABILITY_NAMES].sort())
-    expect(CAPABILITIES).toHaveLength(13)
+    expect(CAPABILITIES).toHaveLength(18)
 
     // SEC-007 的禁止类名字必须查不到
     for (const forbidden of ['shell.exec', 'process.spawn', 'filesystem.delete', 'http.fetch']) {
@@ -42,15 +47,19 @@ describe('CapabilityRegistry', () => {
     }
   })
 
-  it('分类为 7 READ + 6 WRITE', () => {
+  it('分类为 11 READ + 7 WRITE', () => {
     expect(listByKind('READ').map((c) => c.name)).toEqual([
       'filesystem_list',
       'document_extract_pdf',
+      'read_document',
+      'file_search',
       'knowledge_search',
       'user_memory_search',
       'viking_read_l0',
       'viking_read_l1',
-      'viking_read_l2'
+      'viking_read_l2',
+      'skill_search',
+      'skill_read'
     ])
     expect(listByKind('WRITE').map((c) => c.name)).toEqual([
       'filesystem_create_dir',
@@ -58,19 +67,24 @@ describe('CapabilityRegistry', () => {
       'scheduler_create',
       'notification_send',
       'terminal_execute',
+      'code_interpreter',
       'viking_write_l2'
     ])
     // 两类不重不漏
     expect(listByKind('READ').length + listByKind('WRITE').length).toBe(CAPABILITIES.length)
   })
 
-  it('readOnlyScope 恰好含 7 个 READ，不含任何 WRITE', () => {
+  it('readOnlyScope 恰好含 11 个 READ，不含任何 WRITE', () => {
     const scope = readOnlyScope('t-1')
     expect(scope.taskId).toBe('t-1')
     expect([...scope.capabilities].sort()).toEqual([
       'document_extract_pdf',
+      'file_search',
       'filesystem_list',
       'knowledge_search',
+      'read_document',
+      'skill_read',
+      'skill_search',
       'user_memory_search',
       'viking_read_l0',
       'viking_read_l1',
@@ -136,7 +150,7 @@ describe('extendedScope 扩展能力', () => {
     expect(scope.taskId).toBe('task-ext')
     expect(isInScope(scope, 'filesystem_list')).toBe(true)
     expect(isInScope(scope, 'knowledge_search')).toBe(true)
-    expect(isInScope(scope, 'viking_write_l2')).toBe(true)
-    expect(isInScope(scope, 'viking_read_l0')).toBe(false)
+    expect(isInScope(scope, 'viking_read_l0')).toBe(true)
+    expect(isInScope(scope, 'notification_send')).toBe(false)
   })
 })

@@ -32,7 +32,7 @@ export const SchedulerCreateResult = z.object({
   created: z.boolean(),
 });
 
-export type SchedulerCreateResult = z.infer<typeof SchedulerCreateResult>
+export type SchedulerCreateResult = z.infer<typeof SchedulerCreateResult>;
 
 export const SchedulerCreateOutcome = z.discriminatedUnion("ok", [
   SchedulerCreateResult,

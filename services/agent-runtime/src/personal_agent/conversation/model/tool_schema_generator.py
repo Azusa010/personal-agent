@@ -10,13 +10,18 @@ from pydantic import BaseModel
 
 from personal_agent.protocol.models import (
     CapabilityId,
+    CodeInterpreterParams,
     DocumentExtractPdfParams,
+    FileSearchParams,
     FilesystemCreateDirParams,
     FilesystemListParams,
     FilesystemMoveParams,
     KnowledgeSearchParams,
     NotificationSendParams,
+    ReadDocumentParams,
     SchedulerCreateParams,
+    SkillReadParams,
+    SkillSearchParams,
     TerminalExecuteParams,
     UserMemorySearchParams,
     VikingReadL0Params,
@@ -29,6 +34,7 @@ from personal_agent.protocol.models import (
 TOOL_PARAM_MODELS: dict[str, type[BaseModel]] = {
     "filesystem_list": FilesystemListParams,
     "document_extract_pdf": DocumentExtractPdfParams,
+    "read_document": ReadDocumentParams,
     "filesystem_create_dir": FilesystemCreateDirParams,
     "filesystem_move": FilesystemMoveParams,
     "scheduler_create": SchedulerCreateParams,
@@ -40,12 +46,17 @@ TOOL_PARAM_MODELS: dict[str, type[BaseModel]] = {
     "viking_read_l1": VikingReadL1Params,
     "viking_read_l2": VikingReadL2Params,
     "viking_write_l2": VikingWriteL2Params,
+    "code_interpreter": CodeInterpreterParams,
+    "file_search": FileSearchParams,
+    "skill_search": SkillSearchParams,
+    "skill_read": SkillReadParams,
 }
 
 # 工具层级高阶描述说明（对齐 ACI 目标导向）
 TOOL_DESCRIPTIONS: dict[str, str] = {
     "filesystem_list": "列出指定授权根目录下的文件与子目录条目",
     "document_extract_pdf": "解析并提取 PDF 文件的逐页文本与页码",
+    "read_document": "多格式统一文档读取器，支持分页、文本截断控制与结构化提取 (PDF/Word/Markdown/Text)",
     "filesystem_create_dir": "在授权根目录下创建新目录",
     "filesystem_move": "在授权根内移动或重命名文件/目录",
     "scheduler_create": "创建定时提醒任务",
@@ -57,6 +68,10 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "viking_read_l1": "读取 Viking 维基目录的 L1 概览 (.overview)",
     "viking_read_l2": "读取 Viking 维基条目的 L2 全文 (*.md)",
     "viking_write_l2": "写入或更新 Viking 维基条目的 L2 全文 (*.md)",
+    "code_interpreter": "在隔离沙盒内运行 Python 代码，用于复杂数据计算与批量文件处理",
+    "file_search": "跨平台文件搜索，支持按文件名通配符或文本内容进行检索",
+    "skill_search": "按关键词或标签检索 Agent Skills 目录，仅返回轻量元数据以保护上下文",
+    "skill_read": "按需加载指定 Skill 的完整指令正文 (SKILL.md)，实现渐进式披露",
 }
 
 # 字段级语义描述增强（提供具象样例与约束）
@@ -109,6 +124,17 @@ PROPERTY_DESCRIPTIONS: dict[str, dict[str, str]] = {
     "viking_write_l2": {
         "uri": "Viking 虚拟 URI，以 viking:// 开头",
         "content": "待写入的 Markdown 正文",
+    },
+    "code_interpreter": {
+        "code": "要执行的 Python 代码段",
+        "timeoutMs": "超时时间（毫秒，默认 30000）",
+        "saveArtifacts": "是否持久化产生的输出文件",
+    },
+    "file_search": {
+        "pattern": "文件名通配符或搜索关键词",
+        "searchMode": "搜索模式：filename (文件名), content_plain (纯文本内容), content_regex (正则内容)",
+        "relativeRoot": "可选的子目录相对路径",
+        "maxMatches": "最大匹配条数（默认 50）",
     },
 }
 

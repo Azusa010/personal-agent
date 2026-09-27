@@ -60,6 +60,18 @@ describe('moveFile：正常移动', () => {
     expect(out.ok).toBe(true)
     expect(() => FilesystemMoveOutcome.parse(out)).not.toThrow()
   })
+
+  it('移动后自动验证目标存在与字节大小一致', async () => {
+    const source = p('verified.pdf')
+    const target = p('Reading', 'verified.pdf')
+    await writeFile(source, 'EXACT_CONTENT_123')
+    await mkdir(p('Reading'))
+
+    const out = await moveFile(source, target)
+    expect(out.ok).toBe(true)
+    const targetStat = await stat(target)
+    expect(targetStat.size).toBe(Buffer.byteLength('EXACT_CONTENT_123'))
+  })
 })
 
 describe('moveFile：source 缺失', () => {

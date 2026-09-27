@@ -93,7 +93,8 @@ function fail(detail: string): CheckResult {
 const CHECKS: CheckSpec[] = [
   {
     id: 'summary_present',
-    required: (evidence) => planHas(evidence, EXTRACT_PDF_CAPABILITY),
+    required: (evidence) =>
+      planHas(evidence, EXTRACT_PDF_CAPABILITY) || planHas(evidence, 'read_document'),
     notApplicable: '计划里没有提取 PDF 的步骤：摘要不依据页文本',
     run: (evidence) => {
       if (evidence.summary.length === 0) {
@@ -122,7 +123,8 @@ const CHECKS: CheckSpec[] = [
   },
   {
     id: 'page_refs_grounded',
-    required: (evidence) => planHas(evidence, EXTRACT_PDF_CAPABILITY),
+    required: (evidence) =>
+      planHas(evidence, EXTRACT_PDF_CAPABILITY) || planHas(evidence, 'read_document'),
     notApplicable: '计划里没有提取 PDF 的步骤：摘要不依据页文本',
     run: (evidence) => {
       const pages = evidence.parsedPageNumbers

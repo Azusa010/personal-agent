@@ -1,0 +1,15 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "result": {
+    "ok": true,
+    "name": "pdf-extractor",
+    "description": "Extract tabular data and summaries from financial PDF reports",
+    "tags": [
+      "pdf",
+      "finance"
+    ],
+    "content": "# PDF Extractor Skill\n\nUse this skill when processing complex financial statements in PDF format.",
+    "path": ".skills/pdf-extractor/SKILL.md"
+  }
+}

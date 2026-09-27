@@ -15,7 +15,7 @@ electron-builder 经 extraResources 把它放到安装包的 resources/agent-run
 
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 # SPECPATH 由 PyInstaller 在执行 spec 时注入，指向本文件所在目录。
 PACKAGING_DIR = Path(SPECPATH)
@@ -29,13 +29,16 @@ hiddenimports = collect_submodules("personal_agent")
 
 # live 模式的 SDK 是延迟 import（只有配了 OPENAI_MODEL 才走到），
 # 静态分析不一定跟进；漏收的后果是「scripted 模式一切正常、一配真模型就崩」，很难查。
-hiddenimports += ["openai"]
+hiddenimports += ["openai", "tiktoken"]
+hiddenimports += collect_submodules("tiktoken_ext")
+
+datas = collect_data_files("tiktoken")
 
 a = Analysis(  # noqa: F821 - PyInstaller 注入的 Analysis
     [str(PACKAGING_DIR / "entrypoint.py")],
     pathex=[str(SERVICE_ROOT / "src")],
     binaries=[],
-    datas=[],
+    datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

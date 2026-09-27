@@ -1,0 +1,14 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-search-1",
+    "capability": "file_search",
+    "arguments": {
+      "pattern": "*.pdf",
+      "searchMode": "filename",
+      "maxMatches": 50
+    }
+  }
+}

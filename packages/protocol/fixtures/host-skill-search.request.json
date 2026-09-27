@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-skill-search-1",
+    "capability": "skill_search",
+    "arguments": {
+      "query": "pdf",
+      "maxResults": 10
+    }
+  }
+}

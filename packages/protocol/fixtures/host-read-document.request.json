@@ -1,0 +1,16 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-read-doc-1",
+    "capability": "read_document",
+    "arguments": {
+      "path": "reports/summary.pdf",
+      "fileType": "pdf",
+      "pageStart": 1,
+      "pageEnd": 5,
+      "maxCharsPerPage": 4000
+    }
+  }
+}

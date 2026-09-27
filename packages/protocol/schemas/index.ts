@@ -13,3 +13,6 @@ export * from "./knowledge";
 export * from "./memory";
 export * from "./viking";
 export * from "./knowledge_update";
+export * from "./code-interpreter";
+export * from "./file-search";
+export * from "./skills";

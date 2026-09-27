@@ -22,6 +22,8 @@ import {
 import {
   DocumentExtractPdfParams,
   DocumentExtractPdfResult,
+  ReadDocumentParams,
+  ReadDocumentResult,
 } from "../schemas/document.js";
 import {
   SchedulerCreateParams,
@@ -35,6 +37,17 @@ import {
   TerminalExecuteParams,
   TerminalExecuteResult,
 } from "../schemas/terminal.js";
+import {
+  CodeInterpreterParams,
+  CodeInterpreterResult,
+} from "../schemas/code-interpreter.js";
+import { FileSearchParams, FileSearchResult } from "../schemas/file-search.js";
+import {
+  SkillSearchParams,
+  SkillSearchResult,
+  SkillReadParams,
+  SkillReadResult,
+} from "../schemas/skills.js";
 import {
   AgentStreamNotification,
   MakePlanParams,
@@ -251,6 +264,101 @@ const legalCases = [
     file: "host-terminal-execute.response.json",
     envelope: HostExecuteToolResponse,
     payload: TerminalExecuteResult,
+    field: "result",
+  },
+  // read_document
+  {
+    file: "host-read-document.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-read-document.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: ReadDocumentParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-read-document.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: ReadDocumentResult,
+    field: "result",
+  },
+  // code_interpreter (Phase 4)
+  {
+    file: "host-code-interpreter.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-code-interpreter.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: CodeInterpreterParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-code-interpreter.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: CodeInterpreterResult,
+    field: "result",
+  },
+  // file_search (Phase 4)
+  {
+    file: "host-file-search.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-file-search.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: FileSearchParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-file-search.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: FileSearchResult,
+    field: "result",
+  },
+  // skill_search (Phase 5)
+  {
+    file: "host-skill-search.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-skill-search.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: SkillSearchParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-skill-search.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: SkillSearchResult,
+    field: "result",
+  },
+  // skill_read (Phase 5)
+  {
+    file: "host-skill-read.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-skill-read.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: SkillReadParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-skill-read.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: SkillReadResult,
     field: "result",
   },
   // knowledge_search

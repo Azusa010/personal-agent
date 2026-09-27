@@ -1,0 +1,19 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "result": {
+    "ok": true,
+    "path": "reports/summary.pdf",
+    "totalPages": 5,
+    "returnedPages": 1,
+    "hasMore": false,
+    "nextPage": null,
+    "pages": [
+      {
+        "pageNumber": 1,
+        "text": "Report Summary Content",
+        "truncated": false
+      }
+    ]
+  }
+}

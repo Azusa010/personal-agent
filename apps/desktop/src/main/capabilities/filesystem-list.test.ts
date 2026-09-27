@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { listPdfs } from './filesystem-list'
+import { listDirectory, listPdfs } from './filesystem-list'
 import { formatModifiedAt, toPosix } from './roots'
 
 let dir: string
@@ -145,5 +145,39 @@ describe('listPdfs：前提失败', () => {
     await put('ok.pdf', 'K', T_OLD)
     const entries = await listPdfs(dir)
     expect(entries).toHaveLength(1)
+  })
+})
+
+describe('listDirectory：通用目录列举与过滤', () => {
+  it('列举文件与子目录，并返回正确的 entry type', async () => {
+    await put('doc.pdf', 'PDF', T_OLD)
+    await put('notes.txt', 'TXT', T_MID)
+    await mkdir(join(dir, 'subfolder'))
+
+    const entries = await listDirectory(dir)
+    const fileEntry = entries.find((e) => e.name === 'doc.pdf')
+    const dirEntry = entries.find((e) => e.name === 'subfolder')
+
+    expect(fileEntry?.type).toBe('file')
+    expect(dirEntry?.type).toBe('directory')
+    expect(entries).toHaveLength(3)
+  })
+
+  it('支持 pattern 后缀过滤 (*.txt)', async () => {
+    await put('doc.pdf', 'PDF', T_OLD)
+    await put('notes.txt', 'TXT', T_MID)
+    await put('readme.txt', 'README', T_NEW)
+
+    const entries = await listDirectory(dir, { pattern: '*.txt' })
+    expect(entries.map((e) => e.name).sort()).toEqual(['notes.txt', 'readme.txt'])
+  })
+
+  it('支持通配符模式过滤 (doc_*)', async () => {
+    await put('doc_1.pdf', '1', T_OLD)
+    await put('doc_2.pdf', '2', T_MID)
+    await put('other.pdf', '3', T_NEW)
+
+    const entries = await listDirectory(dir, { pattern: 'doc_*' })
+    expect(entries.map((e) => e.name).sort()).toEqual(['doc_1.pdf', 'doc_2.pdf'])
   })
 })

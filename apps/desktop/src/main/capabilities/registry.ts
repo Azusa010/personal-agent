@@ -3,6 +3,7 @@ import {
   type CapabilityId,
   type CapabilityKind
 } from '@personal-agent/protocol'
+import { getCapabilityPlugin, listCapabilityPlugins } from './plugins'
 
 export type { CapabilityDescriptor, CapabilityKind }
 
@@ -16,6 +17,16 @@ export const CAPABILITIES = [
     name: 'document_extract_pdf',
     kind: 'READ',
     description: '提取 PDF 每页文本与页码'
+  },
+  {
+    name: 'read_document',
+    kind: 'READ',
+    description: '多格式统一文档读取器，提取逐页文本并支持分页与字符限制 (PDF/Word/Markdown/Text)'
+  },
+  {
+    name: 'file_search',
+    kind: 'READ',
+    description: '跨平台文件与内容检索，支持文件名通配符及纯文本/正则行检索'
   },
   {
     name: 'knowledge_search',
@@ -43,6 +54,16 @@ export const CAPABILITIES = [
     description: '读取 Viking 维基条目的 L2 全文 (*.md)'
   },
   {
+    name: 'skill_search',
+    kind: 'READ',
+    description: '按关键词或标签检索 Agent Skills 目录，仅返回轻量元数据以保护上下文与 KV Cache'
+  },
+  {
+    name: 'skill_read',
+    kind: 'READ',
+    description: '按需加载指定 Skill 的完整指令正文 (SKILL.md)，实现渐进式披露'
+  },
+  {
     name: 'filesystem_create_dir',
     kind: 'WRITE',
     description: '在授权根目录下创建子目录'
@@ -68,6 +89,11 @@ export const CAPABILITIES = [
     description: '在安全工作目录下执行终端命令行'
   },
   {
+    name: 'code_interpreter',
+    kind: 'WRITE',
+    description: '在隔离沙盒内执行 Python 代码段，用于复杂计算、批量数据转换及工具编排'
+  },
+  {
     name: 'viking_write_l2',
     kind: 'WRITE',
     description: '写入或更新 Viking 维基条目的 L2 全文 (*.md)'
@@ -77,13 +103,21 @@ export const CAPABILITIES = [
 export type CapabilityName = CapabilityId
 
 export function listCapabilities(): readonly CapabilityDescriptor[] {
+  const plugins = listCapabilityPlugins()
+  if (plugins.length > 0) {
+    return plugins.map((p) => p.descriptor as CapabilityDescriptor)
+  }
   return CAPABILITIES
 }
 
 export function listByKind(kind: CapabilityKind): readonly CapabilityDescriptor[] {
-  return CAPABILITIES.filter((c) => c.kind === kind)
+  return listCapabilities().filter((c) => c.kind === kind)
 }
 
 export function findCapability(name: string): CapabilityDescriptor | null {
+  const plugin = getCapabilityPlugin(name)
+  if (plugin !== undefined) {
+    return plugin.descriptor as CapabilityDescriptor
+  }
   return CAPABILITIES.find((c) => c.name === name) ?? null
 }

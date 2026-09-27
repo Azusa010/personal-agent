@@ -1,0 +1,14 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "result": {
+    "ok": true,
+    "totalMatches": 1,
+    "truncated": false,
+    "matches": [
+      {
+        "path": "reports/q3.pdf"
+      }
+    ]
+  }
+}

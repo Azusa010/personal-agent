@@ -132,4 +132,20 @@ describe('terminal_execute 执行体', () => {
     expect(res['code']).toBe(ERROR_CODE.PERMISSION_DENIED)
     expect(String(res['reason'])).toContain('测试拒绝理由')
   })
+
+  it('超长输出自动触发 Head/Tail 截断并持久化完整日志', async () => {
+    const executor = createExecutor(scope, UI_ORIGIN, new RuleBasedToolRetriever(), {
+      gate: allowAllGate()
+    })
+
+    // 输出 300 行
+    const script = 'node -e "for(let i=1;i<=300;i++) console.log(\'line_\' + i);"'
+    const res = await executor(terminalParams({ command: script }))
+    expect(res['ok']).toBe(true)
+    const stdout = String(res['stdout'])
+    expect(stdout).toContain('line_1')
+    expect(stdout).toContain('line_50')
+    expect(stdout).toContain('[系统截断：省略')
+    expect(stdout).toContain('line_300')
+  })
 })

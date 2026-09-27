@@ -5,6 +5,10 @@ import {
   DocumentExtractPdfParams,
   DocumentExtractPdfResult,
   PageText,
+  ReadDocumentParams,
+  ReadDocumentResult,
+  DocumentPage,
+  ReadDocumentOutcome,
 } from "../schemas/document.js";
 import { CapabilityFailure } from "../schemas/host.js";
 
@@ -157,5 +161,62 @@ describe("DocumentExtractPdfResult 与 CapabilityFailure 互斥", () => {
         reason: "x",
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("ReadDocumentParams", () => {
+  it("接受合法参数并应用默认值", () => {
+    const parsed = ReadDocumentParams.parse({ path: "reports/doc.pdf" });
+    expect(parsed).toEqual({
+      path: "reports/doc.pdf",
+      fileType: "auto",
+      pageStart: 1,
+      maxCharsPerPage: 4000,
+    });
+  });
+
+  it("接受自定义分页与文件类型", () => {
+    const parsed = ReadDocumentParams.parse({
+      path: "notes.docx",
+      fileType: "docx",
+      pageStart: 2,
+      pageEnd: 10,
+      maxCharsPerPage: 2000,
+    });
+    expect(parsed.fileType).toBe("docx");
+    expect(parsed.pageStart).toBe(2);
+    expect(parsed.pageEnd).toBe(10);
+    expect(parsed.maxCharsPerPage).toBe(2000);
+  });
+
+  it("拒绝空 path 与非法 pageStart", () => {
+    expect(ReadDocumentParams.safeParse({ path: "" }).success).toBe(false);
+    expect(
+      ReadDocumentParams.safeParse({ path: "a.pdf", pageStart: 0 }).success,
+    ).toBe(false);
+  });
+});
+
+describe("ReadDocumentResult 与 Outcome", () => {
+  it("接受带截断标记的分页响应", () => {
+    const res = {
+      ok: true as const,
+      path: "a.pdf",
+      totalPages: 10,
+      returnedPages: 2,
+      hasMore: true,
+      nextPage: 3,
+      pages: [
+        { pageNumber: 1, text: "Page 1 content", truncated: false },
+        { pageNumber: 2, text: "Page 2 content", truncated: true },
+      ],
+    };
+    expect(ReadDocumentResult.safeParse(res).success).toBe(true);
+    expect(ReadDocumentOutcome.safeParse(res).success).toBe(true);
+  });
+
+  it("失败分支支持 CapabilityFailure", () => {
+    const fail = { ok: false as const, code: "FILE_UNREADABLE", reason: "Cannot read" };
+    expect(ReadDocumentOutcome.safeParse(fail).success).toBe(true);
   });
 });

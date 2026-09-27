@@ -278,7 +278,12 @@ export function collectToolResults(events: ExecutionEventRecord[]): ToolCallEvid
 export function lastExtractedPath(events: ExecutionEventRecord[]): string | null {
   const succeeded = new Set(
     collectToolResults(events)
-      .filter((r) => r.capability === EXTRACT_PDF_CAPABILITY && r.ok && r.hasResult)
+      .filter(
+        (r) =>
+          (r.capability === EXTRACT_PDF_CAPABILITY || r.capability === 'read_document') &&
+          r.ok &&
+          r.hasResult
+      )
       .map((r) => r.callId)
   )
   if (succeeded.size === 0) return null
@@ -509,7 +514,7 @@ export async function collectEvidence(
   }
 
   const hasExtractPdf = (state.plan?.steps ?? []).some(
-    (step) => step.capability === 'document_extract_pdf'
+    (step) => step.capability === 'document_extract_pdf' || step.capability === 'read_document'
   )
 
   const moves = await collectMoveEvidence(state.executions, deps, gaps)

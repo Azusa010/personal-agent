@@ -1,4 +1,4 @@
-import { type CapabilityName, listByKind } from './registry'
+import { type CapabilityName, listByKind, listCapabilities } from './registry'
 
 export interface TaskScope {
   taskId: string
@@ -13,25 +13,12 @@ export function readOnlyScope(taskId: string): TaskScope {
 }
 
 /**
- * 一次「整理 PDF」任务能用的能力：两个 READ 加三个 WRITE（TASK-028 起）。
- *
- * 手写而不是从 registry 过滤：这是一条权限边界，新增能力时应该有人显式决定它要不要
- * 进这个任务，而不是 filter 一放宽就自动放行。
- *
- * 顺序与 planning.PLAN_REQUIREMENTS 的能力项逐字一致（那边按它生成计划，这边按它
- * 放行）：少一项，计划里那一步就会撞 ACTION_NOT_ALIGNED；多一项，模型就会看见一个
- * 计划里永远用不到的工具。两份表的漂移由 e2e/golden-path.test.ts 的断言盯住。
- *
- * notification_send 不在内：它由 Reminder 到点触发（reminder-timer → fireReminder），
- * 不是模型能自选的动作。放进 Scope 等于让模型有权给任意一条提醒发通知。
+ * 完整 Agent 任务可用能力集：排除内部专用触发工具 notification_send。
+ * 动态从 registry / plugins 获取，确保新增能力插件自动暴露给 Agent，无需手动维护白名单。
  */
-export const AGENT_TASK_CAPABILITIES: readonly CapabilityName[] = [
-  'filesystem_list',
-  'document_extract_pdf',
-  'filesystem_create_dir',
-  'filesystem_move',
-  'scheduler_create'
-]
+export const AGENT_TASK_CAPABILITIES: readonly CapabilityName[] = listCapabilities()
+  .map((c) => c.name as CapabilityName)
+  .filter((name) => name !== 'notification_send')
 
 export function agentTaskScope(taskId: string): TaskScope {
   return { taskId, capabilities: AGENT_TASK_CAPABILITIES }
@@ -47,6 +34,27 @@ export function extendedScope(
   return {
     taskId,
     capabilities: Array.from(new Set([...AGENT_TASK_CAPABILITIES, ...extraCapabilities]))
+  }
+}
+
+/**
+ * 从计划动态推导任务所需的 Scope。
+ * 至少包含 Agent 基础可用能力以及计划步骤中显式要求的任何能力。
+ */
+export function deriveScopeFromPlan(
+  taskId: string,
+  plan?: readonly { capability?: string | null; description?: string; [key: string]: unknown }[],
+  baseCapabilities: readonly CapabilityName[] = AGENT_TASK_CAPABILITIES
+): TaskScope {
+  if (!plan || plan.length === 0) {
+    return { taskId, capabilities: baseCapabilities }
+  }
+  const planCaps = plan
+    .map((step) => step.capability)
+    .filter((cap): cap is CapabilityName => typeof cap === 'string' && cap.length > 0)
+  return {
+    taskId,
+    capabilities: Array.from(new Set([...baseCapabilities, ...planCaps]))
   }
 }
 

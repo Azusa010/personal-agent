@@ -1,22 +1,11 @@
-import { stat } from 'node:fs/promises'
-import { Stats } from 'node:fs'
-
 import type { ToolExecutionRecord } from '../../shared/domain'
 import { fingerprintArguments } from '../permission/args-hash'
 import type { BoundArgs } from '../policy/argument-binders'
 import type { AuthorizedCall } from '../policy/execution-policy'
 import type { ToolExecutionRepository } from '../product-state/tool-execution-repository'
+import { getCapabilityPlugin } from './plugins'
 
-async function safeStat(path: string): Promise<Stats | undefined> {
-  try {
-    return await stat(path)
-  } catch (error) {
-    if (error instanceof Error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return undefined
-    }
-    throw error
-  }
-}
+export { safeStat } from './plugins/helpers'
 
 // ---------- 1. 幂等键 ----------
 /**
@@ -45,50 +34,13 @@ export type RecoveryVerdict =
   | { readonly kind: 'not-done' }
   | { readonly kind: 'unknown'; readonly reason: string }
 
-/** 按能力把恢复判定分发到各自的文件系统检查 */
+/** 按能力把恢复判定分发到各自的能力插件 */
 export async function resolveExecution(record: ToolExecutionRecord): Promise<RecoveryVerdict> {
-  switch (record.capability) {
-    case 'filesystem_move':
-      return resolveMove(record)
-    case 'filesystem_create_dir':
-      return resolveCreateDir(record)
-    default:
-      return { kind: 'unknown', reason: `没有崩溃恢复判定的能力: ${record.capability}` }
+  const plugin = getCapabilityPlugin(record.capability)
+  if (plugin?.idempotency?.resolveRecovery) {
+    return plugin.idempotency.resolveRecovery(record)
   }
-}
-
-/** filesystem_move 的崩溃恢复判定 */
-async function resolveMove(record: ToolExecutionRecord): Promise<RecoveryVerdict> {
-  if (record.sourcePaths.length === 0 || record.targetPath === null) {
-    return { kind: 'unknown', reason: '数据异常：sourcePaths 为空或 targetPath 为 null' }
-  }
-  const sourceStats = await safeStat(record.sourcePaths[0])
-  const targetStats = await safeStat(record.targetPath)
-  if (!sourceStats && targetStats) {
-    return { kind: 'done' }
-  }
-  if (!sourceStats && !targetStats) {
-    return { kind: 'unknown', reason: '源路径和目标路径都不存在' }
-  }
-  if (sourceStats && targetStats) {
-    return { kind: 'unknown', reason: '源路径和目标路径同时存在' }
-  }
-  return { kind: 'not-done' }
-}
-
-/** filesystem_create_dir 的崩溃恢复判定。*/
-async function resolveCreateDir(record: ToolExecutionRecord): Promise<RecoveryVerdict> {
-  if (record.targetPath === null) {
-    return { kind: 'unknown', reason: '数据异常：targetPath 为 null' }
-  }
-  const targetStats = await safeStat(record.targetPath)
-  if (targetStats && targetStats.isDirectory()) {
-    return { kind: 'done' }
-  }
-  if (targetStats && !targetStats.isDirectory()) {
-    return { kind: 'unknown', reason: '目标路径存在但不是目录' }
-  }
-  return { kind: 'not-done' }
+  return { kind: 'unknown', reason: `没有崩溃恢复判定的能力: ${record.capability}` }
 }
 
 // ---------- 3. 执行链编排 ----------
@@ -109,31 +61,22 @@ export type BeforeDecision =
   | { readonly kind: 'skip'; readonly key: string; readonly result: Record<string, unknown> }
   | { readonly kind: 'reject'; readonly key: string; readonly result: Record<string, unknown> }
 
-/** 会产生文件系统副作用、需要幂等保护的能力。只读能力（list/extract_pdf）不在内。 */
-const WRITE_CAPABILITIES: ReadonlySet<string> = new Set([
-  'filesystem_move',
-  'filesystem_create_dir'
-])
-
 export function isWriteCapability(name: string): boolean {
-  return WRITE_CAPABILITIES.has(name)
+  const plugin = getCapabilityPlugin(name)
+  return plugin?.idempotency?.isWrite ?? false
 }
 
 /** 从 bound.paths 提取这次调用的副作用路径，写进记录供 resolver 崩溃后复查。
- *  字段名 per-capability：move 是 source/target，create_dir 只有 path（当作 target，无 source）。
  */
 function extractSideEffects(
   capability: string,
   bound: BoundArgs
 ): { sourcePaths: string[]; targetPath: string | null } {
-  switch (capability) {
-    case 'filesystem_move':
-      return { sourcePaths: [bound.paths['source']], targetPath: bound.paths['target'] }
-    case 'filesystem_create_dir':
-      return { sourcePaths: [], targetPath: bound.paths['path'] }
-    default:
-      return { sourcePaths: [], targetPath: null }
+  const plugin = getCapabilityPlugin(capability)
+  if (plugin?.idempotency?.extractSideEffects) {
+    return plugin.idempotency.extractSideEffects(bound)
   }
+  return { sourcePaths: [], targetPath: null }
 }
 
 /** 执行前的幂等关：查这个 key 以前登记过没有，决定这次要不要真的跑副作用。*/

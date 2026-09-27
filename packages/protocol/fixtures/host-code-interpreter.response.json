@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "result": {
+    "ok": true,
+    "exitCode": 0,
+    "stdout": "2\n",
+    "stderr": "",
+    "artifacts": [],
+    "truncated": false
+  }
+}

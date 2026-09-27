@@ -48,10 +48,12 @@ class PdfEntry(ProtocolModel):
     absolutePath: str
     modifiedAt: str
     sizeBytes: int = Field(ge=0)
+    type: Literal["file", "directory"] = "file"
 
 
 class FilesystemListParams(ProtocolModel):
     rootId: Literal["downloads"]
+    pattern: str | None = None
 
 
 class FilesystemListResult(ProtocolModel):
@@ -85,6 +87,7 @@ HOST_CALL_ID_PATTERN = r"^call-[0-9]+$"
 CapabilityId = Literal[
     "filesystem_list",
     "document_extract_pdf",
+    "read_document",
     "filesystem_create_dir",
     "filesystem_move",
     "scheduler_create",
@@ -96,6 +99,10 @@ CapabilityId = Literal[
     "viking_read_l1",
     "viking_read_l2",
     "viking_write_l2",
+    "code_interpreter",
+    "file_search",
+    "skill_search",
+    "skill_read",
 ]
 
 
@@ -153,6 +160,39 @@ class DocumentExtractPdfResult(ProtocolModel):
 
 DocumentExtractPdfOutcome = Annotated[
     DocumentExtractPdfResult | CapabilityFailure, Field(discriminator="ok")
+]
+
+
+# ---- read_document 统一文档读取规范 ----
+DocumentFileType = Literal["auto", "pdf", "docx", "pptx", "xlsx", "text"]
+
+
+class ReadDocumentParams(ProtocolModel):
+    path: str = Field(min_length=1)
+    fileType: DocumentFileType = "auto"
+    pageStart: int = Field(default=1, ge=1)
+    pageEnd: int | None = Field(default=None, ge=1)
+    maxCharsPerPage: int = Field(default=4000, ge=1)
+
+
+class DocumentPage(ProtocolModel):
+    pageNumber: int = Field(ge=1)
+    text: str
+    truncated: bool = False
+
+
+class ReadDocumentResult(ProtocolModel):
+    ok: Literal[True]
+    path: str | None = None
+    totalPages: int = Field(ge=0)
+    returnedPages: int = Field(ge=0)
+    hasMore: bool
+    nextPage: int | None = None
+    pages: list[DocumentPage]
+
+
+ReadDocumentOutcome = Annotated[
+    ReadDocumentResult | CapabilityFailure, Field(discriminator="ok")
 ]
 
 
@@ -276,6 +316,120 @@ class TerminalExecuteResult(ProtocolModel):
 
 TerminalExecuteOutcome = Annotated[
     TerminalExecuteResult | CapabilityFailure, Field(discriminator="ok")
+]
+
+
+# ---- code_interpreter (Phase 4) ----
+class CodeInterpreterParams(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    code: str = Field(min_length=1, description="待执行的 Python 代码")
+    timeoutMs: int = Field(default=30000, gt=0, description="超时毫秒数，默认 30s")
+    saveArtifacts: bool = Field(default=False, description="是否持久化产生的图表或文件")
+
+
+class CodeInterpreterResult(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True]
+    exitCode: int
+    stdout: str
+    stderr: str
+    artifacts: list[str] = Field(default_factory=list)
+    truncated: bool | None = None
+
+
+CodeInterpreterOutcome = Annotated[
+    CodeInterpreterResult | CapabilityFailure, Field(discriminator="ok")
+]
+
+
+# ---- file_search (Phase 4) ----
+FileSearchMode = Literal["filename", "content_plain", "content_regex"]
+
+
+class FileSearchParams(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    pattern: str = Field(min_length=1, description="检索模式（通配符或文本）")
+    searchMode: FileSearchMode = Field(default="filename", description="搜索模式")
+    relativeRoot: str | None = Field(default=None, description="搜索子路径，默认根目录")
+    maxMatches: int = Field(default=50, gt=0, description="最多匹配结果数")
+
+
+class FileSearchMatch(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    path: str
+    lineNumber: int | None = None
+    lineContent: str | None = None
+    matchPreview: str | None = None
+
+
+class FileSearchResult(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True]
+    totalMatches: int
+    truncated: bool
+    matches: list[FileSearchMatch]
+
+
+FileSearchOutcome = Annotated[
+    FileSearchResult | CapabilityFailure, Field(discriminator="ok")
+]
+
+
+# ---- skill_search & skill_read (Phase 5) ----
+class SkillMetadata(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    name: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    tags: list[str] = Field(default_factory=list)
+    path: str | None = None
+
+
+class SkillSearchParams(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    query: str = Field(min_length=1, description="搜索关键词或 '*'（名称或描述）")
+    tag: str | None = Field(default=None, description="按标签过滤")
+    maxResults: int = Field(default=20, gt=0, description="最多返回数量")
+
+
+class SkillSearchResult(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True]
+    total: int = Field(ge=0)
+    skills: list[SkillMetadata]
+
+
+SkillSearchOutcome = Annotated[
+    SkillSearchResult | CapabilityFailure, Field(discriminator="ok")
+]
+
+
+class SkillReadParams(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    name: str = Field(min_length=1, description="待加载指令的 Skill 唯一名称")
+
+
+class SkillReadResult(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True]
+    name: str
+    description: str
+    tags: list[str] = Field(default_factory=list)
+    content: str
+    path: str
+
+
+SkillReadOutcome = Annotated[
+    SkillReadResult | CapabilityFailure, Field(discriminator="ok")
 ]
 
 

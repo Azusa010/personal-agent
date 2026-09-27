@@ -1,0 +1,18 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "result": {
+    "ok": true,
+    "total": 1,
+    "skills": [
+      {
+        "name": "pdf-extractor",
+        "description": "Extract tabular data and summaries from financial PDF reports",
+        "tags": [
+          "pdf",
+          "finance"
+        ]
+      }
+    ]
+  }
+}

@@ -53,6 +53,11 @@ DECISION_SCHEMA: dict[str, Any] = DECISION_ADAPTER.json_schema()
 TOOL_SPECS: dict[str, str] = {
     "filesystem_list": '列出指定授权根目录下的文件与子目录条目。参数 {"rootId": "<授权根标识，如 downloads>"}',
     "document_extract_pdf": '解析并提取 PDF 文件的逐页文本与页码。参数 {"path": "<目标 PDF 文件的绝对路径>"}',
+    "read_document": (
+        '多格式统一文档读取器，提取逐页文本并支持分页与字符限制。参数 {"path": "<文档相对路径>", '
+        '"fileType": "<可选 auto/pdf/docx/pptx/xlsx/text>", "pageStart": <可选起始页，默认1>, '
+        '"pageEnd": <可选终止页>, "maxCharsPerPage": <可选每页字符上限，默认4000>}'
+    ),
     "filesystem_create_dir": '在授权根目录下创建新目录。参数 {"path": "<目标目录绝对路径>"}',
     "filesystem_move": '在授权根内移动或重命名文件/目录。参数 {"source": "<源绝对路径>", "target": "<目标绝对路径>"}',
     "scheduler_create": '创建定时提醒任务。参数 {"remindAt": "<ISO-8601 UTC 时间>", "message": "<提醒内容>"}',
@@ -80,6 +85,18 @@ TOOL_SPECS: dict[str, str] = {
     ),
     "viking_write_l2": (
         '写入或更新 Viking 维基条目的 L2 全文 (*.md)。参数 {"uri": "<viking:// URI>", "content": "<Markdown文本>"}'
+    ),
+    "code_interpreter": (
+        '在隔离沙盒内运行 Python 代码。参数 {"code": "<Python代码>", "timeoutMs": <可选超时毫秒数>, "saveArtifacts": <可选布尔>}'
+    ),
+    "file_search": (
+        '跨平台文件/内容检索。参数 {"pattern": "<检索模式>", "searchMode": <可选"filename"|"content_plain"|"content_regex">, "relativeRoot": <可选子路径>, "maxMatches": <可选最大匹配数>}'
+    ),
+    "skill_search": (
+        '按关键词检索可用 Skills 目录。参数 {"query": <可选查询关键词>, "tag": <可选标签>, "maxResults": <可选返回条数>}'
+    ),
+    "skill_read": (
+        '按需加载指定 Skill 的完整说明正文。参数 {"name": "<技能唯一名称>"}'
     ),
 }
 

@@ -5,16 +5,21 @@ export const RootId = z.enum(["downloads"]);
 
 export const FilesystemListParams = z.object({
   rootId: RootId,
+  pattern: z.string().optional(),
 });
+
+export const EntryType = z.enum(["file", "directory"]);
+export type EntryType = z.infer<typeof EntryType>;
 
 export const PdfEntry = z.object({
   name: z.string(),
   absolutePath: z.string(),
   modifiedAt: z.string(),
   sizeBytes: z.number().int().nonnegative(),
+  type: EntryType.optional(),
 });
 
-export type PdfEntry = z.infer<typeof PdfEntry>
+export type PdfEntry = z.infer<typeof PdfEntry>;
 
 export const FilesystemListResult = z.object({
   entries: z.array(PdfEntry),

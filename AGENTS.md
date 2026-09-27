@@ -9,10 +9,10 @@
 
 探查目录、理解代码结构时，**先看 `.repowiki`，再钻源码**，避免盲目全仓扫描。
 
-| 位置 | 内容 |
-|------|------|
-| `.repowiki/zh/content/` | 按主题组织的 wiki 文档：项目概述、架构设计、API 协议、AI 运行时、数据存储、权限管理系统、桌面应用、用户界面、开发指南、部署发布、故障排除 |
-| `.repowiki/knowledge/zh/` | 知识卡（含 `_index.yaml`，记录各模块与源文件的映射关系） |
+| 位置                      | 内容                                                                                                                                      |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `.repowiki/zh/content/`   | 按主题组织的 wiki 文档：项目概述、架构设计、API 协议、AI 运行时、数据存储、权限管理系统、桌面应用、用户界面、开发指南、部署发布、故障排除 |
+| `.repowiki/knowledge/zh/` | 知识卡（含 `_index.yaml`，记录各模块与源文件的映射关系）                                                                                  |
 
 ### 规则
 
@@ -27,11 +27,11 @@
 
 跨语言契约走 **三步同步**，缺一不可：
 
-| 步骤 | 位置 | 职责 |
-|------|------|------|
-| ① Zod schema 定义 | `packages/protocol/schemas/*.ts` | 单一事实来源，定义 wire 形状 |
-| ② Pydantic 镜像 | `services/agent-runtime/src/personal_agent/protocol/models.py` | 逐字段镜像 Zod，`extra="allow"` 防静默丢数据 |
-| ③ Fixtures 交叉验证 | `packages/protocol/fixtures/*.json` | 共享 JSON 样本，双端各自 parse 验证一致性 |
+| 步骤                | 位置                                                           | 职责                                         |
+| ------------------- | -------------------------------------------------------------- | -------------------------------------------- |
+| ① Zod schema 定义   | `packages/protocol/schemas/*.ts`                               | 单一事实来源，定义 wire 形状                 |
+| ② Pydantic 镜像     | `services/agent-runtime/src/personal_agent/protocol/models.py` | 逐字段镜像 Zod，`extra="allow"` 防静默丢数据 |
+| ③ Fixtures 交叉验证 | `packages/protocol/fixtures/*.json`                            | 共享 JSON 样本，双端各自 parse 验证一致性    |
 
 ### 规则
 
@@ -57,16 +57,18 @@ Scope → Retriever → Binder → Executor → Path-Guard
   ①         ②         ③        ④           ⑤
 ```
 
-| 层 | 模块 | 职责 |
-|----|------|------|
-| ① Scope | `capabilities/scope.ts` | 定义任务级权限边界（`TaskScope`），决定哪些能力对当前任务可见 |
-| ② Retriever | `capabilities/retriever.ts` | 从 `CapabilityRegistry` 检索能力描述符，校验能力已注册且在 Scope 内 |
-| ③ Binder | `policy/argument-binders.ts` | 用 Zod `safeParse` 校验参数契约，调用 `resolveWithinRootReal` 做路径规范化与 root guard |
-| ④ Executor | `capabilities/executor.ts` | 组装 policy → 调用 `policy.evaluate()` → 分发到具体能力实现 |
+| 层           | 模块                         | 职责                                                                                                  |
+| ------------ | ---------------------------- | ----------------------------------------------------------------------------------------------------- |
+| ① Scope      | `capabilities/scope.ts`      | 定义任务级权限边界（`TaskScope`），决定哪些能力对当前任务可见                                         |
+| ② Retriever  | `capabilities/retriever.ts`  | 从 `CapabilityRegistry` 检索能力描述符，校验能力已注册且在 Scope 内                                   |
+| ③ Binder     | `policy/argument-binders.ts` | 用 Zod `safeParse` 校验参数契约，调用 `resolveWithinRootReal` 做路径规范化与 root guard               |
+| ④ Executor   | `capabilities/executor.ts`   | 组装 policy → 调用 `policy.evaluate()` → 分发到具体能力实现                                           |
 | ⑤ Path-Guard | `capabilities/path-guard.ts` | `resolveWithinRootReal` 处理 6 类边界：不存在、junction/symlink、UNC 路径、根不可用、链接逃逸、大小写 |
 
 ### 规则
 
+- **自描述插件架构（CapabilityPlugin）**：所有能力实现收敛在 `capabilities/plugins/`，高内聚包含 `schema`、`bind` 路径提取、`risk` 等级、`idempotency` 策略与 `execute` 执行体。严禁在 `argument-binders.ts`、`executor.ts`、`idempotency.ts` 中写硬编码的 `switch-case`。
+- **动态 Scope 与单一事实来源**：`AGENT_TASK_CAPABILITIES` 动态从 `listCapabilities()` 派生，自动包含所有注册的非内部插件，严禁在 `scope.ts` 手写静态白名单；Python 侧由 `tool_schema_generator.py` 动态反射生成 OpenAI Tool Schemas，严禁手写冗余字典。
 - 安全校验函数的入参必须用 `string` 类型，不可用枚举或 branded type——调用点传入的值不可信。
 - `resolveWithinRoot` 只做字符串运算；涉及 symlink/junction 必须再经 `resolveWithinRootReal` 做 realpath 二次校验。
 - 执行体（executor）拿到 binder 输出的 `paths` 后直接使用，不再二次 parse/resolve。
@@ -82,12 +84,12 @@ apps/desktop ──→ packages/protocol ←── services/agent-runtime
    (Electron)      (共享契约)          (Python runtime)
 ```
 
-| 方向 | 允许 | 禁止 |
-|------|------|------|
-| `apps/desktop` → `packages/protocol` | ✅ 通过 `@personal-agent/protocol` 导入 Zod schema 与类型 | — |
-| `services/agent-runtime` → `packages/protocol` | ✅ 通过 Pydantic 镜像对齐 fixture | ❌ 不可直接 import TS 代码 |
-| `packages/protocol` → 任意 | — | ❌ 不可依赖 apps 或 services 的任何模块 |
-| `apps/desktop` ↔ `services/agent-runtime` | — | ❌ 不可直接互相 import；跨进程通信只走 stdio NDJSON JSON-RPC |
+| 方向                                           | 允许                                                      | 禁止                                                         |
+| ---------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------ |
+| `apps/desktop` → `packages/protocol`           | ✅ 通过 `@personal-agent/protocol` 导入 Zod schema 与类型 | —                                                            |
+| `services/agent-runtime` → `packages/protocol` | ✅ 通过 Pydantic 镜像对齐 fixture                         | ❌ 不可直接 import TS 代码                                   |
+| `packages/protocol` → 任意                     | —                                                         | ❌ 不可依赖 apps 或 services 的任何模块                      |
+| `apps/desktop` ↔ `services/agent-runtime`      | —                                                         | ❌ 不可直接互相 import；跨进程通信只走 stdio NDJSON JSON-RPC |
 
 ### 规则
 
@@ -102,12 +104,12 @@ apps/desktop ──→ packages/protocol ←── services/agent-runtime
 
 状态流转逻辑与数据库约束各有边界，不可混淆：
 
-| 关注点 | 归属 | 实现位置 |
-|--------|------|----------|
-| **合法值集合** | DB CHECK 约束 | SQL `CHECK (status IN (...))` |
-| **合法转换规则** | Repository 层 | 转换表校验（如 `pending → running`） |
-| **状态枚举定义** | TS `readonly const` 数组 | `shared/domain.ts` 中的 `TASK_STATUSES` |
-| **类型派生** | TS 类型系统 | `typeof TASK_STATUSES[number]`，禁止手写联合类型 |
+| 关注点           | 归属                     | 实现位置                                         |
+| ---------------- | ------------------------ | ------------------------------------------------ |
+| **合法值集合**   | DB CHECK 约束            | SQL `CHECK (status IN (...))`                    |
+| **合法转换规则** | Repository 层            | 转换表校验（如 `pending → running`）             |
+| **状态枚举定义** | TS `readonly const` 数组 | `shared/domain.ts` 中的 `TASK_STATUSES`          |
+| **类型派生**     | TS 类型系统              | `typeof TASK_STATUSES[number]`，禁止手写联合类型 |
 
 ### 规则
 
@@ -128,14 +130,14 @@ pnpm verify = typecheck + lint:ts + lint:py + test
             = typecheck + lint:ts + lint:py + test:pack + test:ts + test:py
 ```
 
-| 门禁项 | 命令 | 覆盖范围 |
-|--------|------|----------|
-| typecheck | `pnpm --dir apps/desktop typecheck` | TS 类型检查（node + web 两侧） |
-| lint:ts | `pnpm --dir apps/desktop lint` | ESLint（含 prettier 规则） |
-| lint:py | `uv run --project services/agent-runtime --locked ruff check .` | Python lint |
-| test:pack | `pnpm --dir packages/protocol test` | Protocol 包 vitest |
-| test:ts | `pnpm --dir apps/desktop test` | Desktop vitest |
-| test:py | `uv run --project services/agent-runtime --locked pytest` | Python pytest |
+| 门禁项    | 命令                                                            | 覆盖范围                       |
+| --------- | --------------------------------------------------------------- | ------------------------------ |
+| typecheck | `pnpm --dir apps/desktop typecheck`                             | TS 类型检查（node + web 两侧） |
+| lint:ts   | `pnpm --dir apps/desktop lint`                                  | ESLint（含 prettier 规则）     |
+| lint:py   | `uv run --project services/agent-runtime --locked ruff check .` | Python lint                    |
+| test:pack | `pnpm --dir packages/protocol test`                             | Protocol 包 vitest             |
+| test:ts   | `pnpm --dir apps/desktop test`                                  | Desktop vitest                 |
+| test:py   | `uv run --project services/agent-runtime --locked pytest`       | Python pytest                  |
 
 ### 规则
 
@@ -147,19 +149,19 @@ pnpm verify = typecheck + lint:ts + lint:py + test
 
 ### Live Eval（TASK-027）
 
-| 命令 | 跑什么 | 归属 |
-|------|--------|------|
-| `pnpm eval` | 20 条 Case 的 scripted 模式（确定性，真 Python + 真库 + 真闸口） | 已含在 `test:ts` 里 |
-| `pnpm eval:live` | 同 20 条 Case，换成真模型 | 出手跑；要 `EVAL_LIVE=1` + `OPENAI_MODEL` + `OPENAI_API_KEY`，**不进 CI**（CON-006） |
+| 命令             | 跑什么                                                           | 归属                                                                                 |
+| ---------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `pnpm eval`      | 20 条 Case 的 scripted 模式（确定性，真 Python + 真库 + 真闸口） | 已含在 `test:ts` 里                                                                  |
+| `pnpm eval:live` | 同 20 条 Case，换成真模型                                        | 出手跑；要 `EVAL_LIVE=1` + `OPENAI_MODEL` + `OPENAI_API_KEY`，**不进 CI**（CON-006） |
 
 清单 `tests/evals/cases.json` 是唯一事实来源（PDF 与剧本都由它生成），报告落在
 `tests/evals/reports/`（不入库）。跑法与口径见 `tests/evals/README.md`。
 
 ### 端到端两套（TASK-028）
 
-| 文件 | 验什么 |
-|------|--------|
-| `main/e2e/golden-path.test.ts` | 完整 Golden Path 20 轮：真 Python + 真批准 + 真建目录/移动 + 真 Reminder + 通知到点 |
+| 文件                                  | 验什么                                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `main/e2e/golden-path.test.ts`        | 完整 Golden Path 20 轮：真 Python + 真批准 + 真建目录/移动 + 真 Reminder + 通知到点                                 |
 | `main/e2e/failure-regression.test.ts` | 失败回归集：坏 PDF / 拒绝批准 / 进程被杀 / 计划外调用 / 预算耗尽 / 通知失败，各问「终态 + 授权根动没动 + 留下的码」 |
 
 两套都在 `test:ts` 里。握手时下发几个能力决定计划几步（`planning.make_plan` 随可见能力
@@ -167,12 +169,12 @@ pnpm verify = typecheck + lint:ts + lint:py + test
 
 ### 打包与演示（TASK-029）
 
-| 命令 | 跑什么 |
-|------|--------|
-| `pnpm package:py` | PyInstaller 把 Python runtime 冻成 onedir 产物（约 33 MB，含 openai/pydantic） |
-| `pnpm package:dir` | 冻结 + electron-builder `--dir` → `apps/desktop/dist/win-unpacked/PersonalAgent.exe` |
-| `pnpm package:win` | 冻结 + electron-builder `--win` → NSIS 安装包 |
-| `powershell -File scripts/demo/start-demo.ps1` | 备好演示素材并启动 app（`-Dev` 用开发版）；步骤见 `docs/DEMO.md` |
+| 命令                                           | 跑什么                                                                               |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `pnpm package:py`                              | PyInstaller 把 Python runtime 冻成 onedir 产物（约 33 MB，含 openai/pydantic）       |
+| `pnpm package:dir`                             | 冻结 + electron-builder `--dir` → `apps/desktop/dist/win-unpacked/PersonalAgent.exe` |
+| `pnpm package:win`                             | 冻结 + electron-builder `--win` → NSIS 安装包                                        |
+| `powershell -File scripts/demo/start-demo.ps1` | 备好演示素材并启动 app（`-Dev` 用开发版）；步骤见 `docs/DEMO.md`                     |
 
 打包分两步、顺序不能反：`extraResources` 要把 `services/agent-runtime/dist/personal_agent/`
 整份复制进 `<安装目录>/resources/agent-runtime/`；冻结产物不在时 electron-builder 只打一行
@@ -191,19 +193,19 @@ pnpm verify = typecheck + lint:ts + lint:py + test
 
 ### 分工
 
-| 归属 | 内容 |
-|------|------|
+| 归属        | 内容                                                                                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | AI 完整写出 | 协议 schema/fixtures、类型与接口、migration DDL、仓储 SQL 样板、import 与接线、UI 布局、测试的场景与数据（seed / 用例标题 / 期望行为的文字描述） |
-| 留给主人填 | 见下表「五类陪练点」；核心业务逻辑本体一律留出 |
+| 留给主人填  | 见下表「五类陪练点」；核心业务逻辑本体一律留出                                                                                                   |
 
 ### 五类陪练点（留什么的判据）
 
-| 维度 | 留什么 | 练什么 |
-|------|--------|--------|
-| **思维与算法** | 核心计算、数据转换、业务主逻辑（状态机转换表、判定/校验函数、算法段如时间解析） | 练脑子：不直接套答案，自己推实现细节 |
-| **边界与异常** | 异常捕获与分流、超时降级、兜底方案、并发锁 | 练健壮性：墨菲定律意识，防止系统崩溃 |
-| **工程与规范** | 日志打点、硬编码抽离（能力名、事件名、文案、i18n 语言包）、配置解耦 | 练洁癖：专业开发者的标准习惯 |
-| **架构与设计** | 设计模式重构点（if-else → 策略/表驱动）、性能隐患（N+1、串行 await） | 练高手思维：系统设计眼界 |
+| 维度           | 留什么                                                                              | 练什么                                 |
+| -------------- | ----------------------------------------------------------------------------------- | -------------------------------------- |
+| **思维与算法** | 核心计算、数据转换、业务主逻辑（状态机转换表、判定/校验函数、算法段如时间解析）     | 练脑子：不直接套答案，自己推实现细节   |
+| **边界与异常** | 异常捕获与分流、超时降级、兜底方案、并发锁                                          | 练健壮性：墨菲定律意识，防止系统崩溃   |
+| **工程与规范** | 日志打点、硬编码抽离（能力名、事件名、文案、i18n 语言包）、配置解耦                 | 练洁癖：专业开发者的标准习惯           |
+| **架构与设计** | 设计模式重构点（if-else → 策略/表驱动）、性能隐患（N+1、串行 await）                | 练高手思维：系统设计眼界               |
 | **验证与质量** | 单元测试的**断言**部分：AI 给场景、数据与期望行为的文字描述，`expect(...)` 由主人写 | 练闭环：写断言倒逼自己读懂 AI 写的代码 |
 
 ### 规则

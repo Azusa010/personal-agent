@@ -20,7 +20,7 @@ import {
   resetHostExecutorWiring
 } from './host-executor'
 import { beginTask, endTask } from '../policy/task-context'
-import { extendedScope } from './scope'
+import { deriveScopeFromPlan, extendedScope } from './scope'
 import type { BoundArgs } from '../policy/argument-binders'
 import type { PermissionGateOutcome, PermissionVerifyOutcome } from '../policy/execution-policy'
 import type { PlanStep } from '../../shared/domain'
@@ -197,15 +197,25 @@ describe('executeHostTool: supervisor 网关', () => {
 })
 
 describe('listVisibleCapabilities: 握手时下发的清单', () => {
-  it('两个 READ 加三个 WRITE，顺序与计划一致', () => {
-    // TASK-028 起模型要能看见完整 Golden Path 的五个工具（少一个就走不完计划）。
-    // 顺序也要钉：清单每次不一样的话，REQ-010 的连续 20 次就无法靠快照对比定位。
+  it('包含全部 17 个暴露给 Agent 的能力，且排除了内部 notification_send', () => {
     expect(listVisibleCapabilities().map((c) => c.name)).toEqual([
       'filesystem_list',
       'document_extract_pdf',
+      'read_document',
+      'file_search',
+      'knowledge_search',
+      'user_memory_search',
+      'viking_read_l0',
+      'viking_read_l1',
+      'viking_read_l2',
+      'skill_search',
+      'skill_read',
       'filesystem_create_dir',
       'filesystem_move',
-      'scheduler_create'
+      'scheduler_create',
+      'terminal_execute',
+      'code_interpreter',
+      'viking_write_l2'
     ])
   })
 
@@ -305,19 +315,35 @@ describe('configureHostExecutor: 生产接线', () => {
     expect(requests).toEqual([])
   })
 
-  it('动态 Scope 生效：当任务显式绑定 extendedScope 时，executeHostTool 遵循该 Scope 放行扩展能力', async () => {
-    // 默认 agentTaskScope 只有 5 个能力，不包含 terminal_execute
-    // 给任务赋予包含 terminal_execute 的 customScope
-    const customScope = extendedScope('task-dynamic', ['terminal_execute'])
+  it('动态 Scope 生效：受限 Scope 拦截，extendedScope 与 deriveScopeFromPlan 动态放行能力', async () => {
+    // 显式受限 Scope：仅包含 filesystem_list，验证第一关拦截
+    const restrictedScope = {
+      taskId: 'task-restricted',
+      capabilities: ['filesystem_list' as const]
+    }
     const plan: PlanStep[] = [{ description: '受限执行命令', capability: 'terminal_execute' }]
+    beginTask('task-restricted', '执行终端命令', plan, restrictedScope)
+
+    const denied = await executeHostTool(
+      hostParams('tc-dyn-1', 'terminal_execute', { command: 'echo hello' })
+    )
+    expect(denied['code']).toBe(ERROR_CODE.CAPABILITY_OUT_OF_SCOPE)
+    endTask()
+
+    // 扩展 Scope：包含 terminal_execute，验证不被拦截
+    const customScope = extendedScope('task-dynamic', ['terminal_execute'])
     beginTask('task-dynamic', '执行终端命令', plan, customScope)
 
     const out = await executeHostTool(
-      hostParams('tc-dyn-1', 'terminal_execute', { command: 'echo hello' })
+      hostParams('tc-dyn-2', 'terminal_execute', { command: 'echo hello' })
     )
-
-    // 不应当被第一关 Scope 拦截为 CAPABILITY_OUT_OF_SCOPE
     expect(out['code']).not.toBe(ERROR_CODE.CAPABILITY_OUT_OF_SCOPE)
+    endTask()
+
+    // deriveScopeFromPlan 动态从计划步骤中合并能力
+    const derived = deriveScopeFromPlan('task-derived', [
+      { description: '执行终端命令', capability: 'terminal_execute' }
+    ])
+    expect(derived.capabilities).toContain('terminal_execute')
   })
 })
-

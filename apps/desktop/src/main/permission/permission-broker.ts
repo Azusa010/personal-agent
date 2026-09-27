@@ -9,6 +9,7 @@ import type {
   PermissionViewState
 } from '../../shared/domain'
 import { resolveRoot } from '../capabilities/roots'
+import { getCapabilityPlugin } from '../capabilities/plugins'
 import type { BoundArgs } from '../policy/argument-binders'
 import type { EventRepository } from '../product-state/event-repository'
 import type { PermissionRepository } from '../product-state/permission-repository'
@@ -82,21 +83,11 @@ function splitPaths(
   capability: string,
   bound: BoundArgs
 ): { sourcePaths: string[]; targetPath: string | null } {
-  switch (capability) {
-    case 'filesystem_move': {
-      const source = bound.paths['source']
-      const target = bound.paths['target']
-      return {
-        sourcePaths: source === undefined ? [] : [source],
-        targetPath: target ?? null
-      }
-    }
-    case 'filesystem_create_dir':
-    case 'viking_write_l2':
-      return { sourcePaths: [], targetPath: bound.paths['path'] ?? null }
-    default:
-      return { sourcePaths: Object.values(bound.paths), targetPath: null }
+  const plugin = getCapabilityPlugin(capability)
+  if (plugin?.extractPermissionPaths) {
+    return plugin.extractPermissionPaths(bound)
   }
+  return { sourcePaths: Object.values(bound.paths), targetPath: null }
 }
 
 export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBroker {

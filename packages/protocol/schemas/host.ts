@@ -7,6 +7,7 @@ export const HOST_CALL_ID_PATTERN = /^call-[0-9]+$/;
 export const CapabilityId = z.enum([
   "filesystem_list",
   "document_extract_pdf",
+  "read_document",
   "filesystem_create_dir",
   "filesystem_move",
   "scheduler_create",
@@ -18,10 +19,20 @@ export const CapabilityId = z.enum([
   "viking_read_l1",
   "viking_read_l2",
   "viking_write_l2",
+  "code_interpreter",
+  "file_search",
+  "skill_search",
+  "skill_read",
 ]);
 export const EXTRACT_PDF_CAPABILITY = CapabilityId.enum["document_extract_pdf"];
+export const READ_DOCUMENT_CAPABILITY = CapabilityId.enum["read_document"];
 export const TERMINAL_EXECUTE_CAPABILITY =
   CapabilityId.enum["terminal_execute"];
+export const CODE_INTERPRETER_CAPABILITY =
+  CapabilityId.enum["code_interpreter"];
+export const FILE_SEARCH_CAPABILITY = CapabilityId.enum["file_search"];
+export const SKILL_SEARCH_CAPABILITY = CapabilityId.enum["skill_search"];
+export const SKILL_READ_CAPABILITY = CapabilityId.enum["skill_read"];
 export const KNOWLEDGE_SEARCH_CAPABILITY =
   CapabilityId.enum["knowledge_search"];
 export const USER_MEMORY_SEARCH_CAPABILITY =
