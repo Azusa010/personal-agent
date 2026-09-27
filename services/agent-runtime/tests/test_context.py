@@ -346,3 +346,31 @@ def test_context_manager_updates_status_bar_on_plan_update():
     ctx = cm.build(taskGoal="测试目标", visibleCapabilities=["filesystem_create_dir"])
     assert ctx.statusBar is not None
     assert "新步骤A" in ctx.statusBar
+
+
+def test_context_manager_preheats_working_memory_persona(monkeypatch):
+    """场景：初始化 ContextManager 时，Profile 中的常驻记忆块被自动预热过滤。"""
+    raw_persona = (
+        "你是代码助理。\n\n"
+        "[用户常驻工作记忆 - 以下为用户长期特征、偏好与已知事实，作为基础上下文]\n"
+        "- [流程惯例] 测试必须使用 vitest\n"
+        "- [个人偏好] 喜欢喝冰美式咖啡\n"
+        "[常驻记忆结束]"
+    )
+    from personal_agent.protocol.models import ProfileDto
+
+    profile = ProfileDto(name="Bot", persona=raw_persona)
+
+    # 模拟 filter_relevant_memories 过滤掉咖啡
+    monkeypatch.setattr(
+        "personal_agent.conversation.sidecar.enricher.filter_relevant_memories",
+        lambda goal, candidates, **kwargs: ["- [流程惯例] 测试必须使用 vitest"],
+    )
+
+    cm = ContextManager(profile=profile, task_goal="为模块编写单元测试")
+    ctx = cm.build(taskGoal="为模块编写单元测试", visibleCapabilities=[])
+
+    assert ctx.profile is not None
+    assert "测试必须使用 vitest" in ctx.profile.persona
+    assert "冰美式咖啡" not in ctx.profile.persona
+

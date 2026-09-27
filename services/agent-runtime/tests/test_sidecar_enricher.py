@@ -16,6 +16,7 @@ from unittest.mock import MagicMock
 from personal_agent.conversation.model.gateway import Observation
 from personal_agent.conversation.sidecar.enricher import (
     compact_and_persist_observation,
+    enrich_working_memory_persona,
     filter_relevant_memories,
 )
 from personal_agent.protocol.models import SidecarCompactedObservation
@@ -219,3 +220,88 @@ def test_compact_and_persist_fallback_when_no_llm(tmp_path: Path):
     assert compacted_obs.payload["compacted"] is True
     assert compacted_obs.payload["raw_output_path"] == str(raw_file)
     assert "内容过长已截断" in compacted_obs.payload["summary"]
+
+
+def test_enrich_working_memory_persona_noop_without_block():
+    """场景：Persona 中不含常驻工作记忆标牌，原样返回不作修改。"""
+    raw_persona = "你是一个全能的代码编程与重构助理。"
+    result = enrich_working_memory_persona(raw_persona, task_goal="重构前端组件")
+    assert result == raw_persona
+
+
+def test_enrich_working_memory_persona_filters_noise_and_keeps_golden():
+    """场景：Persona 包含常驻记忆块，经过 Jev 筛选后保留黄金事实，移除噪音条目。"""
+    raw_persona = (
+        "你是一个代码助手。\n\n"
+        "[用户常驻工作记忆 - 以下为用户长期特征、偏好与已知事实，作为基础上下文]\n"
+        "- [流程惯例] 必须使用 Vitest 进行单元测试\n"
+        "- [个人偏好] 每天下午喜欢喝一杯热美式咖啡\n"
+        "- [风格习惯] 偏好使用 2 个空格缩进风格\n"
+        "[常驻记忆结束]\n\n"
+        "请严格遵守要求。"
+    )
+
+    mock_client = MagicMock()
+    mock_resp = MagicMock()
+    # 0: Vitest 约束 (~96分)
+    r0, i0, c0 = MagicMock(), MagicMock(), MagicMock()
+    r0.noul, i0.score, c0.choice = 0.96, 3.9, "constraint"
+    # 1: 咖啡噪音 (0分)
+    r1, i1, c1 = MagicMock(), MagicMock(), MagicMock()
+    r1.noul, i1.score, c1.choice = 0.01, 0.0, "noise"
+    # 2: 2空格偏好 (~51分)
+    r2, i2, c2 = MagicMock(), MagicMock(), MagicMock()
+    r2.noul, i2.score, c2.choice = 0.65, 1.8, "preference"
+
+    mock_resp.answers = {
+        "rel_0": r0, "imp_0": i0, "role_0": c0,
+        "rel_1": r1, "imp_1": i1, "role_1": c1,
+        "rel_2": r2, "imp_2": i2, "role_2": c2,
+    }
+    mock_client.system_one.return_value = mock_resp
+
+    enriched = enrich_working_memory_persona(
+        persona=raw_persona,
+        task_goal="重构认证模块并编写单元测试",
+        threshold=45.0,
+        top_k=3,
+        client=mock_client,
+    )
+
+    # 验证 Vitest 与 2 空格缩进被保留
+    assert "必须使用 Vitest" in enriched
+    assert "2 个空格缩进风格" in enriched
+    # 验证咖啡噪音被彻底过滤剥离
+    assert "热美式咖啡" not in enriched
+    assert "请严格遵守要求。" in enriched
+
+
+def test_enrich_working_memory_persona_removes_block_if_all_noise():
+    """场景：Persona 中的记忆全部与当前目标无关，安全剥离整个记忆块以精简上下文。"""
+    raw_persona = (
+        "系统人设前缀。\n\n"
+        "[用户常驻工作记忆 - 以下为用户长期特征、偏好与已知事实，作为基础上下文]\n"
+        "- [琐碎杂事] 昨天买了一双运动鞋\n"
+        "[常驻记忆结束]\n\n"
+        "系统人设后缀。"
+    )
+
+    mock_client = MagicMock()
+    mock_resp = MagicMock()
+    r, i, c = MagicMock(), MagicMock(), MagicMock()
+    r.noul, i.score, c.choice = 0.01, 0.0, "noise"
+    mock_resp.answers = {"rel_0": r, "imp_0": i, "role_0": c}
+    mock_client.system_one.return_value = mock_resp
+
+    enriched = enrich_working_memory_persona(
+        persona=raw_persona,
+        task_goal="编写数据库备份脚本",
+        threshold=45.0,
+        top_k=3,
+        client=mock_client,
+    )
+
+    assert "[用户常驻工作记忆" not in enriched
+    assert "运动鞋" not in enriched
+    assert "系统人设前缀。" in enriched
+    assert "系统人设后缀。" in enriched

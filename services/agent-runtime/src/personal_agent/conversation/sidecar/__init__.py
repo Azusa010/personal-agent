@@ -18,6 +18,7 @@ from personal_agent.conversation.sidecar.classifier import (
 )
 from personal_agent.conversation.sidecar.enricher import (
     compact_and_persist_observation,
+    enrich_working_memory_persona,
     filter_relevant_memories,
 )
 from personal_agent.conversation.sidecar.gating import (
@@ -35,6 +36,7 @@ __all__ = [
     "StreamBarrier",
     "classify_heuristic",
     "compact_and_persist_observation",
+    "enrich_working_memory_persona",
     "evaluate_sidecar_gate",
     "filter_relevant_memories",
 ]

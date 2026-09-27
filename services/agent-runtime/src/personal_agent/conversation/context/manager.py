@@ -7,9 +7,12 @@ observation 的条数已经被步数预算钉死（engine 侧），再叠一层�
 """
 
 import json
+import logging
 import os
 from collections.abc import Sequence
 from typing import Any
+
+log = logging.getLogger("personal_agent")
 
 from personal_agent.conversation.compression import (
     DistilledObservation,
@@ -81,6 +84,19 @@ class ContextManager:
         self._observations: list[Observation] = []
         self._history: list[Turn] = list(history)
         self._profile = profile
+        if self._profile and self._profile.persona and task_goal:
+            try:
+                from personal_agent.conversation.sidecar import (
+                    enrich_working_memory_persona,
+                )
+
+                new_persona = enrich_working_memory_persona(
+                    persona=self._profile.persona,
+                    task_goal=task_goal,
+                )
+                self._profile = self._profile.model_copy(update={"persona": new_persona})
+            except Exception as err:  # noqa: BLE001
+                log.warning("旁路工作记忆预热失败，保留原始人设: %s", err)
         self._current_step: PlanStepDto | None = None
         self._step_observations: list[Observation] = []
         if max_window_chars is not None:

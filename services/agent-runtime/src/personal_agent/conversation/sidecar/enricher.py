@@ -181,6 +181,66 @@ def filter_relevant_memories(
     return [cand for score, cand in scored_memories[:top_k]]
 
 
+WORKING_MEMORY_HEADER = "[用户常驻工作记忆"
+WORKING_MEMORY_FOOTER = "[常驻记忆结束]"
+
+
+def enrich_working_memory_persona(
+    persona: str,
+    task_goal: str,
+    threshold: float = DEFAULT_MEMORY_RELEVANCE_THRESHOLD,
+    top_k: int = DEFAULT_MEMORY_TOP_K,
+    client: Any | None = None,
+) -> str:
+    """对 persona 中的常驻记忆块进行基于 task_goal 的 Jev 语义预选与降噪。
+
+    若包含 '[用户常驻工作记忆' 与 '[常驻记忆结束]'，提取其中的候选记忆行，
+    通过 filter_relevant_memories 筛选高分黄金条目，剔除无关噪音。
+    若筛选后无相关记忆，则移除该记忆块以精简上下文。
+    """
+    if WORKING_MEMORY_HEADER not in persona or WORKING_MEMORY_FOOTER not in persona:
+        return persona
+
+    start_idx = persona.find(WORKING_MEMORY_HEADER)
+    end_idx = persona.find(WORKING_MEMORY_FOOTER)
+    if start_idx == -1 or end_idx == -1 or end_idx <= start_idx:
+        return persona
+
+    end_idx += len(WORKING_MEMORY_FOOTER)
+    prefix = persona[:start_idx].rstrip()
+    memory_block = persona[start_idx:end_idx]
+    suffix = persona[end_idx:].lstrip()
+
+    raw_lines = [
+        line.strip()
+        for line in memory_block.splitlines()
+        if line.strip().startswith("- ")
+    ]
+    if not raw_lines:
+        return persona
+
+    filtered_lines = filter_relevant_memories(
+        goal=task_goal,
+        candidates=raw_lines,
+        threshold=threshold,
+        top_k=top_k,
+        client=client,
+    )
+
+    if not filtered_lines:
+        parts = [p for p in (prefix, suffix) if p]
+        return "\n\n".join(parts)
+
+    reconstructed_block = (
+        "[用户常驻工作记忆 - 以下为针对当前任务预选的偏好与事实约束]\n"
+        + "\n".join(f"{extract_candidate_text(item)}" for item in filtered_lines)
+        + "\n[常驻记忆结束]"
+    )
+
+    parts = [p for p in (prefix, reconstructed_block, suffix) if p]
+    return "\n\n".join(parts)
+
+
 def compact_and_persist_observation(
     observation: Observation,
     sidecar_llm: SidecarLlmClient | None = None,
