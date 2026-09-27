@@ -65,13 +65,14 @@ export function resolveSidecarAction(assessment: SidecarAssessment): SidecarActi
               : assessment.riskCategory
         }
       }
-    case 'REJECT_WITH_FEEDBACK':
+    case 'REJECT_WITH_FEEDBACK': {
       const remediation = assessment.remediation?.trim() ?? ''
       return {
         kind: 'reject',
         reason: assessment.reason,
         remediation: remediation || DEFAULT_REMEDIATION_MESSAGE
       }
+    }
     case 'ESCALATE_TO_USER':
       return {
         kind: 'escalate',
