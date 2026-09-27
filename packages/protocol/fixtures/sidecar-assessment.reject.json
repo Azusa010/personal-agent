@@ -1,0 +1,11 @@
+{
+  "callId": "call-reject-5678",
+  "capability": "filesystem_create_dir",
+  "verdict": "REJECT_WITH_FEEDBACK",
+  "riskCategory": "SCOPE_ESCAPING",
+  "confidence": 0.89,
+  "reason": "目标路径缺少必要的授权根标识，无法定位合法物理路径",
+  "remediation": "请检查参数 path，确保前缀为已授权的根标识（如 downloads 或 documents）",
+  "assessedBy": "jev-system-one",
+  "occurredAt": "2026-09-27T04:01:00.000Z"
+}

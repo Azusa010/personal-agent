@@ -1,0 +1,27 @@
+{
+  "taskId": "task-cb-001",
+  "state": "OPEN",
+  "consecutiveRejections": 3,
+  "triggerReason": "连续 3 次尝试执行违规或高危工具调用，触发安全拒绝熔断",
+  "recentRejections": [
+    {
+      "callId": "call-1",
+      "capability": "terminal_execute",
+      "reason": "检测到危险格式化指令",
+      "riskCategory": "DESTRUCTIVE_COMMAND"
+    },
+    {
+      "callId": "call-2",
+      "capability": "terminal_execute",
+      "reason": "检测到危险删除指令",
+      "riskCategory": "DESTRUCTIVE_COMMAND"
+    },
+    {
+      "callId": "call-3",
+      "capability": "file_search",
+      "reason": "检测到试图跨越沙盒读取密钥凭证",
+      "riskCategory": "CREDENTIAL_EXFILTRATION"
+    }
+  ],
+  "occurredAt": "2026-09-27T04:03:00.000Z"
+}

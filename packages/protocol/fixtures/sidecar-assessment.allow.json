@@ -1,0 +1,11 @@
+{
+  "callId": "call-allow-1234",
+  "capability": "filesystem_list",
+  "verdict": "ALLOW",
+  "riskCategory": "NONE",
+  "confidence": 0.98,
+  "reason": "常规只读目录检索，处于合法授权范围内，无破坏性副作用",
+  "remediation": null,
+  "assessedBy": "jev-system-one",
+  "occurredAt": "2026-09-27T04:00:00.000Z"
+}

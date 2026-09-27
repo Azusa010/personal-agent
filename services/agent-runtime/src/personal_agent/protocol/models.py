@@ -937,3 +937,63 @@ class KnowledgeReviewOutcome(ProtocolModel):
     critiques: list[KnowledgeReviewCritique] = Field(default_factory=list)
     reviewComments: str
     reviewedAt: str
+
+
+# ---- Sidecar Safety & Context Engine (Phase 1) ----
+
+SidecarVerdict = Literal["ALLOW", "REJECT_WITH_FEEDBACK", "ESCALATE_TO_USER"]
+SidecarRiskCategory = Literal[
+    "NONE",
+    "DESTRUCTIVE_COMMAND",
+    "CREDENTIAL_EXFILTRATION",
+    "PROMPT_INJECTION",
+    "SCOPE_ESCAPING",
+    "SYSTEM_RESOURCE_ABUSE",
+]
+CircuitBreakerState = Literal["CLOSED", "OPEN", "HALF_OPEN"]
+
+
+class SidecarAssessment(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    callId: str = Field(min_length=1)
+    capability: str = Field(min_length=1)
+    verdict: SidecarVerdict
+    riskCategory: SidecarRiskCategory = "NONE"
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    reason: str = Field(min_length=1)
+    remediation: str | None = None
+    assessedBy: str = Field(min_length=1)
+    occurredAt: str
+
+
+class CircuitBreakerRejectionRecord(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    callId: str = Field(min_length=1)
+    capability: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    riskCategory: SidecarRiskCategory | None = None
+
+
+class CircuitBreakerEvent(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    taskId: str = Field(min_length=1)
+    state: CircuitBreakerState
+    consecutiveRejections: int = Field(ge=0)
+    triggerReason: str = Field(min_length=1)
+    recentRejections: list[CircuitBreakerRejectionRecord] = Field(default_factory=list)
+    occurredAt: str
+
+
+class SidecarCompactedObservation(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    callId: str = Field(min_length=1)
+    capability: str = Field(min_length=1)
+    originalChars: int = Field(ge=0)
+    compactedChars: int = Field(ge=0)
+    summary: str = Field(min_length=1)
+    keyFacts: list[str] = Field(default_factory=list)
+    rawArtifactRef: str | None = None

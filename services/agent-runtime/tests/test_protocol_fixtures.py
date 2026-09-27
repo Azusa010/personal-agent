@@ -7,6 +7,7 @@ from pydantic import TypeAdapter, ValidationError
 from personal_agent.protocol.models import (
     AgentStreamNotification,
     CapabilityFailure,
+    CircuitBreakerEvent,
     CodeInterpreterParams,
     CodeInterpreterResult,
     DocumentExtractPdfParams,
@@ -52,6 +53,8 @@ from personal_agent.protocol.models import (
     SchedulerCreateOutcome,
     SchedulerCreateParams,
     SchedulerCreateResult,
+    SidecarAssessment,
+    SidecarCompactedObservation,
     SkillReadParams,
     SkillReadResult,
     SkillSearchParams,
@@ -1221,4 +1224,63 @@ def test_knowledge_review_fixture():
     assert review.verdict == "approved"
     assert len(review.critiques) == 1
     assert review.critiques[0].verdict == "pass"
+
+
+def test_sidecar_assessment_allow_fixture():
+    raw = _load("sidecar-assessment.allow.json")
+    assessment = SidecarAssessment.model_validate(raw)
+    assert assessment.callId == "call-allow-1234"
+    assert assessment.capability == "filesystem_list"
+    assert assessment.verdict == "ALLOW"
+    assert assessment.riskCategory == "NONE"
+    assert assessment.confidence == 0.98
+    assert assessment.assessedBy == "jev-system-one"
+    assert assessment.remediation is None
+
+
+def test_sidecar_assessment_reject_fixture():
+    raw = _load("sidecar-assessment.reject.json")
+    assessment = SidecarAssessment.model_validate(raw)
+    assert assessment.callId == "call-reject-5678"
+    assert assessment.capability == "filesystem_create_dir"
+    assert assessment.verdict == "REJECT_WITH_FEEDBACK"
+    assert assessment.riskCategory == "SCOPE_ESCAPING"
+    assert assessment.remediation is not None
+    assert "已授权的根标识" in assessment.remediation
+
+
+def test_sidecar_assessment_escalate_fixture():
+    raw = _load("sidecar-assessment.escalate.json")
+    assessment = SidecarAssessment.model_validate(raw)
+    assert assessment.callId == "call-escalate-9999"
+    assert assessment.capability == "terminal_execute"
+    assert assessment.verdict == "ESCALATE_TO_USER"
+    assert assessment.riskCategory == "DESTRUCTIVE_COMMAND"
+    assert "rm -rf" in assessment.reason
+
+
+def test_sidecar_circuit_breaker_fixture():
+    raw = _load("sidecar-circuit-breaker.json")
+    event = CircuitBreakerEvent.model_validate(raw)
+    assert event.taskId == "task-cb-001"
+    assert event.state == "OPEN"
+    assert event.consecutiveRejections == 3
+    assert len(event.recentRejections) == 3
+    assert event.recentRejections[0].riskCategory == "DESTRUCTIVE_COMMAND"
+    assert event.recentRejections[2].riskCategory == "CREDENTIAL_EXFILTRATION"
+
+
+def test_sidecar_compacted_observation_model():
+    sample = {
+        "callId": "call-comp-1",
+        "capability": "read_document",
+        "originalChars": 10000,
+        "compactedChars": 500,
+        "summary": "提炼完成",
+        "keyFacts": ["要点 1", "要点 2"],
+    }
+    compacted = SidecarCompactedObservation.model_validate(sample)
+    assert compacted.callId == "call-comp-1"
+    assert compacted.compactedChars == 500
+    assert len(compacted.keyFacts) == 2
 

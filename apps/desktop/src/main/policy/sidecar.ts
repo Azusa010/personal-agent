@@ -1,7 +1,87 @@
+import type { SidecarAssessment, SidecarRiskCategory } from '@personal-agent/protocol'
+
 export interface SidecarInspectionResult {
   readonly safe: boolean
   readonly reason?: string
   readonly tags?: string[]
+}
+
+export interface SidecarActionAllow {
+  kind: 'allow'
+}
+
+export interface SidecarActionReject {
+  kind: 'reject'
+  reason: string
+  remediation: string
+}
+
+export interface SidecarActionEscalate {
+  kind: 'escalate'
+  reason: string
+  riskCategory: SidecarRiskCategory
+}
+
+export type SidecarAction = SidecarActionAllow | SidecarActionReject | SidecarActionEscalate
+
+export const DEFAULT_REMEDIATION_MESSAGE = '请检查调用参数契约并重试'
+export const DEFAULT_ESCALATE_FALLBACK_RISK: SidecarRiskCategory = 'DESTRUCTIVE_COMMAND'
+export const LOW_CONFIDENCE_ESCALATE_REASON = '置信度不足，强制升级为人工核验'
+
+/**
+ * 将协议层的 Sidecar 审查判决包 (SidecarAssessment) 解析为执行层的具体动作 (SidecarAction)。
+ *
+ * # Contract:
+ * #   - Input: assessment: SidecarAssessment (协议层安全判定结构体)
+ * #   - Output: SidecarAction ('allow' | 'reject' | 'escalate')
+ * #   - Invariants:
+ * #       1. 当 assessment.verdict === 'ALLOW' 时：
+ * #          - 若 assessment.confidence >= 0.5，返回 { kind: 'allow' }；
+ * #          - 若 assessment.confidence < 0.5，判定为置信度不可靠（防假阴性），强制升级为：
+ * #            { kind: 'escalate', reason: LOW_CONFIDENCE_ESCALATE_REASON, riskCategory: assessment.riskCategory === 'NONE' ? DEFAULT_ESCALATE_FALLBACK_RISK : assessment.riskCategory }；
+ * #       2. 当 assessment.verdict === 'REJECT_WITH_FEEDBACK' 时：
+ * #          - 返回 { kind: 'reject', reason: assessment.reason, remediation: <纠偏建议> }；
+ * #          - 边界保护：若 assessment.remediation 为 null/undefined 或纯空白串，使用 DEFAULT_REMEDIATION_MESSAGE 兜底；
+ * #       3. 当 assessment.verdict === 'ESCALATE_TO_USER' 时：
+ * #          - 返回 { kind: 'escalate', reason: assessment.reason, riskCategory: <风险类别> }；
+ * #          - 边界保护：若 assessment.riskCategory === 'NONE'，归一化修正为 DEFAULT_ESCALATE_FALLBACK_RISK；
+ * #   - Boundary conditions:
+ * #       - 无论 verdict 是什么，只要置信度 < 0.5 且原本打算放行，必须 Fail-Closed 降级为 escalate；
+ * #       - 空建议与无风险高危必须有确定性兜底，不能透传空字符串或 NONE 给审批流；
+ * #   - Test file: apps/desktop/src/main/policy/sidecar.test.ts
+ */
+export function resolveSidecarAction(assessment: SidecarAssessment): SidecarAction {
+  switch (assessment.verdict) {
+    case 'ALLOW':
+      if (assessment.confidence >= 0.5) {
+        return { kind: 'allow' }
+      } else {
+        return {
+          kind: 'escalate',
+          reason: LOW_CONFIDENCE_ESCALATE_REASON,
+          riskCategory:
+            assessment.riskCategory === 'NONE'
+              ? DEFAULT_ESCALATE_FALLBACK_RISK
+              : assessment.riskCategory
+        }
+      }
+    case 'REJECT_WITH_FEEDBACK':
+      const remediation = assessment.remediation?.trim() ?? ''
+      return {
+        kind: 'reject',
+        reason: assessment.reason,
+        remediation: remediation || DEFAULT_REMEDIATION_MESSAGE
+      }
+    case 'ESCALATE_TO_USER':
+      return {
+        kind: 'escalate',
+        reason: assessment.reason,
+        riskCategory:
+          assessment.riskCategory === 'NONE'
+            ? DEFAULT_ESCALATE_FALLBACK_RISK
+            : assessment.riskCategory
+      }
+  }
 }
 
 const INJECTION_PATTERNS: readonly RegExp[] = [

@@ -1,0 +1,11 @@
+{
+  "callId": "call-escalate-9999",
+  "capability": "terminal_execute",
+  "verdict": "ESCALATE_TO_USER",
+  "riskCategory": "DESTRUCTIVE_COMMAND",
+  "confidence": 0.99,
+  "reason": "检测到递归强制删除敏感系统目录命令 (rm -rf)，存在严重不可逆破坏风险",
+  "remediation": "该操作必须获得用户显式人工授权确认方可执行",
+  "assessedBy": "jev-system-one",
+  "occurredAt": "2026-09-27T04:02:00.000Z"
+}
