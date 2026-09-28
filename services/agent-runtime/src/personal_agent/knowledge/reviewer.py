@@ -226,9 +226,9 @@ class KnowledgeReviewer:
         api_key = os.environ.get("TYPESAFE_API_KEY", "").strip()
         if api_key:
             try:
-                from typesafe_sdk import TypesafeClient
+                from typesafe_sdk import TypeSafeClient
 
-                return TypesafeClient(api_key=api_key)
+                return TypeSafeClient(api_key=api_key)
             except Exception as err:  # noqa: BLE001
                 logger.warning("Reviewer TypeSafeClient 实例化失败: %s", err)
         return None

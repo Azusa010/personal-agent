@@ -121,8 +121,8 @@ def is_injection_suspicious(text: str, client: Any | None = None) -> bool:
         api_key = os.environ.get("TYPESAFE_API_KEY", "").strip()
         if api_key:
             try:
-                from typesafe_sdk import TypesafeClient
-                jev_client = TypesafeClient(api_key=api_key)
+                from typesafe_sdk import TypeSafeClient
+                jev_client = TypeSafeClient(api_key=api_key)
             except Exception as err:  # noqa: BLE001
                 logger.warning("TypeSafeClient 实例化失败: %s", err)
     if jev_client is not None:

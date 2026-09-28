@@ -154,9 +154,9 @@ class QueryLoopDetector:
             api_key = os.environ.get("TYPESAFE_API_KEY", "").strip()
             if api_key:
                 try:
-                    from typesafe_sdk import TypesafeClient
+                    from typesafe_sdk import TypeSafeClient
 
-                    jev_client = TypesafeClient(api_key=api_key)
+                    jev_client = TypeSafeClient(api_key=api_key)
                 except Exception as err:  # noqa: BLE001
                     logger.warning("TypeSafeClient 实例化失败: %s", err)
 
