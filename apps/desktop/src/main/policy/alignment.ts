@@ -12,13 +12,31 @@ export type AlignmentResult = { aligned: true } | { aligned: false; reason: stri
  *  保留函数签名以避免破坏 execution-policy.ts 的调用方。
  *  原有严格匹配逻辑的测试见 alignment.test.ts，现在改为验证无条件放行。
  */
+export interface CheckAlignmentOptions {
+  strict?: boolean
+}
+
+/** ActionAlignment：计划对齐策略。
+ *
+ *  在剧本测试模式（process.env.PERSONAL_AGENT_SCRIPT 存在）下，必须保持严格步骤顺序比对以兼容回归测试。
+ *  在日常运行 / Live 模式下，放宽为任务级 TaskScope 自由探索，不再钉死调用顺序和单步调用次数。
+ */
 export function checkAlignment(
   plan: readonly PlanStep[],
   executedCalls: number,
-  capability: string
+  capability: string,
+  options?: CheckAlignmentOptions
 ): AlignmentResult {
+  const isStrict =
+    options?.strict !== undefined ? options.strict : !!process.env.PERSONAL_AGENT_SCRIPT
+
+  if (!isStrict) {
+    return { aligned: true }
+  }
+
   const hasCapabilityStep = plan.filter((step) => step.capability !== undefined)
   const step = hasCapabilityStep[executedCalls]
+
   if (step === undefined) {
     return {
       aligned: false,

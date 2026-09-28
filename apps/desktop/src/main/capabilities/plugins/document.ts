@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os'
+import { resolve } from 'node:path'
 import { readFile } from 'node:fs/promises'
 
 import { DocumentExtractPdfParams, ERROR_CODE, ReadDocumentParams } from '@personal-agent/protocol'
@@ -22,16 +24,30 @@ export const readDocumentPlugin: CapabilityPlugin = {
 
     const root = resolveRoot('downloads')
     const guarded = await resolveWithinRootReal(root, parsed.data.path)
-    if (!guarded.ok) {
-      return { ok: false, code: guarded.code, reason: guarded.reason }
-    }
-    return {
-      ok: true,
-      bound: {
-        args: parsed.data as Record<string, unknown>,
-        paths: { path: guarded.path }
+    if (guarded.ok) {
+      return {
+        ok: true,
+        bound: {
+          args: parsed.data as Record<string, unknown>,
+          paths: { path: guarded.path }
+        }
       }
     }
+
+    // 允许安全读取 Sidecar 生成的 tool_outputs 本地暂存文件
+    const tempToolOutputs = resolve(tmpdir(), 'personal_agent', 'tool_outputs')
+    const guardedTemp = await resolveWithinRootReal(tempToolOutputs, parsed.data.path)
+    if (guardedTemp.ok) {
+      return {
+        ok: true,
+        bound: {
+          args: parsed.data as Record<string, unknown>,
+          paths: { path: guardedTemp.path }
+        }
+      }
+    }
+
+    return { ok: false, code: guarded.code, reason: guarded.reason }
   },
   async execute(call) {
     const abs = call.bound.paths['path']

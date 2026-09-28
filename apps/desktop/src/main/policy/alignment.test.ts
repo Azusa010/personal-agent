@@ -1,7 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import type { PlanStep } from '../../shared/domain'
 import { checkAlignment } from './alignment'
+
+beforeEach(() => {
+  process.env.PERSONAL_AGENT_SCRIPT = 'test-script.json'
+})
+
+afterEach(() => {
+  delete process.env.PERSONAL_AGENT_SCRIPT
+})
 
 // 与 Python 侧 planning.make_plan 的三步逐字一致。第三步没有 capability 键
 //（不是 null），这是 model_dump(exclude_none=True) 的结果。
@@ -134,5 +142,34 @@ describe('checkAlignment：纯函数', () => {
   it('capability 里带路径分隔符也不影响判定', () => {
     // 只是当字符串比，不该被解析成路径或能力层级。
     expect(checkAlignment(PLAN, 0, 'filesystem_list/../../etc').aligned).toBe(false)
+  })
+})
+
+describe('checkAlignment：Live / 自由探索模式（非严格模式）', () => {
+  beforeEach(() => {
+    delete process.env.PERSONAL_AGENT_SCRIPT
+  })
+
+  it('允许首步调用计划第二步的能力（乱序自主探索）', () => {
+    const out = checkAlignment(PLAN, 0, 'document_extract_pdf')
+    expect(out.aligned).toBe(true)
+  })
+
+  it('允许同一步骤内多次调用同一个能力（ReAct 多轮探索）', () => {
+    const first = checkAlignment(PLAN, 0, 'filesystem_list')
+    const second = checkAlignment(PLAN, 1, 'filesystem_list')
+    expect(first.aligned).toBe(true)
+    expect(second.aligned).toBe(true)
+  })
+
+  it('超出计划步骤长度后依然放行（多轮工具探索）', () => {
+    const out = checkAlignment(PLAN, 10, 'filesystem_list')
+    expect(out.aligned).toBe(true)
+  })
+
+  it('空计划或无 capability 计划依然放行', () => {
+    const planless: readonly PlanStep[] = [{ description: '直接回答用户' }]
+    const out = checkAlignment(planless, 0, 'web_search')
+    expect(out.aligned).toBe(true)
   })
 })

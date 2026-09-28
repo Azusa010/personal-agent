@@ -133,7 +133,9 @@ class ReActLoop:
                 steps_used >= self._budget.maxSteps
                 or tool_calls_used >= self._budget.maxToolCalls
             ):
-                reason = f"预算耗尽：已用 {steps_used} 步 / {tool_calls_used} 次工具调用"
+                reason = (
+                    f"预算耗尽：已用 {steps_used} 步 / {tool_calls_used} 次工具调用"
+                )
                 self._emit(
                     events,
                     EVENT_BUDGET_EXHAUSTED,
@@ -154,7 +156,10 @@ class ReActLoop:
                 return self._fail(events, str(e), steps_used, tool_calls_used)
             except ModelCallFailed as e:
                 return self._fail(
-                    events, f"{MODEL_CALL_FAILED}: {e.reason}", steps_used, tool_calls_used
+                    events,
+                    f"{MODEL_CALL_FAILED}: {e.reason}",
+                    steps_used,
+                    tool_calls_used,
                 )
 
             steps_used += 1
@@ -339,13 +344,19 @@ class ReActLoop:
                         tool_calls_used=tool_calls_used,
                         events=events,
                     )
-                return self._fail(
+                self._emit(
                     events,
-                    "模型请求推进到下一步，但当前不是步骤执行模式",
-                    steps_used,
-                    tool_calls_used,
+                    EVENT_TASK_COMPLETED,
+                    {"reply": decision.result, "factCount": 0, "facts": []},
                 )
-
+                return ReActOutcome(
+                    kind="completed",
+                    reply=decision.result,
+                    facts=[],
+                    steps_used=steps_used,
+                    tool_calls_used=tool_calls_used,
+                    events=events,
+                )
             elif isinstance(decision, ReplanDecision):
                 return ReActOutcome(
                     kind="replan",
@@ -378,8 +389,6 @@ class ReActLoop:
             tool_calls_used=tool_calls_used,
             events=events,
         )
-
-
 
     def _emit(
         self, events: list[RunTaskEvent], event_type: str, payload: dict[str, Any]

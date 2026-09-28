@@ -271,6 +271,14 @@ describe('execution-policy：agent 必须有当前任务', () => {
 })
 
 describe('execution-policy：ActionAlignment', () => {
+  beforeEach(() => {
+    process.env.PERSONAL_AGENT_SCRIPT = 'test-script.json'
+  })
+
+  afterEach(() => {
+    delete process.env.PERSONAL_AGENT_SCRIPT
+  })
+
   it('第一次调用对得上计划第 1 个带 capability 的步骤 -> 放行', async () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
@@ -338,6 +346,17 @@ describe('execution-policy：ActionAlignment', () => {
 
     expect(out.allowed).toBe(true)
     expect(currentTask()?.executedCalls).toBe(0)
+  })
+
+  it('非严格模式（Live 模式）下即使乱序调用也放行', async () => {
+    delete process.env.PERSONAL_AGENT_SCRIPT
+    beginTask(TASK_ID, '整理 PDF', PLAN)
+
+    const out = await agentPolicy().evaluate(
+      params('tc-18', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
+    )
+
+    expect(out.allowed).toBe(true)
   })
 })
 

@@ -128,6 +128,36 @@ def test_react_loop_stops_on_step_complete_when_configured():
     assert outcome.tool_calls_used == 1
 
 
+def test_react_loop_graceful_completion_on_step_complete():
+    """场景：处于不可分步或最后一步模式（stop_on_step_complete=False），模型返回 step_complete，
+    系统应优雅降级为 completed 终态，将 result 作为 reply 返回，而不是抛出异常或判负。"""
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId="call-1",
+            capability="filesystem_list",
+            arguments={"rootId": "downloads"},
+        ),
+        StepCompleteDecision(
+            kind="step_complete",
+            result="搜索完毕，最新进展是关于新模型发布",
+        ),
+    ]
+    loop, _, _, _ = make_loop([list_result()], decisions)
+
+    outcome = loop.run("获取最新新闻", VISIBLE, stop_on_step_complete=False)
+
+    # 契约底线断言（保留）
+    assert isinstance(outcome, ReActOutcome)
+    assert outcome.kind == "completed"
+    assert outcome.reply == "搜索完毕，最新进展是关于新模型发布"
+    assert any(
+        e.type == "task_completed"
+        and e.payload.get("reply") == "搜索完毕，最新进展是关于新模型发布"
+        for e in outcome.events
+    )
+
+
 def test_react_loop_triggers_budget_exhaustion():
     """场景：模型无限重复调用工具，超过预算限制时安全终止。"""
     decisions = [
@@ -366,7 +396,7 @@ def test_react_loop_with_sidecar_compaction_and_persistence():
         compactedChars=80,
     )
 
-    huge_content = "DATA_" * 400
+    huge_content = "DATA_" * 1500
     huge_result = {
         "ok": True,
         "content": huge_content,

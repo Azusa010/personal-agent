@@ -23,7 +23,7 @@ from personal_agent.protocol.models import SidecarCompactedObservation
 
 log = logging.getLogger("personal_agent.sidecar")
 
-DEFAULT_COMPACT_CHAR_THRESHOLD = 1200
+DEFAULT_COMPACT_CHAR_THRESHOLD = 6000
 DEFAULT_MEMORY_RELEVANCE_THRESHOLD = 45.0
 DEFAULT_MEMORY_TOP_K = 3
 
@@ -451,7 +451,7 @@ def compact_and_persist_observation(
         "originalChars": len(text),
         "compactedChars": compacted.compactedChars,
         "raw_output_path": str(output_file),
-        "hint": f"完整输出（共 {len(text)} 字符）已暂存至本地文件: {output_file}。如需查阅细节，可通过文件读取工具按需读取。"
+        "hint": f"关键结论已在 summary 中提炼，若非必要无需查阅原文件。若确需查阅细节，未压缩输出暂存于本地: {output_file}。"
     }
 
     new_observation = Observation(
