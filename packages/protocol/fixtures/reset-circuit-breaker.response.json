@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "id": "req-reset-cb-1",
+  "result": {
+    "ok": true,
+    "state": "HALF_OPEN",
+    "message": "熔断器已复位至半开试探状态 (HALF_OPEN)"
+  }
+}

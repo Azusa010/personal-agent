@@ -2,11 +2,14 @@ import type {
   AgentStreamParams,
   ERROR_CODE,
   PdfEntry,
+  ResetCircuitBreakerResult,
   RunTaskResult,
   SummaryFact
 } from '@personal-agent/protocol'
 import type { RUNTIME_ERROR_CODE } from '../main/runtime/error-code'
 import type { SETTINGS_ERROR_CODE } from '../main/settings/error-code'
+
+export type { ResetCircuitBreakerResult }
 import type {
   ExecutionEventRecord,
   MessageRole,

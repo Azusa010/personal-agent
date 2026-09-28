@@ -55,7 +55,7 @@ export interface VerificationStepView extends BaseStepView {
 
 export interface NoticeStepView extends BaseStepView {
   type: 'notice'
-  noticeKind: 'permission' | 'reminder' | 'budget' | 'generic'
+  noticeKind: 'permission' | 'reminder' | 'budget' | 'generic' | 'sidecar' | 'circuit_breaker'
   description: string
 }
 

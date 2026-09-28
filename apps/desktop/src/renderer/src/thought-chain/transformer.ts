@@ -238,6 +238,56 @@ export function eventsToSteps(
         break
       }
 
+      case 'sidecar_inspected': {
+        const capability = typeof payload['capability'] === 'string' ? payload['capability'] : ''
+        const verdict = typeof payload['verdict'] === 'string' ? payload['verdict'] : 'ALLOW'
+        const reason = typeof payload['reason'] === 'string' ? payload['reason'] : ''
+        const assessedBy =
+          typeof payload['assessedBy'] === 'string' ? payload['assessedBy'] : 'unknown'
+        const confidence =
+          typeof payload['confidence'] === 'number' ? Math.round(payload['confidence'] * 100) : 100
+        const isAllow = verdict === 'ALLOW'
+        const actionLabel = isAllow
+          ? '已放行'
+          : verdict === 'REJECT_WITH_FEEDBACK'
+            ? '拦截并自愈纠偏'
+            : '需人工审批'
+
+        const notice: NoticeStepView = {
+          id: `sidecar-${i}`,
+          type: 'notice',
+          noticeKind: 'sidecar',
+          title: `安全审查: ${capability || '工具调用'}`,
+          status: isAllow ? 'success' : 'failed',
+          startedAt: ev.occurredAt,
+          description: `[${actionLabel}] ${reason} (评估来源: ${assessedBy} · 置信度: ${confidence}%)`,
+          rawPayload: ev.payload
+        }
+        steps.push(notice)
+        break
+      }
+
+      case 'circuit_breaker_tripped': {
+        const triggerReason =
+          typeof payload['triggerReason'] === 'string' ? payload['triggerReason'] : '触发安全熔断'
+        const consecutive =
+          typeof payload['consecutiveRejections'] === 'number'
+            ? payload['consecutiveRejections']
+            : 0
+
+        const notice: NoticeStepView = {
+          id: `breaker-${i}`,
+          type: 'notice',
+          noticeKind: 'circuit_breaker',
+          title: '安全熔断跳闸 (Circuit Breaker OPEN)',
+          status: 'failed',
+          startedAt: ev.occurredAt,
+          description: `已触发安全熔断阻断任务：${triggerReason}${consecutive > 0 ? `（连续违规 ${consecutive} 次）` : ''}`,
+          rawPayload: ev.payload
+        }
+        steps.push(notice)
+        break
+      }
       default:
         break
     }

@@ -78,6 +78,9 @@ if (process.contextIsolated) {
       },
       runWorkflow: (workflowId: string, inputs?: Record<string, unknown>) => {
         return ipcRenderer.invoke('personal-agent:run-workflow', { workflowId, inputs })
+      },
+      resetCircuitBreaker: (taskId: string, reason?: string) => {
+        return ipcRenderer.invoke('personal-agent:reset-circuit-breaker', taskId, reason)
       }
     })
   } catch (error) {

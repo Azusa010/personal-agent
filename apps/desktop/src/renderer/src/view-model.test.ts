@@ -111,19 +111,22 @@ describe('describeRunOutcome', () => {
 })
 
 describe('EVENT_LABELS', () => {
-  it('登记的键就是写库方用的十三个事件类型，一个不多一个不少', () => {
+  it('登记的键就是写库方用的十五个事件类型，一个不多一个不少', () => {
     // 前六个是跨语言契约：Python 写库、TS 读库，字符串来自 engine.py 的 EVENT_*。
     // 中间三个来自 permission-broker 的 PERMISSION_EVENT，写库方是 TS 自己。
     // reminder_created 来自 executor.ts 的 REMINDER_CREATED_EVENT（TASK-023）。
-    // 最后三个来自 verify-deliverables.ts（TASK-026），写库方是 run-task.ts。
+    // verification_* 三个来自 verify-deliverables.ts（TASK-026），写库方是 run-task.ts。
+    // sidecar_inspected 与 circuit_breaker_tripped 来自 sidecar 安全子系统。
     // 任一边改名，timeline 上就会出现没翻译的英文 type。这条测试钉住展示层这一半。
     expect(Object.keys(EVENT_LABELS).sort()).toEqual(
       [
         'budget_exhausted',
+        'circuit_breaker_tripped',
         'permission_decision',
         'permission_expired',
         'permission_requested',
         'reminder_created',
+        'sidecar_inspected',
         'task_completed',
         'task_failed',
         'task_started',
@@ -297,6 +300,33 @@ describe('summarizePayload', () => {
     })
 
     expect(line).toContain('运行时未配置模型')
+  })
+
+  it('sidecar_inspected 的摘要里包含放行或拦截结论与能力名', () => {
+    const allow = summarizePayload('sidecar_inspected', {
+      verdict: 'ALLOW',
+      capability: 'filesystem_list',
+      reason: '规则通过'
+    })
+    expect(allow).toContain('[放行]')
+    expect(allow).toContain('filesystem_list')
+
+    const reject = summarizePayload('sidecar_inspected', {
+      verdict: 'REJECT_WITH_FEEDBACK',
+      capability: 'terminal_execute',
+      reason: '高危命令'
+    })
+    expect(reject).toContain('[拦截纠偏]')
+    expect(reject).toContain('terminal_execute')
+  })
+
+  it('circuit_breaker_tripped 的摘要里包含触发原因与连续拦截次数', () => {
+    const line = summarizePayload('circuit_breaker_tripped', {
+      triggerReason: '连续违规触发熔断',
+      consecutiveRejections: 3
+    })
+    expect(line).toContain('连续违规触发熔断')
+    expect(line).toContain('连续 3 次')
   })
 
   it('permission_requested 的摘要里能看到能力与目标路径', () => {

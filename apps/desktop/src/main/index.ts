@@ -9,7 +9,13 @@ import {
   restartRuntime,
   createModelSettingsStore
 } from './runtime/runtime-host'
-import { FilesystemListParams, FilesystemListResult, ERROR_CODE } from '@personal-agent/protocol'
+import {
+  FilesystemListParams,
+  FilesystemListResult,
+  ERROR_CODE,
+  AGENT_RESET_CIRCUIT_BREAKER,
+  ResetCircuitBreakerResult
+} from '@personal-agent/protocol'
 import { RUNTIME_ERROR_CODE } from './runtime/error-code'
 import type {
   GetModelSettingsResult,
@@ -454,6 +460,40 @@ app.whenReady().then(() => {
         }
       }
       return runWorkflow(input as RunWorkflowInput, runWorkflowDeps(store))
+    }
+  )
+
+  ipcMain.handle(
+    'personal-agent:reset-circuit-breaker',
+    async (_e, taskId: unknown, reason?: unknown): Promise<ResetCircuitBreakerResult> => {
+      if (typeof taskId !== 'string' || !taskId) {
+        return {
+          ok: false,
+          state: 'OPEN',
+          message: 'taskId 必须为非空字符串'
+        }
+      }
+      try {
+        const response = await requestRuntime(AGENT_RESET_CIRCUIT_BREAKER, {
+          taskId,
+          reason: typeof reason === 'string' ? reason : undefined
+        })
+        const parsed = ResetCircuitBreakerResult.safeParse(response)
+        if (parsed.success) {
+          return parsed.data
+        }
+        return {
+          ok: true,
+          state: 'HALF_OPEN',
+          message: '熔断器已复位为半开状态'
+        }
+      } catch (err) {
+        return {
+          ok: false,
+          state: 'OPEN',
+          message: err instanceof Error ? err.message : String(err)
+        }
+      }
     }
   )
   // 只读通道：不写库，因此不需要事务。

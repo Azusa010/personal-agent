@@ -84,3 +84,58 @@ export const SidecarCompactedObservation = z.object({
 export type SidecarCompactedObservation = z.infer<
   typeof SidecarCompactedObservation
 >;
+
+export const AGENT_RESET_CIRCUIT_BREAKER = "agent.reset_circuit_breaker";
+
+export const ResetCircuitBreakerParams = z.object({
+  taskId: z.string().min(1),
+  reason: z.string().optional(),
+});
+export type ResetCircuitBreakerParams = z.infer<
+  typeof ResetCircuitBreakerParams
+>;
+
+export const ResetCircuitBreakerResult = z.object({
+  ok: z.boolean(),
+  state: CircuitBreakerStateEnum,
+  message: z.string(),
+});
+export type ResetCircuitBreakerResult = z.infer<
+  typeof ResetCircuitBreakerResult
+>;
+
+export const ResetCircuitBreakerRequest = z.object({
+  jsonrpc: z.literal("2.0"),
+  id: z.string().min(1),
+  method: z.literal(AGENT_RESET_CIRCUIT_BREAKER),
+  params: ResetCircuitBreakerParams,
+});
+export type ResetCircuitBreakerRequest = z.infer<
+  typeof ResetCircuitBreakerRequest
+>;
+
+export const ResetCircuitBreakerResponse = z
+  .object({
+    jsonrpc: z.literal("2.0"),
+    id: z.string().min(1),
+    result: ResetCircuitBreakerResult.optional(),
+    error: z
+      .object({
+        code: z.string(),
+        message: z.string(),
+        data: z.unknown().optional(),
+      })
+      .optional(),
+  })
+  .superRefine((res, ctx) => {
+    if ((res.result !== undefined) === (res.error !== undefined)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "result and error must not be present at the same time",
+      });
+    }
+  });
+export type ResetCircuitBreakerResponse = z.infer<
+  typeof ResetCircuitBreakerResponse
+>;
+

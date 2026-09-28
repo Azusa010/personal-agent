@@ -87,3 +87,36 @@ def test_circuit_breaker_sliding_window_capped():
     assert len(cb.recent_rejections) == 2
     assert cb.recent_rejections[0].callId == "c-2"
     assert cb.recent_rejections[1].callId == "c-3"
+
+
+def test_dispatch_reset_circuit_breaker_existing_breaker():
+    from unittest.mock import MagicMock
+
+    from personal_agent.protocol.models import AGENT_RESET_CIRCUIT_BREAKER
+    from personal_agent.runtime import RuntimeDeps, dispatch
+
+    mock_channel = MagicMock()
+    deps = RuntimeDeps(channel=mock_channel)
+
+    cb = RejectionCircuitBreaker("task-rpc-1", threshold=2)
+    cb.record_rejection("c-1", "terminal_execute", "err 1")
+    cb.record_rejection("c-2", "terminal_execute", "err 2")
+    assert cb.state == "OPEN"
+    deps.circuit_breakers["task-rpc-1"] = cb
+
+    req = {
+        "jsonrpc": "2.0",
+        "id": "req-cb-1",
+        "method": AGENT_RESET_CIRCUIT_BREAKER,
+        "params": {
+            "taskId": "task-rpc-1",
+            "reason": "人工审批放行一次试探",
+        },
+    }
+
+    res = dispatch(req, deps)
+    assert res["id"] == "req-cb-1"
+    assert res.get("error") is None
+    assert res["result"]["ok"] is True
+    assert res["result"]["state"] == "HALF_OPEN"
+    assert cb.state == "HALF_OPEN"

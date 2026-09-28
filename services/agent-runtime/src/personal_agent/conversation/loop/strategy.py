@@ -16,7 +16,12 @@ from personal_agent.conversation.model.gateway import (
     ModelUsage,  # noqa: F401
     UsageReporting,
 )
-from personal_agent.conversation.sidecar import intercept_query_memories
+from personal_agent.conversation.sidecar import (
+    RejectionCircuitBreaker,
+    SidecarLlmClient,
+    StreamBarrier,
+    intercept_query_memories,
+)
 from personal_agent.planner import Planner
 from personal_agent.protocol.models import (
     PlanStepDto,
@@ -60,6 +65,9 @@ class AgentStrategy(Protocol):
         stream: StreamSink | None,
         planner: Planner | None = None,
         user_memories: Sequence[str] = (),
+        sidecar_barrier: StreamBarrier | None = None,
+        circuit_breaker:RejectionCircuitBreaker | None = None,
+        sidecar_llm: SidecarLlmClient | None = None,
     ) -> RunTaskCompleted | RunTaskFailed: ...
 
 
@@ -79,6 +87,9 @@ class ClassicStrategy:
         stream: StreamSink | None,
         planner: Planner | None = None,
         user_memories: Sequence[str] = (),
+        sidecar_barrier: StreamBarrier | None = None,
+        circuit_breaker: RejectionCircuitBreaker | None = None,
+        sidecar_llm: SidecarLlmClient | None = None,
     ) -> RunTaskCompleted | RunTaskFailed:
         context = ContextManager(
             plan=plan,
@@ -129,6 +140,9 @@ class ReActStrategy:
         stream: StreamSink | None,
         planner: Planner | None = None,
         user_memories: Sequence[str] = (),
+        sidecar_barrier: StreamBarrier | None = None,
+        circuit_breaker: RejectionCircuitBreaker | None = None,
+        sidecar_llm: SidecarLlmClient | None = None,
     ) -> RunTaskCompleted | RunTaskFailed:
         mems = list(user_memories) if user_memories else intercept_query_memories(goal)
         context = ContextManager(
@@ -144,6 +158,9 @@ class ReActStrategy:
             context=context,
             budget=budget,
             stream=stream,
+            sidecar_barrier=sidecar_barrier,
+            circuit_breaker=circuit_breaker,
+            sidecar_llm=sidecar_llm,
         )
         outcome = loop.run(goal, visible_capabilities, stop_on_step_complete=False)
 
@@ -182,6 +199,9 @@ class PlanAndExecuteStrategy:
         stream: StreamSink | None,
         planner: Planner | None = None,
         user_memories: Sequence[str] = (),
+        sidecar_barrier: StreamBarrier | None = None,
+        circuit_breaker: RejectionCircuitBreaker | None = None,
+        sidecar_llm: SidecarLlmClient | None = None,
     ) -> RunTaskCompleted | RunTaskFailed:
         mems = list(user_memories) if user_memories else intercept_query_memories(goal)
         context = ContextManager(
@@ -201,7 +221,11 @@ class PlanAndExecuteStrategy:
         remaining_steps: list[PlanStepDto] = list(plan)
         replan_count = 0
         max_replans = 2
-
+        cb = circuit_breaker or (
+            RejectionCircuitBreaker(task_id="default-task")
+            if sidecar_barrier is not None
+            else None
+        )
         while remaining_steps:
             step = remaining_steps.pop(0)
             context.set_current_step(step)
@@ -218,6 +242,9 @@ class PlanAndExecuteStrategy:
                 context=context,
                 budget=step_budget,
                 stream=stream,
+                sidecar_barrier=sidecar_barrier,
+                circuit_breaker=cb,
+                sidecar_llm=sidecar_llm
             )
 
             is_last = len(remaining_steps) == 0

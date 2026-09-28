@@ -41,6 +41,8 @@ from personal_agent.protocol.models import (
     ReadDocumentParams,
     ReadDocumentResult,
     Request,
+    ResetCircuitBreakerRequest,
+    ResetCircuitBreakerResponse,
     Response,
     RunTaskEvent,
     RunTaskParams,
@@ -1283,4 +1285,22 @@ def test_sidecar_compacted_observation_model():
     assert compacted.callId == "call-comp-1"
     assert compacted.compactedChars == 500
     assert len(compacted.keyFacts) == 2
+
+
+def test_reset_circuit_breaker_request_fixture():
+    raw = _load("reset-circuit-breaker.request.json")
+    req = ResetCircuitBreakerRequest.model_validate(raw)
+    assert req.method == "agent.reset_circuit_breaker"
+    assert req.params.taskId == "task-cb-001"
+    assert req.params.reason is not None
+    assert "恢复试探执行" in req.params.reason
+
+
+def test_reset_circuit_breaker_response_fixture():
+    raw = _load("reset-circuit-breaker.response.json")
+    res = ResetCircuitBreakerResponse.model_validate(raw)
+    assert res.result is not None
+    assert res.result.ok is True
+    assert res.result.state == "HALF_OPEN"
+
 

@@ -21,7 +21,8 @@ import type {
   AgentStreamNotice,
   GetAgentProfileResult,
   SetAgentProfileInput,
-  RunWorkflowIpcResult
+  RunWorkflowIpcResult,
+  ResetCircuitBreakerResult
 } from '../shared/ipc-contract'
 
 export type {
@@ -81,4 +82,6 @@ export type PersonalAgentApi = {
   setAgentProfile(input: SetAgentProfileInput): Promise<SetModelSettingsResult>
   /** 执行确定性业务工作流 */
   runWorkflow(workflowId: string, inputs?: Record<string, unknown>): Promise<RunWorkflowIpcResult>
+  /** 拒绝熔断器恢复为半开试探状态 (Human-in-the-loop) */
+  resetCircuitBreaker(taskId: string, reason?: string): Promise<ResetCircuitBreakerResult>
 }

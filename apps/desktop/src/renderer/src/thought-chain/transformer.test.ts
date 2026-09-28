@@ -7,7 +7,7 @@ import {
   streamStateToSteps,
   timelineToSteps
 } from './transformer'
-import type { ThoughtStepView, ToolStepView, VerificationStepView } from './types'
+import type { NoticeStepView, ThoughtStepView, ToolStepView, VerificationStepView } from './types'
 
 describe('transformer', () => {
   it('正确配对 tool_called 与 tool_result', () => {
@@ -236,5 +236,87 @@ describe('transformer', () => {
     expect(stats.toolCallsCount).toBe(2)
     expect(stats.totalDurationMs).toBe(500)
     expect(stats.hasErrors).toBe(true)
+  })
+
+  it('正确转换 sidecar_inspected 安全审查事件', () => {
+    const events = [
+      {
+        type: 'sidecar_inspected',
+        payload: {
+          callId: 'call-sec-1',
+          capability: 'filesystem_list',
+          verdict: 'ALLOW',
+          riskCategory: 'NONE',
+          confidence: 0.95,
+          reason: '安全通过',
+          assessedBy: 'jev-system-one'
+        },
+        occurredAt: '2026-09-20T10:00:00.100Z'
+      },
+      {
+        type: 'sidecar_inspected',
+        payload: {
+          callId: 'call-sec-2',
+          capability: 'terminal_execute',
+          verdict: 'REJECT_WITH_FEEDBACK',
+          riskCategory: 'DESTRUCTIVE_COMMAND',
+          confidence: 0.98,
+          reason: '检测到危险系统命令',
+          assessedBy: 'local-heuristic'
+        },
+        occurredAt: '2026-09-20T10:00:00.200Z'
+      }
+    ]
+
+    const steps = eventsToSteps(events)
+    expect(steps).toHaveLength(2)
+
+    const step1 = steps[0] as NoticeStepView
+    expect(step1.type).toBe('notice')
+    expect(step1.noticeKind).toBe('sidecar')
+    expect(step1.status).toBe('success')
+    expect(step1.title).toBe('安全审查: filesystem_list')
+    expect(step1.description).toContain('已放行')
+    expect(step1.description).toContain('jev-system-one')
+    expect(step1.description).toContain('95%')
+
+    const step2 = steps[1] as NoticeStepView
+    expect(step2.type).toBe('notice')
+    expect(step2.noticeKind).toBe('sidecar')
+    expect(step2.status).toBe('failed')
+    expect(step2.title).toBe('安全审查: terminal_execute')
+    expect(step2.description).toContain('拦截并自愈纠偏')
+    expect(step2.description).toContain('local-heuristic')
+  })
+
+  it('正确转换 circuit_breaker_tripped 安全熔断跳闸事件', () => {
+    const events = [
+      {
+        type: 'circuit_breaker_tripped',
+        payload: {
+          taskId: 'task-test-cb',
+          state: 'OPEN',
+          consecutiveRejections: 3,
+          triggerReason: '连续 3 次工具调用被拦截，触发安全熔断',
+          recentRejections: [
+            { callId: 'c1', capability: 'cmd', reason: 'r1' },
+            { callId: 'c2', capability: 'cmd', reason: 'r2' },
+            { callId: 'c3', capability: 'cmd', reason: 'r3' }
+          ]
+        },
+        occurredAt: '2026-09-20T10:00:00.500Z'
+      }
+    ]
+
+    const steps = eventsToSteps(events)
+    expect(steps).toHaveLength(1)
+
+    const breaker = steps[0] as NoticeStepView
+    expect(breaker.type).toBe('notice')
+    expect(breaker.noticeKind).toBe('circuit_breaker')
+    expect(breaker.status).toBe('failed')
+    expect(breaker.title).toContain('安全熔断跳闸')
+    expect(breaker.description).toContain('连续 3 次工具调用被拦截')
+    expect(breaker.description).toContain('连续违规 3 次')
   })
 })

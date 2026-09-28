@@ -8,7 +8,7 @@ import {
   type TaskStatePort
 } from '../policy/execution-policy'
 import type { ToolExecutionRepository } from '../product-state/tool-execution-repository'
-import { inspectCallSecurity } from '../policy/sidecar'
+import { evaluateCallSafety } from '../policy/sidecar'
 import { afterExecute, beginAttempt, isWriteCapability, type IdempotencyDeps } from './idempotency'
 import { RuleBasedToolRetriever, type ToolRetriever } from './retriever'
 import type { TaskScope } from './scope'
@@ -85,9 +85,9 @@ export function createExecutor(
       return fail(decision.code, decision.reason)
     }
 
-    const security = inspectCallSecurity(params.capability, params.arguments)
-    if (!security.safe) {
-      return fail(ERROR_CODE.PERMISSION_DENIED, security.reason ?? '安全策略违规')
+    const action = evaluateCallSafety(params.capability, params.arguments, params.callId)
+    if (action.kind !== 'allow') {
+      return fail(ERROR_CODE.PERMISSION_DENIED, action.reason || '安全策略违规')
     }
 
     const call = decision.call

@@ -155,3 +155,37 @@ export function inspectCallSecurity(
 
   return { safe: true }
 }
+
+/**
+ * 宿主端工具调用安全综合评估：将轻量级规则审查结果接入 resolveSidecarAction 统一决策动作。
+ */
+export function evaluateCallSafety(
+  capability: string,
+  args: Record<string, unknown>,
+  callId: string = 'local-check'
+): SidecarAction {
+  const inspection = inspectCallSecurity(capability, args)
+  const occurredAt = new Date().toISOString()
+  if (!inspection.safe) {
+    return resolveSidecarAction({
+      callId,
+      capability,
+      verdict: 'ESCALATE_TO_USER',
+      reason: inspection.reason ?? '安全策略违规',
+      riskCategory: 'DESTRUCTIVE_COMMAND',
+      assessedBy: 'deterministic_rules',
+      confidence: 1.0,
+      occurredAt
+    })
+  }
+  return resolveSidecarAction({
+    callId,
+    capability,
+    verdict: 'ALLOW',
+    reason: '轻量规则检查通过',
+    riskCategory: 'NONE',
+    assessedBy: 'deterministic_rules',
+    confidence: 1.0,
+    occurredAt
+  })
+}

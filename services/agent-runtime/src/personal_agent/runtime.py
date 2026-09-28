@@ -8,7 +8,12 @@ from dataclasses import dataclass, field
 
 from pydantic import ValidationError
 
-from personal_agent.conversation.sidecar import intercept_query_memories
+from personal_agent.conversation.sidecar import (
+    RejectionCircuitBreaker,
+    SidecarLlmClient,
+    StreamBarrier,
+    intercept_query_memories,
+)
 from personal_agent.engine import Budget
 from personal_agent.host_channel import HostChannel
 from personal_agent.live_model import LIVE_MODEL_ENV, LiveModel
@@ -18,6 +23,7 @@ from personal_agent.planner import DeterministicPlanner, Planner
 from personal_agent.planning import PlanError
 from personal_agent.protocol.models import (
     AGENT_MAKE_PLAN,
+    AGENT_RESET_CIRCUIT_BREAKER,
     AGENT_RUN_TASK,
     AGENT_RUN_WORKFLOW,
     CapabilityDescriptor,
@@ -27,6 +33,8 @@ from personal_agent.protocol.models import (
     MakePlanParams,
     MakePlanResult,
     Request,
+    ResetCircuitBreakerParams,
+    ResetCircuitBreakerResult,
     Response,
     RunTaskParams,
     RunWorkflowParams,
@@ -95,6 +103,9 @@ class RuntimeDeps:
     capabilities: list[CapabilityDescriptor] = field(default_factory=list)
     # 出口 stdout
     notify: Callable[[dict], None] | None = None
+    sidecar_barrier_factory: Callable[[], StreamBarrier] | None = None
+    sidecar_llm_factory: Callable[[], SidecarLlmClient] | None = None
+    circuit_breakers: dict[str, RejectionCircuitBreaker] = field(default_factory=dict)
 
 
 def _stream_emitter(deps: RuntimeDeps | None, task_id: str) -> StreamEmitter | None:
@@ -133,9 +144,12 @@ def dispatch(raw, deps: RuntimeDeps | None = None) -> dict:
     if req.method == AGENT_RUN_WORKFLOW:
         return handle_run_workflow(req, deps)
 
+    if req.method == AGENT_RESET_CIRCUIT_BREAKER:
+        return handle_reset_circuit_breaker(req, deps)
+
     if req.method == KNOWLEDGE_SEARCH:
         return handle_knowledge_search(req, deps)
-    
+
     if req.method == USER_MEMORY_SEARCH:
         return handle_user_memory_search(req, deps)
     return build_error(
@@ -231,6 +245,24 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
     visible_capabilities = [c.name for c in deps.capabilities]
     emitter = _stream_emitter(deps, params.taskId)
     memories = intercept_query_memories(params.goal)
+    barrier = (
+        deps.sidecar_barrier_factory()
+        if deps.sidecar_barrier_factory is not None
+        else StreamBarrier()
+    )
+    if deps is not None:
+        if params.taskId not in deps.circuit_breakers:
+            deps.circuit_breakers[params.taskId] = RejectionCircuitBreaker(
+                task_id=params.taskId
+            )
+        cb = deps.circuit_breakers[params.taskId]
+    else:
+        cb = RejectionCircuitBreaker(task_id=params.taskId)
+    sidecar_llm = (
+        deps.sidecar_llm_factory()
+        if deps.sidecar_llm_factory is not None
+        else SidecarLlmClient()
+    )
     try:
         outcome = deps.strategy.execute(
             model=deps.model_factory(),
@@ -244,14 +276,23 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
             stream=emitter,
             planner=deps.planner_factory(),
             user_memories=memories,
+            sidecar_barrier=barrier,
+            circuit_breaker=cb,
+            sidecar_llm=sidecar_llm,
         )
     except Exception:
         log.exception("agent.run_task 未预期异常 (id=%s)", req.id)
         return build_error(req.id, "RUNTIME_INTERNAL", "运行时内部错误")
-
+    finally:
+        if barrier is not None:
+            try:
+                barrier.close()
+            except Exception:  # noqa: BLE001, S110
+                pass
     return Response(jsonrpc="2.0", id=req.id, result=outcome.model_dump()).model_dump(
         exclude_none=True
     )
+
 
 def handle_run_workflow(req: Request, deps: RuntimeDeps | None = None) -> dict:
     """执行确定性业务工作流。"""
@@ -319,6 +360,7 @@ def handle_knowledge_search(req: Request, deps: RuntimeDeps | None = None) -> di
         log.exception("knowledge.search 执行异常 (id=%s)", req.id)
         return build_error(req.id, "RUNTIME_INTERNAL", f"知识库检索执行失败: {exc}")
 
+
 def handle_user_memory_search(req: Request, deps: RuntimeDeps | None = None) -> dict:
     """处理来自 Host 的 user_memory.search 请求，调用 UserMemoryRetriever。"""
     try:
@@ -341,6 +383,36 @@ def handle_user_memory_search(req: Request, deps: RuntimeDeps | None = None) -> 
     except Exception as exc:
         log.exception("user_memory.search 执行异常 (id=%s)", req.id)
         return build_error(req.id, "RUNTIME_INTERNAL", f"用户记忆检索执行失败: {exc}")
+
+
+def handle_reset_circuit_breaker(req: Request, deps: RuntimeDeps | None = None) -> dict:
+    try:
+        params = ResetCircuitBreakerParams.model_validate(req.params)
+    except ValidationError:
+        return build_error(
+            req.id, "PROTOCOL_INVALID_REQUEST", "reset_circuit_breaker 参数不符合契约"
+        )
+
+    task_id = params.taskId
+    reason = params.reason or "用户人工确认恢复试探"
+
+    if deps is not None:
+        if task_id not in deps.circuit_breakers:
+            deps.circuit_breakers[task_id] = RejectionCircuitBreaker(task_id=task_id)
+        cb = deps.circuit_breakers[task_id]
+    else:
+        cb = RejectionCircuitBreaker(task_id=task_id)
+
+    cb.reset_to_half_open(reason=reason)
+    result = ResetCircuitBreakerResult(
+        ok=True,
+        state=cb.state,
+        message=f"任务 {task_id} 的熔断器已复位为 {cb.state} 状态，允许下一次调用试探执行",
+    )
+    return Response(
+        jsonrpc="2.0", id=req.id, result=result.model_dump(exclude_none=True)
+    ).model_dump(exclude_none=True)
+
 
 # ====== I/O 层 ========
 def write(msg: dict) -> None:

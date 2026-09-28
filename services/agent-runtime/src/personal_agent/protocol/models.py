@@ -997,3 +997,40 @@ class SidecarCompactedObservation(ProtocolModel):
     summary: str = Field(min_length=1)
     keyFacts: list[str] = Field(default_factory=list)
     rawArtifactRef: str | None = None
+
+
+AGENT_RESET_CIRCUIT_BREAKER = "agent.reset_circuit_breaker"
+
+
+class ResetCircuitBreakerParams(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    taskId: str = Field(min_length=1)
+    reason: str | None = None
+
+
+class ResetCircuitBreakerResult(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    ok: bool
+    state: CircuitBreakerState
+    message: str
+
+
+class ResetCircuitBreakerRequest(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    jsonrpc: Literal["2.0"] = "2.0"
+    id: str = Field(min_length=1)
+    method: Literal["agent.reset_circuit_breaker"] = AGENT_RESET_CIRCUIT_BREAKER
+    params: ResetCircuitBreakerParams
+
+
+class ResetCircuitBreakerResponse(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    jsonrpc: Literal["2.0"] = "2.0"
+    id: str = Field(min_length=1)
+    result: ResetCircuitBreakerResult | None = None
+    error: JsonRpcError | None = None
+

@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "id": "req-reset-cb-1",
+  "method": "agent.reset_circuit_breaker",
+  "params": {
+    "taskId": "task-cb-001",
+    "reason": "用户人工核验后恢复试探执行"
+  }
+}

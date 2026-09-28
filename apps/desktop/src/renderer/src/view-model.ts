@@ -73,7 +73,9 @@ export const EVENT_LABELS: Readonly<Record<string, string>> = {
   // TASK-026：completed 只由校验结论触发，这三条是闸口的开合记录
   verification_started: '开始校验交付物',
   verification_passed: '交付物校验通过',
-  verification_failed: '交付物校验未通过'
+  verification_failed: '交付物校验未通过',
+  sidecar_inspected: '安全审查',
+  circuit_breaker_tripped: '安全熔断跳闸'
 }
 
 // ---- 三、任务状态标签 ----
@@ -270,6 +272,20 @@ export function summarizePayload(type: string, payload: unknown): string {
       const tally = checks.length === 0 ? null : `通过 ${passed}/${checks.length} 项检查`
       const combined = join([str(report['reason']), tally])
       return combined === '' ? fallback(payload) : combined
+    }
+
+    case 'sidecar_inspected': {
+      const verdict = str(record['verdict'])
+      const capability = str(record['capability']) ?? ''
+      const reason = str(record['reason']) ?? ''
+      const verdictText =
+        verdict === 'ALLOW' ? '放行' : verdict === 'REJECT_WITH_FEEDBACK' ? '拦截纠偏' : '人工升级'
+      return oneLine(`[${verdictText}] ${capability ? `${capability}: ` : ''}${reason}`)
+    }
+    case 'circuit_breaker_tripped': {
+      const triggerReason = str(record['triggerReason']) ?? '连续拦截触发安全熔断'
+      const consecutive = num(record['consecutiveRejections'])
+      return oneLine(`${triggerReason}${consecutive ? `（连续 ${consecutive} 次）` : ''}`)
     }
     default:
       return fallback(payload)

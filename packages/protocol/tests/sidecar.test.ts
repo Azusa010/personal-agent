@@ -6,6 +6,9 @@ import {
   SidecarAssessment,
   CircuitBreakerEvent,
   SidecarCompactedObservation,
+  AGENT_RESET_CIRCUIT_BREAKER,
+  ResetCircuitBreakerRequest,
+  ResetCircuitBreakerResponse,
   SIDECAR_VERDICTS,
   SIDECAR_RISK_CATEGORIES,
   CIRCUIT_BREAKER_STATES,
@@ -75,6 +78,31 @@ describe("Sidecar Protocol Schemas", () => {
       expect(parsed.recentRejections).toHaveLength(3);
       expect(parsed.recentRejections[0].riskCategory).toBe("DESTRUCTIVE_COMMAND");
       expect(parsed.recentRejections[2].riskCategory).toBe("CREDENTIAL_EXFILTRATION");
+    });
+
+    it("正确解析 reset-circuit-breaker.request.json", () => {
+      const raw = JSON.parse(
+        fs.readFileSync(
+          path.join(FIXTURES_DIR, "reset-circuit-breaker.request.json"),
+          "utf-8"
+        )
+      );
+      const parsed = ResetCircuitBreakerRequest.parse(raw);
+      expect(parsed.method).toBe(AGENT_RESET_CIRCUIT_BREAKER);
+      expect(parsed.params.taskId).toBe("task-cb-001");
+      expect(parsed.params.reason).toContain("恢复试探执行");
+    });
+
+    it("正确解析 reset-circuit-breaker.response.json", () => {
+      const raw = JSON.parse(
+        fs.readFileSync(
+          path.join(FIXTURES_DIR, "reset-circuit-breaker.response.json"),
+          "utf-8"
+        )
+      );
+      const parsed = ResetCircuitBreakerResponse.parse(raw);
+      expect(parsed.result?.ok).toBe(true);
+      expect(parsed.result?.state).toBe("HALF_OPEN");
     });
   });
 

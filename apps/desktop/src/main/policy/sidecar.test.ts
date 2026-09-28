@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   inspectCallSecurity,
   resolveSidecarAction,
+  evaluateCallSafety,
   DEFAULT_REMEDIATION_MESSAGE,
   DEFAULT_ESCALATE_FALLBACK_RISK,
   LOW_CONFIDENCE_ESCALATE_REASON
@@ -215,6 +216,22 @@ describe('Sidecar 行为分类器与安全审查', () => {
       expect(action.kind).toBe('escalate')
       if (action.kind === 'escalate') {
         expect(action.riskCategory).toBe(DEFAULT_ESCALATE_FALLBACK_RISK)
+      }
+    })
+  })
+
+  describe('evaluateCallSafety 宿主端安全综合评估', () => {
+    it('常规安全调用评估为 allow', () => {
+      const action = evaluateCallSafety('filesystem_list', { rootId: 'downloads' })
+      expect(action.kind).toBe('allow')
+    })
+
+    it('违规高危命令评估为 escalate 并带有拦截原因', () => {
+      const action = evaluateCallSafety('terminal_execute', { command: 'rm -rf /' })
+      expect(action.kind).toBe('escalate')
+      if (action.kind === 'escalate') {
+        expect(action.reason).toContain('检测到高危毁灭性系统命令')
+        expect(action.riskCategory).toBe('DESTRUCTIVE_COMMAND')
       }
     })
   })
