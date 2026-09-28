@@ -14,7 +14,6 @@ LivePlanner 在循环开始之前决定「这一轮总共要做哪几步」。�
 API Key 只由 openai SDK 自己从环境变量读，这里不碰、不打印、不进日志。
 """
 
-import json
 import logging
 from collections.abc import Sequence
 from typing import Any
@@ -23,6 +22,7 @@ from openai.types.responses import ResponseTextConfigParam
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from personal_agent.conversation.model.gateway import ModelCallFailed, ThinkingSink
+from personal_agent.conversation.model.json_parser import safe_parse_model_json
 from personal_agent.conversation.model.live_model import (
     LIVE_REASONING_SUMMARY_ENV,
     TOOL_SPECS,
@@ -233,10 +233,7 @@ class LivePlanner:
         text = getattr(response, "output_text", None)
         if not isinstance(text, str) or not text.strip():
             raise ModelCallFailed("模型没有给出文本输出（output_text 为空）")
-        try:
-            raw = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise ModelCallFailed(f"模型输出不是合法 JSON: {e}") from e
+        raw = safe_parse_model_json(text)
         try:
             return PLAN_OUTPUT_ADAPTER.validate_python(raw)
         except ValidationError as e:

@@ -29,7 +29,7 @@ hiddenimports = collect_submodules("personal_agent")
 
 # live 模式的 SDK 是延迟 import（只有配了 OPENAI_MODEL 才走到），
 # 静态分析不一定跟进；漏收的后果是「scripted 模式一切正常、一配真模型就崩」，很难查。
-hiddenimports += ["openai", "tiktoken"]
+hiddenimports += ["openai", "tiktoken", "json_repair"]
 hiddenimports += collect_submodules("tiktoken_ext")
 
 datas = collect_data_files("tiktoken")

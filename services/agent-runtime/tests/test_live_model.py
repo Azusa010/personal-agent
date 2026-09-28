@@ -810,3 +810,15 @@ def test_render_input_appends_status_bar():
     rendered = render_input(ctx)
     assert "<status_bar>" in rendered
     assert "[系统信息]" in rendered
+
+
+def test_responses_mode_recovers_from_extra_data_in_output():
+    # 复现并验证 BUG 修复：输出合法 JSON 之后跟随多余解释文本时，容错恢复解析成功
+    raw = (
+        '{"kind": "summary", "reply": "任务搞定", "facts": []}\n\n'
+        "Extra data: line 3 column 1 (char 280) 这里是模型附带的多余解释文字"
+    )
+    model = LiveModel(model="gpt-test", client=FakeClient([FakeResponse(raw)]))
+    decision = model.decide(context_with())
+    assert isinstance(decision, SummaryDecision)
+    assert decision.reply == "任务搞定"

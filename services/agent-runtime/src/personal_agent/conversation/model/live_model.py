@@ -38,6 +38,7 @@ from personal_agent.conversation.model.gateway import (
     ThinkingSink,
     ToolCallDecision,
 )
+from personal_agent.conversation.model.json_parser import safe_parse_model_json
 from personal_agent.shared import emit_thinking_chunks
 
 log = logging.getLogger("personal_agent")
@@ -534,10 +535,7 @@ class LiveModel:
         )
         if not isinstance(text, str) or not text.strip():
             raise ModelCallFailed("模型没有给出文本输出（output_text 为空）")
-        try:
-            raw = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise ModelCallFailed(f"模型输出不是合法 JSON: {e}") from e
+        raw = safe_parse_model_json(text)
         try:
             return DECISION_ADAPTER.validate_python(raw)
         except ValidationError as e:
@@ -563,10 +561,12 @@ class LiveModel:
             func_args_raw = getattr(func, "arguments", {})
             try:
                 args = (
-                    json.loads(func_args_raw)
+                    safe_parse_model_json(func_args_raw)
                     if isinstance(func_args_raw, str)
                     else dict(func_args_raw)
                 )
+                if not isinstance(args, dict):
+                    raise TypeError(f"工具入参期望对象，实际为 {type(args).__name__}")
             except Exception as e:
                 raise ModelCallFailed(f"工具调用入参不是合法 JSON: {e}") from e
             if func_name == FINISH_TASK_TOOL_NAME:
@@ -602,23 +602,13 @@ class LiveModel:
         content = getattr(message, "content", None)
         if isinstance(content, str) and content.strip():
             text = content.strip()
-            if text.startswith("```"):
-                lines = text.splitlines()
-                if (
-                    len(lines) > -2
-                    and lines[0].startswith("```")
-                    and lines[-1].startswith("```")
-                ):
-                    text = "\n".join(lines[1:-1]).strip()
-
             # 将 JSON 解包为 ModelDecision
-            if text.startswith("{") and text.endswith("}"):
-                try:
-                    raw = json.loads(text)
-                    if isinstance(raw, dict) and "kind" in raw:
-                        return DECISION_ADAPTER.validate_python(raw)
-                except Exception:  # noqa: BLE001, S110
-                    pass
+            try:
+                raw = safe_parse_model_json(text)
+                if isinstance(raw, dict) and "kind" in raw:
+                    return DECISION_ADAPTER.validate_python(raw)
+            except Exception:  # noqa: BLE001, S110
+                pass
         return SummaryDecision(
             kind="summary",
             reply=text,

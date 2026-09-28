@@ -15,6 +15,7 @@ from personal_agent.conversation.model.gateway import (
     ToolCallDecision,
     UsageReporting,
 )
+from personal_agent.conversation.model.json_parser import safe_parse_model_json
 from personal_agent.conversation.model.live_model import (
     INSTRUCTIONS,
     LIVE_MODEL_ENV,
@@ -58,4 +59,5 @@ __all__ = [
     "compose_instructions",
     "render_input",
     "render_plan_input",
+    "safe_parse_model_json",
 ]

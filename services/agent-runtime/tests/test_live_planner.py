@@ -364,3 +364,17 @@ def test_plan_without_summary_events_streams_plan_steps_fallback():
     assert "制定执行策略（共 3 步）：" in "".join(chunks)
 
 
+def test_plan_recovers_from_extra_data_in_output():
+    # 复现并验证 BUG 修复：输出合法 JSON 之后跟随多余解释文本时，容错恢复解析成功
+    raw = (
+        '{"steps": [{"description": "整理 PDF", "capability": "document_extract_pdf"}]}\n\n'
+        "Extra data: line 3 column 1 (char 280) 这是为您制定的计划"
+    )
+    client = FakeClient([FakeResponse(raw)])
+    planner = LivePlanner(model="gpt-test", client=client)
+    steps = planner.plan("整理 PDF", VISIBLE)
+    assert len(steps) == 1
+    assert steps[0].description == "整理 PDF"
+
+
+
