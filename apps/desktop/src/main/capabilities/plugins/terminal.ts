@@ -117,6 +117,7 @@ export const terminalExecutePlugin: CapabilityPlugin = {
     const timeoutMs =
       typeof call.bound.args['timeoutMs'] === 'number' ? call.bound.args['timeoutMs'] : 30_000
 
+    const isWin = process.platform === 'win32'
     return new Promise((resolveResult) => {
       exec(
         command,
@@ -124,7 +125,8 @@ export const terminalExecutePlugin: CapabilityPlugin = {
           cwd,
           timeout: timeoutMs,
           maxBuffer: 1024 * 1024,
-          windowsHide: true
+          windowsHide: true,
+          shell: isWin ? 'powershell.exe' : undefined
         },
         async (error, stdout, stderr) => {
           const outStr = String(stdout ?? '')
