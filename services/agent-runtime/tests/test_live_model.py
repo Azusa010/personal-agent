@@ -253,10 +253,11 @@ def context_with(
     observations: list[Observation] | None = None,
     plan: list[PlanStepDto] | None = None,
     history: list[Turn] | None = None,
+    visible: list[str] | None = None,
 ) -> ModelContext:
     return ModelContext(
         taskGoal="整理 Downloads 里的 PDF",
-        visibleCapabilities=VISIBLE,
+        visibleCapabilities=visible if visible is not None else VISIBLE,
         observations=observations or [],
         plan=plan or [],
         history=history or [],
@@ -540,6 +541,35 @@ def test_json_that_violates_the_decision_contract_is_a_model_call_failure():
         model.decide(context_with())
 
     assert "ModelDecision" in e.value.reason
+
+
+def test_responses_mode_recovers_from_raw_arguments_dict_without_kind():
+    """复现实际现场：Responses 模式下模型输出了裸参数字典，自动修复为 ToolCallDecision。"""
+    raw_payload = json.dumps(
+        {"command": 'powershell -NoProfile -Command "dir"', "timeoutMs": 15000}
+    )
+    model = LiveModel(model="gpt-test", client=FakeClient([FakeResponse(raw_payload)]))
+
+    decision = model.decide(context_with(visible=["terminal_execute"]))
+    assert isinstance(decision, ToolCallDecision)
+    assert decision.capability == "terminal_execute"
+    assert decision.arguments["timeoutMs"] == 15000
+
+
+def test_chat_completions_content_recovers_from_raw_arguments_dict_without_kind():
+    """Chat Completions 模式下 content 输出了裸参数字典，自动解析为 ToolCallDecision 而非错误退化为 Summary。"""
+    raw_payload = json.dumps({"command": "echo test", "timeoutMs": 5000})
+    resp = FakeChatCompletion(FakeMessage(content=raw_payload))
+    model = LiveModel(
+        model="gpt-test",
+        client=FakeClient([resp]),
+        api_protocol="chat_completions",
+    )
+
+    decision = model.decide(context_with(visible=["terminal_execute"]))
+    assert isinstance(decision, ToolCallDecision)
+    assert decision.capability == "terminal_execute"
+    assert decision.arguments["command"] == "echo test"
 
 
 def test_chat_completions_bad_arguments_json_is_a_model_call_failure():

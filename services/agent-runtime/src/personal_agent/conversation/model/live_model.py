@@ -27,6 +27,9 @@ from personal_agent.conversation.instructions import (
     INSTRUCTIONS,
     compose_instructions,
 )
+from personal_agent.conversation.model.decision_normalizer import (
+    normalize_raw_decision,
+)
 from personal_agent.conversation.model.gateway import (
     BatchToolCallDecision,
     ModelCallFailed,
@@ -337,7 +340,7 @@ class LiveModel:
         except Exception as e:
             raise ModelCallFailed(f"模型调用失败: {_describe(e)}") from e
         self._account(response)
-        decision = self._parse_responses(response)
+        decision = self._parse_responses(response, context=context)
         if (
             streamed_chunks == 0
             and on_thinking is not None
@@ -388,7 +391,7 @@ class LiveModel:
         except Exception as e:
             raise ModelCallFailed(f"模型调用失败: {_describe(e)}") from e
         self._account(response)
-        decision = self._parse_chat_completions(response)
+        decision = self._parse_chat_completions(response, context=context)
         if (
             streamed_chunks == 0
             and on_thinking is not None
@@ -529,15 +532,19 @@ class LiveModel:
         self._input_tokens += _as_int(prompt_tokens)
         self._output_tokens += _as_int(completion_tokens)
 
-    def _parse(self, response: Any) -> ModelDecision:
+    def _parse(
+        self, response: Any, context: ModelContext | None = None
+    ) -> ModelDecision:
         """根据响应结构自动分流解析为 ModelDecision。"""
         if hasattr(response, "output_text") or (
             isinstance(response, dict) and "output_text" in response
         ):
-            return self._parse_responses(response)
-        return self._parse_chat_completions(response)
+            return self._parse_responses(response, context=context)
+        return self._parse_chat_completions(response, context=context)
 
-    def _parse_responses(self, response: Any) -> ModelDecision:
+    def _parse_responses(
+        self, response: Any, context: ModelContext | None = None
+    ) -> ModelDecision:
         """从 Responses API response 中解析并验证 ModelDecision。"""
         text = (
             response.get("output_text")
@@ -547,12 +554,16 @@ class LiveModel:
         if not isinstance(text, str) or not text.strip():
             raise ModelCallFailed("模型没有给出文本输出（output_text 为空）")
         raw = safe_parse_model_json(text)
+        if isinstance(raw, dict):
+            raw = normalize_raw_decision(raw, context)
         try:
             return DECISION_ADAPTER.validate_python(raw)
         except ValidationError as e:
             raise ModelCallFailed(f"模型输出不符合 ModelDecision 契约: {e}") from e
 
-    def _parse_chat_completions(self, response: Any) -> ModelDecision:
+    def _parse_chat_completions(
+        self, response: Any, context: ModelContext | None = None
+    ) -> ModelDecision:
         """从 Chat Completions response 中分流解析出 ModelDecision。"""
         if isinstance(response, dict):
             choices = response.get("choices", None)
@@ -649,8 +660,10 @@ class LiveModel:
             # 将 JSON 解包为 ModelDecision
             try:
                 raw = safe_parse_model_json(text)
-                if isinstance(raw, dict) and "kind" in raw:
-                    return DECISION_ADAPTER.validate_python(raw)
+                if isinstance(raw, dict):
+                    raw = normalize_raw_decision(raw, context)
+                    if "kind" in raw:
+                        return DECISION_ADAPTER.validate_python(raw)
             except Exception:  # noqa: BLE001, S110
                 pass
         return SummaryDecision(

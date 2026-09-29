@@ -46,5 +46,9 @@ EXECUTOR_INSTRUCTIONS = f"""<system_instruction>
    {{"kind": "replan", "reason": "<无法按原计划进行的具体原因>", "thinking": "<思考摘要>"}}
 4. **最终总结**：
    {{"kind": "summary", "reply": "<面向用户的完整结论回答，融入人设口吻>", "facts": [{{"text": "<关键事实>", "pageRefs": [<页码整数>]}}], "thinking": "<思考摘要>"}}
+
+【格式硬性约束】：
+- 顶层必须输出包含 "kind" 字段的合法 JSON 对象；
+- 严禁直接输出裸参数字典（例如直接输出参数字典是严重错误的，必须完整包裹为 {{"kind": "tool_call", "callId": "call-1", "capability": "<能力ID>", "arguments": {{...}}}}）！
 </output_contract>
 </system_instruction>"""

@@ -1,5 +1,8 @@
 """conversation.model —— 对话模型网关、规划器与决策契约。"""
 
+from personal_agent.conversation.model.decision_normalizer import (
+    normalize_raw_decision,
+)
 from personal_agent.conversation.model.gateway import (
     ModelCallFailed,
     ModelContext,
@@ -57,6 +60,7 @@ __all__ = [
     "UsageReporting",
     "clean_plan",
     "compose_instructions",
+    "normalize_raw_decision",
     "render_input",
     "render_plan_input",
     "safe_parse_model_json",
