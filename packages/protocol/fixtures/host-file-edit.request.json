@@ -1,0 +1,14 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-edit-1",
+    "capability": "file_edit",
+    "arguments": {
+      "path": "src/hello.ts",
+      "oldString": "console.log(\"world\");",
+      "newString": "console.log(\"personal agent\");"
+    }
+  }
+}

@@ -14,6 +14,9 @@ import { codeInterpreterPlugin } from './code-interpreter'
 import { fileSearchPlugin } from './file-search'
 import { skillReadPlugin, skillSearchPlugin } from './skills'
 import { webSearchPlugin } from './web-search'
+import { fileReadPlugin } from './file-read'
+import { fileWritePlugin } from './file-write'
+import { fileEditPlugin } from './file-edit'
 
 export * from '../plugin'
 export * from './helpers'
@@ -27,12 +30,16 @@ export * from './code-interpreter'
 export * from './file-search'
 export * from './skills'
 export * from './web-search'
+export * from './file-read'
+export * from './file-write'
+export * from './file-edit'
 
 const BUILTIN_PLUGINS: readonly CapabilityPlugin[] = [
   filesystemListPlugin,
   documentExtractPdfPlugin,
   readDocumentPlugin,
   fileSearchPlugin,
+  fileReadPlugin,
   knowledgeSearchPlugin,
   userMemorySearchPlugin,
   vikingReadL0Plugin,
@@ -43,6 +50,8 @@ const BUILTIN_PLUGINS: readonly CapabilityPlugin[] = [
   webSearchPlugin,
   filesystemCreateDirPlugin,
   filesystemMovePlugin,
+  fileWritePlugin,
+  fileEditPlugin,
   schedulerCreatePlugin,
   notificationSendPlugin,
   terminalExecutePlugin,

@@ -20,6 +20,9 @@ const ALL_CAPABILITY_NAMES = [
   'read_document',
   'filesystem_create_dir',
   'filesystem_move',
+  'file_read',
+  'file_write',
+  'file_edit',
   'scheduler_create',
   'notification_send',
   'terminal_execute',
@@ -37,10 +40,10 @@ const ALL_CAPABILITY_NAMES = [
 ]
 
 describe('CapabilityRegistry', () => {
-  it('恰好注册 19 个能力，不多不少', () => {
+  it('恰好注册 22 个能力，不多不少', () => {
     const names = listCapabilities().map((c) => c.name)
     expect([...names].sort()).toEqual([...ALL_CAPABILITY_NAMES].sort())
-    expect(CAPABILITIES).toHaveLength(19)
+    expect(CAPABILITIES).toHaveLength(22)
 
     // SEC-007 的禁止类名字必须查不到
     for (const forbidden of ['shell.exec', 'process.spawn', 'filesystem.delete', 'http.fetch']) {
@@ -48,12 +51,13 @@ describe('CapabilityRegistry', () => {
     }
   })
 
-  it('分类为 12 READ + 7 WRITE', () => {
+  it('分类为 13 READ + 9 WRITE', () => {
     expect(listByKind('READ').map((c) => c.name)).toEqual([
       'filesystem_list',
       'document_extract_pdf',
       'read_document',
       'file_search',
+      'file_read',
       'knowledge_search',
       'user_memory_search',
       'viking_read_l0',
@@ -66,6 +70,8 @@ describe('CapabilityRegistry', () => {
     expect(listByKind('WRITE').map((c) => c.name)).toEqual([
       'filesystem_create_dir',
       'filesystem_move',
+      'file_write',
+      'file_edit',
       'scheduler_create',
       'notification_send',
       'terminal_execute',
@@ -76,11 +82,12 @@ describe('CapabilityRegistry', () => {
     expect(listByKind('READ').length + listByKind('WRITE').length).toBe(CAPABILITIES.length)
   })
 
-  it('readOnlyScope 恰好含 12 个 READ，不含任何 WRITE', () => {
+  it('readOnlyScope 恰好含 13 个 READ，不含任何 WRITE', () => {
     const scope = readOnlyScope('t-1')
     expect(scope.taskId).toBe('t-1')
     expect([...scope.capabilities].sort()).toEqual([
       'document_extract_pdf',
+      'file_read',
       'file_search',
       'filesystem_list',
       'knowledge_search',

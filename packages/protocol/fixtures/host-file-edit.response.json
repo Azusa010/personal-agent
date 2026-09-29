@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "result": {
+    "ok": true,
+    "path": "src/hello.ts",
+    "replacements": 1
+  }
+}

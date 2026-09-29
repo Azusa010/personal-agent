@@ -1,0 +1,14 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-read-1",
+    "capability": "file_read",
+    "arguments": {
+      "path": "src/index.ts",
+      "startLine": 1,
+      "endLine": 10
+    }
+  }
+}

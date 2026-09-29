@@ -13,6 +13,7 @@ import { createExecutor } from './executor'
 import { UI_ORIGIN, type PermissionGate } from '../policy/execution-policy'
 import { RuleBasedToolRetriever } from './retriever'
 import type { TaskScope } from './scope'
+import { resetTerminalCwd, getTerminalCwd } from './plugins/terminal'
 
 const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
 
@@ -45,6 +46,7 @@ function terminalParams(args: Record<string, unknown>): HostExecuteToolParams {
 }
 
 beforeEach(async () => {
+  resetTerminalCwd()
   dir = await mkdtemp(join(tmpdir(), 'pa-term-'))
   vi.stubEnv(ENV_NAME, dir)
 })
@@ -147,5 +149,45 @@ describe('terminal_execute 执行体', () => {
     expect(stdout).toContain('line_50')
     expect(stdout).toContain('[系统截断：省略')
     expect(stdout).toContain('line_300')
+  })
+
+  it('执行 cd 切换相对目录后，下一次命令保持新目录不回弹', async () => {
+    const sub = join(dir, 'workspace_sub')
+    await mkdir(sub, { recursive: true })
+
+    const executor = createExecutor(scope, UI_ORIGIN, new RuleBasedToolRetriever(), {
+      gate: allowAllGate()
+    })
+
+    // 第一步：执行 cd workspace_sub
+    const cdRes = await executor(terminalParams({ command: 'cd workspace_sub' }))
+    expect(cdRes['ok']).toBe(true)
+    expect(String(cdRes['stdout'])).toContain('[CWD 切换至]')
+    expect(getTerminalCwd()).toContain('workspace_sub')
+
+    // 第二步：不带 cwd 执行 cd（打印当前目录），验证目录不回弹
+    const checkRes = await executor(terminalParams({ command: 'cd' }))
+    expect(checkRes['ok']).toBe(true)
+    expect(String(checkRes['stdout'])).toContain('workspace_sub')
+  })
+
+  it('cd 尝试逃逸出受限根目录时被安全阻断', async () => {
+    const executor = createExecutor(scope, UI_ORIGIN, new RuleBasedToolRetriever(), {
+      gate: allowAllGate()
+    })
+
+    const res = await executor(terminalParams({ command: 'cd ..' }))
+    expect(res['ok']).toBe(false)
+    expect(res['code']).toBe('PATH_OUT_OF_ROOT')
+  })
+
+  it('cd 不存在的目录返回明确错误', async () => {
+    const executor = createExecutor(scope, UI_ORIGIN, new RuleBasedToolRetriever(), {
+      gate: allowAllGate()
+    })
+
+    const res = await executor(terminalParams({ command: 'cd non_existent_folder' }))
+    expect(res['ok']).toBe(false)
+    expect(res['code']).toBe(ERROR_CODE.INVALID_ARGUMENT)
   })
 })

@@ -12,10 +12,13 @@ from personal_agent.protocol.models import (
     CapabilityId,
     CodeInterpreterParams,
     DocumentExtractPdfParams,
+    FileEditParams,
+    FileReadParams,
     FileSearchParams,
     FilesystemCreateDirParams,
     FilesystemListParams,
     FilesystemMoveParams,
+    FileWriteParams,
     KnowledgeSearchParams,
     NotificationSendParams,
     ReadDocumentParams,
@@ -52,6 +55,9 @@ TOOL_PARAM_MODELS: dict[str, type[BaseModel]] = {
     "skill_search": SkillSearchParams,
     "skill_read": SkillReadParams,
     "web_search": WebSearchParams,
+    "file_read": FileReadParams,
+    "file_write": FileWriteParams,
+    "file_edit": FileEditParams,
 }
 
 # 工具层级高阶描述说明（对齐 ACI 目标导向）
@@ -75,6 +81,9 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "file_search": "跨平台文件搜索，支持按文件名通配符或文本内容进行检索",
     "skill_search": "按关键词或标签检索 Agent Skills 目录，仅返回轻量元数据以保护上下文",
     "skill_read": "按需加载指定 Skill 的完整指令正文 (SKILL.md)，实现渐进式披露",
+    "file_read": "读取指定文件内容，支持按起始行号与结束行号分页读取，每行自带行号前缀",
+    "file_write": "在工作区内写入或完全覆盖文件，自动创建父级目录",
+    "file_edit": "在现有文件中进行精准单块局部修改，Old String 必须在文件中全局唯一存在",
 }
 
 # 字段级语义描述增强（提供具象样例与约束）

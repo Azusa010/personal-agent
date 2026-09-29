@@ -69,6 +69,11 @@ export const CAPABILITIES = [
     description: '使用 Tavily 搜索引擎执行实时网络搜索，返回结构化网页标题、链接、摘要及答案'
   },
   {
+    name: 'file_read',
+    kind: 'READ',
+    description: '读取指定文件内容，支持按起始行号与结束行号分页读取，每行自带行号前缀'
+  },
+  {
     name: 'filesystem_create_dir',
     kind: 'WRITE',
     description: '在授权根目录下创建子目录'
@@ -77,6 +82,16 @@ export const CAPABILITIES = [
     name: 'filesystem_move',
     kind: 'WRITE',
     description: '在授权根目录内移动文件'
+  },
+  {
+    name: 'file_write',
+    kind: 'WRITE',
+    description: '在工作区内写入或完全覆盖文件，自动创建父级目录'
+  },
+  {
+    name: 'file_edit',
+    kind: 'WRITE',
+    description: '在现有文件中进行精准单块局部修改，Old String 必须在文件中全局唯一存在'
   },
   {
     name: 'scheduler_create',

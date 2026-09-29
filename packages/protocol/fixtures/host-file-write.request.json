@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "tc-write-1",
+    "capability": "file_write",
+    "arguments": {
+      "path": "src/hello.ts",
+      "content": "console.log(\"world\");\n"
+    }
+  }
+}

@@ -14,6 +14,7 @@ describe('RuleBasedToolRetriever', () => {
       'document_extract_pdf',
       'read_document',
       'file_search',
+      'file_read',
       'knowledge_search',
       'user_memory_search',
       'viking_read_l0',
@@ -95,7 +96,7 @@ describe('RuleBasedToolRetriever', () => {
       expect(retriever.authorize(scope, write.name).allowed, `${write.name} 不应被放行`).toBe(false)
     }
 
-    // 放行的必须恰好是 Scope 里那十一个，不多不少
+    // 放行的必须恰好是 Scope 里那十三个，不多不少
     const allowed = CAPABILITIES.filter((c) => retriever.authorize(scope, c.name).allowed)
     expect(allowed.map((c) => c.name)).toEqual([
       'filesystem_list',
@@ -109,7 +110,8 @@ describe('RuleBasedToolRetriever', () => {
       'viking_read_l2',
       'skill_search',
       'skill_read',
-      'web_search'
+      'web_search',
+      'file_read'
     ])
   })
 
@@ -123,7 +125,7 @@ describe('RuleBasedToolRetriever', () => {
     // 只取不调用 —— 调了就真的扩权了，测试意图反过来。
     expect(typeof pushFn).toBe('function')
 
-    expect(scope.capabilities).toHaveLength(12)
+    expect(scope.capabilities).toHaveLength(13)
     expect(retriever.authorize(scope, 'filesystem_move').allowed).toBe(false)
   })
 })

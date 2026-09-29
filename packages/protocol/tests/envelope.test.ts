@@ -12,6 +12,13 @@ import {
   FilesystemListResult,
   FilesystemMoveParams,
   FilesystemMoveResult,
+  FileReadParams,
+  FileReadResult,
+  FileWriteParams,
+  FileWriteResult,
+  FileEditParams,
+  FileEditResult,
+  RootId,
 } from "../schemas/filesystem.js";
 import {
   HostExecuteToolParams,
@@ -48,10 +55,7 @@ import {
   SkillReadParams,
   SkillReadResult,
 } from "../schemas/skills.js";
-import {
-  WebSearchParams,
-  WebSearchResult,
-} from "../schemas/web-search.js";
+import { WebSearchParams, WebSearchResult } from "../schemas/web-search.js";
 import {
   AgentStreamNotification,
   MakePlanParams,
@@ -325,6 +329,63 @@ const legalCases = [
     file: "host-file-search.response.json",
     envelope: HostExecuteToolResponse,
     payload: FileSearchResult,
+    field: "result",
+  },
+  // file_read
+  {
+    file: "host-file-read.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-file-read.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: FileReadParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-file-read.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: FileReadResult,
+    field: "result",
+  },
+  // file_write
+  {
+    file: "host-file-write.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-file-write.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: FileWriteParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-file-write.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: FileWriteResult,
+    field: "result",
+  },
+  // file_edit
+  {
+    file: "host-file-edit.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-file-edit.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: FileEditParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-file-edit.response.json",
+    envelope: HostExecuteToolResponse,
+    payload: FileEditResult,
     field: "result",
   },
   // skill_search (Phase 5)
@@ -1195,5 +1256,59 @@ describe("ProfileDto 约束（TASK-034）", () => {
       profile,
     });
     expect(runParams.profile?.name).toBe("助手");
+  });
+});
+
+describe("Coding Agent File Schemas & RootId", () => {
+  it("RootId 支持 downloads 与 workspace", () => {
+    expect(RootId.parse("downloads")).toBe("downloads");
+    expect(RootId.parse("workspace")).toBe("workspace");
+    expect(() => RootId.parse("invalid_root")).toThrow();
+  });
+
+  it("FileReadParams 校验路径与可选行号", () => {
+    const valid = FileReadParams.parse({
+      path: "src/main.ts",
+      startLine: 1,
+      endLine: 50,
+    });
+    expect(valid.path).toBe("src/main.ts");
+    expect(valid.startLine).toBe(1);
+    expect(valid.endLine).toBe(50);
+
+    expect(() => FileReadParams.parse({ path: "" })).toThrow();
+    expect(() =>
+      FileReadParams.parse({ path: "a.ts", startLine: 0 }),
+    ).toThrow();
+  });
+
+  it("FileWriteParams 校验 path 与 content", () => {
+    const valid = FileWriteParams.parse({
+      path: "src/new.ts",
+      content: "console.log(1);",
+    });
+    expect(valid.path).toBe("src/new.ts");
+    expect(valid.content).toBe("console.log(1);");
+
+    expect(() => FileWriteParams.parse({ path: "", content: "abc" })).toThrow();
+  });
+
+  it("FileEditParams 校验 path, oldString 与 newString", () => {
+    const valid = FileEditParams.parse({
+      path: "src/main.ts",
+      oldString: "const a = 1;",
+      newString: "const a = 2;",
+    });
+    expect(valid.path).toBe("src/main.ts");
+    expect(valid.oldString).toBe("const a = 1;");
+    expect(valid.newString).toBe("const a = 2;");
+
+    expect(() =>
+      FileEditParams.parse({
+        path: "src/main.ts",
+        oldString: "",
+        newString: "x",
+      }),
+    ).toThrow();
   });
 });

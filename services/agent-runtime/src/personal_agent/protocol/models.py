@@ -51,8 +51,11 @@ class PdfEntry(ProtocolModel):
     type: Literal["file", "directory"] = "file"
 
 
+RootId = Literal["downloads", "workspace"]
+
+
 class FilesystemListParams(ProtocolModel):
-    rootId: Literal["downloads"]
+    rootId: RootId
     pattern: str | None = None
 
 
@@ -104,6 +107,9 @@ CapabilityId = Literal[
     "skill_search",
     "skill_read",
     "web_search",
+    "file_read",
+    "file_write",
+    "file_edit",
 ]
 
 
@@ -469,6 +475,80 @@ class WebSearchResult(ProtocolModel):
 
 WebSearchOutcome = Annotated[
     WebSearchResult | CapabilityFailure, Field(discriminator="ok")
+]
+
+
+# ---- file_read ----
+class FileReadParams(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    path: str = Field(min_length=1, description="目标文件相对路径")
+    startLine: int | None = Field(
+        default=None, gt=0, description="起始行号（从 1 开始，包含）"
+    )
+    endLine: int | None = Field(default=None, gt=0, description="结束行号（包含）")
+
+
+class FileReadResult(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True]
+    path: str = Field(min_length=1)
+    content: str
+    totalLines: int = Field(ge=0)
+    startLine: int | None = Field(default=None, gt=0)
+    endLine: int | None = Field(default=None, gt=0)
+
+
+FileReadOutcome = Annotated[
+    FileReadResult | CapabilityFailure, Field(discriminator="ok")
+]
+
+
+# ---- file_write ----
+class FileWriteParams(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    path: str = Field(min_length=1, description="目标文件相对路径")
+    content: str = Field(description="写入的文件内容")
+
+
+class FileWriteResult(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True]
+    path: str = Field(min_length=1)
+    bytesWritten: int = Field(ge=0)
+    diagnostics: list[str] | None = None
+
+
+FileWriteOutcome = Annotated[
+    FileWriteResult | CapabilityFailure, Field(discriminator="ok")
+]
+
+
+# ---- file_edit ----
+class FileEditParams(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    path: str = Field(min_length=1, description="目标文件相对路径")
+    oldString: str = Field(
+        min_length=1, description="待替换的原文本，必须在文件中全局唯一"
+    )
+    newString: str = Field(description="替换后的新文本")
+
+
+class FileEditResult(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True]
+    path: str = Field(min_length=1)
+    replacements: int = Field(default=1, gt=0)
+    diagnostics: list[str] | None = None
+
+
+FileEditOutcome = Annotated[
+    FileEditResult | CapabilityFailure, Field(discriminator="ok")
 ]
 
 

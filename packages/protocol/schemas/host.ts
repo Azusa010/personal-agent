@@ -24,6 +24,9 @@ export const CapabilityId = z.enum([
   "skill_search",
   "skill_read",
   "web_search",
+  "file_read",
+  "file_write",
+  "file_edit",
 ]);
 export const WEB_SEARCH_CAPABILITY = CapabilityId.enum["web_search"];
 export const EXTRACT_PDF_CAPABILITY = CapabilityId.enum["document_extract_pdf"];
@@ -43,6 +46,9 @@ export const VIKING_READ_L0_CAPABILITY = CapabilityId.enum["viking_read_l0"];
 export const VIKING_READ_L1_CAPABILITY = CapabilityId.enum["viking_read_l1"];
 export const VIKING_READ_L2_CAPABILITY = CapabilityId.enum["viking_read_l2"];
 export const VIKING_WRITE_L2_CAPABILITY = CapabilityId.enum["viking_write_l2"];
+export const FILE_READ_CAPABILITY = CapabilityId.enum["file_read"];
+export const FILE_WRITE_CAPABILITY = CapabilityId.enum["file_write"];
+export const FILE_EDIT_CAPABILITY = CapabilityId.enum["file_edit"];
 
 export type CapabilityId = z.infer<typeof CapabilityId>;
 

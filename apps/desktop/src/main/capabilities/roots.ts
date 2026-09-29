@@ -2,7 +2,8 @@ import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 export const ROOT_ENV: Record<string, string> = {
-  downloads: 'PERSONAL_AGENT_DOWNLOADS_DIR'
+  downloads: 'PERSONAL_AGENT_DOWNLOADS_DIR',
+  workspace: 'PERSONAL_AGENT_WORKSPACE_DIR'
 }
 
 // 反斜杠 -> 正斜杠
@@ -21,6 +22,13 @@ export function resolveRoot(rootId: string): string {
     throw new Error(`未知 rootId: ${rootId}`)
   }
   const fromEnv = process.env[envName]
-  const base = fromEnv ? fromEnv : join(homedir(), 'Downloads')
+  let base: string
+  if (fromEnv) {
+    base = fromEnv
+  } else if (rootId === 'workspace') {
+    base = process.cwd()
+  } else {
+    base = join(homedir(), 'Downloads')
+  }
   return toPosix(resolve(base))
 }

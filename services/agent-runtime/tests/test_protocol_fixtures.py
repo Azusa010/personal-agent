@@ -12,6 +12,10 @@ from personal_agent.protocol.models import (
     CodeInterpreterResult,
     DocumentExtractPdfParams,
     DocumentExtractPdfResult,
+    FileEditParams,
+    FileEditResult,
+    FileReadParams,
+    FileReadResult,
     FileSearchParams,
     FileSearchResult,
     FilesystemCreateDirParams,
@@ -20,6 +24,8 @@ from personal_agent.protocol.models import (
     FilesystemListResult,
     FilesystemMoveParams,
     FilesystemMoveResult,
+    FileWriteParams,
+    FileWriteResult,
     HostExecuteToolParams,
     HostExecuteToolRequest,
     HostExecuteToolResponse,
@@ -44,6 +50,7 @@ from personal_agent.protocol.models import (
     ResetCircuitBreakerRequest,
     ResetCircuitBreakerResponse,
     Response,
+    RootId,
     RunTaskEvent,
     RunTaskParams,
     RunTaskRequest,
@@ -299,6 +306,63 @@ def _pick(raw: dict, path: str):
             "host-file-search.response.json",
             HostExecuteToolResponse,
             FileSearchResult,
+            "result",
+        ),
+        # file_read
+        (
+            "host-file-read.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-file-read.request.json",
+            HostExecuteToolRequest,
+            FileReadParams,
+            "params.arguments",
+        ),
+        (
+            "host-file-read.response.json",
+            HostExecuteToolResponse,
+            FileReadResult,
+            "result",
+        ),
+        # file_write
+        (
+            "host-file-write.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-file-write.request.json",
+            HostExecuteToolRequest,
+            FileWriteParams,
+            "params.arguments",
+        ),
+        (
+            "host-file-write.response.json",
+            HostExecuteToolResponse,
+            FileWriteResult,
+            "result",
+        ),
+        # file_edit
+        (
+            "host-file-edit.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-file-edit.request.json",
+            HostExecuteToolRequest,
+            FileEditParams,
+            "params.arguments",
+        ),
+        (
+            "host-file-edit.response.json",
+            HostExecuteToolResponse,
+            FileEditResult,
             "result",
         ),
         # skill_search (Phase 5)
@@ -1302,5 +1366,27 @@ def test_reset_circuit_breaker_response_fixture():
     assert res.result is not None
     assert res.result.ok is True
     assert res.result.state == "HALF_OPEN"
+
+
+def test_coding_agent_file_models_and_root_id():
+    adapter = TypeAdapter(RootId)
+    assert adapter.validate_python("downloads") == "downloads"
+    assert adapter.validate_python("workspace") == "workspace"
+    with pytest.raises(ValidationError):
+        adapter.validate_python("invalid_root")
+
+    read_p = FileReadParams(path="src/main.ts", startLine=1, endLine=20)
+    assert read_p.path == "src/main.ts"
+    assert read_p.startLine == 1
+    assert read_p.endLine == 20
+
+    write_p = FileWriteParams(path="src/main.ts", content="hello")
+    assert write_p.path == "src/main.ts"
+    assert write_p.content == "hello"
+
+    edit_p = FileEditParams(path="src/main.ts", oldString="a", newString="b")
+    assert edit_p.path == "src/main.ts"
+    assert edit_p.oldString == "a"
+    assert edit_p.newString == "b"
 
 

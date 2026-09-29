@@ -21,10 +21,9 @@ describe('ROOT_ENV', () => {
     expect(ROOT_ENV['downloads']).toBe(ENV_NAME)
   })
 
-  it('只有 downloads 一个逻辑根', () => {
-    // filesystem_list 的 RootId enum 目前只有 downloads。这里多出一个键
-    // 说明有人加了没走契约的根，两边会各自演化。
-    expect(Object.keys(ROOT_ENV)).toEqual(['downloads'])
+  it('包含 downloads 与 workspace 逻辑根', () => {
+    expect(Object.keys(ROOT_ENV).sort()).toEqual(['downloads', 'workspace'].sort())
+    expect(ROOT_ENV['workspace']).toBe('PERSONAL_AGENT_WORKSPACE_DIR')
   })
 })
 
@@ -65,6 +64,16 @@ describe('resolveRoot', () => {
     // 报成 FILESYSTEM_ROOT_UNAVAILABLE，诊断方向完全错。
     vi.stubEnv(ENV_NAME, '')
     expect(resolveRoot('downloads')).toBe(fallbackRoot)
+  })
+
+  it('workspace 根：环境变量优先', () => {
+    vi.stubEnv('PERSONAL_AGENT_WORKSPACE_DIR', 'D:/my-project')
+    expect(resolveRoot('workspace')).toBe('D:/my-project')
+  })
+
+  it('workspace 根：未设环境变量时 fallback 到 cwd', () => {
+    vi.stubEnv('PERSONAL_AGENT_WORKSPACE_DIR', undefined)
+    expect(resolveRoot('workspace')).toBe(toPosix(resolve(process.cwd())))
   })
 
   it('白名单外的 rootId 抛', () => {

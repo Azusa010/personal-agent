@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-1",
+  "result": {
+    "ok": true,
+    "path": "src/index.ts",
+    "content": "1: import * as z from \"zod\";\n2: console.log(\"hello\");",
+    "totalLines": 2,
+    "startLine": 1,
+    "endLine": 2
+  }
+}
