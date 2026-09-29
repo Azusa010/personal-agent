@@ -6,11 +6,13 @@ from typing import Any, Literal
 from pydantic import ValidationError
 
 from personal_agent.conversation.context import ContextManager
+from personal_agent.conversation.loop.concurrency import execute_tool_calls_batched
 from personal_agent.conversation.loop.engine import (
     CAPABILITY_NOT_REGISTERED,
     MODEL_CALL_FAILED,
 )
 from personal_agent.conversation.model.gateway import (
+    BatchToolCallDecision,
     ModelCallFailed,
     ModelDecision,
     ModelGateway,
@@ -20,6 +22,7 @@ from personal_agent.conversation.model.gateway import (
     StepCompleteDecision,
     SummaryDecision,
     ToolCallDecision,
+    ToolCallItem,
 )
 from personal_agent.conversation.sidecar import (
     RejectionCircuitBreaker,
@@ -300,6 +303,41 @@ class ReActLoop:
                 self._context.record(observation)
                 tool_calls_used += 1
 
+            elif isinstance(decision, BatchToolCallDecision):
+                for call in decision.calls:
+                    self._emit(
+                        events,
+                        EVENT_TOOL_CALLED,
+                        {
+                            "callId": call.callId,
+                            "capability": call.capability,
+                            "arguments": call.arguments,
+                        },
+                    )
+                observations = execute_tool_calls_batched(
+                    calls=decision.calls,
+                    execute_single_fn=self._execute,
+                )
+                for obs in observations:
+                    observation, raw_output_path = compact_and_persist_observation(
+                        observation=obs,
+                        sidecar_llm=self._sidecar_llm,
+                    )
+                    tool_result_payload = {
+                        "callId": observation.callId,
+                        "capability": observation.capability,
+                        "ok": observation.ok,
+                    }
+                    if raw_output_path is not None:
+                        tool_result_payload["rawOutputPath"] = str(raw_output_path)
+                        tool_result_payload["compacted"] = True
+                    self._emit(
+                        events,
+                        EVENT_TOOL_RESULT,
+                        tool_result_payload,
+                    )
+                    self._context.record(obs)
+                tool_calls_used += len(observations)
             elif isinstance(decision, SummaryDecision):
                 try:
                     evidence = collect_retrieved_evidence(self._context.observations)
@@ -401,7 +439,7 @@ class ReActLoop:
         if self._stream is not None:
             self._stream.event(event)
 
-    def _execute(self, decision: ToolCallDecision) -> Observation:
+    def _execute(self, decision: ToolCallDecision | ToolCallItem) -> Observation:
         """执行一次工具调用。capability 不在协议枚举内时就地造 Observation，
         其余情况一律透传 host 的 ok 与 model_extra。"""
         try:

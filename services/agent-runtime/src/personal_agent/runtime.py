@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 from pydantic import ValidationError
 
+from personal_agent.conversation.loop.concurrency import register_capabilities
 from personal_agent.conversation.sidecar import (
     RejectionCircuitBreaker,
     SidecarLlmClient,
@@ -183,6 +184,7 @@ def handle_initialize(req: Request, deps: RuntimeDeps | None = None) -> dict:
         # Exit Checklist 第 3 条的链路从这里开始：TS 按 Scope 过滤后下发，
         # 存住，run_task 时取 name 进 ModelContext.visibleCapabilities。
         deps.capabilities = list(params.capabilities)
+        register_capabilities(params.capabilities)
     result = InitializeResult(protocolVersion="0.1", server=SERVER_INFO)
     return Response(jsonrpc="2.0", id=req.id, result=result.model_dump()).model_dump(
         exclude_none=True

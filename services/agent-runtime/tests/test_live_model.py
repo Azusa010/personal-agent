@@ -272,6 +272,7 @@ def test_decision_schema_is_derived_from_the_contract():
     assert DECISION_SCHEMA["discriminator"]["propertyName"] == "kind"
     assert set(DECISION_SCHEMA["discriminator"]["mapping"]) == {
         "tool_call",
+        "batch_tool_call",
         "summary",
         "step_complete",
         "replan",

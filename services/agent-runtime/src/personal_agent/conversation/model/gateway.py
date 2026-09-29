@@ -36,6 +36,14 @@ class ModelContext(BaseModel):
     userMemories: list[str] = Field(default_factory=list)
 
 
+class ToolCallItem(BaseModel):
+    """单个工具调用的参数"""
+
+    callId: str = Field(min_length=1)
+    capability: str = Field(min_length=1)
+    arguments: dict[str, Any] = Field(default_factory=dict)
+
+
 class ToolCallDecision(BaseModel):
     """模型要求调用工具"""
 
@@ -43,6 +51,14 @@ class ToolCallDecision(BaseModel):
     callId: str = Field(min_length=1)
     capability: str = Field(min_length=1)
     arguments: dict[str, Any] = Field(default_factory=dict)
+    thinking: str | None = None
+
+
+class BatchToolCallDecision(BaseModel):
+    """模型要求批量调用工具"""
+
+    kind: Literal["batch_tool_call"]
+    calls: list[ToolCallItem] = Field(min_length=1)
     thinking: str | None = None
 
 
@@ -76,7 +92,11 @@ class ReplanDecision(BaseModel):
 
 
 ModelDecision = Annotated[
-    ToolCallDecision | SummaryDecision | StepCompleteDecision | ReplanDecision,
+    ToolCallDecision
+    | SummaryDecision
+    | StepCompleteDecision
+    | ReplanDecision
+    | BatchToolCallDecision,
     Field(discriminator="kind"),
 ]
 

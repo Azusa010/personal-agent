@@ -28,6 +28,7 @@ from personal_agent.conversation.instructions import (
     compose_instructions,
 )
 from personal_agent.conversation.model.gateway import (
+    BatchToolCallDecision,
     ModelCallFailed,
     ModelContext,
     ModelDecision,
@@ -37,6 +38,7 @@ from personal_agent.conversation.model.gateway import (
     SummaryDecision,
     ThinkingSink,
     ToolCallDecision,
+    ToolCallItem,
 )
 from personal_agent.conversation.model.json_parser import safe_parse_model_json
 from personal_agent.shared import emit_thinking_chunks
@@ -100,7 +102,7 @@ TOOL_SPECS: dict[str, str] = {
         '按需加载指定 Skill 的完整说明正文。参数 {"name": "<技能唯一名称>"}'
     ),
     "web_search": (
-        '使用 Tavily 搜索引擎执行实时网络搜索，返回结构化网页标题、链接、摘要及答案。'
+        "使用 Tavily 搜索引擎执行实时网络搜索，返回结构化网页标题、链接、摘要及答案。"
         '参数 {"query": "<查询关键词>", "maxResults": <可选返回条数，默认5>, '
         '"searchDepth": <可选"basic"|"advanced">, "includeAnswer": <可选布尔，默认false>}'
     ),
@@ -564,50 +566,83 @@ class LiveModel:
 
         tool_calls = getattr(message, "tool_calls", None)
         if tool_calls and len(tool_calls) > 0:
-            tc = tool_calls[0]
-            func = getattr(tc, "function", None)
-            func_name = getattr(func, "name", "")
-            func_args_raw = getattr(func, "arguments", {})
-            try:
-                args = (
-                    safe_parse_model_json(func_args_raw)
-                    if isinstance(func_args_raw, str)
-                    else dict(func_args_raw)
-                )
-                if not isinstance(args, dict):
-                    raise TypeError(f"工具入参期望对象，实际为 {type(args).__name__}")
-            except Exception as e:
-                raise ModelCallFailed(f"工具调用入参不是合法 JSON: {e}") from e
-            if func_name == FINISH_TASK_TOOL_NAME:
-                reply = args.get("reply")
-                if not isinstance(reply, str) or not reply.strip():
-                    raise ModelCallFailed("finish_task 调用的 reply 字段不能为空")
-                facts = args.get("facts", [])
-                if not isinstance(facts, list):
-                    facts = []
-                return SummaryDecision(
-                    kind="summary",
-                    reply=reply,
-                    facts=facts,
-                )
-            elif func_name == "step_complete":
-                return StepCompleteDecision(
-                    kind="step_complete",
-                    result=args.get("result", ""),
-                )
-            elif func_name == "replan":
-                return ReplanDecision(
-                    kind="replan",
-                    reason=args.get("reason", ""),
-                )
+            if len(tool_calls) == 1:
+                tc = tool_calls[0]
+                func = getattr(tc, "function", None)
+                func_name = getattr(func, "name", "")
+                func_args_raw = getattr(func, "arguments", {})
+                try:
+                    args = (
+                        safe_parse_model_json(func_args_raw)
+                        if isinstance(func_args_raw, str)
+                        else dict(func_args_raw)
+                    )
+                    if not isinstance(args, dict):
+                        raise TypeError(
+                            f"工具入参期望对象，实际为 {type(args).__name__}"
+                        )
+                except Exception as e:
+                    raise ModelCallFailed(f"工具调用入参不是合法 JSON: {e}") from e
+                if func_name == FINISH_TASK_TOOL_NAME:
+                    reply = args.get("reply")
+                    if not isinstance(reply, str) or not reply.strip():
+                        raise ModelCallFailed("finish_task 调用的 reply 字段不能为空")
+                    facts = args.get("facts", [])
+                    if not isinstance(facts, list):
+                        facts = []
+                    return SummaryDecision(
+                        kind="summary",
+                        reply=reply,
+                        facts=facts,
+                    )
+                elif func_name == "step_complete":
+                    return StepCompleteDecision(
+                        kind="step_complete",
+                        result=args.get("result", ""),
+                    )
+                elif func_name == "replan":
+                    return ReplanDecision(
+                        kind="replan",
+                        reason=args.get("reason", ""),
+                    )
 
-            call_id = getattr(tc, "id", None) or "call-1"
-            return ToolCallDecision(
-                kind="tool_call",
-                callId=call_id,
-                capability=func_name,
-                arguments=args,
-            )
+                call_id = getattr(tc, "id", None) or "call-1"
+                return ToolCallDecision(
+                    kind="tool_call",
+                    callId=call_id,
+                    capability=func_name,
+                    arguments=args,
+                )
+            else:
+                items: list[ToolCallItem] = []
+                for tc in tool_calls:
+                    func = getattr(tc, "function", None)
+                    func_name = getattr(func, "name", "")
+                    func_args_raw = getattr(func, "arguments", {})
+                    try:
+                        args = (
+                            safe_parse_model_json(func_args_raw)
+                            if isinstance(func_args_raw, str)
+                            else dict(func_args_raw)
+                        )
+                        if not isinstance(args, dict):
+                            raise TypeError(
+                                f"工具入参期望对象，实际为 {type(args).__name__}"
+                            )
+                    except Exception as e:
+                        raise ModelCallFailed(f"工具调用入参不是合法 JSON: {e}") from e
+                    call_id = getattr(tc, "id", None) or f"call-{len(items) + 1}"
+                    items.append(
+                        ToolCallItem(
+                            callId=call_id,
+                            capability=func_name,
+                            arguments=args,
+                        )
+                    )
+                return BatchToolCallDecision(
+                    kind="batch_tool_call",
+                    calls=items,
+                )
         content = getattr(message, "content", None)
         if isinstance(content, str) and content.strip():
             text = content.strip()
