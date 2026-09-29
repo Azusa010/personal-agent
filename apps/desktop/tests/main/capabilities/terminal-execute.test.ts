@@ -141,7 +141,10 @@ describe('terminal_execute 执行体', () => {
     })
 
     // 输出 300 行
-    const script = 'node -e "for(let i=1;i<=300;i++) console.log(\'line_\' + i);"'
+    const isWin = process.platform === 'win32'
+    const script = isWin
+      ? '1..300 | ForEach-Object { "line_$_" }'
+      : 'node -e "for(let i=1;i<=300;i++) console.log(\'line_\' + i);"'
     const res = await executor(terminalParams({ command: script }))
     expect(res['ok']).toBe(true)
     const stdout = String(res['stdout'])

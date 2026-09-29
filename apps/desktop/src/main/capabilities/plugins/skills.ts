@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises'
+import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import {
@@ -45,35 +45,74 @@ const BUILTIN_SKILLS: readonly SkillDetail[] = [
   }
 ]
 
-function parseSkillContent(
+const IGNORED_FILES = new Set(['readme.md', 'license.md', 'changelog.md'])
+
+function isIgnoredFile(filename: string): boolean {
+  if (filename.startsWith('.')) return true
+  return IGNORED_FILES.has(filename.toLowerCase())
+}
+
+function stripQuotes(str: string): string {
+  const trimmed = str.trim()
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim()
+  }
+  return trimmed
+}
+
+export function parseSkillContent(
   rawContent: string,
   fallbackName: string,
   skillPath: string
 ): SkillDetail {
+  // 去除 UTF-8 BOM
+  const sanitized = rawContent.replace(/^\uFEFF/, '')
   let name = fallbackName
   let description = ''
-  let tags: string[] = []
+  const tags: string[] = []
 
-  const frontmatterMatch = rawContent.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/)
+  // 支持前导空行的 frontmatter 匹配
+  const frontmatterMatch = sanitized.match(/^\s*---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/)
   if (frontmatterMatch) {
     const yaml = frontmatterMatch[1]
     const body = frontmatterMatch[2].trim()
 
-    for (const line of yaml.split(/\r?\n/)) {
-      const trimmed = line.trim()
+    let currentSection: 'tags' | null = null
+
+    for (const rawLine of yaml.split(/\r?\n/)) {
+      const trimmed = rawLine.trim()
+      if (!trimmed || trimmed.startsWith('#')) continue
+
       if (trimmed.startsWith('name:')) {
-        name = trimmed.slice(5).trim()
+        currentSection = null
+        const val = stripQuotes(trimmed.slice(5))
+        if (val) name = val
       } else if (trimmed.startsWith('description:')) {
-        description = trimmed.slice(12).trim()
+        currentSection = null
+        description = stripQuotes(trimmed.slice(12))
       } else if (trimmed.startsWith('tags:')) {
-        const rawTags = trimmed.slice(5).trim()
-        if (rawTags.startsWith('[') && rawTags.endsWith(']')) {
-          tags = rawTags
+        const rest = trimmed.slice(5).trim()
+        if (rest.startsWith('[') && rest.endsWith(']')) {
+          currentSection = null
+          const parsedTags = rest
             .slice(1, -1)
             .split(',')
-            .map((t) => t.trim().replace(/^['"]|['"]$/g, ''))
+            .map((t) => stripQuotes(t))
             .filter(Boolean)
+          tags.push(...parsedTags)
+        } else {
+          currentSection = 'tags'
         }
+      } else if (currentSection === 'tags' && trimmed.startsWith('-')) {
+        const tagVal = stripQuotes(trimmed.slice(1))
+        if (tagVal) {
+          tags.push(tagVal)
+        }
+      } else {
+        currentSection = null
       }
     }
 
@@ -81,68 +120,213 @@ function parseSkillContent(
       name,
       description: description || `Skill ${name}`,
       tags,
-      content: body || rawContent,
+      content: body || sanitized,
       path: skillPath
     }
   }
 
-  // 无 frontmatter 时，提取第一个标题与后续第一段作为摘要
-  const titleMatch = rawContent.match(/^#\s+(.+)$/m)
-  if (titleMatch) {
-    name = titleMatch[1].trim()
+  // 无 frontmatter 时：保持 fallbackName 作为技能 slug 标识符，从正文提取标题与第一段作为摘要
+  const titleMatch = sanitized.match(/^#\s+(.+)$/m)
+  const lines = sanitized
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !l.startsWith('#'))
+
+  if (titleMatch && lines.length > 0) {
+    description = `${titleMatch[1].trim()}: ${lines[0]}`
+  } else if (lines.length > 0) {
+    description = lines[0]
+  } else if (titleMatch) {
+    description = titleMatch[1].trim()
+  } else {
+    description = `Skill ${fallbackName}`
   }
-  const lines = rawContent.split(/\r?\n/).filter((l) => l.trim().length > 0 && !l.startsWith('#'))
-  description = lines[0] ?? `Skill ${name}`
 
   return {
-    name,
+    name: fallbackName,
     description,
     tags,
-    content: rawContent,
+    content: sanitized,
     path: skillPath
   }
 }
 
-async function loadAllSkills(): Promise<SkillDetail[]> {
-  const root = resolveRoot('downloads')
-  const skillsDir = join(root, '.skills')
-  const skillsMap = new Map<string, SkillDetail>()
-
-  // 1. 载入内置技能作为基准
-  for (const skill of BUILTIN_SKILLS) {
-    skillsMap.set(skill.name, skill)
-  }
-
-  // 2. 探索本地 .skills 目录
+/**
+ * 扫描指定根目录下的技能目录，解析并写入 skillsMap。
+ * @param rootDir 根目录绝对路径（如 downloads 或 workspace 根）
+ * @param subDir 技能子目录相对路径（如 '.skills' 或 '.agent/skills'）
+ * @param skillsMap 收集目标 Map，后写入的技能将覆盖同名先写入的技能
+ */
+export async function scanSkillsDir(
+  rootDir: string,
+  subDir: string,
+  skillsMap: Map<string, SkillDetail>
+): Promise<void> {
+  const skillsDir = join(rootDir, subDir)
   try {
     const entries = await readdir(skillsDir, { withFileTypes: true })
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const skillMd = join(skillsDir, entry.name, 'SKILL.md')
+        if (entry.name.startsWith('.')) continue
+
+        const subDirPath = join(skillsDir, entry.name)
         try {
-          const content = await readFile(skillMd, 'utf-8')
-          const skill = parseSkillContent(content, entry.name, `.skills/${entry.name}/SKILL.md`)
-          skillsMap.set(skill.name, skill)
+          const subEntries = await readdir(subDirPath)
+          const matchedFileName =
+            subEntries.find((f) => f === 'SKILL.md') ??
+            subEntries.find((f) => f.toLowerCase() === 'skill.md')
+
+          if (!matchedFileName) continue
+
+          const skillFile = join(subDirPath, matchedFileName)
+          const content = await readFile(skillFile, 'utf-8')
+          const skill = parseSkillContent(
+            content,
+            entry.name,
+            `${subDir}/${entry.name}/${matchedFileName}`
+          )
+          skillsMap.set(skill.name.toLowerCase(), skill)
         } catch {
-          // ignore directory without SKILL.md
+          // ignore directory read error
         }
       } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        if (isIgnoredFile(entry.name)) continue
+
         const skillFile = join(skillsDir, entry.name)
         try {
           const content = await readFile(skillFile, 'utf-8')
           const baseName = entry.name.slice(0, -3)
-          const skill = parseSkillContent(content, baseName, `.skills/${entry.name}`)
-          skillsMap.set(skill.name, skill)
+          const skill = parseSkillContent(content, baseName, `${subDir}/${entry.name}`)
+          skillsMap.set(skill.name.toLowerCase(), skill)
         } catch {
           // ignore read error
         }
       }
     }
   } catch {
-    // .skills 目录不存在则仅使用内置技能
+    // 目录不存在则静默忽略
+  }
+}
+
+// ---------------- 缓存与指纹校验机制 ----------------
+
+interface SkillsCache {
+  skills: SkillDetail[]
+  timestamp: number
+  fingerprint: string
+}
+
+let cache: SkillsCache | null = null
+const CACHE_TTL_MS = 10_000
+
+/**
+ * 显式清空技能缓存（用于单测隔离或文件系统外部变动时强制刷新）
+ */
+export function clearSkillsCache(): void {
+  cache = null
+}
+
+async function getDirFingerprint(dirPath: string): Promise<string> {
+  try {
+    const dirStat = await stat(dirPath)
+    let fp = `${dirStat.mtimeMs}:`
+    const entries = await readdir(dirPath, { withFileTypes: true })
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (entry.name.startsWith('.')) continue
+        fp += `${entry.name}:`
+        try {
+          const subEntries = await readdir(join(dirPath, entry.name))
+          const matched =
+            subEntries.find((f) => f === 'SKILL.md') ??
+            subEntries.find((f) => f.toLowerCase() === 'skill.md')
+          if (matched) {
+            const s = await stat(join(dirPath, entry.name, matched))
+            fp += `${matched}=${s.mtimeMs};`
+          } else {
+            fp += 'none;'
+          }
+        } catch {
+          fp += 'none;'
+        }
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        if (isIgnoredFile(entry.name)) continue
+        try {
+          const s = await stat(join(dirPath, entry.name))
+          fp += `${entry.name}=${s.mtimeMs};`
+        } catch {
+          // ignore
+        }
+      }
+    }
+    return fp
+  } catch {
+    return 'none'
+  }
+}
+
+async function computeAllFingerprints(): Promise<string> {
+  const parts: string[] = []
+
+  try {
+    const downloadsRoot = resolveRoot('downloads')
+    parts.push(await getDirFingerprint(join(downloadsRoot, '.skills')))
+  } catch {
+    parts.push('none')
   }
 
-  return Array.from(skillsMap.values())
+  try {
+    const workspaceRoot = resolveRoot('workspace')
+    parts.push(await getDirFingerprint(join(workspaceRoot, '.skills')))
+    parts.push(await getDirFingerprint(join(workspaceRoot, '.agent', 'skills')))
+  } catch {
+    parts.push('none', 'none')
+  }
+
+  return parts.join('|')
+}
+
+/**
+ * 加载所有可用技能，执行多源发现与优先级覆盖合并。
+ * 覆盖优先级规则：workspace/.agent/skills > workspace/.skills > downloads/.skills > BUILTIN_SKILLS。
+ */
+export async function loadAllSkills(): Promise<SkillDetail[]> {
+  const now = Date.now()
+  const currentFingerprint = await computeAllFingerprints()
+
+  if (cache && now - cache.timestamp < CACHE_TTL_MS && cache.fingerprint === currentFingerprint) {
+    return cache.skills
+  }
+
+  const skillsMap = new Map<string, SkillDetail>()
+  for (const skill of BUILTIN_SKILLS) {
+    skillsMap.set(skill.name.toLowerCase(), skill)
+  }
+
+  try {
+    const downloadsRoot = resolveRoot('downloads')
+    await scanSkillsDir(downloadsRoot, '.skills', skillsMap)
+  } catch {
+    // 静默忽略 downloads 未配置或路径异常
+  }
+
+  try {
+    const workspaceRoot = resolveRoot('workspace')
+    // 先扫 workspace/.skills，再扫 workspace/.agent/skills（优先级更高）
+    await scanSkillsDir(workspaceRoot, '.skills', skillsMap)
+    await scanSkillsDir(workspaceRoot, '.agent/skills', skillsMap)
+  } catch {
+    // 静默忽略 workspace 未配置或路径异常
+  }
+
+  const result = Array.from(skillsMap.values())
+  cache = {
+    skills: result,
+    timestamp: now,
+    fingerprint: currentFingerprint
+  }
+
+  return result
 }
 
 export const skillSearchPlugin: CapabilityPlugin = {
