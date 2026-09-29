@@ -23,9 +23,7 @@ class TodoItem(BaseModel):
 
     id: str = Field(min_length=1, description="任务项唯一标识，如 todo-1")
     content: str = Field(min_length=1, description="任务规划步骤的具体内容")
-    status: TodoStatus = Field(
-        default=TodoStatus.PENDING, description="当前步骤状态"
-    )
+    status: TodoStatus = Field(default=TodoStatus.PENDING, description="当前步骤状态")
     timestamp: str = Field(
         min_length=1,
         description="状态创建或最后更新时间戳，格式 [YYYY-MM-DD HH:MM:SS] 或标准 ISO",
@@ -53,10 +51,15 @@ class SystemEnvironment(BaseModel):
     )
     cwd: str = Field(min_length=1, description="当前工作目录路径")
     os_type: str = Field(min_length=1, description="操作系统名称及内核版本")
-    shell: str = Field(min_length=1, description="当前检测到的 Shell 环境（PowerShell/Bash等）")
-    python_version: str = Field(
-        min_length=1, description="当前运行的 Python 版本号"
+    shell: str = Field(
+        min_length=1, description="当前检测到的 Shell 环境（PowerShell/Bash等）"
     )
+    python_version: str = Field(min_length=1, description="当前运行的 Python 版本号")
+    # ==== 系统环境信息 ====
+    workspace: str | None = Field(default=None, description="当前项目工作区根路径")
+    git_branch: str | None = Field(default=None, description="当前检出的 Git 分支名")
+    git_status: str | None = Field(default=None, description="工作区 Git 状态简要描述")
+
     extra: dict[str, Any] = Field(
         default_factory=dict, description="额外系统上下文（如架构、用户等）"
     )
@@ -67,9 +70,7 @@ class StatusBarState(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    todos: list[TodoItem] = Field(
-        default_factory=list, description="任务规划清单"
-    )
+    todos: list[TodoItem] = Field(default_factory=list, description="任务规划清单")
     tool_counter: ToolCounterState = Field(
         default_factory=ToolCounterState, description="工具调用计数器状态"
     )
@@ -77,6 +78,8 @@ class StatusBarState(BaseModel):
         default=None, description="系统环境状态快照"
     )
     updated_at: str = Field(
-        default_factory=lambda: datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S"),
+        default_factory=lambda: (
+            datetime.now(UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+        ),
         description="状态快照更新时间",
     )
