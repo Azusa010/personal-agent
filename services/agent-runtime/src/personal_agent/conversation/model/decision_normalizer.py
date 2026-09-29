@@ -131,7 +131,7 @@ def normalize_raw_decision(
 
             try:
                 tool_args = safe_parse_model_json(tool_args)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 tool_args = {}
         if not isinstance(tool_args, dict):
             tool_args = {
