@@ -54,4 +54,17 @@ describe('file-write: writeFileAtomic', () => {
     const written = await readFile(target, 'utf8')
     expect(written).toBe('new content')
   })
+
+  it('写入存在语法错误的代码时正常落盘且附带 diagnostics 警告', async () => {
+    const target = join(tempDir, 'broken.ts')
+    const brokenCode = 'const x: number = ;\nconst y = 1;'
+    const outcome = await writeFileAtomic(target, brokenCode)
+
+    expect(outcome.ok).toBe(true)
+    if (outcome.ok) {
+      expect(outcome.diagnostics).toBeDefined()
+      expect(outcome.diagnostics?.length).toBeGreaterThan(0)
+      expect(outcome.diagnostics?.[0]).toContain('TypeScript Syntax Error')
+    }
+  })
 })

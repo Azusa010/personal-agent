@@ -1,5 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import { ERROR_CODE, type FileEditOutcome, type FileEditResult } from '@personal-agent/protocol'
+import { runDiagnosticProbe } from './diagnostic-probe'
+import { resolveRoot } from './roots'
 
 export class FileEditError extends Error {
   constructor(
@@ -68,10 +71,22 @@ export async function editFileStrict(
     const { newContent, replacements } = applyStrictReplacement(source, oldString, newString)
     await writeFile(absPath, newContent, 'utf8')
 
+    let workspaceRoot: string
+    try {
+      workspaceRoot = resolveRoot('workspace')
+    } catch {
+      workspaceRoot = dirname(absPath)
+    }
+
+    const probe = await runDiagnosticProbe(workspaceRoot, absPath, newContent).catch(() => ({
+      diagnostics: []
+    }))
+
     const result: FileEditResult = {
       ok: true,
       path: absPath,
-      replacements
+      replacements,
+      ...(probe.diagnostics.length > 0 ? { diagnostics: probe.diagnostics } : {})
     }
     return result
   } catch (e) {

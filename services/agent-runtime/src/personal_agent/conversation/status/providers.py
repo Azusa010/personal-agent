@@ -152,6 +152,7 @@ def detect_git_status(cwd: str) -> tuple[str | None, str | None]:
             capture_output=True,
             text=True,
             timeout=2,
+            check=False
         )
         if branch_result.returncode != 0:
             return (None, None)
@@ -164,6 +165,7 @@ def detect_git_status(cwd: str) -> tuple[str | None, str | None]:
                 capture_output=True,
                 text=True,
                 timeout=2,
+                check=False
             )
             if rev_result.returncode != 0:
                 return (None, None)
@@ -174,6 +176,7 @@ def detect_git_status(cwd: str) -> tuple[str | None, str | None]:
             capture_output=True,
             text=True,
             timeout=2,
+            check=False
         )
         if status_result.returncode != 0:
             return (None, None)
@@ -192,5 +195,5 @@ def detect_git_status(cwd: str) -> tuple[str | None, str | None]:
                 suffix = "" if len(lines) <= 2 else ", ..."
                 status = f"{len(lines)} files modified ({', '.join(files)}{suffix})"
         return (branch, status)
-    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):  # noqa: BLE001
         return (None, None)

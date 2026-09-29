@@ -96,4 +96,17 @@ describe('file-edit: editFileStrict', () => {
       expect(outcome.code).toBe(ERROR_CODE.FILE_EDIT_NOT_FOUND)
     }
   })
+
+  it('编辑引入语法错误时正常落盘且附带 diagnostics 警告', async () => {
+    const target = join(tempDir, 'sample.ts')
+    await writeFile(target, 'const a = 1;\nconst b = 2;\n', 'utf8')
+
+    const outcome = await editFileStrict(target, 'const b = 2;', 'const b = ;')
+    expect(outcome.ok).toBe(true)
+    if (outcome.ok) {
+      expect(outcome.diagnostics).toBeDefined()
+      expect(outcome.diagnostics?.length).toBeGreaterThan(0)
+      expect(outcome.diagnostics?.[0]).toContain('TypeScript Syntax Error')
+    }
+  })
 })
