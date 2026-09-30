@@ -13,6 +13,11 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from personal_agent.context import ContextManager
+from personal_agent.conversation.loop.fault_classifier import (
+    FaultLayer,
+    RetryVerdict,
+    StreamWatchdog,
+)
 from personal_agent.conversation.sidecar import (
     RejectionCircuitBreaker,
     StreamBarrier,
@@ -443,6 +448,92 @@ def test_react_loop_with_sidecar_compaction_and_persistence():
     assert len(tool_res_events) == 1
     assert tool_res_events[0].payload.get("compacted") is True
     assert tool_res_events[0].payload.get("rawOutputPath") == raw_path
+
+
+def test_react_loop_with_healthy_watchdog():
+    """验证挂载 StreamWatchdog 的正常 ReActLoop 能顺利完成且看门狗保持存活。"""
+    decisions = [
+        SummaryDecision(kind="summary", reply="完成", facts=[]),
+    ]
+    model = ScriptedModel(decisions)
+    channel = FakeChannel([])
+    context = ContextManager(plan=())
+    watchdog = StreamWatchdog(idle_timeout_seconds=1.0)
+    loop = ReActLoop(
+        model=model,
+        channel=channel,
+        context=context,
+        budget=Budget(maxSteps=3, maxToolCalls=2),
+        watchdog=watchdog,
+    )
+
+    outcome = loop.run("看门狗测试", VISIBLE)
+    assert outcome.kind == "completed"
+    assert watchdog.check_alive() is True
+
+
+def test_react_loop_with_stalled_watchdog():
+    """验证模型决策超时未喂狗时，ReActLoop 捕获 StreamStalledError 并收成 failed 且带结构化故障。"""
+    import time
+
+    class StalledModel:
+        def decide(self, context, on_thinking=None):
+            time.sleep(0.08)
+            return SummaryDecision(kind="summary", reply="晚了", facts=[])
+
+    model = StalledModel()
+    channel = FakeChannel([])
+    context = ContextManager(plan=())
+    watchdog = StreamWatchdog(idle_timeout_seconds=0.04)
+    loop = ReActLoop(
+        model=model,
+        channel=channel,
+        context=context,
+        budget=Budget(maxSteps=3, maxToolCalls=2),
+        watchdog=watchdog,
+    )
+
+    outcome = loop.run("卡死测试", VISIBLE)
+    assert outcome.kind == "failed"
+    assert "流式响应卡死" in (outcome.reason or "")
+    assert outcome.fault is not None
+    assert outcome.fault.fault_type == "request_timeout"
+    assert outcome.fault.layer == FaultLayer.API
+    assert outcome.fault.verdict == RetryVerdict.RETRYABLE
+
+
+def test_react_loop_fault_recorded_on_budget_exhaustion():
+    """验证预算耗尽时，outcome 附带 FaultLayer.CONTROL 的 budget_exhausted 故障。"""
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId="call-1",
+            capability="filesystem_list",
+            arguments={"rootId": "downloads"},
+        ),
+        ToolCallDecision(
+            kind="tool_call",
+            callId="call-2",
+            capability="filesystem_list",
+            arguments={"rootId": "downloads"},
+        ),
+    ]
+    channel = FakeChannel([list_result(), list_result()])
+    model = ScriptedModel(decisions)
+    context = ContextManager(plan=())
+    loop = ReActLoop(
+        model=model,
+        channel=channel,
+        context=context,
+        budget=Budget(maxSteps=1, maxToolCalls=5),
+    )
+
+    outcome = loop.run("预算超标", VISIBLE)
+    assert outcome.kind == "budget_exhausted"
+    assert outcome.fault is not None
+    assert outcome.fault.fault_type == "budget_exhausted"
+    assert outcome.fault.layer == FaultLayer.CONTROL
+    assert outcome.fault.verdict == RetryVerdict.FATAL
 
 
 

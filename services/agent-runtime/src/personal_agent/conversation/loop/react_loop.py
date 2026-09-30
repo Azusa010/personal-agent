@@ -11,6 +11,12 @@ from personal_agent.conversation.loop.engine import (
     CAPABILITY_NOT_REGISTERED,
     MODEL_CALL_FAILED,
 )
+from personal_agent.conversation.loop.fault_classifier import (
+    FaultClassification,
+    StreamStalledError,
+    StreamWatchdog,
+    classify_fault,
+)
 from personal_agent.conversation.model.gateway import (
     BatchToolCallDecision,
     ModelCallFailed,
@@ -82,6 +88,7 @@ class ReActOutcome:
     steps_used: int = 0
     tool_calls_used: int = 0
     events: list[RunTaskEvent] = field(default_factory=list)
+    fault: FaultClassification | None = None
 
 
 class ReActLoop:
@@ -96,6 +103,7 @@ class ReActLoop:
         sidecar_barrier: StreamBarrier | None = None,
         circuit_breaker: RejectionCircuitBreaker | None = None,
         sidecar_llm: SidecarLlmClient | None = None,
+        watchdog: StreamWatchdog | None = None,
     ) -> None:
         self._model = model
         self._channel = channel
@@ -110,6 +118,7 @@ class ReActLoop:
             else None
         )
         self._sidecar_llm = sidecar_llm
+        self._watchdog = watchdog
 
     def run(
         self,
@@ -145,24 +154,33 @@ class ReActLoop:
                     {"steps": steps_used, "toolCalls": tool_calls_used},
                 )
                 self._emit(events, EVENT_TASK_FAILED, {"reason": reason})
+                fault = classify_fault(reason)
                 return ReActOutcome(
                     kind="budget_exhausted",
                     reason=reason,
                     steps_used=steps_used,
                     tool_calls_used=tool_calls_used,
                     events=events,
+                    fault=fault,
                 )
 
             try:
                 decision = self._decide(goal, visible_capabilities)
+            except StreamStalledError as e:
+                return self._fail(
+                    events, str(e), steps_used, tool_calls_used, fault_source=e
+                )
             except ScriptExhausted as e:
-                return self._fail(events, str(e), steps_used, tool_calls_used)
+                return self._fail(
+                    events, str(e), steps_used, tool_calls_used, fault_source=e
+                )
             except ModelCallFailed as e:
                 return self._fail(
                     events,
                     f"{MODEL_CALL_FAILED}: {e.reason}",
                     steps_used,
                     tool_calls_used,
+                    fault_source=e,
                 )
 
             steps_used += 1
@@ -272,13 +290,16 @@ class ReActLoop:
                 try:
                     observation = self._execute(decision)
                 except HostRequestFailed as e:
-                    return self._fail(events, str(e), steps_used, tool_calls_used)
+                    return self._fail(
+                        events, str(e), steps_used, tool_calls_used, fault_source=e
+                    )
                 except HostChannelClosed as e:
                     return self._fail(
                         events,
                         f"RUNTIME_CHANNEL_CLOSED: {e}",
                         steps_used,
                         tool_calls_used,
+                        fault_source=e,
                     )
                 # Sidecar 超长工具输出动态压缩与本地临时文件落盘
                 observation, raw_output_path = compact_and_persist_observation(
@@ -348,7 +369,9 @@ class ReActLoop:
                         evidence=evidence,
                     )
                 except SummaryRejected as e:
-                    return self._fail(events, e.reason, steps_used, tool_calls_used)
+                    return self._fail(
+                        events, e.reason, steps_used, tool_calls_used, fault_source=e
+                    )
 
                 self._emit(
                     events,
@@ -418,14 +441,17 @@ class ReActLoop:
         reason: str,
         steps_used: int,
         tool_calls_used: int,
+        fault_source: Any = None,
     ) -> ReActOutcome:
         self._emit(events, EVENT_TASK_FAILED, {"reason": reason})
+        fault = classify_fault(fault_source if fault_source is not None else reason)
         return ReActOutcome(
             kind="failed",
             reason=reason,
             steps_used=steps_used,
             tool_calls_used=tool_calls_used,
             events=events,
+            fault=fault,
         )
 
     def _emit(
@@ -471,9 +497,19 @@ class ReActLoop:
 
     def _decide(self, goal: str, visible_capabilities: Sequence[str]) -> ModelDecision:
         context = self._context.build(goal, visible_capabilities)
+        if self._watchdog is not None:
+            self._watchdog.feed()
         if self._stream is None:
-            return self._model.decide(context)
-        return self._model.decide(context, self._stream.thinking)
+            decision = self._model.decide(context)
+        else:
+            thinking_sink = self._stream.thinking
+            if self._watchdog is not None:
+                thinking_sink = self._watchdog.wrap_sink(thinking_sink)
+            decision = self._model.decide(context, thinking_sink)
+        if self._watchdog is not None:
+            self._watchdog.assert_alive()
+            self._watchdog.feed()
+        return decision
 
     def _plan_requires_grounded_summary(self) -> bool:
         """计划里有「提取 PDF」这一步，摘要就必须可溯源到页面。
