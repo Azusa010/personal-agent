@@ -1,11 +1,12 @@
 import {
   type CapabilityDescriptor,
+  type CapabilityExposure,
   type CapabilityId,
   type CapabilityKind
 } from '@personal-agent/protocol'
 import { getCapabilityPlugin, listCapabilityPlugins } from './plugins'
 
-export type { CapabilityDescriptor, CapabilityKind }
+export type { CapabilityDescriptor, CapabilityExposure, CapabilityKind }
 
 export const CAPABILITIES = [
   {
@@ -101,7 +102,8 @@ export const CAPABILITIES = [
   {
     name: 'notification_send',
     kind: 'WRITE',
-    description: '发送系统通知'
+    description: '发送系统通知',
+    exposure: 'internal'
   },
   {
     name: 'terminal_execute',

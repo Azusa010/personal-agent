@@ -1,11 +1,14 @@
 import json
 from pathlib import Path
+from typing import get_args
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from personal_agent.protocol.models import (
     AgentStreamNotification,
+    CapabilityDescriptor,
+    CapabilityExposure,
     CapabilityFailure,
     CircuitBreakerEvent,
     CodeInterpreterParams,
@@ -721,6 +724,50 @@ def test_initialize_params_capabilities_constraints():
                 ],
             }
         )
+
+    # 验证 CapabilityExposure 枚举集合
+    assert set(get_args(CapabilityExposure)) == {"direct", "deferred", "internal"}
+
+    # exposure 为 direct, deferred, internal 时被接受
+    for exp in ("direct", "deferred", "internal"):
+        res = InitializeParams.model_validate(
+            {
+                **legal,
+                "capabilities": [{**legal["capabilities"][0], "exposure": exp}],
+            }
+        )
+        assert res.capabilities[0].exposure == exp
+
+    # exposure 为非法值时被拒
+    with pytest.raises(ValidationError):
+        InitializeParams.model_validate(
+            {
+                **legal,
+                "capabilities": [
+                    {**legal["capabilities"][0], "exposure": "unsupported"}
+                ],
+            }
+        )
+
+    # CapabilityDescriptor 独立解析验证
+    parsed = CapabilityDescriptor.model_validate(
+        {
+            "name": "filesystem_list",
+            "kind": "READ",
+            "description": "列出目录",
+            "exposure": "deferred",
+        }
+    )
+    assert parsed.exposure == "deferred"
+
+    defaulted = CapabilityDescriptor.model_validate(
+        {
+            "name": "filesystem_list",
+            "kind": "READ",
+            "description": "列出目录",
+        }
+    )
+    assert defaulted.exposure == "direct"
 
 
 # ---- agent.run_task ----

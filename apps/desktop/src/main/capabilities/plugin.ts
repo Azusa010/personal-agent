@@ -1,4 +1,4 @@
-import type { CapabilityDescriptor, CapabilityKind } from './registry'
+import type { CapabilityDescriptor, CapabilityExposure, CapabilityKind } from './registry'
 import type { BoundArgs, BindResult } from '../policy/argument-binders'
 import type { AuthorizedCall } from '../policy/execution-policy'
 export type { AuthorizedCall }
@@ -51,6 +51,7 @@ export interface CapabilityPluginDescriptor {
   readonly name: string
   readonly kind: CapabilityKind
   readonly description: string
+  readonly exposure?: CapabilityExposure
 }
 
 /**

@@ -55,10 +55,14 @@ export type CapabilityId = z.infer<typeof CapabilityId>;
 export const CapabilityKind = z.enum(["READ", "WRITE"]);
 export type CapabilityKind = z.infer<typeof CapabilityKind>;
 
+export const CapabilityExposure = z.enum(["direct", "deferred", "internal"]);
+export type CapabilityExposure = z.infer<typeof CapabilityExposure>;
+
 export const CapabilityDescriptor = z.object({
   name: CapabilityId,
   kind: CapabilityKind,
   description: z.string().min(1),
+  exposure: CapabilityExposure.optional(),
 });
 export type CapabilityDescriptor = z.infer<typeof CapabilityDescriptor>;
 

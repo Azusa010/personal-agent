@@ -164,3 +164,15 @@ describe('extendedScope 扩展能力', () => {
     expect(isInScope(scope, 'notification_send')).toBe(false)
   })
 })
+
+describe('CapabilityExposure 分级暴露属性', () => {
+  it('notification_send 的 exposure 为 internal', () => {
+    const cap = findCapability('notification_send')
+    expect(cap?.exposure).toBe('internal')
+  })
+
+  it('默认能力 exposure 为 direct 或未定义（缺省等同 direct）', () => {
+    const cap = findCapability('filesystem_list')
+    expect(cap?.exposure === undefined || cap?.exposure === 'direct').toBe(true)
+  })
+})

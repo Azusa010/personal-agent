@@ -703,12 +703,14 @@ UserMemorySearchOutcome = Annotated[
 
 
 CapabilityKind = Literal["READ", "WRITE"]
+CapabilityExposure = Literal["direct", "deferred", "internal"]
 
 
 class CapabilityDescriptor(ProtocolModel):
     name: CapabilityId
     kind: CapabilityKind
     description: str = Field(min_length=1)
+    exposure: CapabilityExposure = "direct"
 
 
 class InitializeResult(ProtocolModel):

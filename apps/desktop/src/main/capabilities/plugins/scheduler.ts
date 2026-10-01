@@ -120,7 +120,8 @@ export const notificationSendPlugin: CapabilityPlugin = {
   descriptor: {
     name: 'notification_send',
     kind: 'WRITE',
-    description: '发送系统通知'
+    description: '发送系统通知',
+    exposure: 'internal'
   },
   async bindArguments(args) {
     const parsed = NotificationSendParams.safeParse(args)

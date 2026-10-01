@@ -8,7 +8,8 @@
       {
         "name": "filesystem_list",
         "kind": "READ",
-        "description": "列出授权根目录下的条目"
+        "description": "列出授权根目录下的条目",
+        "exposure": "direct"
       },
       {
         "name": "document_extract_pdf",

@@ -25,6 +25,8 @@ import {
   HostExecuteToolRequest,
   HostExecuteToolResponse,
   CapabilityFailure,
+  CapabilityDescriptor,
+  CapabilityExposure,
 } from "../schemas/host.js";
 import {
   DocumentExtractPdfParams,
@@ -1114,6 +1116,43 @@ describe("InitializeParams 的能力清单约束", () => {
         capabilities: [{ ...legal.capabilities[0], name: "filesystem.delete" }],
       }),
     ).toThrow();
+  });
+
+  it("exposure 为 direct, deferred, internal 时被接受", () => {
+    for (const exp of ["direct", "deferred", "internal"] as const) {
+      expect(() =>
+        InitializeParams.parse({
+          ...legal,
+          capabilities: [{ ...legal.capabilities[0], exposure: exp }],
+        }),
+      ).not.toThrow();
+    }
+  });
+
+  it("exposure 为非法值时被拒", () => {
+    expect(() =>
+      InitializeParams.parse({
+        ...legal,
+        capabilities: [{ ...legal.capabilities[0], exposure: "unsupported" }],
+      }),
+    ).toThrow();
+  });
+
+  it("CapabilityDescriptor 独立解析验证", () => {
+    const parsed = CapabilityDescriptor.parse({
+      name: "filesystem_list",
+      kind: "READ",
+      description: "列出目录",
+      exposure: "deferred",
+    });
+    expect(parsed.exposure).toBe("deferred");
+
+    const defaulted = CapabilityDescriptor.parse({
+      name: "filesystem_list",
+      kind: "READ",
+      description: "列出目录",
+    });
+    expect(defaulted.exposure).toBeUndefined();
   });
 });
 

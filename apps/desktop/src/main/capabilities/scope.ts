@@ -13,12 +13,12 @@ export function readOnlyScope(taskId: string): TaskScope {
 }
 
 /**
- * 完整 Agent 任务可用能力集：排除内部专用触发工具 notification_send。
+ * 完整 Agent 任务可用能力集：排除内部专用触发工具（exposure: 'internal'，如 notification_send）。
  * 动态从 registry / plugins 获取，确保新增能力插件自动暴露给 Agent，无需手动维护白名单。
  */
 export const AGENT_TASK_CAPABILITIES: readonly CapabilityName[] = listCapabilities()
+  .filter((c) => c.exposure !== 'internal' && c.name !== 'notification_send')
   .map((c) => c.name as CapabilityName)
-  .filter((name) => name !== 'notification_send')
 
 export function agentTaskScope(taskId: string): TaskScope {
   return { taskId, capabilities: AGENT_TASK_CAPABILITIES }
