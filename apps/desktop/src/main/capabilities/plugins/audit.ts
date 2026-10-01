@@ -18,7 +18,7 @@ export function auditExpectedValues(
   expectations: Record<string, unknown>,
   actuals: Record<string, unknown>
 ): AuditResult {
-  let mismatches: AuditMismatch[] = []
+  const mismatches: AuditMismatch[] = []
 
   for (const [key, expected] of Object.entries(expectations)) {
     if (expected === undefined || expected === null) continue
