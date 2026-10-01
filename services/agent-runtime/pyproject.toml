@@ -33,10 +33,14 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.16.5",
+    "vulture>=2.16",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+extend-exclude = [".vulture_whitelist.py"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["personal_agent"]

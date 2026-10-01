@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@5/overview/configuration-schema.json",
+  "entry": [
+    "src/main/index.ts",
+    "src/preload/index.ts",
+    "src/renderer/src/main.tsx"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}"
+  ],
+  "ignore": [
+    "src/main/capabilities/plugins/**",
+    "src/main/product-state/migrations/**"
+  ],
+  "ignoreExportsUsedInFile": true
+}

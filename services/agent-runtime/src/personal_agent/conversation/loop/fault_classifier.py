@@ -235,7 +235,10 @@ def classify_fault(error: Any) -> FaultClassification:
         f_type = "duplicate_call"
     elif (
         "hostrequestfailed" in lower_msg
+        or "hostrequestfailed" in error_type
+        or "host 请求失败" in msg
         or "summaryrejected" in lower_msg
+        or "summaryrejected" in error_type
         or "summary rejected" in lower_msg
         or "tool_execution_error" in lower_msg
     ):

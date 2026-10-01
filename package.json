@@ -20,7 +20,9 @@
     "package:dir": "pnpm package:py && pnpm --dir apps/desktop build:unpack",
     "package:win": "pnpm package:py && pnpm --dir apps/desktop build:win",
     "verify": "pnpm typecheck && pnpm lint:ts && pnpm lint:py && pnpm test",
-    "verify:all": "pnpm verify && pnpm build"
+    "verify:all": "pnpm verify && pnpm build",
+    "check:islands": "node --experimental-strip-types scripts/islands/check-islands.mjs",
+    "check:islands:strict": "node --experimental-strip-types scripts/islands/check-islands.mjs --strict"
   },
   "keywords": [],
   "author": "",

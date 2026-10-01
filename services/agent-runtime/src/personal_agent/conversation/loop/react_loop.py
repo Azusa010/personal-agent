@@ -1,4 +1,5 @@
 import logging
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -16,6 +17,12 @@ from personal_agent.conversation.loop.fault_classifier import (
     StreamStalledError,
     StreamWatchdog,
     classify_fault,
+)
+from personal_agent.conversation.loop.recovery import (
+    RecoveryLevel,
+    RecoveryPathBreaker,
+    RecoveryPlan,
+    determine_recovery_plan,
 )
 from personal_agent.conversation.model.gateway import (
     BatchToolCallDecision,
@@ -89,6 +96,7 @@ class ReActOutcome:
     tool_calls_used: int = 0
     events: list[RunTaskEvent] = field(default_factory=list)
     fault: FaultClassification | None = None
+    recovery_plan: RecoveryPlan | None = None
 
 
 class ReActLoop:
@@ -104,6 +112,8 @@ class ReActLoop:
         circuit_breaker: RejectionCircuitBreaker | None = None,
         sidecar_llm: SidecarLlmClient | None = None,
         watchdog: StreamWatchdog | None = None,
+        path_breaker: RecoveryPathBreaker | None = None,
+        is_background: bool = False,
     ) -> None:
         self._model = model
         self._channel = channel
@@ -119,6 +129,8 @@ class ReActLoop:
         )
         self._sidecar_llm = sidecar_llm
         self._watchdog = watchdog
+        self._path_breaker = path_breaker or RecoveryPathBreaker()
+        self._is_background = is_background
 
     def run(
         self,
@@ -155,6 +167,11 @@ class ReActLoop:
                 )
                 self._emit(events, EVENT_TASK_FAILED, {"reason": reason})
                 fault = classify_fault(reason)
+                plan = determine_recovery_plan(
+                    fault=fault,
+                    breaker=self._path_breaker,
+                    is_background=self._is_background,
+                )
                 return ReActOutcome(
                     kind="budget_exhausted",
                     reason=reason,
@@ -162,10 +179,11 @@ class ReActLoop:
                     tool_calls_used=tool_calls_used,
                     events=events,
                     fault=fault,
+                    recovery_plan=plan,
                 )
 
             try:
-                decision = self._decide(goal, visible_capabilities)
+                decision = self._decide_with_recovery(goal, visible_capabilities)
             except StreamStalledError as e:
                 return self._fail(
                     events, str(e), steps_used, tool_calls_used, fault_source=e
@@ -289,10 +307,38 @@ class ReActLoop:
 
                 try:
                     observation = self._execute(decision)
+                    self._path_breaker.record_success("tool_self_heal")
                 except HostRequestFailed as e:
-                    return self._fail(
-                        events, str(e), steps_used, tool_calls_used, fault_source=e
+                    fault = classify_fault(e)
+                    plan = determine_recovery_plan(
+                        fault=fault,
+                        breaker=self._path_breaker,
+                        is_background=self._is_background,
                     )
+                    if (
+                        plan.level == RecoveryLevel.LEVEL_2_DEGRADE
+                        and plan.action == "feed_observation"
+                    ):
+                        log.warning("触发 Level 2 工具错误回灌自纠正：%s", plan.reason)
+                        observation = Observation(
+                            callId=decision.callId,
+                            capability=decision.capability,
+                            ok=False,
+                            payload={
+                                "error": "tool_execution_error",
+                                "reason": str(e),
+                            },
+                            arguments=decision.arguments,
+                        )
+                    else:
+                        return self._fail(
+                            events,
+                            str(e),
+                            steps_used,
+                            tool_calls_used,
+                            fault_source=e,
+                            recovery_plan=plan,
+                        )
                 except HostChannelClosed as e:
                     return self._fail(
                         events,
@@ -442,9 +488,16 @@ class ReActLoop:
         steps_used: int,
         tool_calls_used: int,
         fault_source: Any = None,
+        recovery_plan: RecoveryPlan | None = None,
     ) -> ReActOutcome:
         self._emit(events, EVENT_TASK_FAILED, {"reason": reason})
         fault = classify_fault(fault_source if fault_source is not None else reason)
+        if recovery_plan is None:
+            recovery_plan = determine_recovery_plan(
+                fault=fault,
+                breaker=self._path_breaker,
+                is_background=self._is_background,
+            )
         return ReActOutcome(
             kind="failed",
             reason=reason,
@@ -452,7 +505,42 @@ class ReActLoop:
             tool_calls_used=tool_calls_used,
             events=events,
             fault=fault,
+            recovery_plan=recovery_plan,
         )
+
+    def _decide_with_recovery(
+        self, goal: str, visible_capabilities: Sequence[str]
+    ) -> ModelDecision:
+        attempt = 1
+        attempted_actions: list[str] = []
+        while True:
+            try:
+                decision = self._decide(goal, visible_capabilities)
+                self._path_breaker.record_success("silent_retry")
+                return decision
+            except ModelCallFailed as e:
+                fault = classify_fault(e)
+                plan = determine_recovery_plan(
+                    fault=fault,
+                    breaker=self._path_breaker,
+                    attempt=attempt,
+                    is_background=self._is_background,
+                    attempted_actions=attempted_actions,
+                )
+                if plan.level == RecoveryLevel.LEVEL_1_RETRY:
+                    log.warning(
+                        "触发 Level 1 静默重试：%s，等待 %.2fs (第 %d 次尝试)",
+                        plan.reason,
+                        plan.delay_seconds,
+                        attempt,
+                    )
+                    if plan.delay_seconds > 0:
+                        time.sleep(plan.delay_seconds)
+                    attempt += 1
+                    attempted_actions = plan.attempted_actions
+                    continue
+                # 无法静默重试（如已熔断或不可重试），抛出供 run() 终止或降级
+                raise
 
     def _emit(
         self, events: list[RunTaskEvent], event_type: str, payload: dict[str, Any]

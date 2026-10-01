@@ -18,6 +18,11 @@ from personal_agent.conversation.loop.fault_classifier import (
     RetryVerdict,
     StreamWatchdog,
 )
+from personal_agent.conversation.loop.recovery import (
+    RecoveryLevel,
+    RecoveryPathBreaker,
+)
+from personal_agent.conversation.model.gateway import ModelCallFailed
 from personal_agent.conversation.sidecar import (
     RejectionCircuitBreaker,
     StreamBarrier,
@@ -35,6 +40,7 @@ from personal_agent.protocol.models import (
 )
 from personal_agent.react_loop import ReActLoop, ReActOutcome
 from personal_agent.scripted_model import ScriptedModel
+from personal_agent.shared.host_channel import HostRequestFailed
 
 VISIBLE = ["filesystem_list", "document_extract_pdf"]
 
@@ -534,6 +540,154 @@ def test_react_loop_fault_recorded_on_budget_exhaustion():
     assert outcome.fault.fault_type == "budget_exhausted"
     assert outcome.fault.layer == FaultLayer.CONTROL
     assert outcome.fault.verdict == RetryVerdict.FATAL
+
+
+def test_react_loop_level_1_silent_retry_succeeds(monkeypatch):
+    """验证模型决策遭遇临时限流错误时，ReActLoop 自动触发 Level 1 静默重试并在重试成功后完成任务。"""
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    call_count = 0
+
+    class TransientFailingModel:
+        def decide(self, context, on_thinking=None):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise ModelCallFailed("Rate limit 429: Too Many Requests")
+            return SummaryDecision(kind="summary", reply="重试后成功完成", facts=[])
+
+    model = TransientFailingModel()
+    channel = FakeChannel([])
+    context = ContextManager(plan=())
+    breaker = RecoveryPathBreaker({"silent_retry": 3})
+    loop = ReActLoop(
+        model=model,
+        channel=channel,
+        context=context,
+        budget=Budget(maxSteps=3, maxToolCalls=2),
+        path_breaker=breaker,
+    )
+
+    outcome = loop.run("静默重试测试", VISIBLE)
+    assert outcome.kind == "completed"
+    assert outcome.reply == "重试后成功完成"
+    assert call_count == 2
+    assert breaker.get_failure_count("silent_retry") == 0
+
+
+def test_react_loop_level_1_silent_retry_tripped_escalates(monkeypatch):
+    """验证模型决策连续失败达到熔断阈值后，升级为 Level 3 并终止任务。"""
+    monkeypatch.setattr("time.sleep", lambda s: None)
+
+    class ConstantlyFailingModel:
+        def decide(self, context, on_thinking=None):
+            raise ModelCallFailed("Rate limit 429: Too Many Requests")
+
+    model = ConstantlyFailingModel()
+    channel = FakeChannel([])
+    context = ContextManager(plan=())
+    breaker = RecoveryPathBreaker({"silent_retry": 2})
+    loop = ReActLoop(
+        model=model,
+        channel=channel,
+        context=context,
+        budget=Budget(maxSteps=5, maxToolCalls=2),
+        path_breaker=breaker,
+    )
+
+    outcome = loop.run("熔断升级测试", VISIBLE)
+    assert outcome.kind == "failed"
+    assert breaker.is_tripped("silent_retry")
+    assert outcome.recovery_plan is not None
+    assert outcome.recovery_plan.level == RecoveryLevel.LEVEL_3_ESCALATE
+    assert outcome.recovery_plan.action == "escalate_user"
+
+
+def test_react_loop_level_2_tool_error_self_healing_feedback():
+    """验证工具调用抛出 HostRequestFailed 时，触发 Level 2 将错误观察回灌给模型，让模型自纠正。"""
+    channel = FakeChannel(
+        [HostRequestFailed("INTERNAL_ERROR", "File /data/missing.txt not found")]
+    )
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId="call-1",
+            capability="filesystem_list",
+            arguments={"rootId": "downloads"},
+        ),
+        SummaryDecision(
+            kind="summary",
+            reply="收到文件不存在的观察，已记录并回复用户",
+            facts=[],
+        ),
+    ]
+    model = ScriptedModel(decisions)
+    context = ContextManager(plan=())
+    breaker = RecoveryPathBreaker({"tool_self_heal": 3})
+    loop = ReActLoop(
+        model=model,
+        channel=channel,
+        context=context,
+        budget=Budget(maxSteps=5, maxToolCalls=3),
+        path_breaker=breaker,
+    )
+
+    outcome = loop.run("工具自愈测试", VISIBLE)
+    assert outcome.kind == "completed"
+    assert outcome.reply == "收到文件不存在的观察，已记录并回复用户"
+    assert len(context.observations) == 1
+    obs = context.observations[0]
+    assert obs.ok is False
+    assert obs.payload.get("error") == "tool_execution_error"
+    assert "File /data/missing.txt not found" in obs.payload.get("reason", "")
+
+
+def test_react_loop_level_2_tool_error_tripped_circuit_breaker():
+    """验证工具调用连续失败达到 tool_self_heal 熔断阈值后，熔断器生效并终止任务。"""
+    channel = FakeChannel(
+        [
+            HostRequestFailed("INTERNAL_ERROR", "Error 1"),
+            HostRequestFailed("INTERNAL_ERROR", "Error 2"),
+            HostRequestFailed("INTERNAL_ERROR", "Error 3"),
+        ]
+    )
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId="c1",
+            capability="filesystem_list",
+            arguments={},
+        ),
+        ToolCallDecision(
+            kind="tool_call",
+            callId="c2",
+            capability="filesystem_list",
+            arguments={},
+        ),
+        ToolCallDecision(
+            kind="tool_call",
+            callId="c3",
+            capability="filesystem_list",
+            arguments={},
+        ),
+    ]
+    model = ScriptedModel(decisions)
+    context = ContextManager(plan=())
+    breaker = RecoveryPathBreaker({"tool_self_heal": 2})
+    loop = ReActLoop(
+        model=model,
+        channel=channel,
+        context=context,
+        budget=Budget(maxSteps=5, maxToolCalls=5),
+        path_breaker=breaker,
+    )
+
+    outcome = loop.run("工具熔断测试", VISIBLE)
+    assert outcome.kind == "failed"
+    assert breaker.is_tripped("tool_self_heal")
+    assert outcome.recovery_plan is not None
+    assert outcome.recovery_plan.level == RecoveryLevel.LEVEL_3_ESCALATE
+    assert outcome.recovery_plan.action == "escalate_user"
+
 
 
 

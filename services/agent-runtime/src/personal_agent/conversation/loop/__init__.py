@@ -12,6 +12,14 @@ from personal_agent.conversation.loop.fault_classifier import (
     classify_fault,
 )
 from personal_agent.conversation.loop.react_loop import ReActLoop, ReActOutcome
+from personal_agent.conversation.loop.recovery import (
+    DEFAULT_BREAKER_THRESHOLDS,
+    RecoveryLevel,
+    RecoveryPathBreaker,
+    RecoveryPlan,
+    compute_backoff_delay,
+    determine_recovery_plan,
+)
 from personal_agent.conversation.loop.strategy import (
     AgentStrategy,
     ClassicStrategy,
@@ -21,6 +29,7 @@ from personal_agent.conversation.loop.strategy import (
 )
 
 __all__ = [
+    "DEFAULT_BREAKER_THRESHOLDS",
     "FAULT_CLASSIFICATION",
     "FAULT_LAYER_MAP",
     "AgentEngine",
@@ -32,9 +41,14 @@ __all__ = [
     "ReActLoop",
     "ReActOutcome",
     "ReActStrategy",
+    "RecoveryLevel",
+    "RecoveryPathBreaker",
+    "RecoveryPlan",
     "RetryVerdict",
     "StreamStalledError",
     "StreamWatchdog",
     "_settle_usage",
     "classify_fault",
+    "compute_backoff_delay",
+    "determine_recovery_plan",
 ]
