@@ -86,3 +86,16 @@ def test_rules_forbid_mechanically_repeating_capabilities():
     assert "严禁主动复述" in EXECUTOR_INSTRUCTIONS or "报菜单" in EXECUTOR_INSTRUCTIONS
 
 
+def test_instructions_contain_code_reasoning_guidance():
+    # 验证执行器与通用规则中包含代码推理优先原则 (TASK-B2)
+    assert "代码推理优先原则" in EXECUTOR_INSTRUCTIONS
+    assert "code_interpreter" in EXECUTOR_INSTRUCTIONS
+    assert "sympy" in EXECUTOR_INSTRUCTIONS
+    assert "python-constraint" in EXECUTOR_INSTRUCTIONS
+
+    # 验证规划器中包含代码推理规划约束 (TASK-B2)
+    assert "代码推理优先" in PLANNER_INSTRUCTIONS
+    assert "code_interpreter" in PLANNER_INSTRUCTIONS
+
+
+

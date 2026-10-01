@@ -77,7 +77,10 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "viking_read_l1": "读取 Viking 维基目录的 L1 概览 (.overview)",
     "viking_read_l2": "读取 Viking 维基条目的 L2 全文 (*.md)",
     "viking_write_l2": "写入或更新 Viking 维基条目的 L2 全文 (*.md)",
-    "code_interpreter": "在隔离沙盒内运行 Python 代码，用于复杂数据计算与批量文件处理",
+    "code_interpreter": (
+        "在隔离沙盒内运行 Python 代码，用于复杂数据计算与代码推理验证。"
+        "遇到数学计算、逻辑约束求解、统计分析或符号代数时，优先使用此工具编写代码推理"
+    ),
     "file_search": "跨平台文件搜索，支持按文件名通配符或文本内容进行检索",
     "skill_search": "按关键词或标签检索 Agent Skills 目录，仅返回轻量元数据以保护上下文",
     "skill_read": "按需加载指定 Skill 的完整指令正文 (SKILL.md)，实现渐进式披露",

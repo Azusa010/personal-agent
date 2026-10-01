@@ -93,7 +93,8 @@ TOOL_SPECS: dict[str, str] = {
         '写入或更新 Viking 维基条目的 L2 全文 (*.md)。参数 {"uri": "<viking:// URI>", "content": "<Markdown文本>"}'
     ),
     "code_interpreter": (
-        '在隔离沙盒内运行 Python 代码。参数 {"code": "<Python代码>", "timeoutMs": <可选超时毫秒数>, "saveArtifacts": <可选布尔>}'
+        '在隔离沙盒内运行 Python 代码，用于复杂数据计算与代码推理。'
+        '参数 {"code": "<Python代码>", "timeoutMs": <可选超时毫秒数>, "saveArtifacts": <可选布尔>}'
     ),
     "file_search": (
         '跨平台文件/内容检索。参数 {"pattern": "<检索模式>", "searchMode": <可选"filename"|"content_plain"|"content_regex">, "relativeRoot": <可选子路径>, "maxMatches": <可选最大匹配数>}'

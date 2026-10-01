@@ -379,7 +379,10 @@ def test_instructions_no_longer_hardcode_the_golden_path():
     assert "Reading" not in INSTRUCTIONS
     assert "Downloads" not in INSTRUCTIONS
     for capability in get_args(CapabilityId):
+        if capability == "code_interpreter":
+            continue
         assert capability not in INSTRUCTIONS
+    assert "code_interpreter" in INSTRUCTIONS
 
 
 def test_decide_responses_sends_the_contract_schema_and_returns_a_tool_call():
