@@ -47,7 +47,7 @@ describe('assessRisk：与 registry 对账', () => {
     }
   })
 
-  it('Coding Agent 现状：十三个 READ、九个 WRITE', () => {
+  it('Coding Agent 现状：十三个 READ、十个 WRITE', () => {
     // 钉数量是为了让「有人悄悄把一个 WRITE 改成 READ」这件事变红。
     // 改成 READ 就绕过了 Permission，而 Phase 2 的整个 Exit Gate 建立在它之上。
     expect(listByKind('READ').map((c) => c.name)).toEqual([
@@ -74,7 +74,8 @@ describe('assessRisk：与 registry 对账', () => {
       'notification_send',
       'terminal_execute',
       'code_interpreter',
-      'viking_write_l2'
+      'viking_write_l2',
+      'a2ui_render'
     ])
   })
 })

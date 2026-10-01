@@ -122,6 +122,10 @@ TOOL_SPECS: dict[str, str] = {
     "file_edit": (
         '在现有文件中进行精准单块局部修改，Old String 必须全局唯一。参数 {"path": "<文件相对路径>", "oldString": "<待替换文本>", "newString": "<替换后文本>"}'
     ),
+    "a2ui_render": (
+        '向桌面客户端推送受信任的 A2UI 声明式组件树进行安全渲染与交互。'
+        '参数 {"title": "<可选标题>", "components": [<组件列表>], "actions": [<动作列表>]}'
+    ),
 }
 
 # 标准 OpenAI Function Calling 工具参数定义（由 Pydantic 契约模型动态推导生成，单一事实来源）

@@ -9,6 +9,7 @@ from typing import Any, get_args
 from pydantic import BaseModel
 
 from personal_agent.protocol.models import (
+    A2UIRenderParams,
     CapabilityId,
     CodeInterpreterParams,
     DocumentExtractPdfParams,
@@ -58,10 +59,12 @@ TOOL_PARAM_MODELS: dict[str, type[BaseModel]] = {
     "file_read": FileReadParams,
     "file_write": FileWriteParams,
     "file_edit": FileEditParams,
+    "a2ui_render": A2UIRenderParams,
 }
 
 # 工具层级高阶描述说明（对齐 ACI 目标导向）
 TOOL_DESCRIPTIONS: dict[str, str] = {
+    "a2ui_render": "向桌面客户端推送受信任的 A2UI 声明式组件树进行安全渲染与交互",
     "web_search": "使用 Tavily 搜索引擎在互联网上实时检索最新网页资讯与事实答案",
     "filesystem_list": "列出指定授权根目录下的文件与子目录条目",
     "document_extract_pdf": "解析并提取 PDF 文件的逐页文本与页码",

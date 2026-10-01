@@ -1,0 +1,38 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-42",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "call-a2ui-1",
+    "capability": "a2ui_render",
+    "arguments": {
+      "title": "参数确认表单",
+      "components": [
+        {
+          "type": "heading",
+          "id": "form-heading",
+          "props": {
+            "text": "任务配置确认",
+            "level": 2
+          }
+        },
+        {
+          "type": "text_input",
+          "id": "project_name",
+          "props": {
+            "label": "项目名称",
+            "placeholder": "请输入项目名称",
+            "default": "my-awesome-project"
+          }
+        }
+      ],
+      "actions": [
+        {
+          "id": "submit-btn",
+          "label": "确认提交",
+          "type": "submit"
+        }
+      ]
+    }
+  }
+}

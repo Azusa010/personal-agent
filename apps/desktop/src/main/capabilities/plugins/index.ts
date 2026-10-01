@@ -17,6 +17,7 @@ import { webSearchPlugin } from './web-search'
 import { fileReadPlugin } from './file-read'
 import { fileWritePlugin } from './file-write'
 import { fileEditPlugin } from './file-edit'
+import { a2uiRenderPlugin } from './a2ui'
 
 export * from '../plugin'
 export * from './helpers'
@@ -33,6 +34,7 @@ export * from './web-search'
 export * from './file-read'
 export * from './file-write'
 export * from './file-edit'
+export * from './a2ui'
 
 const BUILTIN_PLUGINS: readonly CapabilityPlugin[] = [
   filesystemListPlugin,
@@ -56,7 +58,8 @@ const BUILTIN_PLUGINS: readonly CapabilityPlugin[] = [
   notificationSendPlugin,
   terminalExecutePlugin,
   codeInterpreterPlugin,
-  vikingWriteL2Plugin
+  vikingWriteL2Plugin,
+  a2uiRenderPlugin
 ]
 
 const registry = new Map<string, CapabilityPlugin>()

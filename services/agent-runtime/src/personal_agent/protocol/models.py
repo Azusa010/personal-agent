@@ -114,6 +114,7 @@ CapabilityId = Literal[
     "file_read",
     "file_write",
     "file_edit",
+    "a2ui_render",
 ]
 
 

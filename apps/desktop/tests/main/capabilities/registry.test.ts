@@ -36,14 +36,15 @@ const ALL_CAPABILITY_NAMES = [
   'viking_write_l2',
   'skill_search',
   'skill_read',
-  'web_search'
+  'web_search',
+  'a2ui_render'
 ]
 
 describe('CapabilityRegistry', () => {
-  it('恰好注册 22 个能力，不多不少', () => {
+  it('恰好注册 23 个能力，不多不少', () => {
     const names = listCapabilities().map((c) => c.name)
     expect([...names].sort()).toEqual([...ALL_CAPABILITY_NAMES].sort())
-    expect(CAPABILITIES).toHaveLength(22)
+    expect(CAPABILITIES).toHaveLength(23)
 
     // SEC-007 的禁止类名字必须查不到
     for (const forbidden of ['shell.exec', 'process.spawn', 'filesystem.delete', 'http.fetch']) {
@@ -51,7 +52,7 @@ describe('CapabilityRegistry', () => {
     }
   })
 
-  it('分类为 13 READ + 9 WRITE', () => {
+  it('分类为 13 READ + 10 WRITE', () => {
     expect(listByKind('READ').map((c) => c.name)).toEqual([
       'filesystem_list',
       'document_extract_pdf',
@@ -76,7 +77,8 @@ describe('CapabilityRegistry', () => {
       'notification_send',
       'terminal_execute',
       'code_interpreter',
-      'viking_write_l2'
+      'viking_write_l2',
+      'a2ui_render'
     ])
     // 两类不重不漏
     expect(listByKind('READ').length + listByKind('WRITE').length).toBe(CAPABILITIES.length)

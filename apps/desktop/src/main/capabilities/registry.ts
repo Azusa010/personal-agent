@@ -127,6 +127,11 @@ export const CAPABILITIES = [
     name: 'viking_write_l2',
     kind: 'WRITE',
     description: '写入或更新 Viking 维基条目的 L2 全文 (*.md)'
+  },
+  {
+    name: 'a2ui_render',
+    kind: 'WRITE',
+    description: '向桌面客户端推送受信任的 A2UI 声明式组件树进行安全渲染与交互'
   }
 ] as const satisfies readonly CapabilityDescriptor[]
 
