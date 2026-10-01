@@ -1,0 +1,9 @@
+{
+  "renderId": "render-refactor-001",
+  "actionId": "submit",
+  "formData": {
+    "targets": ["src/api/user.ts", "src/api/auth.ts"],
+    "strategy": "提取接口",
+    "run_tests": true
+  }
+}

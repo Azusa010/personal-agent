@@ -18,3 +18,4 @@ export * from "./file-search";
 export * from "./skills";
 export * from "./web-search";
 export * from "./sidecar";
+export * from "./a2ui";

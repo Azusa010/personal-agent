@@ -1,0 +1,63 @@
+{
+  "version": "1.0",
+  "title": "系统监控仪表盘",
+  "components": [
+    {
+      "type": "alert",
+      "id": "alert-status",
+      "props": {
+        "status": "success",
+        "title": "系统运行正常",
+        "message": "所有服务运行良好，未检测到告警。"
+      }
+    },
+    {
+      "type": "tabs",
+      "id": "tabs-main",
+      "props": {
+        "activeTab": "overview"
+      },
+      "children": [
+        {
+          "type": "chart",
+          "id": "chart-cpu",
+          "props": {
+            "chartType": "line",
+            "title": "CPU 负载趋势",
+            "data": [
+              { "time": "10:00", "value": 15 },
+              { "time": "10:05", "value": 22 },
+              { "time": "10:10", "value": 18 }
+            ]
+          }
+        },
+        {
+          "type": "table",
+          "id": "table-processes",
+          "props": {
+            "columns": ["PID", "Name", "Memory"],
+            "rows": [
+              ["101", "personal-agent", "128MB"],
+              ["102", "runtime-host", "64MB"]
+            ]
+          }
+        },
+        {
+          "type": "code_block",
+          "id": "code-log",
+          "props": {
+            "language": "json",
+            "code": "{\n  \"status\": \"healthy\",\n  \"uptime\": 3600\n}"
+          }
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": "refresh",
+      "label": "刷新数据",
+      "type": "submit"
+    }
+  ]
+}

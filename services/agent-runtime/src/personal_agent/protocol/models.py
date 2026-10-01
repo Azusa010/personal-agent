@@ -1126,3 +1126,104 @@ class ResetCircuitBreakerResponse(ProtocolModel):
     result: ResetCircuitBreakerResult | None = None
     error: JsonRpcError | None = None
 
+
+# ---- A2UI Declarative UI Protocol (TASK-D1) ----
+
+A2UIComponentType = Literal[
+    "text_input",
+    "textarea",
+    "number_input",
+    "select",
+    "multi_select",
+    "checkbox",
+    "radio_group",
+    "date_picker",
+    "file_picker",
+    "slider",
+    "heading",
+    "paragraph",
+    "code_block",
+    "table",
+    "chart",
+    "image",
+    "divider",
+    "alert",
+    "form",
+    "card",
+    "tabs",
+    "grid",
+    "accordion",
+]
+
+A2UIActionType = Literal["submit", "cancel", "navigate"]
+
+
+class A2UIAction(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    type: A2UIActionType
+    variant: str | None = None
+    target: str | None = None
+
+
+class A2UIComponent(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    type: A2UIComponentType
+    id: str = Field(min_length=1)
+    props: dict[str, Any] = Field(default_factory=dict)
+    children: list["A2UIComponent"] | None = None
+
+
+class A2UIDocument(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    version: Literal["1.0"] = "1.0"
+    title: str | None = None
+    components: list[A2UIComponent] = Field(default_factory=list)
+    actions: list[A2UIAction] | None = None
+
+
+class A2UIRenderParams(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    document: A2UIDocument | None = None
+    version: Literal["1.0"] = "1.0"
+    title: str | None = None
+    components: list[A2UIComponent] | None = None
+    actions: list[A2UIAction] | None = None
+
+
+class A2UIRenderResult(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True] = True
+    renderId: str = Field(min_length=1)
+    componentCount: int = Field(ge=0)
+    actionId: str | None = None
+    formData: dict[str, Any] | None = None
+
+
+class A2UIFormSubmitParams(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    renderId: str | None = None
+    actionId: str = Field(min_length=1)
+    formData: dict[str, Any] = Field(default_factory=dict)
+
+
+class A2UIFormSubmitResult(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True] = True
+    actionId: str = Field(min_length=1)
+    formData: dict[str, Any] = Field(default_factory=dict)
+    accepted: bool = True
+
+
+A2UIComponent.model_rebuild()
+A2UIDocument.model_rebuild()
+A2UIRenderParams.model_rebuild()
+

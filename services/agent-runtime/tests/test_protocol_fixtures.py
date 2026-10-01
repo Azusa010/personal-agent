@@ -6,6 +6,15 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from personal_agent.protocol.models import (
+    A2UIAction,
+    A2UIActionType,
+    A2UIComponent,
+    A2UIComponentType,
+    A2UIDocument,
+    A2UIFormSubmitParams,
+    A2UIFormSubmitResult,
+    A2UIRenderParams,
+    A2UIRenderResult,
     AgentStreamNotification,
     CapabilityDescriptor,
     CapabilityExposure,
@@ -1553,6 +1562,107 @@ def test_write_capabilities_expected_audit_params():
         {"uri": "viking://wiki/test.md", "content": "# Title"}
     )
     assert vw_without.expected_article_exists is None
+
+
+# ---- A2UI Tests (TASK-D1) ----
+
+
+def test_a2ui_document_form_fixture():
+    raw = _load("a2ui-document.form.json")
+    doc = A2UIDocument.model_validate(raw)
+    assert doc.version == "1.0"
+    assert doc.title == "重构配置表单"
+    assert len(doc.components) == 1
+    root_card = doc.components[0]
+    assert root_card.type == "card"
+    assert root_card.id == "card-config"
+    assert root_card.props["title"] == "代码重构向导"
+    assert root_card.children is not None
+    assert len(root_card.children) == 5
+    types = [c.type for c in root_card.children]
+    assert types == ["heading", "paragraph", "multi_select", "radio_group", "checkbox"]
+    assert doc.actions is not None
+    assert len(doc.actions) == 2
+    assert doc.actions[0].id == "submit"
+    assert doc.actions[0].type == "submit"
+    assert doc.actions[1].id == "cancel"
+    assert doc.actions[1].type == "cancel"
+
+
+def test_a2ui_document_dashboard_fixture():
+    raw = _load("a2ui-document.dashboard.json")
+    doc = A2UIDocument.model_validate(raw)
+    assert doc.version == "1.0"
+    assert doc.title == "系统监控仪表盘"
+    assert len(doc.components) == 2
+    assert doc.components[0].type == "alert"
+    assert doc.components[1].type == "tabs"
+    assert doc.components[1].children is not None
+    assert len(doc.components[1].children) == 3
+    child_types = [c.type for c in doc.components[1].children]
+    assert child_types == ["chart", "table", "code_block"]
+
+
+def test_a2ui_form_submit_fixture():
+    raw = _load("a2ui-form-submit.json")
+    submit = A2UIFormSubmitParams.model_validate(raw)
+    assert submit.renderId == "render-refactor-001"
+    assert submit.actionId == "submit"
+    assert "strategy" in submit.formData
+    assert submit.formData["strategy"] == "提取接口"
+
+    res = A2UIFormSubmitResult.model_validate(
+        {"actionId": "submit", "formData": submit.formData, "accepted": True}
+    )
+    assert res.ok is True
+    assert res.accepted is True
+
+
+def test_a2ui_render_result_fixture():
+    raw = _load("a2ui-render.result.json")
+    res = A2UIRenderResult.model_validate(raw)
+    assert res.ok is True
+    assert res.renderId == "render-refactor-001"
+    assert res.componentCount == 5
+
+
+def test_a2ui_validation_invariants():
+    # 23 种白名单组件覆盖
+    all_types = get_args(A2UIComponentType)
+    assert len(all_types) == 23
+
+    # 动作类型白名单覆盖
+    action_types = get_args(A2UIActionType)
+    assert set(action_types) == {"submit", "cancel", "navigate"}
+
+    # 非法组件类型报错
+    with pytest.raises(ValidationError):
+        A2UIComponent.model_validate({"type": "malicious_script", "id": "x"})
+
+    # 空 id 报错
+    with pytest.raises(ValidationError):
+        A2UIComponent.model_validate({"type": "heading", "id": ""})
+
+    # 非法 action 类型报错
+    with pytest.raises(ValidationError):
+        A2UIAction.model_validate({"id": "act-1", "label": "Click", "type": "exploit"})
+
+    # 非法版本号报错
+    with pytest.raises(ValidationError):
+        A2UIDocument.model_validate({"version": "2.0", "components": []})
+
+    # A2UIRenderParams 支持 document 包装或平铺
+    doc = A2UIDocument.model_validate({"components": [{"type": "divider", "id": "d-1"}]})
+    p1 = A2UIRenderParams.model_validate({"document": doc})
+    assert p1.document is not None and len(p1.document.components) == 1
+
+    p2 = A2UIRenderParams.model_validate(
+        {
+            "title": "测试",
+            "components": [{"type": "divider", "id": "d-2"}],
+        }
+    )
+    assert p2.components is not None and len(p2.components) == 1
 
 
 

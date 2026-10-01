@@ -1,0 +1,69 @@
+{
+  "version": "1.0",
+  "title": "重构配置表单",
+  "components": [
+    {
+      "type": "card",
+      "id": "card-config",
+      "props": {
+        "title": "代码重构向导"
+      },
+      "children": [
+        {
+          "type": "heading",
+          "id": "h-1",
+          "props": {
+            "text": "重构配置"
+          }
+        },
+        {
+          "type": "paragraph",
+          "id": "p-1",
+          "props": {
+            "text": "请选择需要重构的目标文件与具体策略"
+          }
+        },
+        {
+          "type": "multi_select",
+          "id": "targets",
+          "props": {
+            "label": "目标文件",
+            "options": [
+              "src/api/user.ts",
+              "src/api/auth.ts",
+              "src/api/order.ts"
+            ]
+          }
+        },
+        {
+          "type": "radio_group",
+          "id": "strategy",
+          "props": {
+            "label": "重构策略",
+            "options": ["提取接口", "合并模块", "分拆文件"]
+          }
+        },
+        {
+          "type": "checkbox",
+          "id": "run_tests",
+          "props": {
+            "label": "重构后自动运行测试",
+            "default": true
+          }
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": "submit",
+      "label": "开始重构",
+      "type": "submit"
+    },
+    {
+      "id": "cancel",
+      "label": "取消",
+      "type": "cancel"
+    }
+  ]
+}
