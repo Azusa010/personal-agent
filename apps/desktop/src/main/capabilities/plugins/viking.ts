@@ -17,9 +17,11 @@ import {
 import type { BindResult } from '../../policy/argument-binders'
 import type { CapabilityPlugin } from '../plugin'
 import {
+  auditExpectedValues,
   describeError,
   fail,
   invalid,
+  safeStat,
   wrapExternalSource,
   VIKING_ISOLATION_HEADER,
   VIKING_ISOLATION_FOOTER
@@ -163,6 +165,13 @@ export const vikingWriteL2Plugin: CapabilityPlugin = {
       const targetPath = call.bound.paths['path']
       const uri = String(call.bound.args['uri'])
       const content = String(call.bound.args['content'])
+      const articleStat = await safeStat(targetPath)
+      auditExpectedValues(
+        call.callId,
+        call.capability.name,
+        { expected_article_exists: call.bound.args['expected_article_exists'] },
+        { expected_article_exists: articleStat !== undefined }
+      )
       const res = await writeVikingL2ByTarget(targetPath, content)
       return { ok: true, uri, bytesWritten: res.bytesWritten, path: res.path }
     } catch (e) {

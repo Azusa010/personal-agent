@@ -8,7 +8,7 @@ import { resolveWithinRootReal } from '../path-guard'
 import { resolveRoot, toPosix } from '../roots'
 import { truncateOutput } from '../output-truncator'
 import type { CapabilityPlugin } from '../plugin'
-import { describeError, fail, invalid } from './helpers'
+import { auditExpectedValues, describeError, fail, invalid, safeStat } from './helpers'
 
 let currentTerminalCwd: string | null = null
 
@@ -62,7 +62,10 @@ export const terminalExecutePlugin: CapabilityPlugin = {
         args: {
           command: parsed.data.command,
           ...(parsed.data.cwd !== undefined ? { cwd: parsed.data.cwd } : {}),
-          ...(parsed.data.timeoutMs !== undefined ? { timeoutMs: parsed.data.timeoutMs } : {})
+          ...(parsed.data.timeoutMs !== undefined ? { timeoutMs: parsed.data.timeoutMs } : {}),
+          ...(parsed.data.expected_cwd_exists !== undefined
+            ? { expected_cwd_exists: parsed.data.expected_cwd_exists }
+            : {})
         },
         paths
       }
@@ -72,6 +75,14 @@ export const terminalExecutePlugin: CapabilityPlugin = {
     const command = String(call.bound.args['command'])
     const defaultRoot = getTerminalDefaultRoot()
     const activeCwd = call.bound.paths['cwd'] ?? defaultRoot
+
+    const cwdStat = await safeStat(activeCwd)
+    auditExpectedValues(
+      call.callId,
+      call.capability.name,
+      { expected_cwd_exists: call.bound.args['expected_cwd_exists'] },
+      { expected_cwd_exists: cwdStat?.isDirectory() ?? false }
+    )
 
     // 拦截独立 cd 指令，会话级维持工作目录防回弹
     const cdMatch = command.trim().match(/^cd(?:\s+\/d)?(?:\s+(.+))?$/i)

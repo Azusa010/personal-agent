@@ -4,7 +4,7 @@ import { writeFileAtomic } from '../file-write'
 import { resolveWithinRootReal } from '../path-guard'
 import { resolveRoot } from '../roots'
 import type { CapabilityPlugin } from '../plugin'
-import { invalid } from './helpers'
+import { auditExpectedValues, invalid, safeStat } from './helpers'
 
 export const fileWritePlugin: CapabilityPlugin = {
   name: 'file_write',
@@ -43,6 +43,13 @@ export const fileWritePlugin: CapabilityPlugin = {
   async execute(call) {
     const absPath = call.bound.paths['path']
     const content = String(call.bound.args['content'] ?? '')
+    const fileStat = await safeStat(absPath)
+    auditExpectedValues(
+      call.callId,
+      call.capability.name,
+      { expected_file_exists: call.bound.args['expected_file_exists'] },
+      { expected_file_exists: fileStat !== undefined }
+    )
     return writeFileAtomic(absPath, content)
   }
 }

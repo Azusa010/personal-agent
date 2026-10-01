@@ -1,10 +1,12 @@
+import { readFile } from 'node:fs/promises'
+
 import { FileEditParams } from '@personal-agent/protocol'
 
 import { editFileStrict } from '../file-edit'
 import { resolveWithinRootReal } from '../path-guard'
 import { resolveRoot } from '../roots'
 import type { CapabilityPlugin } from '../plugin'
-import { invalid } from './helpers'
+import { auditExpectedValues, invalid } from './helpers'
 
 export const fileEditPlugin: CapabilityPlugin = {
   name: 'file_edit',
@@ -44,6 +46,34 @@ export const fileEditPlugin: CapabilityPlugin = {
     const absPath = call.bound.paths['path']
     const oldString = String(call.bound.args['oldString'] ?? '')
     const newString = String(call.bound.args['newString'] ?? '')
+
+    const expectedLineCount = call.bound.args['expected_file_line_count']
+    const expectedOldStringLine = call.bound.args['expected_old_string_line']
+    if (expectedLineCount !== undefined || expectedOldStringLine !== undefined) {
+      const source = await readFile(absPath, 'utf8').catch(() => null)
+      let actualLineCount: number | undefined
+      let actualOldStringLine: number | undefined
+      if (source !== null) {
+        actualLineCount = source.split(/\r?\n/).length
+        const idx = source.indexOf(oldString)
+        if (idx !== -1) {
+          actualOldStringLine = source.slice(0, idx).split(/\r?\n/).length
+        }
+      }
+      auditExpectedValues(
+        call.callId,
+        call.capability.name,
+        {
+          expected_file_line_count: expectedLineCount,
+          expected_old_string_line: expectedOldStringLine
+        },
+        {
+          expected_file_line_count: actualLineCount,
+          expected_old_string_line: actualOldStringLine
+        }
+      )
+    }
+
     return editFileStrict(absPath, oldString, newString)
   }
 }

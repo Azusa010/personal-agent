@@ -7,7 +7,7 @@ import { ReminderAlreadyExists } from '../../product-state/reminder-repository'
 import { idempotencyKey } from '../idempotency'
 import { fireReminder } from '../../scheduler/fire-reminder'
 import type { CapabilityPlugin } from '../plugin'
-import { describeError, fail, invalid } from './helpers'
+import { auditExpectedValues, describeError, fail, invalid } from './helpers'
 
 export const REMINDER_CREATED_EVENT = 'reminder_created'
 
@@ -40,7 +40,16 @@ export const schedulerCreatePlugin: CapabilityPlugin = {
     }
     return {
       ok: true,
-      bound: { args: { remindAt: remindAtIso, message: parsed.data.message }, paths: {} }
+      bound: {
+        args: {
+          remindAt: remindAtIso,
+          message: parsed.data.message,
+          ...(parsed.data.expected_no_duplicate !== undefined
+            ? { expected_no_duplicate: parsed.data.expected_no_duplicate }
+            : {})
+        },
+        paths: {}
+      }
     }
   },
   async execute(call, context) {
@@ -53,6 +62,12 @@ export const schedulerCreatePlugin: CapabilityPlugin = {
     const key = idempotencyKey(call.taskId, call.capability.name, call.bound)
 
     const existing = scheduler.reminders.findByTaskId(call.taskId)
+    auditExpectedValues(
+      call.callId,
+      call.capability.name,
+      { expected_no_duplicate: call.bound.args['expected_no_duplicate'] },
+      { expected_no_duplicate: existing === null }
+    )
     if (existing !== null) {
       if (existing.idempotencyKey === key) {
         return {

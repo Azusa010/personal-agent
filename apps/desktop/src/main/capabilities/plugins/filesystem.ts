@@ -1,3 +1,5 @@
+import { dirname } from 'node:path'
+
 import {
   ERROR_CODE,
   FilesystemCreateDirParams,
@@ -13,7 +15,7 @@ import { resolveRoot } from '../roots'
 import type { RecoveryVerdict } from '../idempotency'
 import type { ToolExecutionRecord } from '../../product-state/tool-execution-repository'
 import type { CapabilityPlugin } from '../plugin'
-import { describeError, fail, invalid, safeStat } from './helpers'
+import { auditExpectedValues, describeError, fail, invalid, safeStat } from './helpers'
 
 export const filesystemListPlugin: CapabilityPlugin = {
   name: 'filesystem_list',
@@ -67,7 +69,15 @@ export const filesystemCreateDirPlugin: CapabilityPlugin = {
     }
     return {
       ok: true,
-      bound: { args: { path: parsed.data.path }, paths: { path: guarded.path } }
+      bound: {
+        args: {
+          path: parsed.data.path,
+          ...(parsed.data.expected_parent_exists !== undefined
+            ? { expected_parent_exists: parsed.data.expected_parent_exists }
+            : {})
+        },
+        paths: { path: guarded.path }
+      }
     }
   },
   extractPermissionPaths(bound) {
@@ -94,6 +104,13 @@ export const filesystemCreateDirPlugin: CapabilityPlugin = {
   },
   async execute(call) {
     const abs = call.bound.paths['path']
+    const parentStat = await safeStat(dirname(abs))
+    auditExpectedValues(
+      call.callId,
+      call.capability.name,
+      { expected_parent_exists: call.bound.args['expected_parent_exists'] },
+      { expected_parent_exists: parentStat?.isDirectory() ?? false }
+    )
     try {
       return await createDir(abs)
     } catch (e) {
@@ -133,7 +150,19 @@ export const filesystemMovePlugin: CapabilityPlugin = {
     return {
       ok: true,
       bound: {
-        args: { source: parsed.data.source, target: parsed.data.target },
+        args: {
+          source: parsed.data.source,
+          target: parsed.data.target,
+          ...(parsed.data.expected_source_exists !== undefined
+            ? { expected_source_exists: parsed.data.expected_source_exists }
+            : {}),
+          ...(parsed.data.expected_source_is_file !== undefined
+            ? { expected_source_is_file: parsed.data.expected_source_is_file }
+            : {}),
+          ...(parsed.data.expected_target_dir_exists !== undefined
+            ? { expected_target_dir_exists: parsed.data.expected_target_dir_exists }
+            : {})
+        },
         paths: { source: source.path, target: target.path }
       }
     }
@@ -173,6 +202,22 @@ export const filesystemMovePlugin: CapabilityPlugin = {
   async execute(call) {
     const source = call.bound.paths['source']
     const target = call.bound.paths['target']
+    const sourceStat = await safeStat(source)
+    const targetDirStat = await safeStat(dirname(target))
+    auditExpectedValues(
+      call.callId,
+      call.capability.name,
+      {
+        expected_source_exists: call.bound.args['expected_source_exists'],
+        expected_source_is_file: call.bound.args['expected_source_is_file'],
+        expected_target_dir_exists: call.bound.args['expected_target_dir_exists']
+      },
+      {
+        expected_source_exists: sourceStat !== undefined,
+        expected_source_is_file: sourceStat?.isFile() ?? false,
+        expected_target_dir_exists: targetDirStat?.isDirectory() ?? false
+      }
+    )
     try {
       return await moveFile(source, target)
     } catch (e) {
