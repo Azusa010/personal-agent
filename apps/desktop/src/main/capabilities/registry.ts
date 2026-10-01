@@ -113,7 +113,15 @@ export const CAPABILITIES = [
   {
     name: 'code_interpreter',
     kind: 'WRITE',
-    description: '在隔离沙盒内执行 Python 代码段，用于复杂计算、批量数据转换及工具编排'
+    description:
+      '在隔离沙盒内执行 Python 代码段。' +
+      '用于复杂计算、批量数据转换及工具编排。\n\n' +
+      '**重要**：遇到以下场景时，必须优先用代码而非纯文本推理：\n' +
+      '- 数学计算（多步加减乘除、百分比、集合运算）→ 用 sympy 或直接 Python 计算\n' +
+      '- 逻辑推理（排列组合、约束满足、真值表）→ 用 python-constraint 建模求解\n' +
+      '- 数据统计（均值、方差、分布拟合）→ 用 numpy/scipy\n' +
+      '- 符号代数（方程求解、微积分、矩阵运算）→ 用 sympy\n\n' +
+      '代码推理比自然语言推理更精确、可验证、可复现。'
   },
   {
     name: 'viking_write_l2',

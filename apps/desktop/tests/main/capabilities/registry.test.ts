@@ -175,4 +175,11 @@ describe('CapabilityExposure 分级暴露属性', () => {
     const cap = findCapability('filesystem_list')
     expect(cap?.exposure === undefined || cap?.exposure === 'direct').toBe(true)
   })
+
+  it('code_interpreter 描述包含符号计算与逻辑推理引导 (TASK-B1)', () => {
+    const cap = findCapability('code_interpreter')
+    expect(cap?.description).toContain('必须优先用代码而非纯文本推理')
+    expect(cap?.description).toContain('sympy')
+    expect(cap?.description).toContain('python-constraint')
+  })
 })

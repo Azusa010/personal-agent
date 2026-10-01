@@ -12,6 +12,7 @@ import { createExecutor } from '../../../src/main/capabilities/executor'
 import { UI_ORIGIN, type PermissionGate } from '../../../src/main/policy/execution-policy'
 import { RuleBasedToolRetriever } from '../../../src/main/capabilities/retriever'
 import type { TaskScope } from '../../../src/main/capabilities/scope'
+import { codeInterpreterPlugin } from '../../../src/main/capabilities/plugins/code-interpreter'
 
 const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
 
@@ -146,5 +147,16 @@ describe('code_interpreter 执行体 (沙盒 Python 编排环境)', () => {
     expect(res['ok']).toBe(false)
     expect(res['code']).toBe(ERROR_CODE.PERMISSION_DENIED)
     expect(String(res['reason'])).toContain('测试代码权限拒绝')
+  })
+})
+
+describe('code_interpreter 描述符思考引导 (TASK-B1)', () => {
+  it('包含符号计算、逻辑推理与统计建模等代码思考引导语', () => {
+    const desc = codeInterpreterPlugin.descriptor.description
+    expect(desc).toContain('必须优先用代码而非纯文本推理')
+    expect(desc).toContain('sympy')
+    expect(desc).toContain('python-constraint')
+    expect(desc).toContain('numpy/scipy')
+    expect(desc).toContain('代码推理比自然语言推理更精确、可验证、可复现')
   })
 })
