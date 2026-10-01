@@ -1114,7 +1114,20 @@ def test_scheduler_create_params_constraints():
         {"remindAt": "1999-01-01T00:00:00.000Z", "message": "x"}
     )
 
-    assert list(SchedulerCreateParams.model_fields) == ["remindAt", "message"]
+    valid_with_exp = SchedulerCreateParams.model_validate(
+        {
+            "remindAt": "2026-09-15T20:00:00.000Z",
+            "message": "x",
+            "expected_no_duplicate": True,
+        }
+    )
+    assert valid_with_exp.expected_no_duplicate is True
+
+    assert list(SchedulerCreateParams.model_fields) == [
+        "remindAt",
+        "message",
+        "expected_no_duplicate",
+    ]
 
 
 def test_scheduler_create_result_constraints():
@@ -1435,5 +1448,111 @@ def test_coding_agent_file_models_and_root_id():
     assert edit_p.path == "src/main.ts"
     assert edit_p.oldString == "a"
     assert edit_p.newString == "b"
+
+
+def test_write_capabilities_expected_audit_params():
+    # 1. FilesystemCreateDirParams
+    cd_with = FilesystemCreateDirParams.model_validate(
+        {"path": "reading", "expected_parent_exists": True}
+    )
+    assert cd_with.expected_parent_exists is True
+    cd_without = FilesystemCreateDirParams.model_validate({"path": "reading"})
+    assert cd_without.expected_parent_exists is None
+
+    # 2. FilesystemMoveParams
+    mv_with = FilesystemMoveParams.model_validate(
+        {
+            "source": "a.pdf",
+            "target": "b.pdf",
+            "expected_source_exists": True,
+            "expected_source_is_file": True,
+            "expected_target_dir_exists": False,
+        }
+    )
+    assert mv_with.expected_source_exists is True
+    assert mv_with.expected_source_is_file is True
+    assert mv_with.expected_target_dir_exists is False
+    mv_without = FilesystemMoveParams.model_validate(
+        {"source": "a.pdf", "target": "b.pdf"}
+    )
+    assert mv_without.expected_source_exists is None
+    assert mv_without.expected_source_is_file is None
+    assert mv_without.expected_target_dir_exists is None
+
+    # 3. FileWriteParams
+    fw_with = FileWriteParams.model_validate(
+        {"path": "test.ts", "content": "const a = 1;", "expected_file_exists": False}
+    )
+    assert fw_with.expected_file_exists is False
+    fw_without = FileWriteParams.model_validate(
+        {"path": "test.ts", "content": "const a = 1;"}
+    )
+    assert fw_without.expected_file_exists is None
+
+    # 4. FileEditParams
+    fe_with = FileEditParams.model_validate(
+        {
+            "path": "test.ts",
+            "oldString": "foo",
+            "newString": "bar",
+            "expected_file_line_count": 50,
+            "expected_old_string_line": 12,
+        }
+    )
+    assert fe_with.expected_file_line_count == 50
+    assert fe_with.expected_old_string_line == 12
+    fe_without = FileEditParams.model_validate(
+        {"path": "test.ts", "oldString": "foo", "newString": "bar"}
+    )
+    assert fe_without.expected_file_line_count is None
+    assert fe_without.expected_old_string_line is None
+
+    for bad_count in (0, -1):
+        with pytest.raises(ValidationError):
+            FileEditParams.model_validate(
+                {
+                    "path": "test.ts",
+                    "oldString": "foo",
+                    "newString": "bar",
+                    "expected_file_line_count": bad_count,
+                }
+            )
+
+    # 5. TerminalExecuteParams
+    te_with = TerminalExecuteParams.model_validate(
+        {"command": "echo 1", "cwd": "/tmp", "expected_cwd_exists": True}
+    )
+    assert te_with.expected_cwd_exists is True
+    te_without = TerminalExecuteParams.model_validate({"command": "echo 1"})
+    assert te_without.expected_cwd_exists is None
+
+    # 6. SchedulerCreateParams
+    sc_with = SchedulerCreateParams.model_validate(
+        {
+            "remindAt": "2026-10-01T20:00:00.000Z",
+            "message": "hello",
+            "expected_no_duplicate": True,
+        }
+    )
+    assert sc_with.expected_no_duplicate is True
+    sc_without = SchedulerCreateParams.model_validate(
+        {"remindAt": "2026-10-01T20:00:00.000Z", "message": "hello"}
+    )
+    assert sc_without.expected_no_duplicate is None
+
+    # 7. VikingWriteL2Params
+    vw_with = VikingWriteL2Params.model_validate(
+        {
+            "uri": "viking://wiki/test.md",
+            "content": "# Title",
+            "expected_article_exists": False,
+        }
+    )
+    assert vw_with.expected_article_exists is False
+    vw_without = VikingWriteL2Params.model_validate(
+        {"uri": "viking://wiki/test.md", "content": "# Title"}
+    )
+    assert vw_without.expected_article_exists is None
+
 
 

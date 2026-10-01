@@ -40,6 +40,8 @@ export type VikingReadL2Result = z.infer<typeof VikingReadL2Result>;
 export const VikingWriteL2Params = z.object({
   uri: z.string().min(1),
   content: z.string(),
+  // --- expected_* 审计参数（可选）---
+  expected_article_exists: z.boolean().optional(),
 });
 export type VikingWriteL2Params = z.infer<typeof VikingWriteL2Params>;
 

@@ -99,14 +99,19 @@ PROPERTY_DESCRIPTIONS: dict[str, dict[str, str]] = {
     },
     "filesystem_create_dir": {
         "path": "目标目录绝对路径",
+        "expected_parent_exists": "可选审计：预期父级目录是否已存在",
     },
     "filesystem_move": {
         "source": "源绝对路径",
         "target": "目标绝对路径",
+        "expected_source_exists": "可选审计：预期源路径是否存在",
+        "expected_source_is_file": "可选审计：预期源路径是否为文件",
+        "expected_target_dir_exists": "可选审计：预期目标目录是否存在",
     },
     "scheduler_create": {
         "remindAt": "ISO-8601 UTC 时间，例如 2026-09-26T20:00:00Z",
         "message": "提醒内容",
+        "expected_no_duplicate": "可选审计：预期不存在同任务的重复提醒",
     },
     "notification_send": {
         "reminderId": "提醒记录ID",
@@ -115,6 +120,7 @@ PROPERTY_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "command": "要执行的命令行指令",
         "cwd": "可选的工作目录绝对路径",
         "timeoutMs": "可选的超时时间（毫秒）",
+        "expected_cwd_exists": "可选审计：预期工作目录是否存在",
     },
     "knowledge_search": {
         "query": "要检索的问题或关键词",
@@ -139,6 +145,7 @@ PROPERTY_DESCRIPTIONS: dict[str, dict[str, str]] = {
     "viking_write_l2": {
         "uri": "Viking 虚拟 URI，以 viking:// 开头",
         "content": "待写入的 Markdown 正文",
+        "expected_article_exists": "可选审计：预期目标文章是否存在（区分创建 vs 更新）",
     },
     "code_interpreter": {
         "code": "要执行的 Python 代码段",
@@ -150,6 +157,18 @@ PROPERTY_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "searchMode": "搜索模式：filename (文件名), content_plain (纯文本内容), content_regex (正则内容)",
         "relativeRoot": "可选的子目录相对路径",
         "maxMatches": "最大匹配条数（默认 50）",
+    },
+    "file_write": {
+        "path": "目标文件相对路径",
+        "content": "写入的文件内容",
+        "expected_file_exists": "可选审计：预期目标文件是否存在（区分创建 vs 覆盖）",
+    },
+    "file_edit": {
+        "path": "目标文件相对路径",
+        "oldString": "待替换的原文本，必须在文件中全局唯一",
+        "newString": "替换后的新文本",
+        "expected_file_line_count": "可选审计：预期修改前文件总行数",
+        "expected_old_string_line": "可选审计：预期待替换原文本所在起始行号",
     },
     "web_search": {
         "query": "搜索关键词或自然语言问题",

@@ -1351,3 +1351,190 @@ describe("Coding Agent File Schemas & RootId", () => {
     ).toThrow();
   });
 });
+
+describe("WRITE 能力 expected_* 双层审计参数约束（TASK-C1）", () => {
+  it("FilesystemCreateDirParams 校验 expected_parent_exists", () => {
+    const withExpected = FilesystemCreateDirParams.parse({
+      path: "reading",
+      expected_parent_exists: true,
+    });
+    expect(withExpected.expected_parent_exists).toBe(true);
+
+    const withoutExpected = FilesystemCreateDirParams.parse({
+      path: "reading",
+    });
+    expect(withoutExpected.expected_parent_exists).toBeUndefined();
+
+    expect(() =>
+      FilesystemCreateDirParams.parse({
+        path: "reading",
+        expected_parent_exists: "true",
+      }),
+    ).toThrow();
+  });
+
+  it("FilesystemMoveParams 校验 expected_source_exists / is_file / target_dir_exists", () => {
+    const withExpected = FilesystemMoveParams.parse({
+      source: "a.pdf",
+      target: "b.pdf",
+      expected_source_exists: true,
+      expected_source_is_file: true,
+      expected_target_dir_exists: false,
+    });
+    expect(withExpected.expected_source_exists).toBe(true);
+    expect(withExpected.expected_source_is_file).toBe(true);
+    expect(withExpected.expected_target_dir_exists).toBe(false);
+
+    const withoutExpected = FilesystemMoveParams.parse({
+      source: "a.pdf",
+      target: "b.pdf",
+    });
+    expect(withoutExpected.expected_source_exists).toBeUndefined();
+    expect(withoutExpected.expected_source_is_file).toBeUndefined();
+    expect(withoutExpected.expected_target_dir_exists).toBeUndefined();
+
+    expect(() =>
+      FilesystemMoveParams.parse({
+        source: "a.pdf",
+        target: "b.pdf",
+        expected_source_exists: 1,
+      }),
+    ).toThrow();
+  });
+
+  it("FileWriteParams 校验 expected_file_exists", () => {
+    const withExpected = FileWriteParams.parse({
+      path: "test.ts",
+      content: "const a = 1;",
+      expected_file_exists: false,
+    });
+    expect(withExpected.expected_file_exists).toBe(false);
+
+    const withoutExpected = FileWriteParams.parse({
+      path: "test.ts",
+      content: "const a = 1;",
+    });
+    expect(withoutExpected.expected_file_exists).toBeUndefined();
+
+    expect(() =>
+      FileWriteParams.parse({
+        path: "test.ts",
+        content: "const a = 1;",
+        expected_file_exists: "no",
+      }),
+    ).toThrow();
+  });
+
+  it("FileEditParams 校验 expected_file_line_count 与 expected_old_string_line", () => {
+    const withExpected = FileEditParams.parse({
+      path: "test.ts",
+      oldString: "foo",
+      newString: "bar",
+      expected_file_line_count: 50,
+      expected_old_string_line: 12,
+    });
+    expect(withExpected.expected_file_line_count).toBe(50);
+    expect(withExpected.expected_old_string_line).toBe(12);
+
+    const withoutExpected = FileEditParams.parse({
+      path: "test.ts",
+      oldString: "foo",
+      newString: "bar",
+    });
+    expect(withoutExpected.expected_file_line_count).toBeUndefined();
+    expect(withoutExpected.expected_old_string_line).toBeUndefined();
+
+    // 非正数或小数被拒
+    expect(() =>
+      FileEditParams.parse({
+        path: "test.ts",
+        oldString: "foo",
+        newString: "bar",
+        expected_file_line_count: 0,
+      }),
+    ).toThrow();
+    expect(() =>
+      FileEditParams.parse({
+        path: "test.ts",
+        oldString: "foo",
+        newString: "bar",
+        expected_file_line_count: -5,
+      }),
+    ).toThrow();
+    expect(() =>
+      FileEditParams.parse({
+        path: "test.ts",
+        oldString: "foo",
+        newString: "bar",
+        expected_old_string_line: 3.14,
+      }),
+    ).toThrow();
+  });
+
+  it("TerminalExecuteParams 校验 expected_cwd_exists", () => {
+    const withExpected = TerminalExecuteParams.parse({
+      command: "echo 1",
+      cwd: "/tmp",
+      expected_cwd_exists: true,
+    });
+    expect(withExpected.expected_cwd_exists).toBe(true);
+
+    const withoutExpected = TerminalExecuteParams.parse({
+      command: "echo 1",
+    });
+    expect(withoutExpected.expected_cwd_exists).toBeUndefined();
+
+    expect(() =>
+      TerminalExecuteParams.parse({
+        command: "echo 1",
+        expected_cwd_exists: "yes",
+      }),
+    ).toThrow();
+  });
+
+  it("SchedulerCreateParams 校验 expected_no_duplicate", () => {
+    const withExpected = SchedulerCreateParams.parse({
+      remindAt: "2026-10-01T20:00:00.000Z",
+      message: "hello",
+      expected_no_duplicate: true,
+    });
+    expect(withExpected.expected_no_duplicate).toBe(true);
+
+    const withoutExpected = SchedulerCreateParams.parse({
+      remindAt: "2026-10-01T20:00:00.000Z",
+      message: "hello",
+    });
+    expect(withoutExpected.expected_no_duplicate).toBeUndefined();
+
+    expect(() =>
+      SchedulerCreateParams.parse({
+        remindAt: "2026-10-01T20:00:00.000Z",
+        message: "hello",
+        expected_no_duplicate: "invalid",
+      }),
+    ).toThrow();
+  });
+
+  it("VikingWriteL2Params 校验 expected_article_exists", () => {
+    const withExpected = VikingWriteL2Params.parse({
+      uri: "viking://wiki/test.md",
+      content: "# Title",
+      expected_article_exists: false,
+    });
+    expect(withExpected.expected_article_exists).toBe(false);
+
+    const withoutExpected = VikingWriteL2Params.parse({
+      uri: "viking://wiki/test.md",
+      content: "# Title",
+    });
+    expect(withoutExpected.expected_article_exists).toBeUndefined();
+
+    expect(() =>
+      VikingWriteL2Params.parse({
+        uri: "viking://wiki/test.md",
+        content: "# Title",
+        expected_article_exists: 123,
+      }),
+    ).toThrow();
+  });
+});

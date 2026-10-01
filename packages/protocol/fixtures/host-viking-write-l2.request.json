@@ -7,7 +7,8 @@
     "capability": "viking_write_l2",
     "arguments": {
       "uri": "viking://notes/meeting.md",
-      "content": "# 会议记录\n讨论了系统规范与测试门禁。"
+      "content": "# 会议记录\n讨论了系统规范与测试门禁。",
+      "expected_article_exists": false
     }
   }
 }

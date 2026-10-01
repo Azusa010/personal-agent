@@ -8,7 +8,9 @@
     "arguments": {
       "path": "src/hello.ts",
       "oldString": "console.log(\"world\");",
-      "newString": "console.log(\"personal agent\");"
+      "newString": "console.log(\"personal agent\");",
+      "expected_file_line_count": 42,
+      "expected_old_string_line": 10
     }
   }
 }

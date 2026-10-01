@@ -7,7 +7,8 @@
     "capability": "terminal_execute",
     "arguments": {
       "command": "echo hello",
-      "cwd": "D:/downloads"
+      "cwd": "D:/downloads",
+      "expected_cwd_exists": true
     }
   }
 }

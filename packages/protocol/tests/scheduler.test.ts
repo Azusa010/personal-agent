@@ -27,6 +27,25 @@ describe("SchedulerCreateParams", () => {
     });
   });
 
+  it("接受可选的 expected_no_duplicate", () => {
+    const res = SchedulerCreateParams.parse({
+      remindAt: "2026-09-15T20:00:00.000Z",
+      message: "该阅读 report-2026.pdf 的摘要了",
+      expected_no_duplicate: true,
+    });
+    expect(res.expected_no_duplicate).toBe(true);
+  });
+
+  it("拒绝非布尔 expected_no_duplicate", () => {
+    expect(
+      SchedulerCreateParams.safeParse({
+        remindAt: "2026-09-15T20:00:00.000Z",
+        message: "x",
+        expected_no_duplicate: "yes",
+      }).success,
+    ).toBe(false);
+  });
+
   it("拒绝空 remindAt", () => {
     // min(1) 挡的是模型给出空字符串。放过去的话 binder 会拿 '' 去 new Date，
     // 得到 Invalid Date，报错现场离源头更远。

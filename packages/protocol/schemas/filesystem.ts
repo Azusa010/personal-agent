@@ -29,6 +29,8 @@ export const FilesystemListResult = z.object({
 // 创建目录参数
 export const FilesystemCreateDirParams = z.object({
   path: z.string().min(1),
+  // --- expected_* 审计参数（可选）---
+  expected_parent_exists: z.boolean().optional(),
 });
 
 export type FilesystemCreateDirParams = z.infer<
@@ -39,6 +41,10 @@ export type FilesystemCreateDirParams = z.infer<
 export const FilesystemMoveParams = z.object({
   source: z.string().min(1),
   target: z.string().min(1),
+  // --- expected_* 审计参数（可选）---
+  expected_source_exists: z.boolean().optional(),
+  expected_source_is_file: z.boolean().optional(),
+  expected_target_dir_exists: z.boolean().optional(),
 });
 
 export type FilesystemMoveParams = z.infer<typeof FilesystemMoveParams>;
@@ -109,6 +115,8 @@ export type FileReadOutcome = z.infer<typeof FileReadOutcome>;
 export const FileWriteParams = z.object({
   path: z.string().min(1),
   content: z.string(),
+  // --- expected_* 审计参数（可选）---
+  expected_file_exists: z.boolean().optional(),
 });
 export type FileWriteParams = z.infer<typeof FileWriteParams>;
 
@@ -131,6 +139,9 @@ export const FileEditParams = z.object({
   path: z.string().min(1),
   oldString: z.string().min(1),
   newString: z.string(),
+  // --- expected_* 审计参数（可选）---
+  expected_file_line_count: z.number().int().positive().optional(),
+  expected_old_string_line: z.number().int().positive().optional(),
 });
 export type FileEditParams = z.infer<typeof FileEditParams>;
 

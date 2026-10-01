@@ -7,7 +7,10 @@
     "capability": "filesystem_move",
     "arguments": {
       "source": "D:/Users/demo/Downloads/report-2026.pdf",
-      "target": "D:/Users/demo/Downloads/Reading/report-2026.pdf"
+      "target": "D:/Users/demo/Downloads/Reading/report-2026.pdf",
+      "expected_source_exists": true,
+      "expected_source_is_file": true,
+      "expected_target_dir_exists": true
     }
   }
 }

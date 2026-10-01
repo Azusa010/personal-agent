@@ -65,11 +65,15 @@ class FilesystemListResult(ProtocolModel):
 
 class FilesystemCreateDirParams(ProtocolModel):
     path: str = Field(min_length=1)
+    expected_parent_exists: bool | None = None
 
 
 class FilesystemMoveParams(ProtocolModel):
     source: str = Field(min_length=1)
     target: str = Field(min_length=1)
+    expected_source_exists: bool | None = None
+    expected_source_is_file: bool | None = None
+    expected_target_dir_exists: bool | None = None
 
 
 # ---- system.initialize 的载荷模型 ----
@@ -243,6 +247,7 @@ class SchedulerCreateParams(ProtocolModel):
 
     remindAt: str = Field(min_length=1)
     message: str = Field(min_length=1)
+    expected_no_duplicate: bool | None = None
 
 
 class SchedulerCreateResult(ProtocolModel):
@@ -310,6 +315,7 @@ class TerminalExecuteParams(ProtocolModel):
     command: str = Field(min_length=1)
     cwd: str | None = None
     timeoutMs: int | None = Field(default=None, gt=0)
+    expected_cwd_exists: bool | None = None
 
 
 class TerminalExecuteResult(ProtocolModel):
@@ -511,6 +517,7 @@ class FileWriteParams(ProtocolModel):
 
     path: str = Field(min_length=1, description="目标文件相对路径")
     content: str = Field(description="写入的文件内容")
+    expected_file_exists: bool | None = None
 
 
 class FileWriteResult(ProtocolModel):
@@ -536,6 +543,8 @@ class FileEditParams(ProtocolModel):
         min_length=1, description="待替换的原文本，必须在文件中全局唯一"
     )
     newString: str = Field(description="替换后的新文本")
+    expected_file_line_count: int | None = Field(default=None, gt=0)
+    expected_old_string_line: int | None = Field(default=None, gt=0)
 
 
 class FileEditResult(ProtocolModel):
@@ -952,6 +961,7 @@ class VikingWriteL2Params(ProtocolModel):
     model_config = ConfigDict(extra="allow")
     uri: str = Field(min_length=1)
     content: str
+    expected_article_exists: bool | None = None
 
 
 class VikingWriteL2Result(ProtocolModel):
