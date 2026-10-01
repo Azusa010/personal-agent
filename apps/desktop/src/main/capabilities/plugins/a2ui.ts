@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import {
+  A2UI_INPUT_COMPONENT_TYPES,
   A2UIComponent,
   A2UIComponentType,
   A2UIDocument,
@@ -46,19 +47,96 @@ export function listA2UIRenders(taskId?: string): ActiveA2UIRender[] {
 export function submitA2UIForm(
   renderId: string,
   actionId: string,
-  formData: Record<string, unknown>
+  formData: Record<string, unknown>,
+  events?: {
+    append: (ev: { taskId: string; type: string; payload: unknown; occurredAt: string }) => void
+  },
+  now?: () => string
 ): boolean {
   const render = activeRenders.get(renderId)
   if (!render) return false
   render.status = 'submitted'
   render.actionId = actionId
   render.formData = { ...formData }
-  render.submittedAt = new Date().toISOString()
+  const stamp = now?.() ?? new Date().toISOString()
+  render.submittedAt = stamp
+  if (events) {
+    events.append({
+      taskId: render.taskId,
+      type: A2UI_SUBMITTED_EVENT,
+      payload: {
+        renderId,
+        actionId,
+        formData
+      },
+      occurredAt: stamp
+    })
+  }
   return true
 }
 
 export function clearA2UIRenders(): void {
   activeRenders.clear()
+}
+
+/**
+ * 将 A2UI 表单文档与用户提交的表单数据转换为结构化的自然语言/Markdown 摘要。
+ *
+ * 契约要求：
+ * 1. 若 actionId 为 'cancel' 或包含取消类动作，返回：
+ *    `【用户取消了表单交互】(action: ${actionId})`
+ * 2. 若为正常提交：
+ *    - 首行输出：`【表单提交结果】${document.title ? `: ${document.title}` : ''}`
+ *    - 递归遍历 document.components 中的所有输入型组件（A2UI_INPUT_COMPONENT_TYPES）：
+ *      - 读取组件显示标签：优先取 `component.props?.label as string`，若无或为空串则回退为 `component.id`；
+ *      - 从 formData 中读取对应 `component.id` 的用户输入值 `val = formData[component.id]`；
+ *      - 值格式化规则：
+ *        - 若 `val` 为 boolean：`true` 格式化为 `'是'`，`false` 格式化为 `'否'`；
+ *        - 若 `val` 为数组（如 multi_select）：若数组为空输出 `'(无)'`，否则用 `', '` 拼接；
+ *        - 若 `val === undefined || val === null || val === ''`：输出 `'(空)'`；
+ *        - 其余类型输出 `String(val)`；
+ *      - 每一项格式化为一行：`- ${label}: ${formattedValue}`。
+ * 3. 行与行之间使用 `\n` 换行拼接。
+ *
+ * 对应验收测试：tests/main/e2e/a2ui-form-clarification.test.ts
+ */
+export function formatA2UIFormSubmission(
+  document: A2UIDocument,
+  formData: Record<string, unknown>,
+  actionId: string
+): string {
+  if (actionId === 'cancel') {
+    return `【用户取消了表单交互】(action: ${actionId})`
+  }
+  let summary = `【表单提交结果】${document.title ? `: ${document.title}` : ''}`
+  const lines: string[] = []
+  function traverse(components: A2UIComponent[]): void {
+    for (const component of components) {
+      if (A2UI_INPUT_COMPONENT_TYPES.has(component.type)) {
+        const label = (component.props?.label as string) || component.id
+        const val = formData[component.id]
+        let formattedValue: string
+        if (typeof val === 'boolean') {
+          formattedValue = val ? '是' : '否'
+        } else if (Array.isArray(val)) {
+          formattedValue = val.length === 0 ? '(无)' : val.join(', ')
+        } else if (val === undefined || val === null || val === '') {
+          formattedValue = '(空)'
+        } else {
+          formattedValue = String(val)
+        }
+        lines.push(`- ${label}: ${formattedValue}`)
+      }
+      if (component.children && component.children.length > 0) {
+        traverse(component.children)
+      }
+    }
+  }
+  traverse(document.components)
+  if (lines.length > 0) {
+    summary += '\n' + lines.join('\n')
+  }
+  return summary
 }
 
 /**

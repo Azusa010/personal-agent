@@ -35,6 +35,19 @@ export const A2UIComponentType = z.enum([
 ]);
 export type A2UIComponentType = z.infer<typeof A2UIComponentType>;
 
+export const A2UI_INPUT_COMPONENT_TYPES = new Set<A2UIComponentType>([
+  "text_input",
+  "textarea",
+  "number_input",
+  "select",
+  "multi_select",
+  "checkbox",
+  "radio_group",
+  "date_picker",
+  "file_picker",
+  "slider",
+]);
+
 /**
  * A2UI 动作类型
  */
