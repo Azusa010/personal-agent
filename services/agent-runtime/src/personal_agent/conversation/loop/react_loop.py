@@ -24,6 +24,11 @@ from personal_agent.conversation.loop.recovery import (
     RecoveryPlan,
     determine_recovery_plan,
 )
+from personal_agent.conversation.loop.trajectory import (
+    DeathSpiralError,
+    DeathSpiralProtector,
+    ToolFingerprintDetector,
+)
 from personal_agent.conversation.model.gateway import (
     BatchToolCallDecision,
     ModelCallFailed,
@@ -114,6 +119,8 @@ class ReActLoop:
         watchdog: StreamWatchdog | None = None,
         path_breaker: RecoveryPathBreaker | None = None,
         is_background: bool = False,
+        tool_detector: ToolFingerprintDetector | None = None,
+        death_spiral_protector: DeathSpiralProtector | None = None,
     ) -> None:
         self._model = model
         self._channel = channel
@@ -121,6 +128,8 @@ class ReActLoop:
         self._budget = budget
         self._stream = stream
         self._loop_detector = loop_detector or QueryLoopDetector()
+        self._tool_detector = tool_detector or ToolFingerprintDetector()
+        self._death_spiral = death_spiral_protector or DeathSpiralProtector()
         self._barrier = sidecar_barrier
         self._circuit_breaker = circuit_breaker or (
             RejectionCircuitBreaker(task_id="default-task")
@@ -184,6 +193,10 @@ class ReActLoop:
 
             try:
                 decision = self._decide_with_recovery(goal, visible_capabilities)
+            except DeathSpiralError as e:
+                return self._fail(
+                    events, str(e), steps_used, tool_calls_used, fault_source=e
+                )
             except StreamStalledError as e:
                 return self._fail(
                     events, str(e), steps_used, tool_calls_used, fault_source=e
@@ -204,6 +217,7 @@ class ReActLoop:
             steps_used += 1
 
             if isinstance(decision, ToolCallDecision):
+                self._context.record_tool_call(decision)
                 self._emit(
                     events,
                     EVENT_TOOL_CALLED,
@@ -213,6 +227,35 @@ class ReActLoop:
                         "arguments": decision.arguments,
                     },
                 )
+
+                # 通用工具调用指纹检测：重复调用死循环拦截 (§2.2 B)
+                is_duplicate, duplicate_warning = self._tool_detector.check_and_record(
+                    decision.capability, decision.arguments
+                )
+                if is_duplicate:
+                    synthetic_obs = Observation(
+                        callId=decision.callId,
+                        capability=decision.capability,
+                        ok=False,
+                        payload={
+                            "warning": "duplicate_call",
+                            "reason": duplicate_warning
+                            or "连续多次发起相同工具调用，操作已陷入停滞，请更换参数或推进作答。",
+                        },
+                        arguments=decision.arguments,
+                    )
+                    self._emit(
+                        events,
+                        EVENT_TOOL_RESULT,
+                        {
+                            "callId": synthetic_obs.callId,
+                            "capability": synthetic_obs.capability,
+                            "ok": synthetic_obs.ok,
+                        },
+                    )
+                    self._context.record(synthetic_obs)
+                    tool_calls_used += 1
+                    continue
 
                 # 智能体化 RAG: 检索类能力连续死循环检测与反思拦截
                 if decision.capability in SEARCH_CAPABILITIES:
@@ -309,36 +352,50 @@ class ReActLoop:
                     observation = self._execute(decision)
                     self._path_breaker.record_success("tool_self_heal")
                 except HostRequestFailed as e:
-                    fault = classify_fault(e)
-                    plan = determine_recovery_plan(
-                        fault=fault,
-                        breaker=self._path_breaker,
-                        is_background=self._is_background,
-                    )
-                    if (
-                        plan.level == RecoveryLevel.LEVEL_2_DEGRADE
-                        and plan.action == "feed_observation"
-                    ):
-                        log.warning("触发 Level 2 工具错误回灌自纠正：%s", plan.reason)
-                        observation = Observation(
-                            callId=decision.callId,
-                            capability=decision.capability,
-                            ok=False,
-                            payload={
-                                "error": "tool_execution_error",
-                                "reason": str(e),
-                            },
-                            arguments=decision.arguments,
+                    if not self._death_spiral.enter():
+                        ds_err = DeathSpiralError(
+                            self._death_spiral.depth, self._death_spiral.max_depth
                         )
-                    else:
                         return self._fail(
                             events,
-                            str(e),
+                            str(ds_err),
                             steps_used,
                             tool_calls_used,
-                            fault_source=e,
-                            recovery_plan=plan,
+                            fault_source=ds_err,
                         )
+                    try:
+                        fault = classify_fault(e)
+                        plan = determine_recovery_plan(
+                            fault=fault,
+                            breaker=self._path_breaker,
+                            is_background=self._is_background,
+                        )
+                        if (
+                            plan.level == RecoveryLevel.LEVEL_2_DEGRADE
+                            and plan.action == "feed_observation"
+                        ):
+                            log.warning("触发 Level 2 工具错误回灌自纠正：%s", plan.reason)
+                            observation = Observation(
+                                callId=decision.callId,
+                                capability=decision.capability,
+                                ok=False,
+                                payload={
+                                    "error": "tool_execution_error",
+                                    "reason": str(e),
+                                },
+                                arguments=decision.arguments,
+                            )
+                        else:
+                            return self._fail(
+                                events,
+                                str(e),
+                                steps_used,
+                                tool_calls_used,
+                                fault_source=e,
+                                recovery_plan=plan,
+                            )
+                    finally:
+                        self._death_spiral.exit()
                 except HostChannelClosed as e:
                     return self._fail(
                         events,
@@ -372,6 +429,7 @@ class ReActLoop:
 
             elif isinstance(decision, BatchToolCallDecision):
                 for call in decision.calls:
+                    self._context.record_tool_call(call)
                     self._emit(
                         events,
                         EVENT_TOOL_CALLED,
@@ -519,28 +577,35 @@ class ReActLoop:
                 self._path_breaker.record_success("silent_retry")
                 return decision
             except ModelCallFailed as e:
-                fault = classify_fault(e)
-                plan = determine_recovery_plan(
-                    fault=fault,
-                    breaker=self._path_breaker,
-                    attempt=attempt,
-                    is_background=self._is_background,
-                    attempted_actions=attempted_actions,
-                )
-                if plan.level == RecoveryLevel.LEVEL_1_RETRY:
-                    log.warning(
-                        "触发 Level 1 静默重试：%s，等待 %.2fs (第 %d 次尝试)",
-                        plan.reason,
-                        plan.delay_seconds,
-                        attempt,
+                if not self._death_spiral.enter():
+                    raise DeathSpiralError(
+                        self._death_spiral.depth, self._death_spiral.max_depth
+                    ) from e
+                try:
+                    fault = classify_fault(e)
+                    plan = determine_recovery_plan(
+                        fault=fault,
+                        breaker=self._path_breaker,
+                        attempt=attempt,
+                        is_background=self._is_background,
+                        attempted_actions=attempted_actions,
                     )
-                    if plan.delay_seconds > 0:
-                        time.sleep(plan.delay_seconds)
-                    attempt += 1
-                    attempted_actions = plan.attempted_actions
-                    continue
-                # 无法静默重试（如已熔断或不可重试），抛出供 run() 终止或降级
-                raise
+                    if plan.level == RecoveryLevel.LEVEL_1_RETRY:
+                        log.warning(
+                            "触发 Level 1 静默重试：%s，等待 %.2fs (第 %d 次尝试)",
+                            plan.reason,
+                            plan.delay_seconds,
+                            attempt,
+                        )
+                        if plan.delay_seconds > 0:
+                            time.sleep(plan.delay_seconds)
+                        attempt += 1
+                        attempted_actions = plan.attempted_actions
+                        continue
+                    # 无法静默重试（如已熔断或不可重试），抛出供 run() 终止或降级
+                    raise
+                finally:
+                    self._death_spiral.exit()
 
     def _emit(
         self, events: list[RunTaskEvent], event_type: str, payload: dict[str, Any]

@@ -22,6 +22,10 @@ from personal_agent.conversation.loop.recovery import (
     RecoveryLevel,
     RecoveryPathBreaker,
 )
+from personal_agent.conversation.loop.trajectory import (
+    DeathSpiralProtector,
+    ToolFingerprintDetector,
+)
 from personal_agent.conversation.model.gateway import ModelCallFailed
 from personal_agent.conversation.sidecar import (
     RejectionCircuitBreaker,
@@ -687,6 +691,84 @@ def test_react_loop_level_2_tool_error_tripped_circuit_breaker():
     assert outcome.recovery_plan is not None
     assert outcome.recovery_plan.level == RecoveryLevel.LEVEL_3_ESCALATE
     assert outcome.recovery_plan.action == "escalate_user"
+
+
+def test_react_loop_tool_fingerprint_duplicate_call_intercepted():
+    """验证模型连续发起完全相同的工具调用时，被 ToolFingerprintDetector 拦截并生成合成错误观察。"""
+    # 模拟第一次执行成功，第二次将被指纹检测器就地拦截（无需调用 channel）
+    channel = FakeChannel([list_result()])
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId="c-1",
+            capability="filesystem_list",
+            arguments={"rootId": "downloads"},
+        ),
+        ToolCallDecision(
+            kind="tool_call",
+            callId="c-2",
+            capability="filesystem_list",
+            arguments={"rootId": "downloads"},  # 完全相同
+        ),
+        SummaryDecision(
+            kind="summary",
+            reply="发现重复调用已拦截，推进任务总结",
+            facts=[],
+        ),
+    ]
+    model = ScriptedModel(decisions)
+    context = ContextManager(plan=())
+    detector = ToolFingerprintDetector(consecutive_limit=2)
+    loop = ReActLoop(
+        model=model,
+        channel=channel,
+        context=context,
+        budget=Budget(maxSteps=5, maxToolCalls=5),
+        tool_detector=detector,
+    )
+
+    outcome = loop.run("重复调用检测测试", VISIBLE)
+    assert outcome.kind == "completed"
+    assert outcome.reply == "发现重复调用已拦截，推进任务总结"
+    # 共记录了 2 条观察：第 1 条正常成功，第 2 条为拦截合成观察
+    assert len(context.observations) == 2
+    obs2 = context.observations[1]
+    assert obs2.ok is False
+    assert obs2.payload.get("warning") == "duplicate_call"
+    assert "连续多次" in obs2.payload.get("reason", "")
+
+
+def test_react_loop_death_spiral_terminated():
+    """验证错误恢复嵌套深度超过上限时，触发死亡螺旋防护并强制终止任务。"""
+    channel = FakeChannel([HostRequestFailed("INTERNAL_ERROR", "Err")])
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId="c-1",
+            capability="filesystem_list",
+            arguments={},
+        ),
+    ]
+    model = ScriptedModel(decisions)
+    context = ContextManager(plan=())
+    # 深度上限设为 0：只要进入错误恢复立即判定为死亡螺旋超限
+    protector = DeathSpiralProtector(max_depth=0)
+    loop = ReActLoop(
+        model=model,
+        channel=channel,
+        context=context,
+        budget=Budget(maxSteps=5, maxToolCalls=5),
+        death_spiral_protector=protector,
+    )
+
+    outcome = loop.run("死亡螺旋测试", VISIBLE)
+    assert outcome.kind == "failed"
+    assert "死亡螺旋" in (outcome.reason or "")
+    assert outcome.fault is not None
+    assert outcome.fault.fault_type == "death_spiral"
+    assert outcome.fault.layer == FaultLayer.CONTROL
+    assert outcome.fault.verdict == RetryVerdict.FATAL
+
 
 
 

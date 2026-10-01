@@ -27,6 +27,14 @@ from personal_agent.conversation.loop.strategy import (
     ReActStrategy,
     _settle_usage,
 )
+from personal_agent.conversation.loop.trajectory import (
+    DeathSpiralError,
+    DeathSpiralProtector,
+    ToolFingerprintDetector,
+    TrajectoryRepairReport,
+    compute_tool_fingerprint,
+    repair_trajectory_integrity,
+)
 
 __all__ = [
     "DEFAULT_BREAKER_THRESHOLDS",
@@ -35,6 +43,8 @@ __all__ = [
     "AgentEngine",
     "AgentStrategy",
     "ClassicStrategy",
+    "DeathSpiralError",
+    "DeathSpiralProtector",
     "FaultClassification",
     "FaultLayer",
     "PlanAndExecuteStrategy",
@@ -47,8 +57,12 @@ __all__ = [
     "RetryVerdict",
     "StreamStalledError",
     "StreamWatchdog",
+    "ToolFingerprintDetector",
+    "TrajectoryRepairReport",
     "_settle_usage",
     "classify_fault",
     "compute_backoff_delay",
+    "compute_tool_fingerprint",
     "determine_recovery_plan",
+    "repair_trajectory_integrity",
 ]

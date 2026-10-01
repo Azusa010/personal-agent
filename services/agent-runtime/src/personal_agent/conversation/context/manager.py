@@ -23,7 +23,12 @@ from personal_agent.conversation.compression import (
     infer_task_type,
     select_compression_candidates,
 )
-from personal_agent.conversation.model.gateway import ModelContext, Observation
+from personal_agent.conversation.model.gateway import (
+    ModelContext,
+    Observation,
+    ToolCallDecision,
+    ToolCallItem,
+)
 from personal_agent.conversation.status import StatusBarManager
 from personal_agent.protocol.models import PlanStepDto, ProfileDto, Turn
 
@@ -83,6 +88,7 @@ class ContextManager:
         self._maxCharsPerString = maxCharsPerString
         self._plan: list[PlanStepDto] = list(plan)
         self._observations: list[Observation] = []
+        self._tool_calls: list[ToolCallItem | ToolCallDecision] = []
         self._history: list[Turn] = list(history)
         self._profile = profile
         self._user_memories: list[str] = list(user_memories)
@@ -165,12 +171,31 @@ class ContextManager:
         self._plan = list(plan)
         self._status_bar_manager.init_from_plan(self._plan)
 
+    def record_tool_call(self, call: ToolCallItem | ToolCallDecision) -> None:
+        """记录已发起但尚未匹配到结果的工具调用（供轨迹完整性监控追踪）。"""
+        self._tool_calls.append(call)
+
     def record(self, observation: Observation) -> None:
         self._observations.append(observation)
         self._step_observations.append(observation)
         self._status_bar_manager.record_tool_call(observation.capability)
 
     def build(self, taskGoal: str, visibleCapabilities: Sequence[str]) -> ModelContext:
+        # 0. 轨迹完整性校验与配对自动修复 (§2.2 D)
+        if self._tool_calls:
+            from personal_agent.conversation.loop.trajectory import (
+                repair_trajectory_integrity,
+            )
+
+            report = repair_trajectory_integrity(self._tool_calls, self._observations)
+            if report.has_repaired:
+                log.warning(
+                    "轨迹完整性监控触发：自动修复 %d 条缺失配对的工具调用 %s",
+                    len(report.repaired_call_ids),
+                    report.repaired_call_ids,
+                )
+                self._observations = list(report.repaired_observations)
+
         # 1. 确保工作文档管理器初始化
         if self._doc_manager is None:
             task_type = infer_task_type(taskGoal)
