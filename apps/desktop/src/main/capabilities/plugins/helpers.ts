@@ -52,3 +52,5 @@ export function wrapExternalSource(content: string, header: string, footer: stri
   const sanitized = content.replaceAll(footer, `[ESCAPED:${footer}]`)
   return `${header}\n${sanitized}\n${footer}`
 }
+
+export * from './audit'
