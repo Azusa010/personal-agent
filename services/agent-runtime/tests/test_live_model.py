@@ -575,6 +575,75 @@ def test_chat_completions_content_recovers_from_raw_arguments_dict_without_kind(
     assert decision.arguments["command"] == "echo test"
 
 
+def test_responses_mode_recovers_from_raw_python_code_block_as_code_interpreter():
+    """Responses 模式下：模型在代码步骤中输出了 Markdown 代码块，自动修复为 code_interpreter 调用。"""
+    raw_code = "```python\nimport itertools\nprint('hello')\n```"
+    model = LiveModel(model="gpt-test", client=FakeClient([FakeResponse(raw_code)]))
+
+    ctx = context_with(
+        visible=["code_interpreter"],
+        plan=[PlanStepDto(description="编写代码求解", capability="code_interpreter")],
+    )
+    decision = model.decide(ctx)
+    assert isinstance(decision, ToolCallDecision)
+    assert decision.capability == "code_interpreter"
+    assert decision.arguments["code"] == "import itertools\nprint('hello')"
+
+
+def test_responses_mode_recovers_from_mangled_json_repair_python_list():
+    """Responses 模式下：模型输出了裸 Python 脚本，引发 json_repair 修复出 list，成功自愈。"""
+    raw_script = "cities = ['北京', '上海', '广州', '深圳']\nprint('---')"
+    model = LiveModel(model="gpt-test", client=FakeClient([FakeResponse(raw_script)]))
+
+    ctx = context_with(
+        visible=["code_interpreter"],
+        plan=[PlanStepDto(description="编写代码求解", capability="code_interpreter")],
+    )
+    decision = model.decide(ctx)
+    assert isinstance(decision, ToolCallDecision)
+    assert decision.capability == "code_interpreter"
+    assert decision.arguments["code"] == raw_script
+
+
+def test_chat_completions_recovers_from_raw_python_code_when_code_step_active():
+    """Chat Completions 模式下：content 返回裸代码且当前步骤是 code_interpreter 时，自愈为 ToolCallDecision。"""
+    raw_script = "cities = ['北京', '上海']\nprint(len(cities))"
+    resp = FakeChatCompletion(FakeMessage(content=raw_script))
+    model = LiveModel(
+        model="gpt-test",
+        client=FakeClient([resp]),
+        api_protocol="chat_completions",
+    )
+
+    ctx = context_with(
+        visible=["code_interpreter"],
+        plan=[PlanStepDto(description="计算城市数量", capability="code_interpreter")],
+    )
+    decision = model.decide(ctx)
+    assert isinstance(decision, ToolCallDecision)
+    assert decision.capability == "code_interpreter"
+    assert decision.arguments["code"] == raw_script
+
+
+def test_chat_completions_keeps_code_example_as_summary_when_direct_reply():
+    """Chat Completions 模式下：当前步骤是直接回答用户时，content 包含代码应作为 SummaryDecision 回复用户而非执行工具。"""
+    raw_text = "你可以使用如下代码：\n```python\nprint('hello')\n```"
+    resp = FakeChatCompletion(FakeMessage(content=raw_text))
+    model = LiveModel(
+        model="gpt-test",
+        client=FakeClient([resp]),
+        api_protocol="chat_completions",
+    )
+
+    ctx = context_with(
+        visible=["code_interpreter"],
+        plan=[PlanStepDto(description="直接回答用户", capability=None)],
+    )
+    decision = model.decide(ctx)
+    assert isinstance(decision, SummaryDecision)
+    assert decision.reply == raw_text
+
+
 def test_chat_completions_bad_arguments_json_is_a_model_call_failure():
     tc = FakeToolCall(id="c-1", name="filesystem_list", arguments="{not_json")
     resp = FakeChatCompletion(FakeMessage(tool_calls=[tc]))

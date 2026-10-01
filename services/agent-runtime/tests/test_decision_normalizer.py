@@ -9,7 +9,11 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from personal_agent.conversation.model.decision_normalizer import normalize_raw_decision
+from personal_agent.conversation.model.decision_normalizer import (
+    extract_python_code,
+    normalize_raw_decision,
+    should_heal_to_code_interpreter,
+)
 from personal_agent.conversation.model.gateway import (
     BatchToolCallDecision,
     ModelContext,
@@ -262,3 +266,97 @@ def test_normalize_empty_or_unrecognized_dict_raises_validation_error():
     # 不应该凭空捏造 kind，让 Pydantic 报告契约不符
     with pytest.raises(ValidationError):
         DECISION_ADAPTER.validate_python(normalized)
+
+
+def test_extract_python_code_various_formats():
+    """测试 extract_python_code 对不同代码表现形式的提取与非代码识别。"""
+    # 裸脚本
+    raw_script = "cities = ['北京', '上海', '广州', '深圳']\nprint('---')"
+    assert extract_python_code(raw_script) == raw_script
+
+    # Markdown 代码块
+    md_block = "```python\nimport itertools\nprint(123)\n```"
+    assert extract_python_code(md_block) == "import itertools\nprint(123)"
+
+    # 前缀解释性文字 + 代码
+    prefixed = "我来用代码算一下：\nimport math\nprint(math.sqrt(16))"
+    assert extract_python_code(prefixed) == "import math\nprint(math.sqrt(16))"
+
+    # 非代码普通对话与 JSON 应返回 None
+    assert extract_python_code("我觉得这个任务应该这样完成。") is None
+    assert extract_python_code('{"kind": "summary", "reply": "ok"}') is None
+    assert extract_python_code("Hello! How can I help you today?") is None
+
+
+def test_normalize_mangled_json_repair_list_recovers_to_code_interpreter():
+    """复现实际现场 BUG：模型输出裸 Python 代码，经 json_repair 误修成 list，成功挽救为 code_interpreter 调用。"""
+    raw_text = "cities = ['北京', '上海', '广州', '深圳']\nprint('---')"
+    # json_repair 修复代码片段产生的残损 list 结构
+    mangled_list = [["北京", "上海", "广州", "深圳"], {'print("---': ""}]
+
+    ctx = ModelContext(
+        taskGoal="求解旅行商问题",
+        plan=[
+            PlanStepDto(description="编写代码求解最短路径", capability="code_interpreter"),
+            PlanStepDto(description="直接回答用户", capability=None),
+        ],
+        visibleCapabilities=["code_interpreter"],
+    )
+
+    normalized = normalize_raw_decision(mangled_list, context=ctx, raw_text=raw_text)
+    assert normalized["kind"] == "tool_call"
+    assert normalized["capability"] == "code_interpreter"
+    assert normalized["arguments"]["code"] == raw_text
+
+    decision = DECISION_ADAPTER.validate_python(normalized)
+    assert isinstance(decision, ToolCallDecision)
+    assert decision.capability == "code_interpreter"
+    assert decision.arguments["code"] == raw_text
+
+
+def test_normalize_list_of_tool_calls_normalized_to_batch_tool_call():
+    """模型直接输出了 tool_call 字典数组，自动归一化为 batch_tool_call。"""
+    raw_list = [
+        {"capability": "code_interpreter", "arguments": {"code": "print(1)"}},
+        {"capability": "code_interpreter", "arguments": {"code": "print(2)"}},
+    ]
+    normalized = normalize_raw_decision(raw_list)
+    assert normalized["kind"] == "batch_tool_call"
+    assert len(normalized["calls"]) == 2
+    decision = DECISION_ADAPTER.validate_python(normalized)
+    assert isinstance(decision, BatchToolCallDecision)
+    assert len(decision.calls) == 2
+
+
+def test_normalize_single_item_tool_call_list_normalized_to_single_tool_call():
+    """模型输出了仅含单个 tool_call 的数组，平展为单一 tool_call。"""
+    raw_list = [{"capability": "code_interpreter", "arguments": {"code": "print(1)"}}]
+    normalized = normalize_raw_decision(raw_list)
+    assert normalized["kind"] == "tool_call"
+    assert normalized["capability"] == "code_interpreter"
+    decision = DECISION_ADAPTER.validate_python(normalized)
+    assert isinstance(decision, ToolCallDecision)
+
+
+def test_do_not_heal_python_code_when_active_step_is_direct_reply():
+    """当当前计划步骤是直接回答用户时，严禁将文本中的代码片段自愈为 code_interpreter 调用。"""
+    ctx = ModelContext(
+        taskGoal="解答 Python 语法疑问",
+        plan=[
+            PlanStepDto(description="直接回答用户", capability=None),
+        ],
+        visibleCapabilities=["code_interpreter"],
+    )
+    assert should_heal_to_code_interpreter(ctx) is False
+
+    # 当已有一步完成进入直接回答步骤时：
+    ctx2 = ModelContext(
+        taskGoal="求解旅行商问题",
+        plan=[
+            PlanStepDto(description="编写代码求解最短路径", capability="code_interpreter"),
+            PlanStepDto(description="直接回答用户", capability=None),
+        ],
+        observations=[{"callId": "c1", "capability": "code_interpreter", "ok": True}],
+        visibleCapabilities=["code_interpreter"],
+    )
+    assert should_heal_to_code_interpreter(ctx2) is False

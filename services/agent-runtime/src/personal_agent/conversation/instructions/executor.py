@@ -50,5 +50,6 @@ EXECUTOR_INSTRUCTIONS = f"""<system_instruction>
 【格式硬性约束】：
 - 顶层必须输出包含 "kind" 字段的合法 JSON 对象；
 - 严禁直接输出裸参数字典（例如直接输出参数字典是严重错误的，必须完整包裹为 {{"kind": "tool_call", "callId": "call-1", "capability": "<能力ID>", "arguments": {{...}}}}）！
+- 严禁直接在输出正文中裸写 Python 代码、脚本或 markdown 代码块（如 ```python ... ```）；当需要运行代码时，必须以 tool_call 形式调用 code_interpreter，并将代码置于 arguments.code 字段中！
 </output_contract>
 </system_instruction>"""

@@ -28,7 +28,10 @@ from personal_agent.conversation.instructions import (
     compose_instructions,
 )
 from personal_agent.conversation.model.decision_normalizer import (
+    extract_python_code,
+    extract_thinking_from_text,
     normalize_raw_decision,
+    should_heal_to_code_interpreter,
 )
 from personal_agent.conversation.model.gateway import (
     BatchToolCallDecision,
@@ -554,12 +557,48 @@ class LiveModel:
         )
         if not isinstance(text, str) or not text.strip():
             raise ModelCallFailed("模型没有给出文本输出（output_text 为空）")
+
+        # 1. 优先检测当前处于代码执行阶段、且直接输出 Python 脚本或代码块的情况
+        if should_heal_to_code_interpreter(context):
+            extracted = extract_python_code(text)
+            if extracted:
+                is_json_decision = False
+                try:
+                    parsed_test = json.loads(text)
+                    if isinstance(parsed_test, dict) and parsed_test.get("kind") in (
+                        "tool_call",
+                        "summary",
+                        "step_complete",
+                        "replan",
+                        "batch_tool_call",
+                    ):
+                        is_json_decision = True
+                except (json.JSONDecodeError, ValueError, TypeError):
+                    pass
+                if not is_json_decision:
+                    return ToolCallDecision(
+                        kind="tool_call",
+                        callId="call-1",
+                        capability="code_interpreter",
+                        arguments={"code": extracted},
+                        thinking=extract_thinking_from_text(text),
+                    )
+
         raw = safe_parse_model_json(text)
-        if isinstance(raw, dict):
-            raw = normalize_raw_decision(raw, context)
+        raw = normalize_raw_decision(raw, context=context, raw_text=text)
         try:
             return DECISION_ADAPTER.validate_python(raw)
         except ValidationError as e:
+            if should_heal_to_code_interpreter(context):
+                extracted = extract_python_code(text)
+                if extracted:
+                    return ToolCallDecision(
+                        kind="tool_call",
+                        callId="call-1",
+                        capability="code_interpreter",
+                        arguments={"code": extracted},
+                        thinking=extract_thinking_from_text(text),
+                    )
             raise ModelCallFailed(f"模型输出不符合 ModelDecision 契约: {e}") from e
 
     def _parse_chat_completions(
@@ -661,12 +700,21 @@ class LiveModel:
             # 将 JSON 解包为 ModelDecision
             try:
                 raw = safe_parse_model_json(text)
-                if isinstance(raw, dict):
-                    raw = normalize_raw_decision(raw, context)
-                    if "kind" in raw:
-                        return DECISION_ADAPTER.validate_python(raw)
+                raw = normalize_raw_decision(raw, context=context, raw_text=text)
+                if isinstance(raw, dict) and "kind" in raw:
+                    return DECISION_ADAPTER.validate_python(raw)
             except Exception:  # noqa: BLE001, S110
                 pass
+            if should_heal_to_code_interpreter(context):
+                extracted = extract_python_code(text)
+                if extracted:
+                    return ToolCallDecision(
+                        kind="tool_call",
+                        callId="call-1",
+                        capability="code_interpreter",
+                        arguments={"code": extracted},
+                        thinking=extract_thinking_from_text(text),
+                    )
         return SummaryDecision(
             kind="summary",
             reply=text,
