@@ -192,7 +192,7 @@ def repair_trajectory_integrity(
                     "error": "broken_trajectory",
                     "reason": "工具调用未收到对应结果响应，已由系统自动修复配对关系",
                 },
-                arguments=call.arguments,
+                arguments=call.arguments or {},
             )
             repaired_obs.append(synth_obs)
             repaired_call_ids.append(call_id)
