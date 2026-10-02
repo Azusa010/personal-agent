@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
@@ -129,63 +129,88 @@ export const terminalExecutePlugin: CapabilityPlugin = {
       typeof call.bound.args['timeoutMs'] === 'number' ? call.bound.args['timeoutMs'] : 30_000
 
     const isWin = process.platform === 'win32'
+    const executable = isWin ? 'powershell.exe' : '/bin/sh'
+    const args = isWin
+      ? ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command]
+      : ['-c', command]
+
     return new Promise((resolveResult) => {
-      exec(
-        command,
-        {
+      let timedOut = false
+      let child: ReturnType<typeof spawn>
+      try {
+        child = spawn(executable, args, {
           cwd,
-          timeout: timeoutMs,
-          maxBuffer: 1024 * 1024,
-          windowsHide: true,
-          shell: isWin ? 'powershell.exe' : undefined
-        },
-        async (error, stdout, stderr) => {
-          const outStr = String(stdout ?? '')
-          const errStr = String(stderr ?? '')
+          windowsHide: true
+        })
+      } catch (err) {
+        resolveResult(
+          fail(ERROR_CODE.TERMINAL_EXECUTE_FAILED, `命令启动异常: ${describeError(err)}`)
+        )
+        return
+      }
 
-          const scratchDir = resolve(defaultRoot, '.scratch')
+      const timer = setTimeout(() => {
+        timedOut = true
+        child.kill('SIGTERM')
+      }, timeoutMs)
 
-          const truncatedStdout = await truncateOutput(outStr, {
-            scratchDir,
-            prefix: 'term_stdout'
-          })
-          const truncatedStderr = await truncateOutput(errStr, {
-            scratchDir,
-            prefix: 'term_stderr'
-          })
+      let stdout = ''
+      let stderr = ''
+      const maxBuffer = 1024 * 1024
 
-          if (error) {
-            if (error.killed || error.signal === 'SIGTERM') {
-              resolveResult(fail(ERROR_CODE.TERMINAL_TIMEOUT, `命令执行超时 (${timeoutMs}ms)`))
-              return
-            }
-            if (typeof error.code === 'number') {
-              resolveResult({
-                ok: true,
-                exitCode: error.code,
-                stdout: truncatedStdout.text,
-                stderr: truncatedStderr.text
-              })
-              return
-            }
-            resolveResult(
-              fail(ERROR_CODE.TERMINAL_EXECUTE_FAILED, `命令执行异常: ${describeError(error)}`)
-            )
-            return
-          }
-
-          if (call.bound.paths['cwd']) {
-            currentTerminalCwd = call.bound.paths['cwd']
-          }
-
-          resolveResult({
-            ok: true,
-            exitCode: 0,
-            stdout: truncatedStdout.text,
-            stderr: truncatedStderr.text
-          })
+      child.stdout?.setEncoding('utf8')
+      child.stdout?.on('data', (chunk: string) => {
+        if (stdout.length < maxBuffer) {
+          stdout += chunk
         }
-      )
+      })
+
+      child.stderr?.setEncoding('utf8')
+      child.stderr?.on('data', (chunk: string) => {
+        if (stderr.length < maxBuffer) {
+          stderr += chunk
+        }
+      })
+
+      child.on('error', (err) => {
+        clearTimeout(timer)
+        resolveResult(
+          fail(ERROR_CODE.TERMINAL_EXECUTE_FAILED, `命令执行异常: ${describeError(err)}`)
+        )
+      })
+
+      child.on('close', async (code, signal) => {
+        clearTimeout(timer)
+
+        if (timedOut || signal === 'SIGTERM') {
+          resolveResult(fail(ERROR_CODE.TERMINAL_TIMEOUT, `命令执行超时 (${timeoutMs}ms)`))
+          return
+        }
+
+        const scratchDir = resolve(defaultRoot, '.scratch')
+
+        const truncatedStdout = await truncateOutput(stdout, {
+          scratchDir,
+          prefix: 'term_stdout'
+        })
+        const truncatedStderr = await truncateOutput(stderr, {
+          scratchDir,
+          prefix: 'term_stderr'
+        })
+
+        const exitCode = typeof code === 'number' ? code : 1
+
+        if (call.bound.paths['cwd']) {
+          currentTerminalCwd = call.bound.paths['cwd']
+        }
+
+        resolveResult({
+          ok: true,
+          exitCode,
+          stdout: truncatedStdout.text,
+          stderr: truncatedStderr.text
+        })
+      })
     })
   }
 }
