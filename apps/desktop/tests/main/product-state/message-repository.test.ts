@@ -108,4 +108,39 @@ describe('SqliteMessageRepository', () => {
 
     expect(() => messages.append(newMessage({ id: 'm-x', role: 'system' as never }))).toThrow()
   })
+
+  describe('findByTaskId', () => {
+    it('当任务有关联消息时返回对应的消息记录', () => {
+      const { messages, tasks } = makeRepo()
+      tasks.insert({
+        id: 't-clarify-1',
+        goal: '表单任务',
+        status: 'running',
+        createdAt: AT,
+        updatedAt: AT
+      })
+
+      messages.append(
+        newMessage({
+          id: 'msg-agent-1',
+          conversationId: 'c-1',
+          role: 'assistant',
+          text: '请填写表单',
+          taskId: 't-clarify-1'
+        })
+      )
+
+      const found = messages.findByTaskId('t-clarify-1')
+      expect(found).not.toBeNull()
+      expect(found?.id).toBe('msg-agent-1')
+      expect(found?.conversationId).toBe('c-1')
+      expect(found?.taskId).toBe('t-clarify-1')
+    })
+
+    it('当不存在关联任务的消息时返回 null', () => {
+      const { messages } = makeRepo()
+      const found = messages.findByTaskId('non-existent-task')
+      expect(found).toBeNull()
+    })
+  })
 })

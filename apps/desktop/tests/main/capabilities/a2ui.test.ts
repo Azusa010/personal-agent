@@ -8,9 +8,13 @@ import {
 import {
   A2UI_RENDERED_EVENT,
   a2uiRenderPlugin,
+  clearA2UIRenderListeners,
   clearA2UIRenders,
+  formatA2UIFormSubmission,
   getA2UIRender,
+  isCancelAction,
   listA2UIRenders,
+  onA2UIRender,
   submitA2UIForm,
   validateAndCountComponents
 } from '../../../src/main/capabilities/plugins/a2ui'
@@ -22,6 +26,7 @@ import type { SqliteDatabase } from '../../../src/main/product-state/database'
 describe('a2ui capability plugin', () => {
   beforeEach(() => {
     clearA2UIRenders()
+    clearA2UIRenderListeners()
   })
 
   describe('validateAndCountComponents', () => {
@@ -286,6 +291,118 @@ describe('a2ui capability plugin', () => {
     it('提交不存在的 renderId 时返回 false', () => {
       const res = submitA2UIForm('non-existent-render', 'submit', {})
       expect(res).toBe(false)
+    })
+  })
+
+  describe('isCancelAction 模糊匹配规则', () => {
+    it('标准 cancel 动作判定为取消', () => {
+      expect(isCancelAction('cancel')).toBe(true)
+      expect(isCancelAction('CANCEL')).toBe(true)
+      expect(isCancelAction('  cancel  ')).toBe(true)
+    })
+
+    it('常见前缀/后缀变体判定为取消', () => {
+      expect(isCancelAction('btn_cancel')).toBe(true)
+      expect(isCancelAction('cancel-btn')).toBe(true)
+      expect(isCancelAction('cancel_dialog')).toBe(true)
+      expect(isCancelAction('action_cancel_all')).toBe(true)
+    })
+
+    it('同义词 abort / dismiss 判定为取消', () => {
+      expect(isCancelAction('abort')).toBe(true)
+      expect(isCancelAction('btn_abort')).toBe(true)
+      expect(isCancelAction('dismiss')).toBe(true)
+      expect(isCancelAction('modal_dismiss')).toBe(true)
+    })
+
+    it('非取消类动作判定为 false', () => {
+      expect(isCancelAction('submit')).toBe(false)
+      expect(isCancelAction('confirm')).toBe(false)
+      expect(isCancelAction('save')).toBe(false)
+      expect(isCancelAction('next_step')).toBe(false)
+    })
+  })
+
+  describe('onA2UIRender 实时通知机制', () => {
+    it('execute 执行时向注册监听器广播 A2UIRenderNotice', async () => {
+      const notices: unknown[] = []
+      const unsubscribe = onA2UIRender((notice) => {
+        notices.push(notice)
+      })
+
+      const doc: A2UIDocument = {
+        version: '1.0',
+        title: '测试广播',
+        components: [{ type: 'heading', id: 'h1', props: { text: '问卷' } }]
+      }
+
+      const call: AuthorizedCall = {
+        taskId: 'task-broadcast-1',
+        callId: 'call-b-1',
+        capability: a2uiRenderPlugin.descriptor as CapabilityDescriptor,
+        bound: {
+          args: { document: doc, componentCount: 1 },
+          paths: {}
+        }
+      }
+
+      const outcome = await a2uiRenderPlugin.execute(call, {})
+      expect(outcome.ok).toBe(true)
+      expect(notices).toHaveLength(1)
+      expect(notices[0]).toMatchObject({
+        taskId: 'task-broadcast-1',
+        callId: 'call-b-1',
+        document: doc
+      })
+      expect((notices[0] as { renderId: string }).renderId).toBe(outcome['renderId'])
+
+      // 取消订阅后不再接收新通知
+      unsubscribe()
+      await a2uiRenderPlugin.execute(call, {})
+      expect(notices).toHaveLength(1)
+    })
+
+    it('监听器抛出异常时不破坏 execute 主流程', async () => {
+      onA2UIRender(() => {
+        throw new Error('Listener crash!')
+      })
+
+      const doc: A2UIDocument = {
+        version: '1.0',
+        title: '健壮性测试',
+        components: [{ type: 'divider', id: 'd1', props: {} }]
+      }
+
+      const call: AuthorizedCall = {
+        taskId: 'task-robust-1',
+        callId: 'call-r-1',
+        capability: a2uiRenderPlugin.descriptor as CapabilityDescriptor,
+        bound: {
+          args: { document: doc, componentCount: 1 },
+          paths: {}
+        }
+      }
+
+      const outcome = await a2uiRenderPlugin.execute(call, {})
+      expect(outcome.ok).toBe(true)
+      expect(outcome['renderId']).toBeDefined()
+    })
+  })
+
+  describe('formatA2UIFormSubmission 扩展取消动作支持', () => {
+    it('识别 btn_cancel 与 dismiss 动作并输出规范的取消提示', () => {
+      const doc: A2UIDocument = {
+        version: '1.0',
+        title: '表单',
+        components: [{ type: 'text_input', id: 'name', props: {} }]
+      }
+
+      expect(formatA2UIFormSubmission(doc, {}, 'btn_cancel')).toBe(
+        '【用户取消了表单交互】(action: btn_cancel)'
+      )
+      expect(formatA2UIFormSubmission(doc, {}, 'dismiss')).toBe(
+        '【用户取消了表单交互】(action: dismiss)'
+      )
     })
   })
 })

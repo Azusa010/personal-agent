@@ -9,6 +9,7 @@ import {
   normalizeA2UIRenderParams
 } from '@personal-agent/protocol'
 import type { CapabilityPlugin } from '../plugin'
+import type { A2UIRenderNotice } from '../../../shared/ipc-contract'
 import { invalid } from './helpers'
 
 export const A2UI_RENDERED_EVENT = 'a2ui_rendered'
@@ -24,6 +25,22 @@ export interface ActiveA2UIRender {
   submittedAt?: string
   actionId?: string
   formData?: Record<string, unknown>
+}
+
+export type { A2UIRenderNotice }
+
+export type A2UIRenderListener = (notice: A2UIRenderNotice) => void
+const renderListeners: Set<A2UIRenderListener> = new Set()
+
+export function onA2UIRender(listener: A2UIRenderListener): () => void {
+  renderListeners.add(listener)
+  return () => {
+    renderListeners.delete(listener)
+  }
+}
+
+export function clearA2UIRenderListeners(): void {
+  renderListeners.clear()
 }
 
 const activeRenders = new Map<string, ActiveA2UIRender>()
@@ -100,12 +117,24 @@ export function clearA2UIRenders(): void {
  *
  * 对应验收测试：tests/main/e2e/a2ui-form-clarification.test.ts
  */
+export function isCancelAction(actionId: string): boolean {
+  const norm = actionId.trim().toLowerCase()
+  return (
+    norm === 'cancel' ||
+    norm.startsWith('cancel') ||
+    norm.endsWith('cancel') ||
+    norm.includes('cancel') ||
+    norm.includes('abort') ||
+    norm.includes('dismiss')
+  )
+}
+
 export function formatA2UIFormSubmission(
   document: A2UIDocument,
   formData: Record<string, unknown>,
   actionId: string
 ): string {
-  if (actionId === 'cancel') {
+  if (isCancelAction(actionId)) {
     return `【用户取消了表单交互】(action: ${actionId})`
   }
   let summary = `【表单提交结果】${document.title ? `: ${document.title}` : ''}`
@@ -259,6 +288,21 @@ export const a2uiRenderPlugin: CapabilityPlugin = {
       status: 'rendered',
       createdAt: stamp
     })
+
+    const notice: A2UIRenderNotice = {
+      renderId,
+      taskId: call.taskId,
+      callId: call.callId,
+      document,
+      createdAt: stamp
+    }
+    for (const listener of renderListeners) {
+      try {
+        listener(notice)
+      } catch (err) {
+        console.error('[A2UI_RENDER_LISTENER_ERROR]', err)
+      }
+    }
 
     return {
       ok: true,

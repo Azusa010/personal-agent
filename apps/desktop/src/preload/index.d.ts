@@ -22,7 +22,10 @@ import type {
   GetAgentProfileResult,
   SetAgentProfileInput,
   RunWorkflowIpcResult,
-  ResetCircuitBreakerResult
+  ResetCircuitBreakerResult,
+  A2UIFormSubmitParams,
+  A2UIFormSubmitIpcResult,
+  A2UIRenderNotice
 } from '../shared/ipc-contract'
 
 export type {
@@ -84,4 +87,8 @@ export type PersonalAgentApi = {
   runWorkflow(workflowId: string, inputs?: Record<string, unknown>): Promise<RunWorkflowIpcResult>
   /** 拒绝熔断器恢复为半开试探状态 (Human-in-the-loop) */
   resetCircuitBreaker(taskId: string, reason?: string): Promise<ResetCircuitBreakerResult>
+  /** 提交 A2UI 声明式动态表单并回流 Agent 任务 */
+  submitA2UIForm(params: A2UIFormSubmitParams): Promise<A2UIFormSubmitIpcResult>
+  /** 订阅 main 推来的 A2UI 渲染事件 */
+  onA2UIRender(listener: (notice: A2UIRenderNotice) => void): () => void
 }

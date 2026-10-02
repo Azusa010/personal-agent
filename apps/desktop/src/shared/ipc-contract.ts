@@ -1,4 +1,7 @@
 import type {
+  A2UIDocument,
+  A2UIFormSubmitParams,
+  A2UIFormSubmitResult,
   AgentStreamParams,
   ERROR_CODE,
   PdfEntry,
@@ -221,3 +224,17 @@ export interface SetAgentProfileInput {
 
 export type SetAgentProfileResult =
   { ok: true; profile: AgentProfileView } | { ok: false; code: IpcErrorCode; message: string }
+
+export interface A2UIRenderNotice {
+  renderId: string
+  taskId: string
+  callId: string
+  document: A2UIDocument
+  createdAt: string
+}
+
+export type { A2UIFormSubmitParams, A2UIFormSubmitResult }
+
+export type A2UIFormSubmitIpcResult =
+  | { ok: true; actionId: string; formData: Record<string, unknown>; accepted: boolean }
+  | { ok: false; code: IpcErrorCode; message: string }

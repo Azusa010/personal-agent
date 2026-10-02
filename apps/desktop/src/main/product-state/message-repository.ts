@@ -34,6 +34,7 @@ export type NewMessage = Omit<MessageRecord, 'seq'>
 export interface MessageRepository {
   append(record: NewMessage): number
   listByConversation(conversationId: string): MessageRecord[]
+  findByTaskId(taskId: string): MessageRecord | null
 }
 
 export class SqliteMessageRepository implements MessageRepository {
@@ -62,5 +63,14 @@ export class SqliteMessageRepository implements MessageRepository {
       )
       .all(conversationId) as MessageRow[]
     return rows.map(toRecord)
+  }
+
+  findByTaskId(taskId: string): MessageRecord | null {
+    const row = this.db
+      .prepare(
+        `SELECT seq, id, conversation_id, role, text, task_id, created_at FROM messages WHERE task_id = ? ORDER BY seq DESC LIMIT 1`
+      )
+      .get(taskId) as MessageRow | undefined
+    return row ? toRecord(row) : null
   }
 }

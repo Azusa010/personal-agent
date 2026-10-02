@@ -6,8 +6,10 @@ import type {
   PermissionRecord,
   PermissionRespondResult,
   SendMessageIpcResult,
-  RuntimeStatus
+  RuntimeStatus,
+  A2UIRenderNotice
 } from '../../shared/ipc-contract'
+import { A2UIDialog } from './components/a2ui'
 import { Composer } from './components/Composer'
 import { DiagnosticsDialog } from './components/DiagnosticsDialog'
 import { IndexDialog } from './components/IndexDialog'
@@ -57,6 +59,7 @@ function App(): React.JSX.Element {
   // 不重新拉的话状态栏会停在旧值。
   const [statusPollKey, setStatusPollKey] = useState(0)
   const [pendingPermission, setPendingPermission] = useState<PermissionRecord | null>(null)
+  const [activeA2UIRender, setActiveA2UIRender] = useState<A2UIRenderNotice | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const feedbackTimer = useRef<number | null>(null)
 
@@ -133,6 +136,29 @@ function App(): React.JSX.Element {
     })
     return unsubscribe
   }, [])
+
+  useEffect(() => {
+    const unsubscribe = window.personalAgent.onA2UIRender((notice) => {
+      setActiveA2UIRender(notice)
+    })
+    return unsubscribe
+  }, [])
+
+  const handleA2UISubmit = async (
+    renderId: string,
+    actionId: string,
+    formData: Record<string, unknown>
+  ): Promise<void> => {
+    try {
+      await window.personalAgent.submitA2UIForm({ renderId, actionId, formData })
+      setActiveA2UIRender(null)
+      if (selectedConversationId) {
+        void loadConversation(selectedConversationId)
+      }
+    } catch (err) {
+      showFeedback(`A2UI 表单提交失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
 
   const handleDecide = async (decision: PermissionDecision): Promise<void> => {
     const target = pendingPermission
@@ -314,6 +340,11 @@ function App(): React.JSX.Element {
         }}
       />
       <PermissionDialog permission={pendingPermission} onDecide={handleDecide} />
+      <A2UIDialog
+        render={activeA2UIRender}
+        onSubmit={handleA2UISubmit}
+        onClose={() => setActiveA2UIRender(null)}
+      />
     </div>
   )
 }

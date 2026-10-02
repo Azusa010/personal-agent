@@ -1,4 +1,5 @@
 export { A2UIRenderer, default } from './A2UIRenderer'
+export { A2UIDialog } from './A2UIDialog'
 export * from './types'
 export * from './sanitize'
 export * from './form-state'

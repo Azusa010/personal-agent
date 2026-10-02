@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 
 import type {
+  A2UIFormSubmitParams,
+  A2UIRenderNotice,
   AgentStreamNotice,
   PermissionDecision,
   PermissionNotice,
@@ -81,6 +83,18 @@ if (process.contextIsolated) {
       },
       resetCircuitBreaker: (taskId: string, reason?: string) => {
         return ipcRenderer.invoke('personal-agent:reset-circuit-breaker', taskId, reason)
+      },
+      submitA2UIForm: (params: A2UIFormSubmitParams) => {
+        return ipcRenderer.invoke('personal-agent:a2ui-form-submit', params)
+      },
+      onA2UIRender: (listener: (notice: A2UIRenderNotice) => void) => {
+        const wrapped = (_event: IpcRendererEvent, notice: A2UIRenderNotice): void => {
+          listener(notice)
+        }
+        ipcRenderer.on('personal-agent:a2ui-render-notice', wrapped)
+        return () => {
+          ipcRenderer.removeListener('personal-agent:a2ui-render-notice', wrapped)
+        }
       }
     })
   } catch (error) {

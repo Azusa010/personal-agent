@@ -1647,9 +1647,19 @@ def test_a2ui_validation_invariants():
     with pytest.raises(ValidationError):
         A2UIAction.model_validate({"id": "act-1", "label": "Click", "type": "exploit"})
 
-    # 非法版本号报错
+    # 非法版本号或缺少 components 报错
     with pytest.raises(ValidationError):
         A2UIDocument.model_validate({"version": "2.0", "components": []})
+    with pytest.raises(ValidationError):
+        A2UIDocument.model_validate({"version": "1.0"})
+
+    # A2UIRenderParams 空参数或空 components 拒绝
+    with pytest.raises(ValidationError):
+        A2UIRenderParams.model_validate({})
+    with pytest.raises(ValidationError):
+        A2UIRenderParams.model_validate({"components": []})
+    with pytest.raises(ValidationError):
+        A2UIRenderParams.model_validate({"document": {"components": []}})
 
     # A2UIRenderParams 支持 document 包装或平铺
     doc = A2UIDocument.model_validate({"components": [{"type": "divider", "id": "d-1"}]})

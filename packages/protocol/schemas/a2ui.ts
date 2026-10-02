@@ -109,9 +109,12 @@ export const A2UIRenderParams = z
     actions: z.array(A2UIAction).optional(),
   })
   .refine(
-    (data) =>
-      data.document !== undefined ||
-      (data.components !== undefined && data.components.length > 0),
+    (data) => {
+      if (data.document !== undefined) {
+        return data.document.components.length > 0;
+      }
+      return data.components !== undefined && data.components.length > 0;
+    },
     { message: "Either document or non-empty components must be provided" },
   );
 export type A2UIRenderParams = z.infer<typeof A2UIRenderParams>;
@@ -167,7 +170,7 @@ export type A2UIFormSubmitParams = z.infer<typeof A2UIFormSubmitParams>;
 export const A2UIFormSubmitResult = z.object({
   ok: z.literal(true),
   actionId: z.string().min(1),
-  formData: z.record(z.string(), z.unknown()),
+  formData: z.record(z.string(), z.unknown()).default({}),
   accepted: z.boolean().default(true),
 });
 export type A2UIFormSubmitResult = z.infer<typeof A2UIFormSubmitResult>;

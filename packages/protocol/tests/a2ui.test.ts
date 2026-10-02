@@ -236,9 +236,12 @@ describe("A2UI 协议契约 (TASK-D1)", () => {
       expect(normalized2.actions).toHaveLength(1);
     });
 
-    it("A2UIRenderParams 在两者皆空时拒绝", () => {
+    it("A2UIRenderParams 在两者皆空或 components 为空时拒绝", () => {
       expect(() => A2UIRenderParams.parse({})).toThrow();
       expect(() => A2UIRenderParams.parse({ components: [] })).toThrow();
+      expect(() =>
+        A2UIRenderParams.parse({ document: { components: [] } }),
+      ).toThrow();
     });
 
     it("A2UIRenderResult 与 Outcome 校验", () => {

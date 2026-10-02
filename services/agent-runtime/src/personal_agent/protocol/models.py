@@ -1183,7 +1183,7 @@ class A2UIDocument(ProtocolModel):
 
     version: Literal["1.0"] = "1.0"
     title: str | None = None
-    components: list[A2UIComponent] = Field(default_factory=list)
+    components: list[A2UIComponent]
     actions: list[A2UIAction] | None = None
 
 
@@ -1195,6 +1195,15 @@ class A2UIRenderParams(ProtocolModel):
     title: str | None = None
     components: list[A2UIComponent] | None = None
     actions: list[A2UIAction] | None = None
+
+    @model_validator(mode="after")
+    def check_document_or_components(self) -> Self:
+        if self.document is not None:
+            if not self.document.components:
+                raise ValueError("document.components must not be empty")
+        elif not self.components:
+            raise ValueError("Either document or non-empty components must be provided")
+        return self
 
 
 class A2UIRenderResult(ProtocolModel):
