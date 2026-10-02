@@ -6,7 +6,7 @@ import { editFileStrict } from '../file-edit'
 import { resolveWithinRootReal } from '../path-guard'
 import { resolveRoot } from '../roots'
 import type { CapabilityPlugin } from '../plugin'
-import { auditExpectedValues, invalid } from './helpers'
+import { auditExpectedValues, invalid, type AuditResult } from './helpers'
 
 export const fileEditPlugin: CapabilityPlugin = {
   name: 'file_edit',
@@ -49,6 +49,10 @@ export const fileEditPlugin: CapabilityPlugin = {
 
     const expectedLineCount = call.bound.args['expected_file_line_count']
     const expectedOldStringLine = call.bound.args['expected_old_string_line']
+    let audit: AuditResult = {
+      hasMismatch: false,
+      mismatches: []
+    }
     if (expectedLineCount !== undefined || expectedOldStringLine !== undefined) {
       const source = await readFile(absPath, 'utf8').catch(() => null)
       let actualLineCount: number | undefined
@@ -60,7 +64,7 @@ export const fileEditPlugin: CapabilityPlugin = {
           actualOldStringLine = source.slice(0, idx).split(/\r?\n/).length
         }
       }
-      auditExpectedValues(
+      audit = auditExpectedValues(
         call.callId,
         call.capability.name,
         {
@@ -74,6 +78,17 @@ export const fileEditPlugin: CapabilityPlugin = {
       )
     }
 
-    return editFileStrict(absPath, oldString, newString)
+    const result = await editFileStrict(absPath, oldString, newString)
+    if (audit.hasMismatch && result.ok) {
+      const extraDiags = audit.mismatches.map(
+        (m) => `[AUDIT_MISMATCH] ${m.field}: expected=${m.expected}, actual=${m.actual}`
+      )
+      const existing = (result as { diagnostics?: string[] }).diagnostics ?? []
+      return {
+        ...result,
+        diagnostics: [...existing, ...extraDiags]
+      }
+    }
+    return result
   }
 }

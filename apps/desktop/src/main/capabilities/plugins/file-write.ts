@@ -44,12 +44,23 @@ export const fileWritePlugin: CapabilityPlugin = {
     const absPath = call.bound.paths['path']
     const content = String(call.bound.args['content'] ?? '')
     const fileStat = await safeStat(absPath)
-    auditExpectedValues(
+    const audit = auditExpectedValues(
       call.callId,
       call.capability.name,
       { expected_file_exists: call.bound.args['expected_file_exists'] },
       { expected_file_exists: fileStat !== undefined }
     )
-    return writeFileAtomic(absPath, content)
+    const result = await writeFileAtomic(absPath, content)
+    if (audit.hasMismatch && result.ok) {
+      const extraDiags = audit.mismatches.map(
+        (m) => `[AUDIT_MISMATCH] ${m.field}: expected=${m.expected}, actual=${m.actual}`
+      )
+      const existing = (result as { diagnostics?: string[] }).diagnostics ?? []
+      return {
+        ...result,
+        diagnostics: [...existing, ...extraDiags]
+      }
+    }
+    return result
   }
 }

@@ -51,6 +51,9 @@ describe('WRITE 插件 expected_* 审计 mismatch 行为验证 (TASK-C4)', () =>
 
     const result = await getCapabilityPlugin('file_write')!.execute(call, {})
     expect(result['ok']).toBe(true)
+    expect(result['diagnostics']).toEqual(
+      expect.arrayContaining([expect.stringContaining('[AUDIT_MISMATCH] expected_file_exists')])
+    )
 
     expect(warnSpy).toHaveBeenCalled()
     const warned = getWarnLogs()
@@ -75,6 +78,12 @@ describe('WRITE 插件 expected_* 审计 mismatch 行为验证 (TASK-C4)', () =>
 
     const result = await getCapabilityPlugin('file_edit')!.execute(call, {})
     expect(result['ok']).toBe(true)
+    expect(result['diagnostics']).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('[AUDIT_MISMATCH] expected_file_line_count'),
+        expect.stringContaining('[AUDIT_MISMATCH] expected_old_string_line')
+      ])
+    )
 
     expect(warnSpy).toHaveBeenCalled()
     const warned = getWarnLogs()

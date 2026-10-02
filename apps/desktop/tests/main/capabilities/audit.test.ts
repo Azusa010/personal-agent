@@ -1,15 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { auditExpectedValues } from '../../../src/main/capabilities/plugins/audit'
+import {
+  auditExpectedValues,
+  clearAuditHistory,
+  getAuditHistory,
+  addAuditMismatchListener
+} from '../../../src/main/capabilities/plugins/audit'
 
 describe('auditExpectedValues 双层审计逻辑（TASK-C2）', () => {
   let warnSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
+    clearAuditHistory()
     warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
   afterEach(() => {
     warnSpy.mockRestore()
+    clearAuditHistory()
   })
 
   it('预期值与实际值完全一致：hasMismatch 为 false，不打告警日志', () => {
@@ -144,5 +151,68 @@ describe('auditExpectedValues 双层审计逻辑（TASK-C2）', () => {
 
     expect(result.hasMismatch).toBe(true)
     expect(result.mismatches).toHaveLength(2)
+  })
+
+  it('记录 mismatch 历史并能通过 getAuditHistory 获取与 clearAuditHistory 清空', () => {
+    clearAuditHistory()
+    expect(getAuditHistory()).toHaveLength(0)
+
+    auditExpectedValues(
+      'call-201',
+      'filesystem_create_dir',
+      { expected_parent_exists: true },
+      { expected_parent_exists: false }
+    )
+    const history = getAuditHistory()
+    expect(history).toHaveLength(1)
+    expect(history[0].callId).toBe('call-201')
+    expect(history[0].capability).toBe('filesystem_create_dir')
+    expect(history[0].mismatches[0].field).toBe('expected_parent_exists')
+
+    clearAuditHistory()
+    expect(getAuditHistory()).toHaveLength(0)
+  })
+
+  it('addAuditMismatchListener 能实时收到 mismatch 事件并在注销后不再接收', () => {
+    const listener = vi.fn()
+    const unsubscribe = addAuditMismatchListener(listener)
+
+    auditExpectedValues(
+      'call-202',
+      'file_write',
+      { expected_file_exists: true },
+      { expected_file_exists: false }
+    )
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener.mock.calls[0][0].callId).toBe('call-202')
+
+    unsubscribe()
+    auditExpectedValues(
+      'call-203',
+      'file_write',
+      { expected_file_exists: true },
+      { expected_file_exists: false }
+    )
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
+
+  it('listener 抛出异常不会阻断 auditExpectedValues 的执行', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const faultyListener = vi.fn().mockImplementation(() => {
+      throw new Error('Listener exploded')
+    })
+    const unsubscribe = addAuditMismatchListener(faultyListener)
+
+    const result = auditExpectedValues(
+      'call-204',
+      'file_write',
+      { expected_file_exists: true },
+      { expected_file_exists: false }
+    )
+    expect(result.hasMismatch).toBe(true)
+    expect(errorSpy).toHaveBeenCalledWith('[AUDIT_LISTENER_ERROR]', expect.any(Error))
+
+    unsubscribe()
+    errorSpy.mockRestore()
   })
 })

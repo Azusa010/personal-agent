@@ -9,6 +9,32 @@ export interface AuditResult {
   mismatches: AuditMismatch[]
 }
 
+export interface AuditRecord {
+  callId: string
+  capability: string
+  mismatches: AuditMismatch[]
+  timestamp: string
+}
+
+const auditHistory: AuditRecord[] = []
+export type AuditMismatchListener = (record: AuditRecord) => void
+const auditListeners: Set<AuditMismatchListener> = new Set()
+
+export function getAuditHistory(): readonly AuditRecord[] {
+  return auditHistory
+}
+
+export function clearAuditHistory(): void {
+  auditHistory.length = 0
+}
+
+export function addAuditMismatchListener(listener: AuditMismatchListener): () => void {
+  auditListeners.add(listener)
+  return () => {
+    auditListeners.delete(listener)
+  }
+}
+
 /**
  * 插件执行体内的 expected_* 双层审计逻辑。
  */
@@ -29,5 +55,24 @@ export function auditExpectedValues(
       )
     }
   }
-  return { hasMismatch: mismatches.length > 0, mismatches }
+
+  const hasMismatch = mismatches.length > 0
+  if (hasMismatch) {
+    const record: AuditRecord = {
+      callId,
+      capability,
+      mismatches,
+      timestamp: new Date().toISOString()
+    }
+    auditHistory.push(record)
+    for (const listener of auditListeners) {
+      try {
+        listener(record)
+      } catch (err) {
+        console.error('[AUDIT_LISTENER_ERROR]', err)
+      }
+    }
+  }
+
+  return { hasMismatch, mismatches }
 }
