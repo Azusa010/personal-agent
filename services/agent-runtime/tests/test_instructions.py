@@ -1,9 +1,15 @@
 """instructions 模块的规范测试：MD 格式、XML 标签结构、流程驱动 SOP 与人设强约束验证。"""
 
+from personal_agent.conversation.context import SectionedSystemPrompt
 from personal_agent.conversation.instructions import (
     EXECUTOR_INSTRUCTIONS,
+    EXECUTOR_SECTIONS,
     PLANNER_INSTRUCTIONS,
+    PLANNER_SECTIONS,
     compose_instructions,
+    compose_sectioned_prompt,
+    create_executor_sectioned_prompt,
+    create_planner_sectioned_prompt,
 )
 from personal_agent.protocol.models import ProfileDto
 
@@ -13,6 +19,8 @@ def test_instructions_have_xml_and_markdown_structure():
     for prompt in (EXECUTOR_INSTRUCTIONS, PLANNER_INSTRUCTIONS):
         assert "<system_instruction>" in prompt
         assert "</system_instruction>" in prompt
+        assert "<preamble>" in prompt
+        assert "</preamble>" in prompt
         assert "<rules>" in prompt
         assert "</rules>" in prompt
         assert "<workflow_process>" in prompt
@@ -113,4 +121,48 @@ def test_instructions_contain_adaptive_hotfix_guidance():
     assert ".agent/skills/" in PLANNER_INSTRUCTIONS
 
 
+def test_instructions_xml_sectioning_and_prompt_builders():
+    """验证现有提示词成功迁移为 XML 分段结构与 SectionedSystemPrompt 实例 (TASK-G2)。"""
+    # 1. 验证基础分段定义齐备
+    expected_sections = {"preamble", "rules", "workflow_process", "output_contract"}
+    assert set(EXECUTOR_SECTIONS.keys()) == expected_sections
+    assert set(PLANNER_SECTIONS.keys()) == expected_sections
 
+    # 2. 验证执行器 SectionedSystemPrompt 构建器
+    exec_prompt = create_executor_sectioned_prompt()
+    assert isinstance(exec_prompt, SectionedSystemPrompt)
+    assert exec_prompt.has_section("preamble")
+    assert exec_prompt.has_section("rules")
+    assert exec_prompt.has_section("workflow_process")
+    assert exec_prompt.has_section("output_contract")
+    assert not exec_prompt.has_section("persona")
+
+    rendered_exec = exec_prompt.render_full()
+    assert "<preamble>" in rendered_exec
+    assert "<rules>" in rendered_exec
+    assert "<workflow_process>" in rendered_exec
+    assert "<output_contract>" in rendered_exec
+
+    # 3. 验证规划器 SectionedSystemPrompt 构建器
+    plan_prompt = create_planner_sectioned_prompt()
+    assert isinstance(plan_prompt, SectionedSystemPrompt)
+    assert plan_prompt.has_section("preamble")
+    assert plan_prompt.has_section("rules")
+
+    # 4. 验证人设注入到 SectionedSystemPrompt
+    profile = ProfileDto(name="管家", persona="优雅严谨的管家风格")
+    exec_with_persona = create_executor_sectioned_prompt(profile)
+    assert exec_with_persona.has_section("persona")
+    persona_rendered = exec_with_persona.render_full()
+    assert "<persona>" in persona_rendered
+    assert "优雅严谨的管家风格" in persona_rendered
+
+    # 5. 验证 compose_instructions 兼容 SectionedSystemPrompt 输入
+    composed_from_obj = compose_instructions(exec_prompt, profile)
+    assert "<persona>" in composed_from_obj
+    assert "优雅严谨的管家风格" in composed_from_obj
+
+    # 6. 验证 compose_sectioned_prompt 工具函数
+    sec_prompt = compose_sectioned_prompt(EXECUTOR_SECTIONS, profile)
+    assert isinstance(sec_prompt, SectionedSystemPrompt)
+    assert sec_prompt.has_section("persona")
