@@ -27,6 +27,7 @@ DEFAULT_BREAKER_THRESHOLDS: dict[str, int] = {
     "model_fallback": 2,  # 备用模型降级
     "permission_classify": 3,  # 权限分类人工回退
     "tool_self_heal": 3,  # 工具错误上下文回灌自愈
+    "trajectory_repair": 3,  # 轨迹完整性修复
 }
 
 
@@ -122,8 +123,7 @@ def determine_recovery_plan(
     is_background: bool = False,
     attempted_actions: list[str] | None = None,
 ) -> RecoveryPlan:
-    """根据故障分类与分路径熔断器状态，推导分级恢复方案。
-    """
+    """根据故障分类与分路径熔断器状态，推导分级恢复方案。"""
     history = list(attempted_actions or [])
     if is_background:
         history.append("abort_background")
@@ -159,10 +159,16 @@ def determine_recovery_plan(
         )
 
     # 3. Level 2 降级接续：上下文溢出压缩、输出截断接续、工具层异常回灌
-    if fault.fault_type == "context_overflow":
+    if (fault.fault_type == "context_overflow"
+        or fault.fault_type == "compression_failed"
+    ):
         path = "context_compression"
         action = "compact_context"
         reason_msg = "上下文长度溢出，触发上下文压缩"
+    elif fault.fault_type == "broken_trajectory":
+        path = "trajectory_repair"
+        action = "repair_trajectory"
+        reason_msg = "轨迹校验断裂，触发轨迹完整性修复"
     elif fault.fault_type == "output_truncated":
         path = "output_continuation"
         action = "continue_generation"

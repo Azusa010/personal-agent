@@ -134,8 +134,7 @@ class StreamWatchdog:
 
 
 def classify_fault(error: Any) -> FaultClassification:
-    """四层故障分类与恢复策略判定。
-    """
+    """四层故障分类与恢复策略判定。"""
     msg = ""
     retry_after: float | None = None
     if isinstance(error, str):
@@ -171,7 +170,7 @@ def classify_fault(error: Any) -> FaultClassification:
     # 从错误信息中正则提取 retry_after（支持 "retry after 12.5s", "retry in 5s" 等）
     if retry_after is None:
         m = re.search(
-            r"(?:retry[ -]?(?:after|in)|wait)[^\d]*(\d+(?:\.\d+)?)\s*s?",
+            r"\b(?:retry[ -]?(?:after|in)|wait)\b[^\d]*(\d+(?:\.\d+)?)\s*s?",
             msg,
             re.IGNORECASE,
         )
@@ -229,7 +228,11 @@ def classify_fault(error: Any) -> FaultClassification:
         or "不在协议枚举内" in msg
     ):
         f_type = "tool_not_found"
-    elif "validationerror" in lower_msg or "invalid_arguments" in lower_msg:
+    elif (
+        "validationerror" in lower_msg
+        or "validation error" in lower_msg
+        or "invalid_arguments" in lower_msg
+    ):
         f_type = "invalid_arguments"
     elif "duplicate_call" in lower_msg:
         f_type = "duplicate_call"
@@ -275,6 +278,9 @@ def classify_fault(error: Any) -> FaultClassification:
         or "econnreset" in lower_msg
         or "connection_reset" in lower_msg
         or "channel closed" in lower_msg
+        or "hostchannelclosed" in error_type
+        or "broken pipe" in lower_msg
+        or "pipe broken" in lower_msg
     ):
         f_type = "connection_reset"
     elif (

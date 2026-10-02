@@ -9,7 +9,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
-from collections import deque
+from collections import defaultdict, deque
 from collections.abc import Generator, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -167,22 +167,28 @@ def repair_trajectory_integrity(
     tool_calls: Sequence[ToolCallItem | ToolCallDecision],
     observations: Sequence[Observation],
 ) -> TrajectoryRepairReport:
-    """检查并自动修复工具调用与观察结果的配对完整性（§2.2 D）。"""
+    """检查并自动修复工具调用与观察结果的配对完整性（§2.2 D）。
+    规则：
+    1. 遍历 tool_calls，依次通过 callId 从历史 observations 的 FIFO 队列中匹配；
+    2. 若某个 callId 在 observations 中缺失，生成合成错误 Observation 进行占位修补；
+    3. 未被 tool_calls 配对消耗的多余/孤立 Observation 依然保留并追加在末尾（保持原序），绝不丢弃。
+    """
     if not tool_calls:
         return TrajectoryRepairReport(
             repaired_observations=list(observations),
             repaired_call_ids=[],
         )
-    obs_by_id: dict[str, Observation] = {obs.callId: obs for obs in observations}
+    obs_queue: dict[str, deque[Observation]] = defaultdict(deque)
+    for obs in observations:
+        obs_queue[obs.callId].append(obs)
     repaired_obs: list[Observation] = []
     repaired_call_ids: list[str] = []
-    seen_call_ids: set[str] = set()
 
     for call in tool_calls:
         call_id = call.callId
-        seen_call_ids.add(call_id)
-        if call_id in obs_by_id:
-            repaired_obs.append(obs_by_id[call_id])
+        if obs_queue[call_id]:
+            matched_obs = obs_queue[call_id].popleft()
+            repaired_obs.append(matched_obs)
         else:
             synth_obs = Observation(
                 callId=call_id,
@@ -196,9 +202,12 @@ def repair_trajectory_integrity(
             )
             repaired_obs.append(synth_obs)
             repaired_call_ids.append(call_id)
+
+    # 将未被匹配的孤立/剩余观测追加到末尾，保持其在原始 observations 中的相对顺序
     for obs in observations:
-        if obs.callId not in seen_call_ids:
-            repaired_obs.append(obs)
+        queue = obs_queue[obs.callId]
+        if queue and queue[0] is obs:
+            repaired_obs.append(queue.popleft())
     return TrajectoryRepairReport(
         repaired_observations=repaired_obs,
         repaired_call_ids=repaired_call_ids,

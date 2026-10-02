@@ -13,7 +13,17 @@
 from unittest.mock import MagicMock
 
 from personal_agent.conversation.context.manager import ContextManager
-from personal_agent.conversation.loop.fault_classifier import StreamStalledError
+from personal_agent.conversation.loop.fault_classifier import (
+    FaultLayer,
+    RetryVerdict,
+    StreamStalledError,
+    classify_fault,
+)
+from personal_agent.conversation.loop.recovery import (
+    RecoveryLevel,
+    RecoveryPathBreaker,
+    determine_recovery_plan,
+)
 from personal_agent.conversation.loop.trajectory import (
     DeathSpiralProtector,
     repair_trajectory_integrity,
@@ -21,6 +31,7 @@ from personal_agent.conversation.loop.trajectory import (
 from personal_agent.conversation.model.gateway import (
     BatchToolCallDecision,
     ModelCallFailed,
+    Observation,
     SummaryDecision,
     ToolCallItem,
 )
@@ -33,7 +44,7 @@ from personal_agent.protocol.models import (
 from personal_agent.react_loop import ReActLoop
 from personal_agent.scripted_model import ScriptedModel
 
-VISIBLE = ["filesystem_read", "filesystem_write", "terminal_execute"]
+VISIBLE = ["file_read", "file_write", "terminal_execute"]
 
 
 class FakeChannel:
@@ -292,3 +303,89 @@ def test_level_2_context_compression_degrades_and_retries():
     outcome = loop.run("测试上下文压缩降级", VISIBLE)
     assert outcome.kind == "completed"
     assert outcome.reply == "压缩上下文后成功产出"
+
+
+# =========================================================================
+# Bug 7: ValidationError 字符串被误判为 unknown_error (FATAL)
+# =========================================================================
+def test_fault_classifier_validation_error_string():
+    """Bug 7: 字符串格式的 ValidationError（包含空格 'validation error'）应分类为 invalid_arguments，而非 unknown_error (FATAL)。"""
+    res = classify_fault(
+        "1 validation error for ToolCallDecision\narguments\n  Input should be a valid dictionary"
+    )
+    assert res.fault_type == "invalid_arguments"
+    assert res.layer == FaultLayer.TOOL
+    assert res.verdict == RetryVerdict.NON_RETRYABLE
+
+
+# =========================================================================
+# Bug 8: retry_after 正则单词边界误匹配
+# =========================================================================
+def test_fault_classifier_retry_after_word_boundary():
+    """Bug 8: 'Awaiting response (status 500)' 中的 'wait' 不应误匹配提取 500 作为 retry_after。"""
+    res = classify_fault("Awaiting response (status 500)")
+    assert res.retry_after is None
+
+    # 正常重试提示必须依然能提取
+    res2 = classify_fault("Please wait 15.5s before retrying")
+    assert res2.retry_after == 15.5
+
+    res3 = classify_fault("Rate limited, retry after 3s")
+    assert res3.retry_after == 3.0
+
+
+# =========================================================================
+# Bug 9: HostChannelClosed 与断管异常匹配
+# =========================================================================
+def test_fault_classifier_host_channel_closed_types():
+    """Bug 9: HostChannelClosed 异常或 broken pipe 等断管表述应分类为 connection_reset (RETRYABLE)。"""
+
+    class HostChannelClosed(Exception):
+        pass
+
+    res = classify_fault(HostChannelClosed("通道已关闭"))
+    assert res.fault_type == "connection_reset"
+    assert res.layer == FaultLayer.API
+    assert res.verdict == RetryVerdict.RETRYABLE
+
+    res2 = classify_fault("pipe broken while reading stdout")
+    assert res2.fault_type == "connection_reset"
+
+
+# =========================================================================
+# Bug 10: compression_failed 与 broken_trajectory 的降级路径
+# =========================================================================
+def test_determine_recovery_plan_broken_trajectory_and_compression_failed():
+    """Bug 10: broken_trajectory 与 compression_failed 作为 DEGRADABLE 故障，必须有对应的 Level 2 恢复动作，不能直接进入 halt_and_report。"""
+    breaker = RecoveryPathBreaker()
+    fault_traj = classify_fault("broken_trajectory: tool call without observation")
+    plan_traj = determine_recovery_plan(fault_traj, breaker)
+    assert plan_traj.level == RecoveryLevel.LEVEL_2_DEGRADE
+    assert plan_traj.path == "trajectory_repair"
+    assert plan_traj.action == "repair_trajectory"
+
+    fault_comp = classify_fault("compression_failed: distiller model timeout")
+    plan_comp = determine_recovery_plan(fault_comp, breaker)
+    assert plan_comp.level == RecoveryLevel.LEVEL_2_DEGRADE
+    assert plan_comp.path == "context_compression"
+    assert plan_comp.action in ("compact_context", "truncate_fallback")
+
+
+# =========================================================================
+# Bug 13: 同 callId 历史观测不被覆盖丢失
+# =========================================================================
+def test_repair_trajectory_integrity_duplicate_call_id_fifo():
+    """Bug 13: 历史观测中存在重复 callId 时，应按 FIFO 依次配对，未被匹配的多余观测全部保留，绝不被字典推导丢弃。"""
+    calls = [
+        ToolCallItem(callId="call-1", capability="file_read", arguments={"path": "a.txt"}),
+        ToolCallItem(callId="call-1", capability="file_read", arguments={"path": "b.txt"}),
+    ]
+    obs1 = Observation(callId="call-1", capability="file_read", ok=True, payload={"step": 1})
+    obs2 = Observation(callId="call-1", capability="file_read", ok=True, payload={"step": 2})
+
+    report = repair_trajectory_integrity(calls, [obs1, obs2])
+    assert len(report.repaired_observations) == 2
+    assert report.repaired_observations[0].payload == {"step": 1}
+    assert report.repaired_observations[1].payload == {"step": 2}
+    assert report.repaired_call_ids == []
+
