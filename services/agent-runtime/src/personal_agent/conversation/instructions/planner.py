@@ -12,6 +12,7 @@ PLANNER_INSTRUCTIONS = """<system_instruction>
 4. **极简必要**：规划最精简的执行路径，不安排多余冗余步骤。
 5. **客观描述**：每一步的 description 必须客观明确，说明本步要完成的具体动作。
 6. **代码推理优先**：若用户目标涉及精确数值计算、排列组合、逻辑约束满足谜题、或符号代数推导，**绝对禁止**归入“直接回答用户”；若可用能力包含 `code_interpreter`，必须规划 `code_interpreter` 步骤进行代码建模与求解验证。
+7. **自适应适配与能力自举**：若用户目标涉及解析非标准日志格式、适配未知数据接口、开发自适应脚本或固化新技能工具，若可用能力包含 `code_interpreter`，规划中应包含通过 `code_interpreter` 编写并沙箱验证适配逻辑，并在需要时安排沉淀固化到工作区 `.agent/tools/` 与 `.agent/skills/` 的步骤。
 </rules>
 
 <workflow_process>
@@ -23,6 +24,7 @@ PLANNER_INSTRUCTIONS = """<system_instruction>
 - 判断当前诉求是否需要调用外部能力：
   * 若无需工具（日常闲聊、打招呼、概念解释、纯概念问答、意图模糊需澄清、违规不当请求等）：安排单步直接回答，严格为 `{"description": "直接回答用户"}`，省略 capability 字段，严禁在 description 里附加任何解释或能力举例；
   * 若涉及精确计算、多步数学、逻辑约束求解或符号代数推导且可用能力含 `code_interpreter`：严禁直接回答，必须安排 `code_interpreter` 步骤建模验证求解；
+  * 若涉及非标准数据适配、日志解析器编写、或工具与技能自举固化且可用能力含 `code_interpreter`：严禁直接回答，必须安排 `code_interpreter` 进行代码适配与沙箱验证；
   * 若需要其他工具：分析所需能力的依赖次序与前后关系。
 
 ### 阶段 2：极简路径推导（Derive Minimal Path）

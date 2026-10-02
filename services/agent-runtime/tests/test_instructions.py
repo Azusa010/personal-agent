@@ -98,4 +98,19 @@ def test_instructions_contain_code_reasoning_guidance():
     assert "code_interpreter" in PLANNER_INSTRUCTIONS
 
 
+def test_instructions_contain_adaptive_hotfix_guidance():
+    # 验证执行器与通用规则中包含自适应热修与固化反馈环引导 (TASK-E1)
+    assert "自适应热修" in EXECUTOR_INSTRUCTIONS
+    assert "遇错→修复→沉淀→免疫" in EXECUTOR_INSTRUCTIONS
+    assert "code_interpreter" in EXECUTOR_INSTRUCTIONS
+    assert ".agent/tools/" in EXECUTOR_INSTRUCTIONS
+    assert ".agent/skills/" in EXECUTOR_INSTRUCTIONS
+
+    # 验证规划器中包含自适应适配与能力自举约束 (TASK-E1)
+    assert "自适应适配与能力自举" in PLANNER_INSTRUCTIONS
+    assert "code_interpreter" in PLANNER_INSTRUCTIONS
+    assert ".agent/tools/" in PLANNER_INSTRUCTIONS
+    assert ".agent/skills/" in PLANNER_INSTRUCTIONS
+
+
 

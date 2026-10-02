@@ -96,7 +96,7 @@ TOOL_SPECS: dict[str, str] = {
         '写入或更新 Viking 维基条目的 L2 全文 (*.md)。参数 {"uri": "<viking:// URI>", "content": "<Markdown文本>"}'
     ),
     "code_interpreter": (
-        '在隔离沙盒内运行 Python 代码，用于复杂数据计算与代码推理。'
+        '在隔离沙盒内运行 Python 代码，用于复杂数据计算、代码推理与自适应热修。'
         '参数 {"code": "<Python代码>", "timeoutMs": <可选超时毫秒数>, "saveArtifacts": <可选布尔>}'
     ),
     "file_search": (
