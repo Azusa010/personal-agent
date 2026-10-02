@@ -187,7 +187,10 @@ def render_messages(context: ModelContext) -> list[dict[str, Any]]:
     """把 ModelContext 投影为标准 Chat Completions 的 [system, user, assistant, tool] 消息列表。"""
     messages: list[dict[str, Any]] = []
     # 1. 系统消息
-    system_content = compose_instructions(INSTRUCTIONS, context.profile)
+    if context.systemPrompt:
+        system_content = context.systemPrompt
+    else:
+        system_content = compose_instructions(INSTRUCTIONS, context.profile)
     messages.append({"role": "system", "content": system_content})
     # 2. 历史对话消息
     for turn in context.history:
@@ -306,7 +309,10 @@ class LiveModel:
                 "schema": DECISION_SCHEMA,
             }
         }
-        instructions = compose_instructions(INSTRUCTIONS, context.profile)
+        if context.systemPrompt:
+            instructions = context.systemPrompt
+        else:
+            instructions = compose_instructions(INSTRUCTIONS, context.profile)
         enable_reasoning = (
             context.profile.reasoningSummary
             if context.profile and context.profile.reasoningSummary is not None

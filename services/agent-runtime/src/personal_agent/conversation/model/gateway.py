@@ -34,6 +34,7 @@ class ModelContext(BaseModel):
     progressDocument: str | None = None
     statusBar: str | None = None
     userMemories: list[str] = Field(default_factory=list)
+    systemPrompt: str | None = None
 
 
 class ToolCallItem(BaseModel):

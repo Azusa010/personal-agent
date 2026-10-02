@@ -12,6 +12,9 @@ import os
 from collections.abc import Sequence
 from typing import Any
 
+from personal_agent.conversation.context.sectioned_prompt import SectionedSystemPrompt
+from personal_agent.conversation.instructions import create_executor_sectioned_prompt
+
 log = logging.getLogger("personal_agent")
 
 from personal_agent.conversation.compression import (
@@ -82,6 +85,7 @@ class ContextManager:
         max_window_chars: int | None = None,
         status_bar_manager: StatusBarManager | None = None,
         user_memories: Sequence[str] = (),
+        sectioned_prompt: SectionedSystemPrompt | None = None,
     ) -> None:
         if maxCharsPerString < 1:
             raise ValueError(f"maxCharsPerString 必须 >= 1，收到 {maxCharsPerString}")
@@ -94,6 +98,11 @@ class ContextManager:
         self._user_memories: list[str] = list(user_memories)
         self._current_step: PlanStepDto | None = None
         self._step_observations: list[Observation] = []
+        self._sectioned_prompt = (
+            sectioned_prompt
+            if sectioned_prompt is not None
+            else create_executor_sectioned_prompt(self._profile)
+        )
         if max_window_chars is not None:
             self._max_window_tokens = max_window_chars
         else:
@@ -121,6 +130,10 @@ class ContextManager:
     def status_bar_manager(self) -> StatusBarManager:
         return self._status_bar_manager
 
+    @property
+    def sectioned_prompt(self) -> SectionedSystemPrompt:
+        return self._sectioned_prompt
+    
     @property
     def doc_manager(self) -> ProgressDocumentManager | None:
         return self._doc_manager
@@ -295,6 +308,13 @@ class ContextManager:
 
         sb_text = self._status_bar_manager.render()
 
+        if doc_content:
+            self._sectioned_prompt.set_section("project_context", doc_content)
+        if sb_text:
+            self._sectioned_prompt.set_section("environment", sb_text)
+
+        rendered_system_prompt = self._sectioned_prompt.render_full()
+
         return ModelContext(
             taskGoal=taskGoal,
             visibleCapabilities=visibleCapabilities,
@@ -305,4 +325,5 @@ class ContextManager:
             progressDocument=doc_content,
             statusBar=sb_text if sb_text else None,
             userMemories=list(self._user_memories),
+            systemPrompt=rendered_system_prompt,
         )

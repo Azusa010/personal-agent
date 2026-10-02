@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 
 SECTION_NAME_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]*$")
 
@@ -161,6 +161,25 @@ class SectionedSystemPrompt:
 
         return patch if patch else None
 
+    def _order_names(self, names: Iterable[str]) -> list[str]:
+        name_set = set(names)
+        ordered: list[str] = []
+        seen = set()
+        if self._section_order:
+            for n in self._section_order:
+                if n in name_set:
+                    ordered.append(n)
+                    seen.add(n)
+        for n in self._sections:
+            if n in name_set and n not in seen:
+                ordered.append(n)
+                seen.add(n)
+        for n in self._last_rendered:
+            if n in name_set and n not in seen:
+                ordered.append(n)
+                seen.add(n)
+        return ordered
+
     def render_diff(self) -> str | None:
         """增量渲染：仅输出发生变更或新增的段落片段。
 
@@ -171,21 +190,14 @@ class SectionedSystemPrompt:
         patch = self.diff_sections()
         if not patch:
             return None
-
         parts = []
-        ordered_names = [name for name, _ in self._ordered_items()]
-        for name in ordered_names:
-            if name in patch:
-                content = patch[name]
-                if content is not None:
-                    parts.append(f"<{name}>\n{content}\n</{name}>")
-                else:
-                    parts.append(f'<{name} status="deleted"/>')
-
-        for name, content in patch.items():
-            if content is None and name not in ordered_names:
+        ordered_keys = self._order_names(patch.keys())
+        for name in ordered_keys:
+            content = patch[name]
+            if content is not None:
+                parts.append(f"<{name}>\n{content}\n</{name}>")
+            else:
                 parts.append(f'<{name} status="deleted"/>')
-
         self._last_rendered = dict(self._sections)
         return "\n\n".join(parts)
 
@@ -247,7 +259,7 @@ class SectionedSystemPrompt:
         prefix_len = SectionedSystemPrompt.calculate_common_prefix_length(
             prompt1, prompt2
         )
-        return prefix_len / len(prompt1)
+        return prefix_len / len(prompt2)
 
     def clone(self) -> SectionedSystemPrompt:
         """深拷贝一份提示词管理器实例。"""
