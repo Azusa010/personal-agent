@@ -11,11 +11,18 @@ export default defineConfig({
       }
     }
   },
-  preload: {},
+  preload: {
+    resolve: {
+      alias: {
+        '@personal-agent/protocol': resolve('../../packages/protocol/schemas/index.ts')
+      }
+    }
+  },
   renderer: {
     resolve: {
       alias: {
-        '@renderer': resolve('src/renderer/src')
+        '@renderer': resolve('src/renderer/src'),
+        '@personal-agent/protocol': resolve('../../packages/protocol/schemas/index.ts')
       }
     },
     plugins: [react(), tailwindcss()]
