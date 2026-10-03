@@ -150,7 +150,7 @@ function createWindow(): void {
     ...(process.platform === 'win32'
       ? { titleBarOverlay: { color: '#f4f0e7', symbolColor: '#6e675a', height: 40 } }
       : {}),
-    icon,
+    ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: PRELOAD_PATH,
       sandbox: true,
@@ -160,7 +160,29 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
+    console.log('[main] ready-to-show event fired, showing mainWindow')
     mainWindow.show()
+    mainWindow.focus()
+  })
+
+  setTimeout(() => {
+    if (!mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      console.warn('[main] ready-to-show fallback triggered: forcing mainWindow.show()')
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  }, 3000)
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('[main] webContents did-finish-load')
+  })
+
+  mainWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
+    console.error('[main] webContents did-fail-load:', errorCode, errorDescription, validatedURL)
+  })
+
+  mainWindow.webContents.on('render-process-gone', (_, details) => {
+    console.error('[main] render-process-gone:', details)
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
