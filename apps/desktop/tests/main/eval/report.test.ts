@@ -9,6 +9,8 @@ import {
   EvalReportSchema,
   REPORT_SCOPE,
   buildReport,
+  compareReports,
+  formatPairComparison,
   formatSummary,
   writeReport,
   type ReportInput
@@ -37,13 +39,16 @@ const VERDICT: CaseVerdict = {
   hitKeyPoints: ['kp-1'],
   missedKeyPoints: [],
   selectedTarget: true,
-  reasons: []
+  reasons: [],
+  finalStateOk: null
 }
 
 function makeResult(over: Partial<EvalCaseResult> = {}): EvalCaseResult {
+  const fullSuccess = over.verdict?.fullSuccess ?? true
   return {
     id: 'one-page-note',
     goal: '总结这份 PDF',
+    type: 'pdf_summary',
     status: 'completed',
     latencyMs: 42.5,
     verdict: VERDICT,
@@ -52,6 +57,9 @@ function makeResult(over: Partial<EvalCaseResult> = {}): EvalCaseResult {
     budgetExhausted: false,
     verificationOk: true,
     modelUsage: null,
+    runs: 1,
+    runResults: [fullSuccess],
+    passAtK: fullSuccess,
     ...over
   }
 }
@@ -148,5 +156,60 @@ describe('writeReport / formatSummary', () => {
     expect(summary).toContain('未配单价')
     expect(summary).toContain('延迟')
     expect(summary).toContain('完整成功（REQ-011）')
+  })
+})
+
+// ---------- 配对比较（模型选型口径） ----------
+
+/** 两份报告：A 在 c2 上挂、B 在 c3 上挂，其余都过 */
+function pairInputs(): [ReportInput, ReportInput] {
+  const verdictFail = { ...VERDICT, fullSuccess: false, reasons: ['漏掉了要点：kp-1'] }
+  return [
+    makeInput([
+      makeResult({ id: 'c1' }),
+      makeResult({ id: 'c2', verdict: verdictFail }),
+      makeResult({ id: 'c3' })
+    ]),
+    makeInput([
+      makeResult({ id: 'c1' }),
+      makeResult({ id: 'c2' }),
+      makeResult({ id: 'c3', verdict: verdictFail })
+    ])
+  ]
+}
+
+describe('compareReports', () => {
+  it('逐 case 配对：不一致的对子分别记到两边，双过双挂分开放', () => {
+    const [a, b] = pairInputs()
+    const comparison = compareReports(buildReport(a), buildReport(b))
+
+    expect(comparison.cases).toBe(3)
+    expect(comparison.aWins).toEqual(['c3'])
+    expect(comparison.bWins).toEqual(['c2'])
+    expect(comparison.bothPass).toBe(1)
+    expect(comparison.bothFail).toBe(0)
+    expect(comparison.unpaired).toEqual([])
+  })
+
+  it('两边清单版本不同时，对不上的 id 进 unpaired，不参与计数', () => {
+    const [a, b] = pairInputs()
+    const aReport = buildReport({ ...a, results: [...a.results, makeResult({ id: 'c9' })] })
+    const comparison = compareReports(aReport, buildReport(b))
+
+    expect(comparison.unpaired).toEqual(['c9'])
+    expect(comparison.cases).toBe(3)
+  })
+
+  it('一屏摘要：模型名、独赢清单与噪声提醒都在', () => {
+    const [a, b] = pairInputs()
+    const aReport = buildReport({ ...a, model: 'model-a' })
+    const bReport = buildReport({ ...b, model: 'model-b' })
+    const text = formatPairComparison(compareReports(aReport, bReport))
+
+    expect(text).toContain('model-a vs model-b')
+    expect(text).toContain('A 独赢 1: c3')
+    expect(text).toContain('B 独赢 1: c2')
+    // 不一致对子 = 2，小于 5，必须把噪声话说在前面
+    expect(text).toContain('噪声带宽内')
   })
 })

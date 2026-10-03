@@ -27,14 +27,17 @@ function makeVerdict(over: Partial<CaseVerdict> = {}): CaseVerdict {
     missedKeyPoints: [],
     selectedTarget: true,
     reasons: [],
+    finalStateOk: null,
     ...over
   }
 }
 
 function makeResult(over: Partial<EvalCaseResult> = {}): EvalCaseResult {
+  const fullSuccess = over.verdict?.fullSuccess ?? true
   return {
     id: 'c',
     goal: 'g',
+    type: 'pdf_summary',
     status: 'completed',
     latencyMs: 100,
     verdict: makeVerdict(),
@@ -43,6 +46,9 @@ function makeResult(over: Partial<EvalCaseResult> = {}): EvalCaseResult {
     budgetExhausted: false,
     verificationOk: true,
     modelUsage: null,
+    runs: 1,
+    runResults: [fullSuccess],
+    passAtK: fullSuccess,
     ...over
   }
 }
@@ -242,5 +248,55 @@ describe('pricingFromEnv', () => {
     expect(pricingFromEnv({ [PRICE_INPUT_ENV]: '', [PRICE_OUTPUT_ENV]: '6' })).toBeNull()
     expect(pricingFromEnv({ [PRICE_INPUT_ENV]: '便宜', [PRICE_OUTPUT_ENV]: '6' })).toBeNull()
     expect(pricingFromEnv({ [PRICE_INPUT_ENV]: '1.5', [PRICE_OUTPUT_ENV]: '-2' })).toBeNull()
+  })
+})
+
+// ---------- 分维度与 pass^k / pass@k 口径 ----------
+
+describe('summarize：分维度与重复跑口径', () => {
+  it('byType 按维度分组算成功率，key 排序可 diff', () => {
+    const results = [
+      makeResult({ id: 'a', type: 'pdf_summary' }),
+      makeResult({ id: 'b', type: 'stateful_ops', verdict: makeVerdict({ fullSuccess: false }) })
+    ]
+
+    const metrics = summarize(results, null)
+
+    expect(metrics.byType['pdf_summary']).toEqual({ cases: 1, fullSuccess: 1, successRate: 1 })
+    expect(metrics.byType['stateful_ops']).toEqual({ cases: 1, fullSuccess: 0, successRate: 0 })
+  })
+
+  it('runs>1 时 fullSuccess 数的是 pass^k（每次都过），passAtKRate 是 pass@k', () => {
+    const results = [
+      // 三次全过：pass^k 与 pass@k 都算它
+      makeResult({ id: 'a', runs: 3, runResults: [true, true, true], passAtK: true }),
+      // 挂过一次：pass^k 不算它，pass@k 算
+      makeResult({
+        id: 'b',
+        runs: 3,
+        runResults: [false, true, true],
+        passAtK: true,
+        verdict: makeVerdict({ fullSuccess: false })
+      }),
+      // 三次全挂：两边都不算
+      makeResult({
+        id: 'c',
+        runs: 3,
+        runResults: [false, false, false],
+        passAtK: false,
+        verdict: makeVerdict({ fullSuccess: false })
+      })
+    ]
+
+    const metrics = summarize(results, null)
+
+    expect(metrics.successRate).toBeCloseTo(1 / 3, 4)
+    expect(metrics.passAtKRate).toBeCloseTo(2 / 3, 4)
+  })
+
+  it('runs=1 时 pass@k 与成功率相等（同一次判定）', () => {
+    const metrics = summarize([makeResult(), makeResult({ id: 'd' })], null)
+
+    expect(metrics.passAtKRate).toBe(metrics.successRate)
   })
 })

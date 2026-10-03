@@ -33,7 +33,16 @@ const EvalMetricsSchema = z.object({
   completed: z.number().int().nonnegative(),
   fullSuccess: z.number().int().nonnegative(),
   successRate: z.number().min(0).max(1),
+  passAtKRate: z.number().min(0).max(1),
   completionRate: z.number().min(0).max(1),
+  byType: z.record(
+    z.string(),
+    z.object({
+      cases: z.number().int().nonnegative(),
+      fullSuccess: z.number().int().nonnegative(),
+      successRate: z.number().min(0).max(1)
+    })
+  ),
   pageRefs: z.object({
     facts: z.number().int().nonnegative(),
     grounded: z.number().int().nonnegative(),
@@ -69,6 +78,8 @@ const EvalMetricsSchema = z.object({
 const EvalCaseReportSchema = z.object({
   id: z.string().min(1),
   goal: z.string().min(1),
+  /** case 维度。老报告（v1 早期）没有这个字段，可选 */
+  type: z.enum(['pdf_summary', 'stateful_ops']).optional(),
   status: z.enum(['completed', 'failed', 'unknown']),
   latencyMs: z.number().nonnegative(),
   facts: z.number().int().nonnegative(),
@@ -81,7 +92,13 @@ const EvalCaseReportSchema = z.object({
   verificationOk: z.boolean().nullable(),
   modelUsage: ModelUsagePayload.nullable(),
   costUsd: z.number().nonnegative().nullable(),
-  reasons: z.array(z.string())
+  reasons: z.array(z.string()),
+  /** stateful 终态断言结论；null/缺省 = 不适用（读链路） */
+  finalStateOk: z.boolean().nullable().optional(),
+  /** 重复跑的口径（pass^k / pass@k）。老报告缺省按 runs=1 读 */
+  runs: z.number().int().positive().optional(),
+  runResults: z.array(z.boolean()).optional(),
+  passAtK: z.boolean().optional()
 })
 
 export const EvalReportSchema = z.object({
@@ -128,6 +145,7 @@ export function buildReport(input: ReportInput): EvalReport {
     cases: input.results.map((result) => ({
       id: result.id,
       goal: result.goal,
+      type: result.type,
       status: result.status,
       latencyMs: result.latencyMs,
       facts: result.verdict.facts,
@@ -140,7 +158,11 @@ export function buildReport(input: ReportInput): EvalReport {
       verificationOk: result.verificationOk,
       modelUsage: result.modelUsage,
       costUsd: costOf(result, input.pricing),
-      reasons: result.verdict.reasons
+      reasons: result.verdict.reasons,
+      finalStateOk: result.verdict.finalStateOk,
+      runs: result.runs,
+      runResults: result.runResults,
+      passAtK: result.passAtK
     }))
   }
 }
@@ -155,10 +177,18 @@ export function writeReport(report: EvalReport, path: string): string {
 /** 一屏摘要：跑的人先看这个，细节再翻 JSON */
 export function formatSummary(report: EvalReport): string {
   const { metrics } = report
+  const byType = Object.entries(metrics.byType)
+    .map(([type, g]) => `${type} ${g.fullSuccess}/${g.cases}`)
+    .join('｜')
+  const runsNote =
+    metrics.passAtKRate === metrics.successRate
+      ? ''
+      : `｜pass@k ${(metrics.passAtKRate * 100).toFixed(1)}%`
   const lines = [
     `模式 ${report.mode}${report.model === null ? '' : `（${report.model}）`}｜${report.scope}`,
-    `完整成功 ${metrics.fullSuccess}/${metrics.cases}（成功率 ${(metrics.successRate * 100).toFixed(1)}%）` +
+    `完整成功 ${metrics.fullSuccess}/${metrics.cases}（成功率 ${(metrics.successRate * 100).toFixed(1)}%${runsNote}）` +
       `｜终态 completed ${metrics.completed}/${metrics.cases}`,
+    `分维度 ${byType === '' ? '（无）' : byType}`,
     `页码引用 ${metrics.pageRefs.grounded}/${metrics.pageRefs.facts}（${(metrics.pageRefs.accuracy * 100).toFixed(1)}%）` +
       `｜关键结论召回 ${metrics.keyPoints.hit}/${metrics.keyPoints.total}（${(metrics.keyPoints.recall * 100).toFixed(1)}%）`,
     `工具调用 ${metrics.tools.calls} 次（失败 ${metrics.tools.failed} 次，预算耗尽 ${metrics.tools.budgetExhaustedCases} 条）`,
@@ -177,4 +207,83 @@ function costOf(result: EvalCaseResult, pricing: EvalPricing | null): number | n
       result.modelUsage.outputTokens * pricing.outputPerMTok) /
     1_000_000
   return Math.round(usd * 1_000_000) / 1_000_000
+}
+
+// ---------- 模型选型的配对比较（第七章口径） ----------
+
+export interface PairComparison {
+  aModel: string | null
+  bModel: string | null
+  /** 参与配对的 case 数（两边 id 的交集；只跑过一边的进 unpaired） */
+  cases: number
+  /** 只在 A 通过的 case id */
+  aWins: string[]
+  /** 只在 B 通过的 case id */
+  bWins: string[]
+  bothPass: number
+  bothFail: number
+  /** 两边 id 对不上的 case（跑的清单不同版），比较前先看这里 */
+  unpaired: string[]
+}
+
+/**
+ * 两份报告逐 case 配对。配对比较只看不一致的对子（discordant pairs）——两个模型
+ * 都过或都挂的 case 不携带分辨信息，这是 n 小的时候唯一有分辨力的比法。
+ *
+ * 读数的规矩：discordant 少于 5 时，「A 比 B 好」多半在噪声里，先扩 case 或多跑
+ * 几轮再下结论；分维度 rates 只是给方向，不替代逐对计数。
+ */
+export function compareReports(a: EvalReport, b: EvalReport): PairComparison {
+  const ok = (report: EvalReport, id: string): boolean | undefined => {
+    const found = report.cases.find((c) => c.id === id)
+    return found === undefined ? undefined : found.reasons.length === 0
+  }
+
+  const ids = [...new Set([...a.cases.map((c) => c.id), ...b.cases.map((c) => c.id)])].sort(
+    (x, y) => x.localeCompare(y)
+  )
+
+  const aWins: string[] = []
+  const bWins: string[] = []
+  const unpaired: string[] = []
+  let bothPass = 0
+  let bothFail = 0
+
+  for (const id of ids) {
+    const aOk = ok(a, id)
+    const bOk = ok(b, id)
+    if (aOk === undefined || bOk === undefined) {
+      unpaired.push(id)
+      continue
+    }
+    if (aOk && !bOk) aWins.push(id)
+    else if (!aOk && bOk) bWins.push(id)
+    else if (aOk) bothPass += 1
+    else bothFail += 1
+  }
+
+  return {
+    aModel: a.model,
+    bModel: b.model,
+    cases: ids.length - unpaired.length,
+    aWins,
+    bWins,
+    bothPass,
+    bothFail,
+    unpaired
+  }
+}
+
+/** 配对比较的一屏摘要 */
+export function formatPairComparison(c: PairComparison): string {
+  const noiseNote =
+    c.aWins.length + c.bWins.length < 5
+      ? '⚠ 不一致的对子 < 5：差异在噪声带宽内，别据此换模型'
+      : `不一致对子 ${c.aWins.length + c.bWins.length} 个`
+  return [
+    `配对比较 ${c.aModel ?? 'A'} vs ${c.bModel ?? 'B'}（配对 ${c.cases} 条${c.unpaired.length > 0 ? `，未配对 ${c.unpaired.length} 条: ${c.unpaired.join(', ')}` : ''}）`,
+    `A 独赢 ${c.aWins.length}: ${c.aWins.join(', ') || '—'}`,
+    `B 独赢 ${c.bWins.length}: ${c.bWins.join(', ') || '—'}`,
+    `双过 ${c.bothPass}｜双挂 ${c.bothFail}｜${noiseNote}`
+  ].join('\n')
 }

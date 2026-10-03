@@ -1,4 +1,5 @@
 import type { CaseVerdict } from './judge'
+import type { EvalCaseType } from './case-manifest'
 import type { ModelUsagePayload } from './observation'
 
 /**
@@ -40,6 +41,8 @@ function parsePrice(raw: string | undefined): number | null {
 export interface EvalCaseResult {
   id: string
   goal: string
+  /** case 维度：报告与指标按它分组（读链路 vs 写链路） */
+  type: EvalCaseType
   status: 'completed' | 'failed' | 'unknown'
   latencyMs: number
   verdict: CaseVerdict
@@ -49,6 +52,12 @@ export interface EvalCaseResult {
   budgetExhausted: boolean
   verificationOk: boolean | null
   modelUsage: ModelUsagePayload | null
+  /** 这条 case 实际跑了多少次（runs>1 是 pass^k / pass@k 口径） */
+  runs: number
+  /** 每一次跑的 fullSuccess，按跑的顺序。runs=1 时长度为 1 */
+  runResults: boolean[]
+  /** 至少一次成功（pass@k）。runs=1 时与 verdict.fullSuccess 相同 */
+  passAtK: boolean
 }
 
 export interface EvalGate {
@@ -64,10 +73,15 @@ export interface EvalMetrics {
   cases: number
   completed: number
   fullSuccess: number
-  /** 完整成功 / 总条数。REQ-011 的 ≥18/20 按它判 */
+  /** 完整成功 / 总条数。REQ-011 的 ≥18/20 按它判。runs>1 时这是 pass^k 口径
+   * （verdict 取第一次失败的跑，所以 fullSuccess 数的是「每次都过」的 case） */
   successRate: number
-  /** 任务终态 completed / 总条数。与 successRate 分开：终态过了不代表要点齐 */
+  /** 至少一次成功 / 总条数（pass@k 口径）。runs=1 时与 successRate 相等 */
+  passAtKRate: number
+  /** 终态 completed / 总条数。与 successRate 分开：终态过了不代表要点齐 */
   completionRate: number
+  /** 按维度分组：读链路与写链路的强弱项一眼分开。key 排序过，报告可 diff */
+  byType: Record<string, { cases: number; fullSuccess: number; successRate: number }>
   pageRefs: { facts: number; grounded: number; ungrounded: number; accuracy: number }
   keyPoints: { total: number; hit: number; recall: number }
   tools: {
@@ -127,7 +141,9 @@ export function summarize(
     completed,
     fullSuccess,
     successRate: round(ratio(fullSuccess, cases), 4),
+    passAtKRate: round(ratio(results.filter((r) => r.passAtK).length, cases), 4),
     completionRate: round(ratio(completed, cases), 4),
+    byType: byType(results),
     pageRefs: { facts, grounded, ungrounded: facts - grounded, accuracy: round(accuracy, 4) },
     keyPoints: {
       total: keyPointTotal,
@@ -212,6 +228,25 @@ function countByCapability(results: readonly EvalCaseResult[]): Record<string, n
   }
   // key 排序后重建：报告要能被逐行 diff，插入顺序取决于跑的顺序，不稳定。
   return Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)))
+}
+
+/** 按维度分组的成功率。key 排序，与 byCapability 同一个理由 */
+function byType(results: readonly EvalCaseResult[]): EvalMetrics['byType'] {
+  const groups = new Map<string, { cases: number; fullSuccess: number }>()
+  for (const result of results) {
+    const group = groups.get(result.type) ?? { cases: 0, fullSuccess: 0 }
+    group.cases += 1
+    if (result.verdict.fullSuccess) group.fullSuccess += 1
+    groups.set(result.type, group)
+  }
+  return Object.fromEntries(
+    [...groups.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([type, group]) => [
+        type,
+        { ...group, successRate: round(ratio(group.fullSuccess, group.cases), 4) }
+      ])
+  )
 }
 
 /** 最近秩（nearest-rank）分位：n=20 时 p95 取第 19 个样本，不做插值 */
