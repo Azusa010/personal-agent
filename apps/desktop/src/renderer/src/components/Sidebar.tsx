@@ -1,4 +1,4 @@
-import { Activity, Files, FolderCog, MessageSquare, Plus, Settings, Zap } from 'lucide-react'
+import { Activity, FolderCog, MessageSquare, Plus, Settings, Zap } from 'lucide-react'
 import type { ConversationSummary, RuntimeStatus } from '../../../shared/ipc-contract'
 import { cn } from '@renderer/lib/utils'
 
@@ -68,20 +68,10 @@ export function Sidebar({
     indexedCount === null ? runtime.text : `${runtime.text} · 索引 ${indexedCount} 份 PDF`
 
   return (
-    <aside className="flex w-[232px] shrink-0 flex-col border-r border-border bg-card">
-      <div className="px-4 pt-5">
-        <div className="flex items-center gap-2.5 px-1">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Files size={16} />
-          </div>
-          <div>
-            <h1 className="m-0 text-[14px] font-semibold tracking-tight">personal-agent</h1>
-            <p className="m-0 mt-0.5 text-[11px] text-muted-foreground">本地文档工作台</p>
-          </div>
-        </div>
-
-        {/* 顶部主工作区切换标签 */}
-        <div className="mt-4 grid grid-cols-2 gap-1 rounded-lg bg-secondary/60 p-1 text-[12px] font-medium">
+    <aside className="flex w-[232px] shrink-0 flex-col border-r border-border bg-secondary">
+      <div className="px-4 pt-4">
+        {/* 顶部主工作区切换标签(品牌区已上移到自绘 TitleBar) */}
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-[var(--paper-warm)] p-1 text-[12px] font-medium">
           <button
             type="button"
             onClick={() => onSelectView('chat')}
@@ -141,8 +131,8 @@ export function Sidebar({
                     className={cn(
                       'flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[13px]',
                       conversation.id === selectedConversationId
-                        ? 'bg-secondary text-foreground'
-                        : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+                        ? 'border border-border bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
                     )}
                   >
                     <MessageSquare size={14} className="shrink-0" />
@@ -184,7 +174,7 @@ export function Sidebar({
             title="索引管理"
             aria-label="索引管理"
             onClick={onOpenIndex}
-            className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="rounded p-1.5 text-muted-foreground hover:bg-card/80 hover:text-foreground"
           >
             <FolderCog size={16} />
           </button>
@@ -193,7 +183,7 @@ export function Sidebar({
             title="运行诊断"
             aria-label="运行诊断"
             onClick={onOpenDiagnostics}
-            className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="rounded p-1.5 text-muted-foreground hover:bg-card/80 hover:text-foreground"
           >
             <Activity size={16} />
           </button>
@@ -202,7 +192,7 @@ export function Sidebar({
             title="设置"
             aria-label="设置"
             onClick={onSettings}
-            className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="rounded p-1.5 text-muted-foreground hover:bg-card/80 hover:text-foreground"
           >
             <Settings size={16} />
           </button>

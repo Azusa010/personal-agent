@@ -136,6 +136,9 @@ function broadcastA2UIRender(notice: A2UIRenderNotice): void {
 
 function createWindow(): void {
   // Create the browser window.
+  // 隐藏原生标题栏:窗口顶栏由渲染层自绘(纸感顶栏 + 拖拽区)。
+  // Windows 上启用 titleBarOverlay,系统窗控钮(最小化/最大化/关闭)仍由 OS 绘制,
+  // 配色与纸感主题一致,且保留 Win11 悬停贴靠布局;macOS 的红绿灯随 hidden 自动保留。
   const mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
@@ -143,7 +146,11 @@ function createWindow(): void {
     minHeight: 560,
     show: false,
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    titleBarStyle: 'hidden',
+    ...(process.platform === 'win32'
+      ? { titleBarOverlay: { color: '#f4f0e7', symbolColor: '#6e675a', height: 40 } }
+      : {}),
+    icon,
     webPreferences: {
       preload: PRELOAD_PATH,
       sandbox: true,
