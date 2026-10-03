@@ -77,6 +77,24 @@ export const EvalExtraFile = z.object({
   content: z.string()
 })
 
+/** case 维度：读链路（PDF 摘要）还是写链路（归档移动 + Reminder） */
+export const EvalCaseType = z.enum(['pdf_summary', 'stateful_ops'])
+export type EvalCaseType = z.infer<typeof EvalCaseType>
+
+/**
+ * stateful_ops 的期望终态。判定与剧本合成都读它——「case 想要什么」只有这一处。
+ *
+ * dir 固定 Reading：planning.py 的 WRITE_STEPS 文案写死了「创建 Reading 目录」，
+ * live 模型看到的计划与清单必须说同一件事，否则模型被两头拉扯。要改目录名，
+ * 先改 planning.py 的文案，再放开这里的约束（case-manifest.test.ts 钉着这条）。
+ */
+export const EvalStatefulExpectation = z.object({
+  dir: z.literal('Reading'),
+  /** Reminder 的正文。剧本直接用它；终态判定只要求 Reminder 行存在（闸口已查） */
+  reminderMessage: z.string().min(1)
+})
+export type EvalStatefulExpectation = z.infer<typeof EvalStatefulExpectation>
+
 export const EvalCase = z
   .object({
     id: z
@@ -84,6 +102,8 @@ export const EvalCase = z
       .min(1)
       .regex(/^[a-z0-9-]+$/, 'id 用小写字母数字与短横线'),
     goal: z.string().min(1),
+    /** 缺省是 pdf_summary：version 1 的清单全部是读链路，不用逐条补 type */
+    type: EvalCaseType.default('pdf_summary'),
     /**
      * 落进这次任务的授权根。顺序有含义：按清单顺序写入，每份比前一份晚 1 分钟
      * 落盘——「最近改过的那份」这类目标因此是确定的，最后一份最新。
@@ -93,9 +113,24 @@ export const EvalCase = z
     extraFiles: z.array(EvalExtraFile).default([]),
     /** 期望被提取的那份 PDF。null 只在目录里只有一份 PDF 时合法 */
     target: z.string().min(1).nullable().default(null),
-    keyPoints: z.array(EvalKeyPoint).min(1)
+    keyPoints: z.array(EvalKeyPoint).min(1),
+    /** type=stateful_ops 时必填（期望终态）；pdf_summary 时必须缺省 */
+    stateful: EvalStatefulExpectation.optional()
   })
   .superRefine((evalCase, ctx) => {
+    if (evalCase.type === 'stateful_ops' && evalCase.stateful === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `stateful_ops case ${evalCase.id} 必须写 stateful（期望终态）`
+      })
+    }
+    if (evalCase.type === 'pdf_summary' && evalCase.stateful !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `pdf_summary case ${evalCase.id} 不该写 stateful（那是写链路的字段）`
+      })
+    }
+
     const names = [...evalCase.pdfs.map((p) => p.name), ...evalCase.extraFiles.map((f) => f.name)]
     if (new Set(names).size !== names.length) {
       ctx.addIssue({ code: 'custom', message: `同一目录里文件名重复: ${names.join(', ')}` })

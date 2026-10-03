@@ -202,3 +202,38 @@ describe('坏清单必须被拒', () => {
     expect(() => parseCaseManifest(ok)).not.toThrow()
   })
 })
+
+// ---------- type 与 stateful 契约（v1 清单扩展） ----------
+
+describe('清单 type 字段', () => {
+  it('真清单里的 stateful_ops case 都带期望终态，pdf_summary 都不带', () => {
+    const manifest = loadCaseManifest(evalCasesPath())
+    for (const c of manifest.cases) {
+      if (c.type === 'stateful_ops') {
+        expect(c.stateful, `${c.id} 缺 stateful`).toBeDefined()
+      } else {
+        expect(c.stateful, `${c.id} 不该带 stateful`).toBeUndefined()
+      }
+    }
+  })
+
+  it('stateful_ops 缺 stateful 期望 → 拒绝', () => {
+    const bad = makeCase('stateful-no-expect', { type: 'stateful_ops' })
+    expect(() => parseCaseManifest(makeManifest([bad]))).toThrow('stateful')
+  })
+
+  it('pdf_summary 带 stateful 期望 → 拒绝（两链路字段不混）', () => {
+    const bad = makeCase('pdf-with-stateful', {
+      stateful: { dir: 'Reading', reminderMessage: 'x' }
+    })
+    expect(() => parseCaseManifest(makeManifest([bad]))).toThrow('stateful')
+  })
+
+  it('stateful.dir 不是 Reading → 拒绝（planning.py 的 WRITE_STEPS 文案写死了 Reading）', () => {
+    const bad = makeCase('stateful-bad-dir', {
+      type: 'stateful_ops',
+      stateful: { dir: 'Archive', reminderMessage: 'x' }
+    })
+    expect(() => parseCaseManifest(makeManifest([bad]))).toThrow('Reading')
+  })
+})

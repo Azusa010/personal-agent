@@ -27,6 +27,7 @@ function makeCase(): EvalCase {
   return {
     id: 'multi-file',
     goal: '总结 b.pdf',
+    type: 'pdf_summary',
     pdfs: [
       { name: 'a.pdf', pages: ['alpha page one'] },
       { name: 'b.pdf', pages: ['beta page one', 'beta page two'] }
