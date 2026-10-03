@@ -13,7 +13,7 @@
     "test:ts": "pnpm --dir apps/desktop test",
     "test:py": "uv run --project services/agent-runtime --locked pytest",
     "test": "pnpm test:pack && pnpm test:ts && pnpm test:py",
-    "eval": "pnpm --dir apps/desktop exec vitest run tests/main/eval --config vitest.eval.config.ts",
+    "eval": "pnpm --dir apps/desktop exec vitest run tests/main/eval --config vitest.eval.config.ts --exclude tests/main/eval/live-eval.test.ts",
     "eval:live": "pnpm --dir apps/desktop exec vitest run tests/main/eval/live-eval.test.ts --config vitest.eval.config.ts",
     "build": "pnpm --dir apps/desktop build",
     "package:py": "uv run --project services/agent-runtime --locked pyinstaller --noconfirm --distpath services/agent-runtime/dist --workpath services/agent-runtime/dist/_pyi-work services/agent-runtime/packaging/personal_agent.spec",

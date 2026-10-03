@@ -1,4 +1,6 @@
+import json
 import logging
+import sys
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -191,6 +193,10 @@ class ReActLoop:
                     recovery_plan=plan,
                 )
 
+            sys.stderr.write(
+                f"\n[LOOP] === 步数 {steps_used + 1}/{self._budget.maxSteps}：进入模型决策 ===\n"
+            )
+            sys.stderr.flush()
             try:
                 decision = self._decide_with_recovery(goal, visible_capabilities)
             except DeathSpiralError as e:
@@ -498,10 +504,39 @@ class ReActLoop:
                     self._context.record(observation)
                 tool_calls_used += len(decision.calls)
             elif isinstance(decision, SummaryDecision):
+                candidate_facts = decision.facts
+                if self._plan_requires_grounded_summary():
+                    valid_grounded = [
+                        f
+                        for f in decision.facts
+                        if (
+                            f.get("pageRefs")
+                            if isinstance(f, dict)
+                            else getattr(f, "pageRefs", None)
+                        )
+                    ]
+                    if valid_grounded:
+                        candidate_facts = valid_grounded
+
+                sys.stderr.write(
+                    f"[LOOP] >>> 模型产出总结 (facts count={len(candidate_facts)}):\n"
+                )
+                for idx, f in enumerate(candidate_facts, 1):
+                    if isinstance(f, dict):
+                        p_refs = f.get("pageRefs")
+                        text_val = f.get("text")
+                    else:
+                        p_refs = getattr(f, "pageRefs", None)
+                        text_val = getattr(f, "text", str(f))
+                    sys.stderr.write(
+                        f"  [Fact {idx}] pageRefs={p_refs} text={text_val!r}\n"
+                    )
+                sys.stderr.write(f"  [Reply] {decision.reply!r}\n")
+                sys.stderr.flush()
                 try:
                     evidence = collect_retrieved_evidence(self._context.observations)
                     facts = verify_summary(
-                        decision.facts,
+                        candidate_facts,
                         evidence.pages,
                         require_page_refs=self._plan_requires_grounded_summary(),
                         evidence=evidence,
@@ -530,6 +565,33 @@ class ReActLoop:
                 )
 
             elif isinstance(decision, StepCompleteDecision):
+                current_step = self._context.current_step
+                if (
+                    current_step is not None
+                    and current_step.capability is not None
+                    and tool_calls_used == 0
+                ):
+                    log.warning(
+                        "模型在尚未执行指定能力 %s 的情况下过早请求完成步骤，注入纠偏提示",
+                        current_step.capability,
+                    )
+                    sys.stderr.write(
+                        f"[LOOP] !!! 拦截过早 step_complete：步骤要求执行 {current_step.capability}，注入纠偏并重新决策\n"
+                    )
+                    sys.stderr.flush()
+                    correction_obs = Observation(
+                        callId=f"step-guard-{steps_used}",
+                        capability=current_step.capability,
+                        ok=False,
+                        payload={
+                            "error": "step_incomplete",
+                            "reason": f"当前步骤指定了必须执行的能力 {current_step.capability}，本步骤尚未发起调用，请先发起工具调用执行本步骤。",
+                        },
+                        arguments={},
+                    )
+                    self._context.record(correction_obs)
+                    continue
+
                 if stop_on_step_complete:
                     self._emit(
                         events,
@@ -687,7 +749,21 @@ class ReActLoop:
                 },
                 arguments=decision.arguments,
             )
+        t0 = time.time()
+        args_str = json.dumps(decision.arguments, ensure_ascii=False)
+        sys.stderr.write(
+            f"[LOOP] >>> 下发工具执行: {decision.capability} 参数: {args_str}\n"
+        )
+        sys.stderr.flush()
         result = self._channel.call_host(params)
+        elapsed = time.time() - t0
+        res_str = json.dumps(result.model_extra or {}, ensure_ascii=False)
+        if len(res_str) > 250:
+            res_str = res_str[:250] + "..."
+        sys.stderr.write(
+            f"[LOOP] <<< 工具执行完成: {decision.capability} (ok={result.ok}, 耗时 {elapsed:.2f}s) 返回: {res_str}\n"
+        )
+        sys.stderr.flush()
         return Observation(
             callId=decision.callId,
             capability=decision.capability,
@@ -719,5 +795,6 @@ class ReActLoop:
         页码允许缺席；但只要给了页码，仍然必须真实（见 summary.verify_summary）。
         """
         return any(
-            step.capability == EXTRACT_PDF_CAPABILITY for step in self._context.plan
+            step.capability in (EXTRACT_PDF_CAPABILITY, "read_document")
+            for step in self._context.plan
         )

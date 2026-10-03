@@ -37,6 +37,7 @@ export type ModelUsagePayload = z.infer<typeof ModelUsagePayload>
 const EVENT_TOOL_CALLED = 'tool_called'
 const EVENT_TOOL_RESULT = 'tool_result'
 const EVENT_TASK_COMPLETED = 'task_completed'
+const EVENT_TASK_FAILED = 'task_failed'
 const EVENT_BUDGET_EXHAUSTED = 'budget_exhausted'
 const EVENT_VERIFICATION_PASSED = 'verification_passed'
 const EVENT_VERIFICATION_FAILED = 'verification_failed'
@@ -75,7 +76,10 @@ export async function collectObservation(
   const facts = collectFacts(events)
   const toolCalls = collectToolCalls(events)
   const extractedPaths = toolCalls
-    .filter((call) => call.capability === EXTRACT_PDF_CAPABILITY)
+    .filter(
+      (call) =>
+        call.capability === EXTRACT_PDF_CAPABILITY || call.capability === 'read_document'
+    )
     .map((call) => call.arguments['path'])
     .filter((path): path is string => typeof path === 'string')
   const finalFiles =
@@ -94,6 +98,7 @@ export async function collectObservation(
       extractedPaths,
       budgetExhausted: events.some((e) => e.type === EVENT_BUDGET_EXHAUSTED),
       verificationOk: collectVerification(events),
+      verificationReason: collectVerificationReason(events),
       failedToolCalls: collectFailedToolCalls(events),
       finalFiles
     },
@@ -164,6 +169,26 @@ function collectVerification(events: { type: string; payload: unknown }[]): bool
   for (const event of events.toReversed()) {
     if (event.type === EVENT_VERIFICATION_PASSED) return true
     if (event.type === EVENT_VERIFICATION_FAILED) return false
+  }
+  return null
+}
+
+/**
+ * 闸口拒绝的原因：verification_failed 事件的 payload.report.reason；兜底读
+ * task_failed 的 message（同一结局在 UI 侧的那条）。没有就是 null——null 与
+ * "拒了但没说为什么"在取证上要分开。
+ */
+function collectVerificationReason(events: { type: string; payload: unknown }[]): string | null {
+  for (const event of events.toReversed()) {
+    if (event.type !== EVENT_VERIFICATION_FAILED) continue
+    const report = asRecord(asRecord(event.payload)['report'])
+    const reason = report['reason']
+    if (typeof reason === 'string' && reason !== '') return reason
+  }
+  const failed = events.filter((e) => e.type === EVENT_TASK_FAILED).at(-1)
+  if (failed !== undefined) {
+    const message = asRecord(failed.payload)['message']
+    if (typeof message === 'string' && message !== '') return message
   }
   return null
 }

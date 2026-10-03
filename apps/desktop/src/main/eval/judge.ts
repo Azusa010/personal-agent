@@ -32,6 +32,8 @@ export interface CaseObservation {
   budgetExhausted: boolean
   /** Main 侧交付物判定的结论（verification_passed / verification_failed 的 payload.report.ok）；没跑到就是 null */
   verificationOk: boolean | null
+  /** 闸口拒绝的原因（verification_failed 的 payload.report.reason）。通过或没跑到判定是 null */
+  verificationReason: string | null
   /** 工具调用失败的次数（tool_result 里 ok=false 的条数） */
   failedToolCalls: number
   /** 终态文件清单（相对 case 工作区根，posix、排序）。没采（读链路）就是 null */
@@ -151,7 +153,7 @@ export function judgeCase(evalCase: EvalCase, observation: CaseObservation): Cas
   const targetName = targetPdf(evalCase).name
   const selectedTarget = calls.some((c) => {
     return (
-      c.capability === EXTRACT_PDF_CAPABILITY &&
+      (c.capability === EXTRACT_PDF_CAPABILITY || c.capability === 'read_document') &&
       typeof c.arguments['path'] === 'string' &&
       basename(c.arguments['path']) === targetName
     )

@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
+import time
 from collections.abc import Sequence
 from types import SimpleNamespace
 from typing import Any
@@ -152,21 +154,24 @@ FINISH_TASK_SCHEMA: dict[str, Any] = {
                 },
                 "facts": {
                     "type": "array",
-                    "description": "引用事实列表（若任务涉及文档提取，必须提供引用的事实与页码；否则可为空）",
+                    "description": (
+                        "引用事实列表。若任务涉及文档提取与总结，必须通读所有已提取页面，提炼全面覆盖各页核心结论、关键指标、时间节点与里程碑的关键要点，每条要点附带准确非空的 pageRefs 页码列表（页码从 1 开始计数）；若非文档提取任务可为空。"
+                        "【特别重要】：facts 只能包含从文档页面正文提炼出的事实知识。严禁在 facts 中放入任何工具执行状态或元说明（例如“已创建目录”、“已移动文件”、“已设置提醒”、“挑选了某文件”等，这些必须全部写在 reply 中，严禁作为 fact 放入 facts 列表）！"
+                    ),
                     "items": {
                         "type": "object",
                         "properties": {
                             "text": {
                                 "type": "string",
-                                "description": "提取的事实内容陈述",
+                                "description": "提取的事实内容陈述（包含具体关键数据、时间节点或里程碑）",
                             },
                             "pageRefs": {
                                 "type": "array",
                                 "items": {"type": "integer"},
-                                "description": "引用的页码列表，页码从1开始计数",
+                                "description": "引用的页码列表，页码从1开始计数，每条事实必须包含至少一个有效页码",
                             },
                         },
-                        "required": ["text"],
+                        "required": ["text", "pageRefs"],
                     },
                 },
             },
@@ -319,6 +324,11 @@ class LiveModel:
             else self._reasoning_summary
         )
         streamed_chunks = 0
+        t0 = time.time()
+        sys.stderr.write(
+            f"\n[LIVE_MODEL] >>> 正在请求模型决策 (model={self._model}, enable_reasoning={enable_reasoning})...\n"
+        )
+        sys.stderr.flush()
         try:
             if enable_reasoning:
                 with client.responses.stream(
@@ -340,6 +350,11 @@ class LiveModel:
                             if delta and on_thinking is not None:
                                 on_thinking(delta)
                                 streamed_chunks += 1
+                                if streamed_chunks % 15 == 0:
+                                    sys.stderr.write(
+                                        f"[LIVE_MODEL] 决策思考流式生成中... ({streamed_chunks} chunks)\n"
+                                    )
+                                    sys.stderr.flush()
                     response = stream.get_final_response()
             else:
                 response = client.responses.create(
@@ -352,9 +367,26 @@ class LiveModel:
         except ModelCallFailed:
             raise
         except Exception as e:
+            sys.stderr.write(f"[LIVE_MODEL] xxx 模型调用异常: {_describe(e)}\n")
+            sys.stderr.flush()
             raise ModelCallFailed(f"模型调用失败: {_describe(e)}") from e
+
+        elapsed = time.time() - t0
+        sys.stderr.write(f"[LIVE_MODEL] <<< 模型响应接收完成，耗时 {elapsed:.2f}s\n")
+        sys.stderr.flush()
+
         self._account(response)
         decision = self._parse_responses(response, context=context)
+        if isinstance(decision, ToolCallDecision):
+            sys.stderr.write(f"[LIVE_MODEL] 决策: 调用工具 {decision.capability}\n")
+        elif isinstance(decision, BatchToolCallDecision):
+            caps = [t.capability for t in decision.calls]
+            sys.stderr.write(f"[LIVE_MODEL] 决策: 批量调用工具 {caps}\n")
+        elif isinstance(decision, SummaryDecision):
+            sys.stderr.write(f"[LIVE_MODEL] 决策: 任务完成 (facts: {len(decision.facts)})\n")
+        else:
+            sys.stderr.write(f"[LIVE_MODEL] 决策: {type(decision).__name__}\n")
+        sys.stderr.flush()
         if (
             streamed_chunks == 0
             and on_thinking is not None

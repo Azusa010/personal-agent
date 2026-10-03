@@ -9,9 +9,10 @@ export function buildPdf(pageTexts: string[]): Uint8Array {
     const pageObj = 4 + i * 2
     const contentObj = pageObj + 1
     bodies[pageObj - 1] =
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] ` +
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10000 10000] ` +
       `/Resources << /Font << /F1 3 0 R >> >> /Contents ${contentObj} 0 R >>`
-    const stream = `BT /F1 24 Tf 72 720 Td (${text}) Tj ET`
+    const escaped = text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
+    const stream = `BT /F1 12 Tf 72 720 Td (${escaped}) Tj ET`
     bodies[contentObj - 1] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`
   })
 

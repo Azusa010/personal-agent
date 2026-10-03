@@ -242,22 +242,27 @@ export function collectToolResults(events: ExecutionEventRecord[]): ToolCallEvid
     return { callId, capability, ok: payload['ok'] }
   }
 
-  // 第一趟：按事件顺序产出，此时还不知道有没有结果
+  // 第一趟：按事件顺序产出调用记录，并按 callId 存入待匹配队列
+  const pendingByCallId = new Map<string, ToolCallEvidence[]>()
   for (const e of events) {
     if (e.type !== TOOL_CALLED_EVENT) continue
     const p = readPayload(e)
     if (p === null) continue
-    out.push({ callId: p.callId, capability: p.capability, ok: false, hasResult: false })
+    const item: ToolCallEvidence = { callId: p.callId, capability: p.capability, ok: false, hasResult: false }
+    out.push(item)
+    const list = pendingByCallId.get(p.callId) ?? []
+    list.push(item)
+    pendingByCallId.set(p.callId, list)
   }
 
-  // 第二趟：结果回填。callId 出现多次时后到的覆盖先到的（重试以最后一条为准）
-  const byCallId = new Map(out.map((item) => [item.callId, item]))
+  // 第二趟：结果回填。按 FIFO 队列回填同一 callId 的调用结果
   for (const e of events) {
     if (e.type !== TOOL_RESULT_EVENT) continue
     const p = readPayload(e)
     if (p === null) continue
-    const evidence = byCallId.get(p.callId)
-    if (evidence === undefined) continue
+    const list = pendingByCallId.get(p.callId)
+    if (list === undefined || list.length === 0) continue
+    const evidence = list.shift()!
     evidence.hasResult = true
     evidence.ok = p.ok === true
   }

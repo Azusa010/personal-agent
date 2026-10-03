@@ -15,6 +15,8 @@ API Key 只由 openai SDK 自己从环境变量读，这里不碰、不打印、
 """
 
 import logging
+import sys
+import time
 from collections.abc import Sequence
 from typing import Any
 
@@ -97,6 +99,7 @@ def clean_plan(
         raise ModelCallFailed("模型没给出任何步骤")
     visible = set(visibleCapabilities)
     steps: list[PlanStep] = []
+    seen_caps: set[str] = set()
     for index, raw in enumerate(raw_steps):
         try:
             step = PlanStep.model_validate(raw)
@@ -107,6 +110,12 @@ def clean_plan(
                 f"计划第 {index} 步用了不可见的能力 {step.capability}"
                 f"（可用：{'、'.join(sorted(visible)) or '无'}）"
             )
+        # 单次只读提取保护：若计划中已规划过文档提取能力，后续重复出现的同类提取步骤作为无需工具的核验/分析步骤
+        if step.capability in ("document_extract_pdf", "read_document"):
+            if step.capability in seen_caps:
+                step = PlanStep(description=step.description, capability=None)
+            else:
+                seen_caps.add(step.capability)
         steps.append(step)
     return steps
 
@@ -167,6 +176,12 @@ class LivePlanner:
             history=history,
             user_memories=user_memories,
         )
+        t0 = time.time()
+        sys.stderr.write(
+            f"\n[PLANNER] >>> 正在请求规划模型 (model={self._model}, enable_reasoning={enable_reasoning})...\n"
+        )
+        sys.stderr.write(f"[PLANNER] 目标: {goal[:60]}... 可见能力: {list(visibleCapabilities)}\n")
+        sys.stderr.flush()
         try:
             if enable_reasoning:
                 with client.responses.stream(
@@ -188,6 +203,11 @@ class LivePlanner:
                             if delta and on_thinking is not None:
                                 on_thinking(delta)
                                 streamed_chunks += 1
+                                if streamed_chunks % 15 == 0:
+                                    sys.stderr.write(
+                                        f"[PLANNER] 思考流式生成中... ({streamed_chunks} chunks)\n"
+                                    )
+                                    sys.stderr.flush()
                     response = stream.get_final_response()
             else:
                 response = client.responses.create(
@@ -200,7 +220,13 @@ class LivePlanner:
         except ModelCallFailed:
             raise
         except Exception as e:
+            sys.stderr.write(f"[PLANNER] xxx 规划模型调用异常: {type(e).__name__}: {e}\n")
+            sys.stderr.flush()
             raise ModelCallFailed(f"规划调用失败: {type(e).__name__}: {e}") from e
+
+        elapsed = time.time() - t0
+        sys.stderr.write(f"[PLANNER] <<< 规划响应完成，耗时 {elapsed:.2f}s\n")
+        sys.stderr.flush()
 
         output = self._parse(response)
         raw_steps = [step.model_dump(exclude_none=True) for step in output.steps]
@@ -208,6 +234,10 @@ class LivePlanner:
             # 容错兜底：当模型面对打招呼等无工具诉求吐出空 steps 时，自动兜底为单步直接回答
             raw_steps = [{"description": "直接回答用户"}]
         steps = clean_plan(raw_steps, visibleCapabilities)
+        sys.stderr.write(f"[PLANNER] 最终规划出 {len(steps)} 步:\n")
+        for i, s in enumerate(steps, 1):
+            sys.stderr.write(f"  {i}. [{s.capability or '直接回答'}] {s.description}\n")
+        sys.stderr.flush()
         if streamed_chunks == 0 and on_thinking is not None and steps:
             plan_text = "制定执行策略（共 " + str(len(steps)) + " 步）：\n" + "\n".join(
                 f"{i+1}. {s.description}" + (f" ({s.capability})" if s.capability else "")

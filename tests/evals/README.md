@@ -24,37 +24,56 @@ reports/            跑出来的报告与失败轨迹（不入库：.gitignore �
 Reading——planning.py 的 WRITE_STEPS 文案写死了它，改目录名先改那边再放开
 case-manifest 的校验。
 
-## 跑法
+## 跑法（PowerShell）
 
-```bash
+`$env:` 变量粘在**整个会话**上，不是只对下一条命令生效。跑完想清干净：
+
+```powershell
+Remove-Item Env:OPENAI_API_KEY, Env:OPENAI_MODEL, Env:OPENAI_BASE_URL, Env:OPENAI_API_PROTOCOL, Env:EVAL_LIVE -ErrorAction SilentlyContinue
+```
+
+scripted 模式（确定性，CI 同款）不受残留变量影响——runner 会主动摘掉真模型配置。
+
+```powershell
 # scripted 模式（确定性）：每条 case 用清单合出来的剧本，真 Python + 真库 + 真闸口 + 真批准
 pnpm eval        # 专用配置 vitest.eval.config.ts；test:ts 默认不含 eval（25 个子进程太重）
 
 # live 模式（真模型，人手跑；没配环境变量就整块跳过）
-EVAL_LIVE=1 OPENAI_MODEL=<模型名> OPENAI_API_KEY=<key> pnpm eval:live
+$env:EVAL_LIVE = "1"
+$env:OPENAI_MODEL = "<模型名>"
+$env:OPENAI_API_KEY = "<key>"
+$env:OPENAI_BASE_URL = "<中转或代理>/v1"      # 官方端点不用设
+$env:OPENAI_API_PROTOCOL = "chat_completions" # 官方 Responses API 才用默认 responses
+pnpm eval:live
 ```
 
-想连美元成本一起统计，再给两个单价（USD / 百万 token，两个都给才算配好）：
+想连美元成本一起统计，再加两个单价（USD / 百万 token，两个都给才算配好）：
 
-```bash
-EVAL_LIVE=1 OPENAI_MODEL=… OPENAI_API_KEY=… \
-  EVAL_PRICE_INPUT_PER_MTOK=0.15 EVAL_PRICE_OUTPUT_PER_MTOK=0.6 pnpm eval:live
+```powershell
+$env:EVAL_PRICE_INPUT_PER_MTOK = "0.15"
+$env:EVAL_PRICE_OUTPUT_PER_MTOK = "0.6"
+pnpm eval:live
 ```
 
 没配单价时报告里的 `cost.usd` 是 `null`，token 数照记——留空比猜一个价格写死更诚实。
 
 ### 模型选型（pass^k / pass@k + 配对比较）
 
-```bash
+```powershell
 # 每条 case 跑 3 次：报告的 fullSuccess 变成 pass^k 口径（每次都过才算过），
 # passAtK 是 pass@k（至少一次过）。选型建议 runs ≥ 3
-EVAL_LIVE=1 … EVAL_RUNS=3 pnpm eval:live
+$env:EVAL_RUNS = "3"
+pnpm eval:live
+
+# 只跑指定 case（逗号分隔），调试卡住或失败的单条时用
+$env:EVAL_CASES = "two-page-brief"
+pnpm eval:live
 
 # 两份报告逐 case 配对（第七章口径：只数不一致的对子；< 5 个在噪声带宽内）
 pnpm eval:compare tests/evals/reports/live-A.json tests/evals/reports/live-B.json
 ```
 
-20 条 case 的二项噪声约 ±13pp（95% CI）——独立两次成功率相减在 n=25 下基本是
+25 条 case 的二项噪声约 ±13pp（95% CI）——独立两次成功率相减在 n=25 下基本是
 噪声；配对比较只看独赢对子，这是小 n 下唯一有分辨力的比法。分维度 rates
 （`metrics.byType`）用来找强弱项，不替代配对计数。
 
@@ -84,3 +103,7 @@ live 模式的报告写在 `tests/evals/reports/live-<时间戳>.json`，形状�
   计进去会淹没 scripted 模式的读数。
 - live 模式每条 case 每一轮一个子进程，一条崩了不会污染下一条；scripted 模式同样，
   因为剧本是随进程启动读的（`PERSONAL_AGENT_SCRIPT`）。
+- **部分报告**：live 每跑完一条就覆盖写 `reports/live-partial.json`，中断（Ctrl-C /
+  断电）也保住已跑完的部分；最终报告 `live-<时间戳>.json` 仍以全部跑完为前提。
+  单条任务的兜底超时约 42.7 分钟（RUN_TASK_TIMEOUT_MS），卡住的 case 别干等，
+  Ctrl-C 后用 `EVAL_CASES=<id>` 单独复现。

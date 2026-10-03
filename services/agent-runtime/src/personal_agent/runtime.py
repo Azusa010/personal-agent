@@ -122,6 +122,10 @@ def build_error(req_id, code: str, message: str) -> dict:
 
 def dispatch(raw, deps: RuntimeDeps | None = None) -> dict:
     """输入已解析的 dict，输出响应 dict。"""
+    method = raw.get("method") if isinstance(raw, dict) else None
+    if method:
+        sys.stderr.write(f"--> [dispatch] 收到请求: {method}\n")
+        sys.stderr.flush()
     try:
         req = Request.model_validate(raw)
     except ValidationError:

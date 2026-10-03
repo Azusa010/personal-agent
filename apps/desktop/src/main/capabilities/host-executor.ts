@@ -73,7 +73,9 @@ export function listVisibleCapabilities(): readonly CapabilityDescriptor[] {
  * 要求会一起收窄，不会出现「计划三步、闸口要五步」的错位。
  */
 export function listReadOnlyCapabilities(): readonly CapabilityDescriptor[] {
-  return retriever.listVisible(readOnlyScope(BOOTSTRAP_TASK_ID))
+  return retriever
+    .listVisible(readOnlyScope(BOOTSTRAP_TASK_ID))
+    .filter((c) => c.name === 'filesystem_list' || c.name === 'document_extract_pdf')
 }
 
 // 给 PythonSupervisor 的 hostHandler。只有 run-task.ts beginTask 之后才放行。

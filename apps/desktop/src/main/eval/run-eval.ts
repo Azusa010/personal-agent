@@ -71,6 +71,11 @@ export interface RunEvalOptions {
   /** 每条 case 跑完的回调，用来打进度 */
   onCase?: (line: string) => void
   /**
+   * 每条 case 聚合完成后的回调（带**当前全部**结果）。调用方用来落部分报告：
+   * live 一场跑几十分钟，被中断时不该颗粒无收。
+   */
+  onCaseResult?: (results: readonly EvalCaseResult[]) => void
+  /**
    * 每条 case 重复跑几次。runs>1 时报告的 fullSuccess 是 pass^k 口径（每次都过
    * 才算过），passAtK 是「至少一次过」。默认 1；真模型选型建议 3。
    */
@@ -101,6 +106,7 @@ export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
         }
       }
       results.push(aggregateRuns(attempts))
+      options.onCaseResult?.(results)
     }
   } finally {
     db.close()
@@ -205,6 +211,17 @@ function caseWorkDir(caseId: string, run: number): string {
 
 const STATEFUL_WRITE_CAPABILITIES = ['filesystem_create_dir', 'filesystem_move', 'scheduler_create']
 
+/** stderr 末尾几行（去空行，截 2000 字符）：失败 case 的死因通常就在最后几行 */
+function stderrTail(chunks: readonly string[]): string {
+  const lines = chunks
+    .join('')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l !== '')
+  const tail = lines.slice(-15).join(' ⏎ ')
+  return tail.length > 2000 ? `${tail.slice(0, 2000)}…` : tail
+}
+
 /** 页集合取证用的目标 PDF 路径：写链路按期望终态（已移进 stateful.dir），读链路原位 */
 function expectedTargetPath(evalCase: EvalCase, materialized: MaterializedCase): string {
   if (evalCase.type === 'stateful_ops' && evalCase.stateful !== undefined) {
@@ -258,6 +275,19 @@ async function runOneCase(
     capabilities: capabilitiesFor(evalCase),
     hostHandler: executeHostTool
   })
+  const stderrChunks: string[] = []
+  const onStderr = (chunk: string): void => {
+    stderrChunks.push(chunk)
+    // live 模式人眼在盯：stderr 现场流出，case 卡住时能看到 Python 的最后一句
+    // （CI 的 scripted 模式不刷屏，stderr 只进失败 case 的 reasons）。
+    if (options.mode === 'live') {
+      for (const line of chunk.split('\n')) {
+        const trimmed = line.trim()
+        if (trimmed !== '') console.log(`[py] ${trimmed}`)
+      }
+    }
+  }
+  supervisor.on('stderr', onStderr)
   try {
     supervisor.start()
     await supervisor.initialize()
@@ -284,6 +314,7 @@ async function runOneCase(
   } catch (e) {
     runError = e instanceof Error ? e.message : String(e)
   } finally {
+    supervisor.off('stderr', onStderr)
     await supervisor.stop().catch(() => {})
     if (savedRoot === undefined) delete process.env[DOWNLOADS_ENV]
     else process.env[DOWNLOADS_ENV] = savedRoot
@@ -291,6 +322,15 @@ async function runOneCase(
 
   const verdict = judgeCase(evalCase, observation)
   if (runError !== null) verdict.reasons = [...verdict.reasons, `运行失败: ${runError}`]
+  // 失败 case 带上两类现场：闸口为什么拒（报告里的 report.reason）与 Python 的
+  // 临终遗言（stderr 末尾）。报告与 trace 都读 reasons，死因不用重跑就能看见。
+  if (!verdict.fullSuccess) {
+    if (observation.verificationReason !== null) {
+      verdict.reasons = [...verdict.reasons, `闸口拒绝: ${observation.verificationReason}`]
+    }
+    const tail = stderrTail(stderrChunks)
+    if (tail !== '') verdict.reasons = [...verdict.reasons, `Python stderr 末尾: ${tail}`]
+  }
 
   return {
     id: evalCase.id,
@@ -447,6 +487,7 @@ function emptyObservation(caseId: string): CaseObservation {
     extractedPaths: [],
     budgetExhausted: false,
     verificationOk: null,
+    verificationReason: null,
     failedToolCalls: 0,
     finalFiles: null
   }

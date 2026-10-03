@@ -248,7 +248,8 @@ class PlanAndExecuteStrategy:
             )
 
             is_last = len(remaining_steps) == 0
-            step_goal = f"当前步骤目标：{step.description}\n总任务目标：{goal}"
+            cap_hint = f"（指定必须执行能力：{step.capability}）" if step.capability else ""
+            step_goal = f"当前步骤目标：{step.description}{cap_hint}\n总任务目标：{goal}"
             outcome = loop.run(
                 step_goal,
                 visible_capabilities,

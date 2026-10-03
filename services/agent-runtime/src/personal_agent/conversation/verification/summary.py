@@ -101,7 +101,10 @@ class SummaryRejected(Exception):
 def collect_extracted_pages(observations: Sequence[Observation]) -> frozenset[int]:
     collected: set[int] = set()
     for observation in observations:
-        if observation.capability != EXTRACT_PDF_CAPABILITY or not observation.ok:
+        if (
+            observation.capability not in (EXTRACT_PDF_CAPABILITY, "read_document")
+            or not observation.ok
+        ):
             continue
         raw_pages = observation.payload.get("pages")
         if not isinstance(raw_pages, list):

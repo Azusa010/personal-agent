@@ -244,7 +244,8 @@
           "keywords": [
             "two new plants",
             "新工厂",
-            "两座新厂"
+            "两座新厂",
+            "工厂"
           ],
           "pages": [
             8
@@ -316,7 +317,8 @@
           "id": "migration",
           "text": "第一节按顺序讲了 migration 步骤",
           "keywords": [
-            "migration"
+            "migration",
+            "迁移"
           ],
           "pages": [
             1
@@ -916,7 +918,9 @@
           "id": "written",
           "text": "旧稿的迁移计划写于 January（1 月），如今已过时",
           "keywords": [
-            "January"
+            "January",
+            "1 月",
+            "1月"
           ],
           "pages": [
             1
@@ -967,7 +971,9 @@
           "id": "second-step",
           "text": "第二步是在团队频道发一段 introduction（自我介绍）",
           "keywords": [
-            "introduction"
+            "introduction",
+            "自我介绍",
+            "介绍"
           ],
           "pages": [
             2

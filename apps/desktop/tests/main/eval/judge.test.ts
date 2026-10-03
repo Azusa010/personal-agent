@@ -53,6 +53,7 @@ function makeObservation(overrides: Partial<CaseObservation> = {}): CaseObservat
     extractedPaths: [`D:/downloads/${TARGET}`],
     budgetExhausted: false,
     verificationOk: true,
+    verificationReason: null,
     failedToolCalls: 0,
     finalFiles: null,
     ...overrides
