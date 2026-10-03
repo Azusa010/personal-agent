@@ -1,9 +1,14 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 
-import { executeHostTool, listReadOnlyCapabilities } from '../capabilities/host-executor'
+import {
+  configureHostExecutor,
+  executeHostTool,
+  listReadOnlyCapabilities,
+  listVisibleCapabilities
+} from '../capabilities/host-executor'
 import { ROOT_ENV } from '../capabilities/roots'
 import { migrate, openProductState, type SqliteDatabase } from '../product-state/database'
 import { SqliteEventRepository } from '../product-state/event-repository'
@@ -12,11 +17,13 @@ import { SqlitePlanRepository } from '../product-state/plan-repository'
 import { SqliteReminderRepository } from '../product-state/reminder-repository'
 import { SqliteTaskRepository } from '../product-state/task-repository'
 import { SqliteToolExecutionRepository } from '../product-state/tool-execution-repository'
+import { createPermissionBroker, type PermissionBroker } from '../permission/permission-broker'
+import type { CapabilityDescriptor } from '@personal-agent/protocol'
 import { PythonSupervisor } from '../runtime/python-supervisor'
 import { runTask, type RunTaskDeps } from '../tasks/run-task'
 import { realVerificationPorts } from '../verification/ports'
 import { verifyTaskCompletion } from '../verification/verify-task'
-import type { EvalCase } from './case-manifest'
+import { targetPdf, type EvalCase } from './case-manifest'
 import { judgeCase, type CaseObservation } from './judge'
 import { collectObservation } from './observation'
 import type { EvalCaseResult, EvalPricing } from './metrics'
@@ -63,6 +70,13 @@ export interface RunEvalOptions {
   pricing?: EvalPricing | null
   /** 每条 case 跑完的回调，用来打进度 */
   onCase?: (line: string) => void
+  /**
+   * 每条 case 重复跑几次。runs>1 时报告的 fullSuccess 是 pass^k 口径（每次都过
+   * 才算过），passAtK 是「至少一次过」。默认 1；真模型选型建议 3。
+   */
+  runs?: number
+  /** 失败 case 的轨迹落盘目录（文件名 trace-<case>-r<run>.json）。不给就不落 */
+  traceDir?: string | null
 }
 
 export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
@@ -70,17 +84,27 @@ export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
   const dbPath = join(options.workDir, 'eval-product-state.db')
   const db = openProductState(dbPath)
   migrate(db)
+  const broker = wireWritePath(db)
 
   const results: EvalCaseResult[] = []
+  const runs = Math.max(1, options.runs ?? 1)
   const savedRoot = process.env[DOWNLOADS_ENV]
   try {
     for (const evalCase of options.cases) {
-      const result = await runOneCase(db, evalCase, options)
-      results.push(result)
-      options.onCase?.(describeResult(result))
+      const attempts: EvalCaseResult[] = []
+      for (let run = 1; run <= runs; run += 1) {
+        const attempt = await runOneCase(db, evalCase, options, run)
+        attempts.push(attempt)
+        options.onCase?.(describeResult(attempt))
+        if (options.traceDir && !attempt.verdict.fullSuccess) {
+          writeTrace(options.traceDir, evalCase, attempt, run)
+        }
+      }
+      results.push(aggregateRuns(attempts))
     }
   } finally {
     db.close()
+    broker.dispose()
     if (savedRoot === undefined) delete process.env[DOWNLOADS_ENV]
     else process.env[DOWNLOADS_ENV] = savedRoot
   }
@@ -96,6 +120,75 @@ export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
   })
 }
 
+/**
+ * WRITE 能力的批准、幂等与 Reminder 接线。eval 的「用户」是 fixture：权限一挂起
+ * 就自动批准（与 golden-path E2E 的假用户同一手法）。只读 case 的 risk 是 NONE，
+ * 走不到这一层，所以统一接上对读链路没有副作用。
+ */
+function wireWritePath(db: SqliteDatabase): PermissionBroker {
+  const permissions = new SqlitePermissionRepository(db)
+  const events = new SqliteEventRepository(db)
+  const broker = createPermissionBroker({
+    permissions,
+    events,
+    notify: (notice) => {
+      if (notice.kind !== 'requested') return
+      // broker 是「先 notify 再登记挂起项」，同步 respond 会撞上「批准窗口已关闭」
+      // （golden-path 的同款注释：真实用户也是过一会儿才点）。
+      queueMicrotask(() => {
+        broker.respond(notice.permission.id, 'approved')
+      })
+    }
+  })
+  configureHostExecutor({
+    permission: { gate: broker, tasks: new SqliteTaskRepository(db) },
+    idempotency: { executions: new SqliteToolExecutionRepository(db) },
+    scheduler: {
+      db,
+      reminders: new SqliteReminderRepository(db),
+      events
+    }
+  })
+  return broker
+}
+
+/** runs>1 时的口径聚合：verdict 取第一次失败的跑（reasons 说清败在哪一次），
+ *  全过才 fullSuccess（pass^k），passAtK 是「至少一次过」（pass@k）。 */
+function aggregateRuns(attempts: EvalCaseResult[]): EvalCaseResult {
+  const first = attempts[0]
+  if (attempts.length === 1) {
+    return {
+      ...first,
+      runs: 1,
+      runResults: [first.verdict.fullSuccess],
+      passAtK: first.verdict.fullSuccess
+    }
+  }
+  const firstFail = attempts.find((a) => !a.verdict.fullSuccess) ?? attempts[attempts.length - 1]
+  return {
+    ...firstFail,
+    runs: attempts.length,
+    runResults: attempts.map((a) => a.verdict.fullSuccess),
+    passAtK: attempts.some((a) => a.verdict.fullSuccess)
+  }
+}
+
+/** 失败 case 的轨迹：判定明细 + 观察快照，回看「败在哪一步」不用重跑。 */
+function writeTrace(
+  traceDir: string,
+  evalCase: EvalCase,
+  result: EvalCaseResult,
+  run: number
+): void {
+  const path = join(traceDir, `trace-${evalCase.id}-r${run}.json`)
+  mkdirSync(traceDir, { recursive: true })
+  writeFileSync(
+    path,
+    `${JSON.stringify({ caseId: evalCase.id, run, goal: evalCase.goal, result }, null, 2)}\n`,
+    'utf8'
+  )
+}
+
 /** 一次跑完的临时沙箱：调用方用完删掉即可 */
 export function makeEvalWorkDir(prefix = 'pa-eval-'): string {
   return mkdtempSync(join(tmpdir(), prefix))
@@ -105,14 +198,42 @@ export function removeEvalWorkDir(dir: string): void {
   rmSync(dir, { recursive: true, force: true })
 }
 
+/** 第 run 次跑的工作区子目录。第 1 次保持原名（报告与工作区对得上），后续加后缀 */
+function caseWorkDir(caseId: string, run: number): string {
+  return run === 1 ? caseId : `${caseId}-r${run}`
+}
+
+const STATEFUL_WRITE_CAPABILITIES = ['filesystem_create_dir', 'filesystem_move', 'scheduler_create']
+
+/** 页集合取证用的目标 PDF 路径：写链路按期望终态（已移进 stateful.dir），读链路原位 */
+function expectedTargetPath(evalCase: EvalCase, materialized: MaterializedCase): string {
+  if (evalCase.type === 'stateful_ops' && evalCase.stateful !== undefined) {
+    return `${materialized.dir}/${evalCase.stateful.dir}/${targetPdf(evalCase).name}`
+  }
+  return materialized.targetPath
+}
+
+/** 握手下发的能力清单，按维度分派。描述符全部取自 registry，不手写 */
+function capabilitiesFor(evalCase: EvalCase): readonly CapabilityDescriptor[] {
+  if (evalCase.type !== 'stateful_ops') return listReadOnlyCapabilities()
+  const writes = listVisibleCapabilities().filter((c) =>
+    STATEFUL_WRITE_CAPABILITIES.includes(c.name)
+  )
+  return [...listReadOnlyCapabilities(), ...writes]
+}
+
 async function runOneCase(
   db: SqliteDatabase,
   evalCase: EvalCase,
-  options: RunEvalOptions
+  options: RunEvalOptions,
+  run: number
 ): Promise<EvalCaseResult> {
   // 收集失败也要出结果：crash 掉的那条记成不通过（reasons 里带原因），
   // 不是从报告里消失——报告少一条比报告里有一条失败更难发现。
-  const materialized = materializeCase(join(options.workDir, evalCase.id), evalCase)
+  const materialized = materializeCase(
+    join(options.workDir, caseWorkDir(evalCase.id, run)),
+    evalCase
+  )
   const scriptPath =
     options.mode === 'scripted'
       ? writeScriptedDecisions(options.workDir, evalCase, materialized)
@@ -130,10 +251,11 @@ async function runOneCase(
     args: options.runtime.args,
     cwd: options.runtime.cwd,
     env: childEnv(options.mode, scriptPath),
-    // 只读清单（TASK-028 起计划按可见能力伸缩）：这一层量的是「读文档、给带页码的
-    // 摘要」，不该被交付物闸口要求「文件已移动、Reminder 已创建」。少给三个 WRITE，
-    // Python 的计划就是三步，闸口的要求跟着一起收窄。
-    capabilities: listReadOnlyCapabilities(),
+    // 按维度分派：读链路只给 READ 清单（计划三步）；写链路加上 planning.py
+    // WRITE_STEPS 认识的三个 WRITE（计划变六步，闸口自动开始要求移动与 Reminder
+    // ——交付物判定按计划推导，三处口径由架构对齐）。不 给全量 agent 清单：
+    // terminal/code-interpreter 与评测任务无关，暴露给 live 模型只会添计划外噪声。
+    capabilities: capabilitiesFor(evalCase),
     hostHandler: executeHostTool
   })
   try {
@@ -150,7 +272,11 @@ async function runOneCase(
       {
         caseId: evalCase.id,
         taskId: result.ok ? result.taskId : taskId,
-        targetPath: materialized.targetPath
+        // 写链路按期望终态取证：目标 PDF 已被（期望）移进 Reading/，还在物化时的
+        // 老路径重读页集合会读不到，fail-closed 会把成功的 run 误判成读不出来。
+        targetPath: expectedTargetPath(evalCase, materialized),
+        // 写链路要终态文件清单当证据；读链路工作区不动，不采
+        rootDir: evalCase.type === 'stateful_ops' ? materialized.dir : null
       }
     )
     observation = collected.observation
@@ -169,6 +295,7 @@ async function runOneCase(
   return {
     id: evalCase.id,
     goal: evalCase.goal,
+    type: evalCase.type,
     status: observation.status,
     latencyMs,
     verdict,
@@ -176,7 +303,11 @@ async function runOneCase(
     failedToolCalls: observation.failedToolCalls,
     budgetExhausted: observation.budgetExhausted,
     verificationOk: observation.verificationOk,
-    modelUsage
+    modelUsage,
+    // 单次跑的口径；runs>1 时由 aggregateRuns 覆盖成 pass^k / pass@k 聚合
+    runs: 1,
+    runResults: [verdict.fullSuccess],
+    passAtK: verdict.fullSuccess
   }
 }
 
@@ -223,7 +354,7 @@ export function writeScriptedDecisions(
   evalCase: EvalCase,
   materialized: MaterializedCase
 ): string {
-  const decisions = [
+  const decisions: Array<Record<string, unknown>> = [
     {
       kind: 'tool_call',
       callId: 'call-1',
@@ -235,18 +366,55 @@ export function writeScriptedDecisions(
       callId: 'call-2',
       capability: EXTRACT_CAPABILITY,
       arguments: { path: materialized.targetPath }
-    },
-    {
-      kind: 'summary',
-      // reply 是 TASK-031 起的必填字段：eval 的判定只读 facts，reply 只是让
-      // 剧本与真模型的输出形状一致（缺了它 Python 侧的契约校验会拒）。
-      reply: `已根据 ${materialized.targetPath} 的页面内容给出带页码引用的摘要`,
-      facts: evalCase.keyPoints.map((keyPoint) => ({
-        text: keyPoint.text,
-        pageRefs: keyPoint.pages
-      }))
     }
   ]
+
+  // 写链路：三个 WRITE 按 planning.py WRITE_STEPS 的顺序插在 extract 之后、摘要
+  // 之前（ActionAlignment 严格模式下第 i 次调用必须等于第 i 个带 capability 的
+  // 计划步骤，顺序错一步就被拒）。remindAt 取运行时刻 +1 小时：binder 拒收过去
+  // 的时间，而剧本是每次跑现场合成的，不需要跨运行可比。
+  if (evalCase.type === 'stateful_ops' && evalCase.stateful !== undefined) {
+    const { dir, reminderMessage } = evalCase.stateful
+    const targetName = targetPdf(evalCase).name
+    decisions.push(
+      {
+        kind: 'tool_call',
+        callId: 'call-3',
+        capability: 'filesystem_create_dir',
+        arguments: { path: `${materialized.dir}/${dir}` }
+      },
+      {
+        kind: 'tool_call',
+        callId: 'call-4',
+        capability: 'filesystem_move',
+        arguments: {
+          source: materialized.targetPath,
+          target: `${materialized.dir}/${dir}/${targetName}`
+        }
+      },
+      {
+        kind: 'tool_call',
+        callId: 'call-5',
+        capability: 'scheduler_create',
+        arguments: {
+          remindAt: new Date(Date.now() + 3_600_000).toISOString(),
+          message: reminderMessage
+        }
+      }
+    )
+  }
+
+  decisions.push({
+    kind: 'summary',
+    // reply 是 TASK-031 起的必填字段：eval 的判定只读 facts，reply 只是让
+    // 剧本与真模型的输出形状一致（缺了它 Python 侧的契约校验会拒）。
+    reply: `已根据 ${materialized.targetPath} 的页面内容给出带页码引用的摘要`,
+    facts: evalCase.keyPoints.map((keyPoint) => ({
+      text: keyPoint.text,
+      pageRefs: keyPoint.pages
+    }))
+  })
+
   const path = join(workDir, `${evalCase.id}.script.json`)
   writeFileSync(path, `${JSON.stringify(decisions, null, 2)}\n`, 'utf8')
   return path
@@ -279,7 +447,8 @@ function emptyObservation(caseId: string): CaseObservation {
     extractedPaths: [],
     budgetExhausted: false,
     verificationOk: null,
-    failedToolCalls: 0
+    failedToolCalls: 0,
+    finalFiles: null
   }
 }
 

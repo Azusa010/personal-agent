@@ -85,12 +85,22 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
       expect(theReport().model).toBeNull()
     })
 
-    it('每条 case 都按计划调了 list 与 extract，没有预算耗尽', () => {
+    it('每条 case 都按计划调了 list 与 extract，写链路的三个 WRITE 也都在，没有预算耗尽', () => {
       const report = theReport()
+      const statefulCount = report.cases.filter((c) => c.type === 'stateful_ops').length
 
       expect(report.metrics.tools.byCapability).toEqual({
         document_extract_pdf: report.cases.length,
-        filesystem_list: report.cases.length
+        filesystem_list: report.cases.length,
+        // 写链路 case 才有：批准、移动、建 Reminder 是三条真 WRITE（真批准记录）
+        ...(statefulCount > 0
+          ? {
+              filesystem_create_dir: statefulCount,
+              filesystem_move: statefulCount,
+              scheduler_create: statefulCount
+            }
+          : {})
+        // key 排序后重建，报告可逐行 diff
       })
       expect(report.metrics.tools.failed).toBe(0)
       expect(report.metrics.tools.budgetExhaustedCases).toBe(0)
@@ -120,6 +130,32 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
 
       // 跑 `pnpm eval` 就该看到报告摘要，而不是"绿了就完事"。
       console.log(formatSummary(report))
+    })
+
+    it('写链路 case：终态断言全过，报告带维度分组与重复跑口径', () => {
+      const report = theReport()
+      const stateful = report.cases.filter((c) => c.type === 'stateful_ops')
+
+      if (stateful.length === 0) {
+        // 清单退化成纯读链路时这条用例没有对象——但 byType 仍要有读链路一组
+        expect(report.metrics.byType['pdf_summary']?.cases).toBe(report.cases.length)
+        return
+      }
+
+      // 终态断言是写链路的第七条判据：移动到位、根目录无副本、原有文件一个没少
+      const broken = stateful
+        .filter((c) => c.finalStateOk !== true)
+        .map((c) => `${c.id}: ${c.reasons[0] ?? ''}`)
+      expect(broken, broken.join('\n')).toEqual([])
+
+      // 分组与重复跑口径：scripted 默认一次一跑
+      expect(report.metrics.byType['stateful_ops']).toEqual({
+        cases: stateful.length,
+        fullSuccess: stateful.length,
+        successRate: 1
+      })
+      expect(report.metrics.passAtKRate).toBe(1)
+      expect(report.cases.every((c) => c.runs === 1 && c.passAtK === true)).toBe(true)
     })
 
     it('延迟是分布不是单点：合法数字，且每条 case 都有读数', () => {

@@ -53,6 +53,8 @@ describe.skipIf(!enabled)('Live Eval（真模型）', () => {
     async () => {
       const manifest = loadCaseManifest(evalCasesPath())
       const workDir = makeEvalWorkDir('pa-eval-live-')
+      // pass^k / pass@k 口径：EVAL_RUNS=3 就是每条 case 跑 3 次（模型选型建议 ≥3）
+      const runs = Math.max(1, Number.parseInt(process.env['EVAL_RUNS'] ?? '1', 10) || 1)
       try {
         const report = await runEval({
           mode: 'live',
@@ -61,6 +63,9 @@ describe.skipIf(!enabled)('Live Eval（真模型）', () => {
           workDir,
           runtime: { command: VENV_PYTHON, args: ['-m', 'personal_agent'], cwd: RUNTIME_CWD },
           pricing: pricingFromEnv(),
+          runs,
+          // 失败 case 的轨迹落盘到 reports/，回看败在哪一步不用重跑
+          traceDir: defaultReportDir(),
           onCase: (line) => console.log(line)
         })
 
