@@ -17,8 +17,13 @@
         {
           "id": "revenue",
           "text": "第三季度营收同比增长 12%，主要由企业版拉动",
-          "keywords": ["12%", "12 percent"],
-          "pages": [1]
+          "keywords": [
+            "12%",
+            "12 percent"
+          ],
+          "pages": [
+            1
+          ]
         }
       ]
     },
@@ -39,14 +44,22 @@
         {
           "id": "kickoff",
           "text": "项目 2026-03-31 启动，四名工程师参与",
-          "keywords": ["2026-03-31"],
-          "pages": [1]
+          "keywords": [
+            "2026-03-31"
+          ],
+          "pages": [
+            1
+          ]
         },
         {
           "id": "milestone",
           "text": "第一个里程碑是 2026-06-30 前出可用原型",
-          "keywords": ["2026-06-30"],
-          "pages": [2]
+          "keywords": [
+            "2026-06-30"
+          ],
+          "pages": [
+            2
+          ]
         }
       ]
     },
@@ -74,13 +87,19 @@
             "日志无上限",
             "unbounded log"
           ],
-          "pages": [2]
+          "pages": [
+            2
+          ]
         },
         {
           "id": "fix",
           "text": "整改建议是加一个 retry budget 并每天轮转日志",
-          "keywords": ["retry budget"],
-          "pages": [3]
+          "keywords": [
+            "retry budget"
+          ],
+          "pages": [
+            3
+          ]
         }
       ]
     },
@@ -103,20 +122,35 @@
         {
           "id": "interval",
           "text": "设备每 30 seconds 上报一次状态",
-          "keywords": ["30 seconds", "30 秒"],
-          "pages": [1]
+          "keywords": [
+            "30 seconds",
+            "30 秒"
+          ],
+          "pages": [
+            1
+          ]
         },
         {
           "id": "retention",
           "text": "读数保留 90 days 后删除",
-          "keywords": ["90 days", "90 天"],
-          "pages": [3]
+          "keywords": [
+            "90 days",
+            "90 天"
+          ],
+          "pages": [
+            3
+          ]
         },
         {
           "id": "buffer",
           "text": "broker 不可达时最多缓存 500 readings",
-          "keywords": ["500 readings", "500 条"],
-          "pages": [4]
+          "keywords": [
+            "500 readings",
+            "500 条"
+          ],
+          "pages": [
+            4
+          ]
         }
       ]
     },
@@ -140,14 +174,25 @@
         {
           "id": "buddy",
           "text": "新人前两周会有一位 buddy",
-          "keywords": ["buddy", "伙伴"],
-          "pages": [2]
+          "keywords": [
+            "buddy",
+            "伙伴"
+          ],
+          "pages": [
+            2
+          ]
         },
         {
           "id": "escalate",
           "text": "阻塞问题要在 one hour 内到团队频道里升级",
-          "keywords": ["one hour", "1 小时", "一小时"],
-          "pages": [5]
+          "keywords": [
+            "one hour",
+            "1 小时",
+            "一小时"
+          ],
+          "pages": [
+            5
+          ]
         }
       ]
     },
@@ -174,20 +219,36 @@
         {
           "id": "shipments",
           "text": "全年出货量达到 4.2 million units",
-          "keywords": ["4.2 million", "420 万"],
-          "pages": [1]
+          "keywords": [
+            "4.2 million",
+            "420 万"
+          ],
+          "pages": [
+            1
+          ]
         },
         {
           "id": "churn",
           "text": "客户流失率降到 3.5 percent，为五年最低",
-          "keywords": ["3.5 percent", "3.5%"],
-          "pages": [5]
+          "keywords": [
+            "3.5 percent",
+            "3.5%"
+          ],
+          "pages": [
+            5
+          ]
         },
         {
           "id": "plants",
           "text": "明年计划在亚洲开 two new plants",
-          "keywords": ["two new plants", "新工厂", "两座新厂"],
-          "pages": [8]
+          "keywords": [
+            "two new plants",
+            "新工厂",
+            "两座新厂"
+          ],
+          "pages": [
+            8
+          ]
         }
       ]
     },
@@ -216,14 +277,23 @@
         {
           "id": "benchmark",
           "text": "基准测试跑在 8 个节点上，42 分钟完成",
-          "keywords": ["42 minutes", "42 分钟"],
-          "pages": [3]
+          "keywords": [
+            "42 minutes",
+            "42 分钟"
+          ],
+          "pages": [
+            3
+          ]
         },
         {
           "id": "memory",
           "text": "全程每个节点内存占用低于 2 GB",
-          "keywords": ["2 GB"],
-          "pages": [9]
+          "keywords": [
+            "2 GB"
+          ],
+          "pages": [
+            9
+          ]
         }
       ]
     },
@@ -245,14 +315,23 @@
         {
           "id": "migration",
           "text": "第一节按顺序讲了 migration 步骤",
-          "keywords": ["migration"],
-          "pages": [1]
+          "keywords": [
+            "migration"
+          ],
+          "pages": [
+            1
+          ]
         },
         {
           "id": "rollback",
           "text": "第三节列出了 rollback 命令",
-          "keywords": ["rollback", "回滚"],
-          "pages": [3]
+          "keywords": [
+            "rollback",
+            "回滚"
+          ],
+          "pages": [
+            3
+          ]
         }
       ]
     },
@@ -262,11 +341,15 @@
       "pdfs": [
         {
           "name": "invoice-2026-03.pdf",
-          "pages": ["Invoice 2026-03 total is 4,800 USD, due on 2026-04-15."]
+          "pages": [
+            "Invoice 2026-03 total is 4,800 USD, due on 2026-04-15."
+          ]
         },
         {
           "name": "team-notes.pdf",
-          "pages": ["Team notes: the coffee machine on floor 3 is broken."]
+          "pages": [
+            "Team notes: the coffee machine on floor 3 is broken."
+          ]
         }
       ],
       "target": "invoice-2026-03.pdf",
@@ -274,8 +357,13 @@
         {
           "id": "total",
           "text": "2026-03 这张发票总额 4,800 USD，2026-04-15 到期",
-          "keywords": ["4,800", "4800"],
-          "pages": [1]
+          "keywords": [
+            "4,800",
+            "4800"
+          ],
+          "pages": [
+            1
+          ]
         }
       ]
     },
@@ -285,15 +373,21 @@
       "pdfs": [
         {
           "name": "weekly-01.pdf",
-          "pages": ["Week 1: shipped the login fix behind a flag."]
+          "pages": [
+            "Week 1: shipped the login fix behind a flag."
+          ]
         },
         {
           "name": "weekly-02.pdf",
-          "pages": ["Week 2: reduced the build time to 6 minutes."]
+          "pages": [
+            "Week 2: reduced the build time to 6 minutes."
+          ]
         },
         {
           "name": "weekly-03.pdf",
-          "pages": ["Week 3: closed 14 support tickets and one incident."]
+          "pages": [
+            "Week 3: closed 14 support tickets and one incident."
+          ]
         }
       ],
       "target": "weekly-03.pdf",
@@ -301,8 +395,13 @@
         {
           "id": "week3",
           "text": "第三周关闭了 14 support tickets 与一个事故",
-          "keywords": ["14 support tickets", "14 个工单"],
-          "pages": [1]
+          "keywords": [
+            "14 support tickets",
+            "14 个工单"
+          ],
+          "pages": [
+            1
+          ]
         }
       ]
     },
@@ -312,11 +411,15 @@
       "pdfs": [
         {
           "name": "meeting-2026-01.pdf",
-          "pages": ["January meeting: agreed to move the release to March."]
+          "pages": [
+            "January meeting: agreed to move the release to March."
+          ]
         },
         {
           "name": "meeting-2026-02.pdf",
-          "pages": ["February meeting: hiring plan approved for two roles."]
+          "pages": [
+            "February meeting: hiring plan approved for two roles."
+          ]
         },
         {
           "name": "meeting-2026-05.pdf",
@@ -333,7 +436,9 @@
         },
         {
           "name": "roadmap-draft.pdf",
-          "pages": ["Draft roadmap: three themes for the second half."]
+          "pages": [
+            "Draft roadmap: three themes for the second half."
+          ]
         }
       ],
       "target": "meeting-2026-05.pdf",
@@ -341,14 +446,24 @@
         {
           "id": "freeze",
           "text": "五月会议决定在发布前 freeze the scope",
-          "keywords": ["freeze the scope", "冻结范围"],
-          "pages": [1]
+          "keywords": [
+            "freeze the scope",
+            "冻结范围"
+          ],
+          "pages": [
+            1
+          ]
         },
         {
           "id": "actions",
           "text": "行动项分给了 platform group",
-          "keywords": ["platform group", "平台组"],
-          "pages": [2]
+          "keywords": [
+            "platform group",
+            "平台组"
+          ],
+          "pages": [
+            2
+          ]
         }
       ]
     },
@@ -378,8 +493,13 @@
         {
           "id": "warranty",
           "text": "保修覆盖零件 24 months、人工 12 months",
-          "keywords": ["24 months", "24 个月"],
-          "pages": [1]
+          "keywords": [
+            "24 months",
+            "24 个月"
+          ],
+          "pages": [
+            1
+          ]
         }
       ]
     },
@@ -400,14 +520,23 @@
         {
           "id": "p95",
           "text": "p95 延迟预算在 120 ms 以内",
-          "keywords": ["120 ms", "120ms"],
-          "pages": [1]
+          "keywords": [
+            "120 ms",
+            "120ms"
+          ],
+          "pages": [
+            1
+          ]
         },
         {
           "id": "memory",
           "text": "单个请求最多用 1.5 MB 内存",
-          "keywords": ["1.5 MB"],
-          "pages": [2]
+          "keywords": [
+            "1.5 MB"
+          ],
+          "pages": [
+            2
+          ]
         }
       ]
     },
@@ -428,14 +557,22 @@
         {
           "id": "term",
           "text": "合同签到 2027-01-08 为止",
-          "keywords": ["2027-01-08"],
-          "pages": [1]
+          "keywords": [
+            "2027-01-08"
+          ],
+          "pages": [
+            1
+          ]
         },
         {
           "id": "renewal",
           "text": "续约谈判必须在 2026-11-01 前启动",
-          "keywords": ["2026-11-01"],
-          "pages": [2]
+          "keywords": [
+            "2026-11-01"
+          ],
+          "pages": [
+            2
+          ]
         }
       ]
     },
@@ -455,8 +592,13 @@
         {
           "id": "material",
           "text": "外壳改用 stainless steel，因为上一版铝壳在海边腐蚀了",
-          "keywords": ["stainless steel", "不锈钢"],
-          "pages": [1]
+          "keywords": [
+            "stainless steel",
+            "不锈钢"
+          ],
+          "pages": [
+            1
+          ]
         }
       ]
     },
@@ -476,14 +618,24 @@
         {
           "id": "budget",
           "text": "预算 40000 USD",
-          "keywords": ["40000", "40,000"],
-          "pages": [1]
+          "keywords": [
+            "40000",
+            "40,000"
+          ],
+          "pages": [
+            1
+          ]
         },
         {
           "id": "risk",
           "text": "风险等级为 medium",
-          "keywords": ["medium", "中等"],
-          "pages": [1]
+          "keywords": [
+            "medium",
+            "中等"
+          ],
+          "pages": [
+            1
+          ]
         }
       ]
     },
@@ -504,14 +656,22 @@
         {
           "id": "sla",
           "text": "api/v2 的可用性目标是 99.9% uptime",
-          "keywords": ["99.9%"],
-          "pages": [1]
+          "keywords": [
+            "99.9%"
+          ],
+          "pages": [
+            1
+          ]
         },
         {
           "id": "disk",
           "text": "磁盘占用超过 85% 会呼叫值班工程师",
-          "keywords": ["85%"],
-          "pages": [2]
+          "keywords": [
+            "85%"
+          ],
+          "pages": [
+            2
+          ]
         }
       ]
     },
@@ -537,8 +697,13 @@
         {
           "id": "cost",
           "text": "2025 年路线图的重点之一是砍掉 8 percent 成本",
-          "keywords": ["8 percent", "8%"],
-          "pages": [1]
+          "keywords": [
+            "8 percent",
+            "8%"
+          ],
+          "pages": [
+            1
+          ]
         }
       ]
     },
@@ -563,8 +728,13 @@
         {
           "id": "action",
           "text": "唯一待办是在 2026-08-30 前续签 TLS certificate",
-          "keywords": ["TLS certificate", "TLS 证书"],
-          "pages": [5]
+          "keywords": [
+            "TLS certificate",
+            "TLS 证书"
+          ],
+          "pages": [
+            5
+          ]
         }
       ]
     },
@@ -586,16 +756,285 @@
         {
           "id": "window",
           "text": "实体商品的退款窗口是 14 days",
-          "keywords": ["14 days", "14 天"],
-          "pages": [1]
+          "keywords": [
+            "14 days",
+            "14 天"
+          ],
+          "pages": [
+            1
+          ]
         },
         {
           "id": "processing",
           "text": "退款在 5 days 内退回原支付方式",
-          "keywords": ["5 days", "5 天"],
-          "pages": [3]
+          "keywords": [
+            "5 days",
+            "5 天"
+          ],
+          "pages": [
+            3
+          ]
         }
       ]
+    },
+    {
+      "id": "stateful-archive-newest",
+      "type": "stateful_ops",
+      "goal": "把 Downloads 里最新改的那份 PDF 移到 Reading 目录归档，建一条 1 小时后提醒我读它的 Reminder，然后给我带页码引用的摘要",
+      "pdfs": [
+        {
+          "name": "q1-notes.pdf",
+          "pages": [
+            "Q1 notes: revenue grew 4 percent year over year in the first quarter."
+          ]
+        },
+        {
+          "name": "q2-notes.pdf",
+          "pages": [
+            "Q2 notes: revenue grew 8 percent year over year in the second quarter."
+          ]
+        },
+        {
+          "name": "q3-notes.pdf",
+          "pages": [
+            "Q3 notes: revenue grew 12 percent year over year, led by the enterprise tier.",
+            "Outlook: the roadmap targets 20 percent growth next quarter."
+          ]
+        }
+      ],
+      "target": "q3-notes.pdf",
+      "keyPoints": [
+        {
+          "id": "growth",
+          "text": "第三季度营收同比增长 12 percent，企业版是主要拉动",
+          "keywords": [
+            "12 percent",
+            "12%"
+          ],
+          "pages": [
+            1
+          ]
+        },
+        {
+          "id": "outlook",
+          "text": "展望部分给出的目标是下季度 20 percent 增长",
+          "keywords": [
+            "20 percent",
+            "20%"
+          ],
+          "pages": [
+            2
+          ]
+        }
+      ],
+      "stateful": {
+        "dir": "Reading",
+        "reminderMessage": "读刚归档的 q3-notes.pdf"
+      }
+    },
+    {
+      "id": "stateful-archive-by-name",
+      "type": "stateful_ops",
+      "goal": "把 tax-summary.pdf 移到 Reading 目录归档，建一条 1 小时后的阅读提醒，然后给我带页码引用的摘要",
+      "pdfs": [
+        {
+          "name": "shopping-list.pdf",
+          "pages": [
+            "Shopping list: apples, flour, olive oil, and coffee beans for the week."
+          ]
+        },
+        {
+          "name": "tax-summary.pdf",
+          "pages": [
+            "Tax summary: total deductible amount is 3200 dollars for fiscal year 2026.",
+            "Filing deadline is 2027-04-15, keep receipts until then."
+          ]
+        },
+        {
+          "name": "recipe-cake.pdf",
+          "pages": [
+            "Cake recipe: preheat oven to 180 degrees and bake for 40 minutes."
+          ]
+        }
+      ],
+      "target": "tax-summary.pdf",
+      "keyPoints": [
+        {
+          "id": "deductible",
+          "text": "可抵扣总额是 3200 dollars",
+          "keywords": [
+            "3200"
+          ],
+          "pages": [
+            1
+          ]
+        },
+        {
+          "id": "deadline",
+          "text": "申报截止日是 2027-04-15",
+          "keywords": [
+            "2027-04-15"
+          ],
+          "pages": [
+            2
+          ]
+        }
+      ],
+      "stateful": {
+        "dir": "Reading",
+        "reminderMessage": "读刚归档的 tax-summary.pdf"
+      }
+    },
+    {
+      "id": "stateful-archive-oldest",
+      "type": "stateful_ops",
+      "goal": "把 Downloads 里最早改的那份 PDF 移到 Reading 目录归档，建一条 1 小时后的阅读提醒，然后给我带页码引用的摘要",
+      "pdfs": [
+        {
+          "name": "old-draft.pdf",
+          "pages": [
+            "Old draft: the migration plan was written in January and is now outdated.",
+            "It referenced the legacy queue system retired last year."
+          ]
+        },
+        {
+          "name": "mid-draft.pdf",
+          "pages": [
+            "Mid draft: the migration plan was revised in March with a new timeline."
+          ]
+        },
+        {
+          "name": "new-draft.pdf",
+          "pages": [
+            "New draft: the migration plan was finalized in June with owners assigned."
+          ]
+        }
+      ],
+      "target": "old-draft.pdf",
+      "keyPoints": [
+        {
+          "id": "written",
+          "text": "旧稿的迁移计划写于 January（1 月），如今已过时",
+          "keywords": [
+            "January"
+          ],
+          "pages": [
+            1
+          ]
+        },
+        {
+          "id": "legacy",
+          "text": "它引用了已经退役的 legacy queue（旧队列系统）",
+          "keywords": [
+            "legacy queue"
+          ],
+          "pages": [
+            2
+          ]
+        }
+      ],
+      "stateful": {
+        "dir": "Reading",
+        "reminderMessage": "读刚归档的 old-draft.pdf"
+      }
+    },
+    {
+      "id": "stateful-single-pdf",
+      "type": "stateful_ops",
+      "goal": "把这份 PDF 移到 Reading 目录归档，建一条 1 小时后的阅读提醒，然后给我带页码引用的摘要",
+      "pdfs": [
+        {
+          "name": "onboarding.pdf",
+          "pages": [
+            "Onboarding guide: your first task is to set up two-factor authentication.",
+            "Second step: join the team channel and post a short introduction."
+          ]
+        }
+      ],
+      "target": null,
+      "keyPoints": [
+        {
+          "id": "first-task",
+          "text": "第一个任务是设置 two-factor authentication（两步验证）",
+          "keywords": [
+            "two-factor"
+          ],
+          "pages": [
+            1
+          ]
+        },
+        {
+          "id": "second-step",
+          "text": "第二步是在团队频道发一段 introduction（自我介绍）",
+          "keywords": [
+            "introduction"
+          ],
+          "pages": [
+            2
+          ]
+        }
+      ],
+      "stateful": {
+        "dir": "Reading",
+        "reminderMessage": "读刚归档的 onboarding.pdf"
+      }
+    },
+    {
+      "id": "stateful-with-noise",
+      "type": "stateful_ops",
+      "goal": "把 budget-report.pdf 移到 Reading 目录归档，目录里其他文件都不要动，建一条 1 小时后的阅读提醒，然后给我带页码引用的摘要",
+      "pdfs": [
+        {
+          "name": "budget-report.pdf",
+          "pages": [
+            "Budget report: cloud spending is 9000 dollars per month and rising.",
+            "The largest line item is compute, at 5200 dollars per month."
+          ]
+        },
+        {
+          "name": "menu.pdf",
+          "pages": [
+            "Lunch menu: monday is tomato soup with bread."
+          ]
+        }
+      ],
+      "extraFiles": [
+        {
+          "name": "passwords.txt",
+          "content": "do not touch me"
+        },
+        {
+          "name": "todo.txt",
+          "content": "water the plants"
+        }
+      ],
+      "target": "budget-report.pdf",
+      "keyPoints": [
+        {
+          "id": "cloud",
+          "text": "云开销是每月 9000 dollars 且在上升",
+          "keywords": [
+            "9000"
+          ],
+          "pages": [
+            1
+          ]
+        },
+        {
+          "id": "compute",
+          "text": "最大的一项是 compute，每月 5200 dollars",
+          "keywords": [
+            "5200"
+          ],
+          "pages": [
+            2
+          ]
+        }
+      ],
+      "stateful": {
+        "dir": "Reading",
+        "reminderMessage": "读刚归档的 budget-report.pdf"
+      }
     }
   ]
 }
