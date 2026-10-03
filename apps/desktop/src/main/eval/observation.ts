@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
+import { join } from 'node:path'
 
 import { z } from 'zod'
 
@@ -51,6 +52,11 @@ export interface CollectInput {
   taskId: string
   /** 这次任务期望被提取的那份 PDF 的绝对路径（工作区物化时就知道，不依赖模型选对） */
   targetPath: string
+  /**
+   * case 工作区根。给了就顺带取一份**终态文件清单**（stateful 判定的证据，与
+   * 取证同立场：读盘，不采信模型或闸口的自述）；不给就是 null（读链路用不上）。
+   */
+  rootDir?: string | null
 }
 
 export interface CollectedCase {
@@ -72,6 +78,10 @@ export async function collectObservation(
     .filter((call) => call.capability === EXTRACT_PDF_CAPABILITY)
     .map((call) => call.arguments['path'])
     .filter((path): path is string => typeof path === 'string')
+  const finalFiles =
+    input.rootDir === null || input.rootDir === undefined
+      ? null
+      : await collectFinalFiles(input.rootDir)
 
   return {
     observation: {
@@ -84,7 +94,8 @@ export async function collectObservation(
       extractedPaths,
       budgetExhausted: events.some((e) => e.type === EVENT_BUDGET_EXHAUSTED),
       verificationOk: collectVerification(events),
-      failedToolCalls: collectFailedToolCalls(events)
+      failedToolCalls: collectFailedToolCalls(events),
+      finalFiles
     },
     modelUsage: collectModelUsage(events)
   }
@@ -101,6 +112,25 @@ async function readPageNumbers(path: string): Promise<number[] | null> {
     // 判定表的 fail-closed 底线就靠这个 null。
     return null
   }
+}
+
+/**
+ * 终态文件清单：相对 rootDir 的 posix 路径，递归、排序。判定读它核对「谁动了
+ * 工作区」。目录读不出来就抛给调用方——collectObservation 的 rootDir 来自
+ * materializeCase 刚建出来的目录，读不出来说明环境坏了，按缺口处理（fail-closed）。
+ */
+export async function collectFinalFiles(rootDir: string): Promise<string[]> {
+  const out: string[] = []
+  async function walk(rel: string): Promise<void> {
+    const entries = await readdir(join(rootDir, rel), { withFileTypes: true })
+    for (const entry of entries) {
+      const child = rel === '' ? entry.name : `${rel}/${entry.name}`
+      if (entry.isDirectory()) await walk(child)
+      else out.push(child)
+    }
+  }
+  await walk('')
+  return out.sort((a, b) => a.localeCompare(b))
 }
 
 function collectFacts(events: { type: string; payload: unknown }[]): SummaryFact[] {

@@ -34,6 +34,8 @@ export interface CaseObservation {
   verificationOk: boolean | null
   /** 工具调用失败的次数（tool_result 里 ok=false 的条数） */
   failedToolCalls: number
+  /** 终态文件清单（相对 case 工作区根，posix、排序）。没采（读链路）就是 null */
+  finalFiles: string[] | null
 }
 
 /** 判定结果。数字部分直接进报告，reasons 进报告的逐条明细 */
@@ -54,6 +56,12 @@ export interface CaseVerdict {
   selectedTarget: boolean
   /** 不通过的原因，逐条人话；通过时是空数组 */
   reasons: string[]
+  /**
+   * stateful 终态断言的结论。null = 不适用（pdf_summary）；stateful_ops 时是
+   * 「工作区终态与期望一致」的布尔——交付物闸口只查「该做的做了」，这一项查
+   * 「不该做的一样没做」（文件没被卷走、没多出计划外的落点）。
+   */
+  finalStateOk: boolean | null
 }
 
 /**
@@ -71,6 +79,10 @@ export interface CaseVerdict {
  * 5. `selectedTarget`：至少有一次 extract_pdf 调用的文件名等于目标 PDF 的文件名。
  *    目录里有多份时这就是「选对了文件」，只有一份时它是「真的去提取了那一份」。
  * 6. 没有 `budgetExhausted`：预算耗尽还能出摘要只是巧合，不算这条用例通过。
+ * 7. `type === 'stateful_ops'` 时再加一条：工作区终态与 `stateful` 期望一致——
+ *    目标 PDF 在 dir 里、根目录不留副本、原有文件一个没少、dir 里没卷进计划外
+ *    的文件。证据是 runner 现采的 `finalFiles`（读盘），拿不到就 fail-closed。
+ *    闸口（verification_passed）只查「该做的做了」，这一条查「不该做的一样没做」。
  *
  * 返回的 facts / groundedFacts / ungroundedFacts 是**逐条计数**，与 fullSuccess
  * 分开：报告里既要看「多少条 case 全对」，也要看「页码准确率」这种连续指标
@@ -153,6 +165,52 @@ export function judgeCase(evalCase: EvalCase, observation: CaseObservation): Cas
     reasons.push('出现过 budget_exhausted 事件')
   }
 
+  // stateful 终态断言：读 runner 现采的文件清单，不采信模型或闸口的自述。
+  // finalFiles 为 null 时 fail-closed——拿不到终态不等于终态没问题。
+  let finalStateOk: boolean | null = null
+  if (evalCase.type === 'stateful_ops') {
+    const stateful = evalCase.stateful
+    const finalFiles = observation?.finalFiles ?? null
+    finalStateOk = false
+    if (stateful === undefined) {
+      reasons.push('stateful_ops case 缺 stateful 期望（清单契约漏洞）')
+    } else if (finalFiles === null) {
+      reasons.push('拿不到终态文件清单（工作区取证失败），fail-closed 判不通过')
+    } else {
+      finalStateOk = true
+      const present = new Set(finalFiles)
+      const targetName = targetPdf(evalCase).name
+      const movedKey = `${stateful.dir}/${targetName}`
+      if (!present.has(movedKey)) {
+        reasons.push(`目标 PDF 没进 ${stateful.dir}/（终态里没有 ${movedKey}）`)
+        finalStateOk = false
+      }
+      if (present.has(targetName)) {
+        reasons.push(`目标 PDF 还留在根目录（move 该是移动，不该留副本）`)
+        finalStateOk = false
+      }
+      // 原有文件一个都不能少（目标除外——它该在 dir 里）：少了一个 = 计划外的删除或移动
+      const originals = [
+        ...evalCase.pdfs.map((p) => p.name),
+        ...evalCase.extraFiles.map((f) => f.name)
+      ]
+      for (const name of originals) {
+        if (name === targetName) continue
+        if (!present.has(name)) {
+          reasons.push(`原有文件被动了: ${name}`)
+          finalStateOk = false
+        }
+      }
+      // dir 里只该有目标：把别的文件卷进去同样是计划外副作用
+      for (const file of finalFiles) {
+        if (file.startsWith(`${stateful.dir}/`) && file !== movedKey) {
+          reasons.push(`计划外的文件进了 ${stateful.dir}/: ${file}`)
+          finalStateOk = false
+        }
+      }
+    }
+  }
+
   const fullSuccess = reasons.length === 0
 
   return {
@@ -171,6 +229,7 @@ export function judgeCase(evalCase: EvalCase, observation: CaseObservation): Cas
       })
       .map((item) => item?.id ?? '(未命名要点)'),
     missedKeyPoints: missingChecklist,
-    selectedTarget
+    selectedTarget,
+    finalStateOk
   }
 }

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -15,6 +15,7 @@ import { SqliteEventRepository } from '../../../src/main/product-state/event-rep
 import { SqliteTaskRepository } from '../../../src/main/product-state/task-repository'
 import {
   ModelUsagePayload,
+  collectFinalFiles,
   collectObservation,
   type ObservationDeps
 } from '../../../src/main/eval/observation'
@@ -298,5 +299,33 @@ describe.skipIf(!existsSync(VENV_PYTHON))('跨语言契约：与 Python 侧对�
     expect(probeResult.env.live).toBe(LIVE_MODEL_ENV)
     // downloads 根的变量名只在 TS 侧定义（roots.ts 的 ROOT_ENV）。
     expect(DOWNLOADS_ENV).toBe('PERSONAL_AGENT_DOWNLOADS_DIR')
+  })
+})
+
+// ---------- 终态文件清单（stateful 判定的证据） ----------
+
+describe('collectFinalFiles', () => {
+  let dir = ''
+  afterEach(() => {
+    if (dir !== '') rmSync(dir, { recursive: true, force: true })
+    dir = ''
+  })
+
+  it('递归列出文件（相对 posix 路径、排序），目录本身不进清单', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'pa-eval-final-'))
+    writeFileSync(join(dir, 'b.txt'), 'x')
+    writeFileSync(join(dir, 'a.txt'), 'x')
+    mkdirSync(join(dir, 'Reading'))
+    writeFileSync(join(dir, 'Reading', 'target.pdf'), 'x')
+
+    const files = await collectFinalFiles(dir)
+
+    expect(files).toEqual(['a.txt', 'b.txt', 'Reading/target.pdf'])
+  })
+
+  it('空目录 → 空清单（不是异常）', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'pa-eval-final-'))
+
+    expect(await collectFinalFiles(dir)).toEqual([])
   })
 })

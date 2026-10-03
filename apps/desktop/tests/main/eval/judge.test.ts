@@ -21,6 +21,7 @@ function makeCase(overrides: Partial<EvalCase> = {}): EvalCase {
   return {
     id: 'judge-fixture',
     goal: '总结 invoice-2026-03.pdf，带页码引用',
+    type: 'pdf_summary',
     pdfs: [
       { name: TARGET, pages: ['total is 4800 USD', ' ', 'due on 2026-04-15'] },
       { name: 'notes.pdf', pages: ['scratch notes'] }
@@ -53,6 +54,7 @@ function makeObservation(overrides: Partial<CaseObservation> = {}): CaseObservat
     budgetExhausted: false,
     verificationOk: true,
     failedToolCalls: 0,
+    finalFiles: null,
     ...overrides
   }
 }
@@ -177,5 +179,87 @@ describe('judgeCase：状态与执行判据', () => {
     // 文件名比的是 basename：拿绝对路径去比 target（只是个文件名）永远不等。
     expect(reasons).toContain('目标 PDF')
     expect(reasons).toContain('budget_exhausted')
+  })
+})
+
+// ---------- stateful 终态断言（第七条判据） ----------
+
+function makeStatefulCase(overrides: Partial<EvalCase> = {}): EvalCase {
+  return makeCase({
+    id: 'judge-stateful',
+    goal: '把 invoice-2026-03.pdf 移到 Reading 归档，建提醒，给带页码的摘要',
+    type: 'stateful_ops',
+    stateful: { dir: 'Reading', reminderMessage: '读刚归档的发票' },
+    ...overrides
+  })
+}
+
+/** 干净终态：目标进了 Reading，根目录只剩干扰文件（目标不留副本） */
+const CLEAN_FINAL = ['notes.pdf', `Reading/${TARGET}`]
+
+describe('judgeCase：stateful 终态判据', () => {
+  it('终态与期望一致 → finalStateOk 为 true，完整成功', () => {
+    const verdict = judgeCase(makeStatefulCase(), makeObservation({ finalFiles: CLEAN_FINAL }))
+
+    expect(verdict.finalStateOk).toBe(true)
+    expect(verdict.fullSuccess).toBe(true)
+    expect(verdict.reasons).toEqual([])
+  })
+
+  it('pdf_summary case 不做终态断言 → finalStateOk 为 null', () => {
+    const verdict = judgeCase(makeCase(), makeObservation())
+
+    expect(verdict.finalStateOk).toBeNull()
+  })
+
+  it('目标 PDF 还留在根目录（复制了没移走）→ 不通过并点名', () => {
+    const verdict = judgeCase(
+      makeStatefulCase(),
+      makeObservation({ finalFiles: [...CLEAN_FINAL, TARGET] })
+    )
+
+    expect(verdict.finalStateOk).toBe(false)
+    expect(verdict.reasons.join('\n')).toContain('还留在根目录')
+  })
+
+  it('目标没进 Reading（压根没动）→ 两个方向都报', () => {
+    const verdict = judgeCase(
+      makeStatefulCase(),
+      makeObservation({ finalFiles: [TARGET, 'notes.pdf'] })
+    )
+
+    const reasons = verdict.reasons.join('\n')
+    expect(verdict.finalStateOk).toBe(false)
+    expect(reasons).toContain('没进 Reading/')
+    expect(reasons).toContain('还留在根目录')
+  })
+
+  it('原有文件被卷走（计划外删除或移动）→ 点名是哪个', () => {
+    const verdict = judgeCase(
+      makeStatefulCase(),
+      makeObservation({ finalFiles: [`Reading/${TARGET}`, 'Reading/notes.pdf'] })
+    )
+
+    const reasons = verdict.reasons.join('\n')
+    expect(verdict.finalStateOk).toBe(false)
+    expect(reasons).toContain('原有文件被动了: notes.pdf')
+  })
+
+  it('计划外的文件进了 Reading → 点名', () => {
+    const verdict = judgeCase(
+      makeStatefulCase(),
+      makeObservation({ finalFiles: [...CLEAN_FINAL, 'Reading/notes.pdf'] })
+    )
+
+    const reasons = verdict.reasons.join('\n')
+    expect(verdict.finalStateOk).toBe(false)
+    expect(reasons).toContain('计划外的文件进了 Reading/: Reading/notes.pdf')
+  })
+
+  it('拿不到终态清单 → fail-closed 判不通过', () => {
+    const verdict = judgeCase(makeStatefulCase(), makeObservation({ finalFiles: null }))
+
+    expect(verdict.finalStateOk).toBe(false)
+    expect(verdict.reasons.join('\n')).toContain('fail-closed')
   })
 })
