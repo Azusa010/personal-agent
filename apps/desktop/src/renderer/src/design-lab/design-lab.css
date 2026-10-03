@@ -1,0 +1,125 @@
+/* 设计实验室 · 温暖纸感主题
+   令牌只挂在 body.design-lab-active 上(DesignLab 挂载时加、卸载时移除),
+   生产界面的 :root/.dark 完全不受影响;定稿后按 docs/design/ui-mockup.html
+   的「落地映射」把这套值搬进 app.css 即可。 */
+body.design-lab-active {
+  /* shadcn 语义令牌 → 纸感取值 */
+  --radius: 0.75rem;
+
+  --background: #f6f3ec; /* 纸白 */
+  --foreground: #3a372f; /* 暖墨 */
+  --card: #fffdf8; /* 暖白卡片 */
+  --card-foreground: #3a372f;
+  --popover: #fffdf8;
+  --popover-foreground: #3a372f;
+  /* 主操作走薄荷青绿:发送键、批准键、选中态、进行中动画 */
+  --primary: #0f9d8f;
+  --primary-foreground: #ffffff;
+  --secondary: #efe9dd; /* 深纸 */
+  --secondary-foreground: #3a372f;
+  --muted: #efe9dd;
+  --muted-foreground: #6e675a;
+  --accent: #e4f3f0; /* hover 用薄荷浅底 */
+  --accent-foreground: #0b7e73;
+  --destructive: #bf4a42;
+  --destructive-foreground: #ffffff;
+  --border: #e4ddcf;
+  --input: #d3c9b6;
+  --ring: #0f9d8f;
+
+  /* 设计实验室专属令牌(超出 shadcn 语义集的部分) */
+  --paper-warm: #faf7f1;
+  --mint: #0f9d8f;
+  --mint-deep: #0b7e73;
+  --mint-tint: #e4f3f0;
+  --mint-line: #bfe0d9;
+  --amber-strong: #8a5106;
+  --amber-tint: #fdf3e2;
+  --amber-line: #eed9ae;
+
+  /* Claude 风格书卷衬线:拉丁用 Source Serif 4(Copernicus/Tiempos 的自由替代),
+     中文配思源宋体;jsdelivr/fontsource CDN 加载,断网回退本地宋体系 */
+  --font-claude:
+    'Source Serif 4', 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', Georgia, 'Times New Roman',
+    serif;
+
+  background:
+    radial-gradient(1100px 520px at 15% -5%, rgba(15, 157, 143, 0.055), transparent 60%),
+    radial-gradient(900px 460px at 92% 2%, rgba(161, 98, 7, 0.045), transparent 55%),
+    var(--background);
+}
+
+.font-claude {
+  font-family: var(--font-claude);
+}
+
+/* 运行时状态的呼吸点 */
+@keyframes lab-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+.lab-pulse-dot {
+  position: relative;
+}
+.lab-pulse-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1.5px solid var(--mint);
+  opacity: 0.45;
+  animation: lab-pulse 2s ease-out infinite;
+}
+
+/* 思考链左侧的虚线时间轴 */
+.lab-think-rail {
+  position: absolute;
+  left: 71px;
+  top: 18px;
+  bottom: 14px;
+  width: 1px;
+  background: repeating-linear-gradient(var(--border) 0 4px, transparent 4px 9px);
+}
+
+/* 会话导航:点击跳转后,目标 User 气泡高亮一闪 */
+@keyframes lab-flash {
+  0% {
+    box-shadow: 0 0 0 3px rgba(15, 157, 143, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 3px rgba(15, 157, 143, 0);
+  }
+}
+.lab-flash {
+  animation: lab-flash 1.2s ease-out 1;
+}
+
+/* 细滚动条 · 暖纸调(Electron 为 Chromium,走 webkit 伪元素;
+   透明轨道 + 暖沙色圆头,hover 加深一档,不设 scrollbar-width 以免被标准属性接管) */
+body.design-lab-active ::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+body.design-lab-active ::-webkit-scrollbar-track {
+  background: transparent;
+}
+body.design-lab-active ::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+body.design-lab-active ::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+body.design-lab-active ::-webkit-scrollbar-corner {
+  background: transparent;
+}
