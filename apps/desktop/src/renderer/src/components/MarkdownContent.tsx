@@ -31,7 +31,7 @@ function CodeBlock({
   }
 
   return (
-    <div className="group relative my-2 overflow-hidden rounded-lg border border-border bg-black/20 dark:bg-black/30">
+    <div className="group relative my-2 overflow-hidden rounded-lg border border-border bg-black/5 dark:bg-black/30">
       <div className="flex h-7 items-center justify-between border-b border-border/50 bg-secondary/30 px-3 text-[11px] font-mono text-muted-foreground select-none">
         <span>{language || 'text'}</span>
         <button

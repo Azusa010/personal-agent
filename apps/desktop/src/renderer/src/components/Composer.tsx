@@ -63,7 +63,7 @@ export function Composer(props: ComposerProps): React.JSX.Element {
 
   return (
     <footer className="shrink-0 px-6 pb-4 pt-3">
-      <div className="rounded-xl border border-border bg-card p-2">
+      <div className="rounded-[20px] border border-input bg-card px-4 pt-3 pb-2.5 shadow-[0_1px_2px_rgba(94,80,53,0.05),0_8px_28px_rgba(94,80,53,0.08)] transition-shadow focus-within:shadow-[0_1px_2px_rgba(94,80,53,0.05),0_8px_28px_rgba(15,157,143,0.14)]">
         <textarea
           ref={inputRef}
           rows={2}
@@ -77,7 +77,7 @@ export function Composer(props: ComposerProps): React.JSX.Element {
               send()
             }
           }}
-          className="block w-full resize-none border-0 bg-transparent px-2 py-1.5 text-[13px] leading-5 text-foreground outline-none placeholder:text-muted-foreground"
+          className="block w-full resize-none border-0 bg-transparent px-1 py-1.5 text-[13px] leading-5 text-foreground outline-none placeholder:text-muted-foreground"
         />
         <div className="flex items-center justify-between px-1">
           <div className="flex gap-1">
@@ -104,7 +104,7 @@ export function Composer(props: ComposerProps): React.JSX.Element {
             type="button"
             disabled={running}
             onClick={send}
-            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-[12px] font-medium text-primary-foreground shadow-[0_4px_12px_rgba(15,157,143,0.35)] hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none"
           >
             <span>{running ? '执行中' : '发送'}</span>
             <ArrowUp size={14} />
@@ -125,7 +125,7 @@ export function Composer(props: ComposerProps): React.JSX.Element {
                 setValue(action.prompt ?? '')
                 inputRef.current?.focus()
               }}
-              className="flex shrink-0 items-center gap-1.5 rounded-full bg-card px-2.5 py-1.5 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-[var(--paper-warm)] px-2.5 py-1.5 text-[11px] text-muted-foreground transition-colors hover:border-[var(--mint-line)] hover:bg-[var(--mint-tint)] hover:text-[var(--mint-deep)]"
             >
               {action.icon}
               <span>{action.label}</span>

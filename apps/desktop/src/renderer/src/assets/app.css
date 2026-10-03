@@ -1,5 +1,10 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+/* Claude 式书卷衬线:拉丁 Source Serif 4 + 中文思源宋体(npm 自托管,CSP 无需放行外域) */
+@import '@fontsource/source-serif-4/600.css';
+@import '@fontsource/source-serif-4/700.css';
+@import '@fontsource/noto-serif-sc/600.css';
+@import '@fontsource/noto-serif-sc/700.css';
 
 /* shadcn 的组件用 dark: 前缀写暗色分支，这个变体让 dark: 等于「.dark 祖先之下」。
    不加这一行，dark: 会退回成 @media (prefers-color-scheme: dark)，
@@ -9,6 +14,9 @@
 @theme inline {
   --font-sans:
     Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-serif:
+    'Source Serif 4', 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', Georgia, 'Times New Roman',
+    serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
 
   --color-background: var(--background);
@@ -51,68 +59,114 @@
 /* 亮色这一套用不上（index.html 把 dark 钉在 <html> 上），
    但 token 必须两套都齐：shadcn 的组件类里凡是没带 dark: 前缀的分支走的就是这里，
    少定义一个变量就会渲染成 Tailwind 的默认灰，而不是「看不见」。 */
+/* ── 温暖纸感主题(docs/design/ui-mockup.html 定稿)──
+   index.html 把 class="dark" 钉在 <html> 上,shadcn 的 dark: 变体因此永远生效;
+   所以两套 token 必须取同一组纸感值——改色只改这里,组件层零改动。 */
 :root {
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 
-  --background: #ffffff;
-  --foreground: #1b1b1f;
-  --card: #ffffff;
-  --card-foreground: #1b1b1f;
-  --popover: #ffffff;
-  --popover-foreground: #1b1b1f;
-  --primary: #1b1b1f;
-  --primary-foreground: #fafafa;
-  --secondary: #f2f2f2;
-  --secondary-foreground: #1b1b1f;
-  --muted: #f2f2f2;
-  --muted-foreground: #515c67;
-  --accent: #f2f2f2;
-  --accent-foreground: #1b1b1f;
-  --destructive: #d9534f;
+  --background: #f6f3ec; /* 纸白 */
+  --foreground: #3a372f; /* 暖墨 */
+  --card: #fffdf8; /* 暖白卡片 */
+  --card-foreground: #3a372f;
+  --popover: #fffdf8;
+  --popover-foreground: #3a372f;
+  /* 主操作走薄荷青绿:发送、批准、选中态、进行中动画——一个界面只有一个第一眼 */
+  --primary: #0f9d8f;
+  --primary-foreground: #ffffff;
+  --secondary: #efe9dd; /* 深纸(侧栏、次级面) */
+  --secondary-foreground: #3a372f;
+  --muted: #efe9dd;
+  --muted-foreground: #6e675a;
+  --accent: #e4f3f0; /* hover 薄荷浅底 */
+  --accent-foreground: #0b7e73;
+  --destructive: #bf4a42;
   --destructive-foreground: #ffffff;
-  --border: #e4e4e7;
-  --input: #d4d4d8;
-  --ring: #a1a1aa;
+  --border: #e4ddcf; /* 暖边线 */
+  --input: #d3c9b6;
+  --ring: #0f9d8f;
+
+  /* 设计实验室带入的扩展令牌(超出 shadcn 语义集的部分) */
+  --paper-warm: #faf7f1;
+  --mint: #0f9d8f;
+  --mint-deep: #0b7e73;
+  --mint-tint: #e4f3f0;
+  --mint-line: #bfe0d9;
+  --amber-strong: #8a5106;
+  --amber-tint: #fdf3e2;
+  --amber-line: #eed9ae;
 
   --success: #2f6b4f;
   --success-foreground: #f2fbf6;
-  --warning: #8a6420;
+  --warning: #a16207;
   --warning-foreground: #fdf8ee;
   --info: #3a5a8c;
   --info-foreground: #f2f6fc;
 }
 
-/* 暗色取自定稿设计稿：#252525 底、#333333 卡片、#434343 次级面与 hover、
-   #fafafa 文字、#b5b5b5 弱文字、white/10 描边。换库不换脸，界面上不会出现两套配色。 */
+/* 与 :root 同值:dark: 变体取到的也是这套纸感值(原因见上注释)。
+   将来要做真暗色,再在此处另立一套深色 token 并解除 index.html 的钉死。 */
 .dark {
-  --background: #252525;
-  --foreground: #fafafa;
-  --card: #333333;
-  --card-foreground: #fafafa;
-  --popover: #333333;
-  --popover-foreground: #fafafa;
-  /* 主操作（发送、批准）走高对比的浅底深字：一个界面上只有一个东西该被第一眼看到。 */
-  --primary: #fafafa;
-  --primary-foreground: #252525;
-  --secondary: #434343;
-  --secondary-foreground: #fafafa;
-  --muted: #333333;
-  --muted-foreground: #b5b5b5;
-  /* hover 要比 muted 亮一档，否则鼠标移上去看不出反馈 */
-  --accent: #434343;
-  --accent-foreground: #fafafa;
-  --destructive: #d9534f;
-  --destructive-foreground: #ffffff;
-  --border: rgb(255 255 255 / 0.1);
-  --input: rgb(255 255 255 / 0.14);
-  --ring: #6b6b6b;
+  --radius: 0.75rem;
 
-  --success: #66c587;
-  --success-foreground: #0d1512;
-  --warning: #e0a33e;
-  --warning-foreground: #1a1408;
+  --background: #f6f3ec;
+  --foreground: #3a372f;
+  --card: #fffdf8;
+  --card-foreground: #3a372f;
+  --popover: #fffdf8;
+  --popover-foreground: #3a372f;
+  --primary: #0f9d8f;
+  --primary-foreground: #ffffff;
+  --secondary: #efe9dd;
+  --secondary-foreground: #3a372f;
+  --muted: #efe9dd;
+  --muted-foreground: #6e675a;
+  --accent: #e4f3f0;
+  --accent-foreground: #0b7e73;
+  --destructive: #bf4a42;
+  --destructive-foreground: #ffffff;
+  --border: #e4ddcf;
+  --input: #d3c9b6;
+  --ring: #0f9d8f;
+
+  --paper-warm: #faf7f1;
+  --mint: #0f9d8f;
+  --mint-deep: #0b7e73;
+  --mint-tint: #e4f3f0;
+  --mint-line: #bfe0d9;
+  --amber-strong: #8a5106;
+  --amber-tint: #fdf3e2;
+  --amber-line: #eed9ae;
+
+  --success: #2f6b4f;
+  --success-foreground: #f2fbf6;
+  --warning: #a16207;
+  --warning-foreground: #fdf8ee;
   --info: #3a5a8c;
-  --info-foreground: #eaf0fa;
+  --info-foreground: #f2f6fc;
+}
+
+/* 细滚动条 · 暖纸调(透明轨道 + 暖沙圆头;不设 scrollbar-width,避免被标准属性接管) */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d3c9b6;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a49b8a;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 @layer base {
@@ -132,6 +186,19 @@
        Electron 模板原来在 body 上写死 user-select: none，这里显式翻回来。 */
     user-select: text;
   }
+}
+
+/* 消息轨跳转:落点 User 气泡高亮一闪 */
+@keyframes msg-flash {
+  0% {
+    box-shadow: 0 0 0 3px rgba(15, 157, 143, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 3px rgba(15, 157, 143, 0);
+  }
+}
+.msg-flash {
+  animation: msg-flash 1.2s ease-out 1;
 }
 
 /* agent-elements TextShimmer animation */
