@@ -13,8 +13,8 @@
     "test:ts": "pnpm --dir apps/desktop test",
     "test:py": "uv run --project services/agent-runtime --locked pytest",
     "test": "pnpm test:pack && pnpm test:ts && pnpm test:py",
-    "eval": "pnpm --dir apps/desktop exec vitest run tests/main/eval",
-    "eval:live": "pnpm --dir apps/desktop exec vitest run tests/main/eval/live-eval.test.ts",
+    "eval": "pnpm --dir apps/desktop exec vitest run tests/main/eval --config vitest.eval.config.ts",
+    "eval:live": "pnpm --dir apps/desktop exec vitest run tests/main/eval/live-eval.test.ts --config vitest.eval.config.ts",
     "build": "pnpm --dir apps/desktop build",
     "package:py": "uv run --project services/agent-runtime --locked pyinstaller --noconfirm --distpath services/agent-runtime/dist --workpath services/agent-runtime/dist/_pyi-work services/agent-runtime/packaging/personal_agent.spec",
     "package:dir": "pnpm package:py && pnpm --dir apps/desktop build:unpack",
@@ -22,7 +22,8 @@
     "verify": "pnpm typecheck && pnpm lint:ts && pnpm lint:py && pnpm test",
     "verify:all": "pnpm verify && pnpm build",
     "check:islands": "node --experimental-strip-types scripts/islands/check-islands.mjs",
-    "check:islands:strict": "node --experimental-strip-types scripts/islands/check-islands.mjs --strict"
+    "check:islands:strict": "node --experimental-strip-types scripts/islands/check-islands.mjs --strict",
+    "eval:compare": "node scripts/eval-compare.mjs"
   },
   "keywords": [],
   "author": "",
