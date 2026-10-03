@@ -14,9 +14,9 @@ import { Composer } from './components/Composer'
 import { DiagnosticsDialog } from './components/DiagnosticsDialog'
 import { IndexDialog } from './components/IndexDialog'
 import { MessageStream } from './components/MessageStream'
-import { PermissionDialog } from './components/PermissionDialog'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
+import { TitleBar } from './components/TitleBar'
 import { WorkflowCenter } from './components/WorkflowCenter'
 import {
   applyStreamNotice,
@@ -263,7 +263,9 @@ function App(): React.JSX.Element {
   const lastTaskId = [...messages].reverse().find((m) => m.taskId !== null)?.taskId ?? null
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
+    <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-foreground">
+      <TitleBar />
+      <div className="flex min-h-0 flex-1">
       <Sidebar
         conversations={conversations}
         selectedConversationId={selectedConversationId}
@@ -309,6 +311,8 @@ function App(): React.JSX.Element {
             streamState={streamState}
             agentName={agentProfile?.name}
             thinkingByTaskId={thinkingByTaskId}
+            pendingPermission={pendingPermission}
+            onDecidePermission={handleDecide}
           />
 
           <Composer
@@ -324,6 +328,7 @@ function App(): React.JSX.Element {
       ) : (
         <WorkflowCenter onCompleted={() => void loadIndexedCount()} />
       )}
+      </div>
 
       <IndexDialog open={indexOpen} onOpenChange={setIndexOpen} />
       <DiagnosticsDialog
@@ -339,7 +344,6 @@ function App(): React.JSX.Element {
           void queryClient.invalidateQueries({ queryKey: ['agentProfile'] })
         }}
       />
-      <PermissionDialog permission={pendingPermission} onDecide={handleDecide} />
       <A2UIDialog
         render={activeA2UIRender}
         onSubmit={handleA2UISubmit}

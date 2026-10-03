@@ -6,7 +6,6 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  Clock,
   Copy,
   FileText,
   Folder,
@@ -15,21 +14,14 @@ import {
   X
 } from 'lucide-react'
 import type { PermissionDecision, PermissionRecord } from '../../../shared/ipc-contract'
-import { describeReminderPreview, formatOccurredAt, formatRemaining } from '../view-model'
+import { describeReminderPreview, formatOccurredAt } from '../view-model'
 import { Button } from './ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from './ui/dialog'
+import { Card, CardContent } from './ui/card'
 import { cn } from '@renderer/lib/utils'
 
-export interface PermissionDialogProps {
-  /** null = 没有待批准的请求，Dialog 不打开 */
-  permission: PermissionRecord | null
+export interface PermissionCardProps {
+  /** 非空时卡片出现在会话流内;决定后由 App 清空状态、卡片随之消失 */
+  permission: PermissionRecord
   onDecide: (decision: PermissionDecision) => Promise<void>
 }
 
@@ -273,16 +265,20 @@ function SmartArgumentsPreview({
   )
 }
 
-/** 随 permission 挂载/卸载，key 用 id：换一条请求时倒计时与 submitting 自然重置 */
-function PermissionBody({
-  permission,
-  onDecide
-}: {
-  permission: PermissionRecord
-  onDecide: (decision: PermissionDecision) => Promise<void>
-}): React.JSX.Element {
+/**
+ * 流内权限审批卡(设计定稿:docs/design/ui-mockup.html · 02)。
+ * 取代原模态 PermissionDialog:同样的 respondPermission 契约、同样的倒计时 fail-closed,
+ * 只是呈现从「打断式弹窗」改为「会话流里的一张琥珀卡」。
+ * 调用方用 key={permission.id} 挂载:换一条请求时倒计时与 submitting 自然重置。
+ */
+export function PermissionCard({ permission, onDecide }: PermissionCardProps): React.JSX.Element {
   const [now, setNow] = useState(() => Date.now())
   const [submitting, setSubmitting] = useState(false)
+  // 环形倒计时的分母:挂载那一刻距过期的秒数
+  const [totalSec] = useState(() => {
+    const expiresMs = new Date(permission.expiresAt).getTime()
+    return Number.isNaN(expiresMs) ? 1 : Math.max(1, Math.floor((expiresMs - Date.now()) / 1000))
+  })
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
@@ -291,7 +287,6 @@ function PermissionBody({
 
   const expiresMs = new Date(permission.expiresAt).getTime()
   const windowClosed = !Number.isNaN(expiresMs) && now >= expiresMs
-  const remaining = formatRemaining(permission.expiresAt, now)
   const disabled = submitting || windowClosed
 
   const remainingMs = !Number.isNaN(expiresMs) ? expiresMs - now : 0
@@ -310,14 +305,19 @@ function PermissionBody({
     [onDecide]
   )
 
-  // 支持键盘快捷键：Enter 批准，Esc 拒绝
+  // 键盘快捷键:Enter 批准、Esc 拒绝。输入框(写消息/填表单)聚焦时 Enter 不抢,
+  // 否则用户在 Composer 里按回车发消息会误触批准。
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
       if (disabled) return
+      const target = e.target as HTMLElement | null
+      const typing =
+        target !== null &&
+        (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.isContentEditable)
       if (e.key === 'Enter') {
-        const target = e.target as HTMLElement | null
+        if (typing) return
         if (
-          target &&
+          target !== null &&
           target.tagName === 'BUTTON' &&
           target.getAttribute('data-action') === 'deny'
         ) {
@@ -337,151 +337,137 @@ function PermissionBody({
   const meta = getCapabilityMeta(permission.capability)
   const Icon = meta.icon
   const preview = describeReminderPreview(permission)
+  const ringDeg = windowClosed ? 0 : Math.round((remainingSec / totalSec) * 360)
 
   return (
-    <>
-      {/* 1. 固定置顶 Header */}
-      <DialogHeader className="shrink-0 px-6 py-4 border-b border-border/60 bg-muted/20 text-left sm:text-left">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <DialogTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-              <ShieldAlert size={18} className="text-destructive shrink-0" />
-              <span>需要你批准</span>
-            </DialogTitle>
-            <span
-              className={cn(
-                'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border shrink-0',
-                meta.badgeClass
-              )}
-            >
-              <Icon size={12} />
-              <span>{meta.label}</span>
-            </span>
-          </div>
-
-          {/* 倒计时状态徽章 */}
-          <div
-            className={cn(
-              'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-medium border transition-colors shrink-0',
-              windowClosed
-                ? 'border-destructive/30 bg-destructive/10 text-destructive'
-                : isUrgent
-                  ? 'border-rose-500/40 bg-rose-500/15 text-rose-600 dark:text-rose-400 animate-pulse'
-                  : 'border-border/60 bg-background/80 text-muted-foreground'
-            )}
-          >
-            <Clock size={12} className={isUrgent ? 'text-rose-500' : 'text-muted-foreground'} />
-            <span>{windowClosed ? '已超时' : `倒计时 ${remaining}`}</span>
-          </div>
-        </div>
-
-        <DialogDescription className="text-[12px] text-muted-foreground mt-1">
-          {meta.description}
-        </DialogDescription>
-      </DialogHeader>
-
-      {/* 2. 独立滚动内容区（受限视口高度，绝不冲破屏幕） */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
-        <div className="space-y-2.5">
-          <Row label="调用能力">
-            <span className="font-mono text-[12px] text-foreground font-semibold">
-              {permission.capability}
-            </span>
-          </Row>
-
-          {preview === null ? (
-            <>
-              {permission.sourcePaths.length > 0 && (
-                <Row label="影响文件">
-                  <div className="space-y-1">
-                    <span className="text-foreground">{permission.sourcePaths.length} 个文件</span>
-                    <ul className="m-0 list-none space-y-1 p-0">
-                      {permission.sourcePaths.map((path) => (
-                        <li
-                          key={path}
-                          className="font-mono text-[11px] text-foreground/90 bg-muted/30 px-2 py-0.5 rounded border border-border/40 break-all"
-                        >
-                          {path}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </Row>
-              )}
-
-              {permission.targetPath !== null && (
-                <Row label="目标位置">
-                  <div className="font-mono text-[11px] text-foreground/90 bg-muted/30 px-2.5 py-1.5 rounded-md border border-border/40 break-all flex items-center gap-1.5">
-                    <ArrowRight size={12} className="text-muted-foreground shrink-0" />
-                    <span>{permission.targetPath}</span>
-                  </div>
-                </Row>
-              )}
-            </>
-          ) : (
-            <>
-              <Row label="提醒时间">
-                <span className="text-foreground font-medium">
-                  {formatOccurredAt(preview.remindAt)}
-                </span>
-              </Row>
-
-              {preview.message !== null && (
-                <Row label="提醒内容">
-                  <span className="text-foreground bg-muted/40 px-2 py-1 rounded border border-border/40 inline-block">
-                    {preview.message}
-                  </span>
-                </Row>
-              )}
-            </>
+    <Card className="gap-0 overflow-hidden rounded-2xl border-[var(--amber-line)] py-0 shadow-[0_1px_2px_rgba(94,80,53,0.06),0_6px_20px_rgba(161,98,7,0.12)]">
+      {/* 琥珀警示带:标题 + 能力徽章 + 环形倒计时 */}
+      <div className="flex items-center gap-2.5 border-b border-[var(--amber-line)] bg-[var(--amber-tint)] px-4 py-2.5">
+        <AlertTriangle size={16} className="shrink-0 text-[var(--amber-strong)]" />
+        <span className="font-serif shrink-0 text-[13.5px] font-bold text-[var(--amber-strong)]">
+          需要你批准
+        </span>
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium',
+            meta.badgeClass
           )}
-
-          {/* 智能参数与代码预览 */}
-          <div className="pt-1">
-            <SmartArgumentsPreview
-              capability={permission.capability}
-              argsCanonical={permission.argsCanonical}
-            />
-          </div>
-
-          {/* 审计元数据 */}
-          <div className="rounded-lg border border-border/50 bg-muted/10 p-3 space-y-1.5 text-[11px] text-muted-foreground">
-            <div className="flex justify-between items-center">
-              <span>参数校验指纹</span>
-              <span className="font-mono text-foreground">{permission.argsHash.slice(0, 12)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span>请求发起时刻</span>
-              <span>{formatOccurredAt(permission.requestedAt)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span>截止失效时刻</span>
-              <span>
-                {Number.isNaN(expiresMs)
-                  ? permission.expiresAt
-                  : formatOccurredAt(permission.expiresAt)}
-              </span>
-            </div>
-          </div>
+        >
+          <Icon size={12} />
+          <span>{meta.label}</span>
+        </span>
+        <div
+          className={cn(
+            'relative ml-auto grid size-9 shrink-0 place-items-center rounded-full',
+            isUrgent && 'animate-pulse'
+          )}
+          style={{
+            background: `conic-gradient(${
+              windowClosed ? 'var(--destructive)' : isUrgent ? 'var(--amber-strong)' : 'var(--mint)'
+            } ${ringDeg}deg, var(--border) 0)`
+          }}
+        >
+          <div className="absolute inset-[3px] rounded-full bg-card" />
+          <span className="relative font-mono text-[10px] font-bold">
+            {windowClosed ? '0' : remainingSec}
+          </span>
         </div>
       </div>
 
-      {/* 3. 粘性吸底 Footer（100% 永远可见） */}
-      <DialogFooter className="shrink-0 px-6 py-3.5 border-t border-border/60 bg-muted/20 flex flex-row items-center justify-between gap-3 sm:justify-between">
-        <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+      {/* 内容区 */}
+      <CardContent className="space-y-3 px-4 pt-3 pb-3.5">
+        <p className="m-0 text-[12px] text-muted-foreground">{meta.description}</p>
+
+        {preview === null ? (
+          <>
+            {permission.sourcePaths.length > 0 && (
+              <Row label="影响文件">
+                <div className="space-y-1">
+                  <span className="text-foreground">{permission.sourcePaths.length} 个文件</span>
+                  <ul className="m-0 list-none space-y-1 p-0">
+                    {permission.sourcePaths.map((path) => (
+                      <li
+                        key={path}
+                        className="font-mono rounded border border-border/40 bg-[var(--paper-warm)] px-2 py-0.5 text-[11px] break-all text-foreground/90"
+                      >
+                        {path}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </Row>
+            )}
+
+            {permission.targetPath !== null && (
+              <Row label="目标位置">
+                <div className="font-mono flex items-center gap-1.5 rounded-md border border-[var(--mint-line)] bg-[var(--mint-tint)] px-2.5 py-1.5 text-[11px] break-all text-[#1d4f49]">
+                  <ArrowRight size={12} className="shrink-0 text-[var(--mint-deep)]" />
+                  <span>{permission.targetPath}</span>
+                </div>
+              </Row>
+            )}
+          </>
+        ) : (
+          <>
+            <Row label="提醒时间">
+              <span className="font-medium text-foreground">
+                {formatOccurredAt(preview.remindAt)}
+              </span>
+            </Row>
+
+            {preview.message !== null && (
+              <Row label="提醒内容">
+                <span className="inline-block rounded border border-border/40 bg-[var(--paper-warm)] px-2 py-1 text-foreground">
+                  {preview.message}
+                </span>
+              </Row>
+            )}
+          </>
+        )}
+
+        {/* 智能参数与代码预览 */}
+        <SmartArgumentsPreview
+          capability={permission.capability}
+          argsCanonical={permission.argsCanonical}
+        />
+
+        {/* 审计元数据 */}
+        <div className="space-y-1.5 rounded-lg border border-border/50 bg-[var(--paper-warm)] p-3 text-[11px] text-muted-foreground">
+          <div className="flex items-center justify-between">
+            <span>参数校验指纹</span>
+            <span className="font-mono text-foreground">{permission.argsHash.slice(0, 12)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>请求发起时刻</span>
+            <span>{formatOccurredAt(permission.requestedAt)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>截止失效时刻</span>
+            <span>
+              {Number.isNaN(expiresMs)
+                ? permission.expiresAt
+                : formatOccurredAt(permission.expiresAt)}
+            </span>
+          </div>
+        </div>
+      </CardContent>
+
+      {/* 吸底操作区 */}
+      <div className="flex flex-row items-center justify-between gap-3 border-t border-border/60 bg-[var(--paper-warm)] px-4 py-3">
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           {windowClosed ? (
-            <span className="text-destructive font-medium flex items-center gap-1">
+            <span className="flex items-center gap-1 font-medium text-destructive">
               <AlertTriangle size={13} />
               批准窗口已关闭，此操作不会被执行
             </span>
           ) : (
-            <span className="hidden sm:inline">
+            <span className="hidden items-center gap-1 sm:flex">
               快捷键:{' '}
-              <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">
+              <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
                 Enter
               </kbd>{' '}
               批准 ·{' '}
-              <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">
+              <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
                 Esc
               </kbd>{' '}
               拒绝
@@ -489,7 +475,7 @@ function PermissionBody({
           )}
         </div>
 
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="ml-auto flex items-center gap-2">
           <Button
             type="button"
             variant="outline"
@@ -511,35 +497,14 @@ function PermissionBody({
               'min-w-20 font-medium shadow-xs',
               permission.capability === 'terminal_execute'
                 ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                : 'bg-primary text-primary-foreground shadow-[0_4px_14px_rgba(15,157,143,0.35)] hover:bg-primary/90'
             )}
           >
             <Check size={14} className="mr-1" />
             {submitting ? '提交中…' : '批准执行'}
           </Button>
         </div>
-      </DialogFooter>
-    </>
-  )
-}
-
-export function PermissionDialog({
-  permission,
-  onDecide
-}: PermissionDialogProps): React.JSX.Element {
-  return (
-    <Dialog open={permission !== null}>
-      <DialogContent
-        className="sm:max-w-2xl max-h-[85vh] p-0 flex flex-col gap-0 overflow-hidden shadow-2xl border-border"
-        showCloseButton={false}
-        onPointerDownOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => event.preventDefault()}
-        onInteractOutside={(event) => event.preventDefault()}
-      >
-        {permission !== null && (
-          <PermissionBody key={permission.id} permission={permission} onDecide={onDecide} />
-        )}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </Card>
   )
 }
