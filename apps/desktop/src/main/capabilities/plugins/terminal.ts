@@ -1,11 +1,11 @@
 import { spawn } from 'node:child_process'
 import { stat } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { delimiter, resolve } from 'node:path'
 
 import { ERROR_CODE, TerminalExecuteParams } from '@personal-agent/protocol'
 
 import { resolveWithinRootReal } from '../path-guard'
-import { resolveRoot, toPosix } from '../roots'
+import { resolveRoot, resolveSandboxPythonBinDir, toPosix } from '../roots'
 import { truncateOutput } from '../output-truncator'
 import type { CapabilityPlugin } from '../plugin'
 import { auditExpectedValues, describeError, fail, invalid, safeStat } from './helpers'
@@ -134,13 +134,22 @@ export const terminalExecutePlugin: CapabilityPlugin = {
       ? ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command]
       : ['-c', command]
 
+    // 沙箱 Python 环境隔离：将仓库 venv 的 bin 目录前置到 PATH，使裸命令如 `python`/`pip`
+    // 解析到真实解释器（在 Windows 上，直接使用 `python` 常常会命中安装存根并静默返回 9009）。
+    const venvBin = resolveSandboxPythonBinDir()
+    const env =
+      venvBin !== null
+        ? { ...process.env, PATH: `${venvBin}${delimiter}${process.env.PATH ?? ''}` }
+        : undefined
+
     return new Promise((resolveResult) => {
       let timedOut = false
       let child: ReturnType<typeof spawn>
       try {
         child = spawn(executable, args, {
           cwd,
-          windowsHide: true
+          windowsHide: true,
+          ...(env !== undefined ? { env } : {})
         })
       } catch (err) {
         resolveResult(

@@ -5,10 +5,15 @@ import { join, relative } from 'node:path'
 
 import { CodeInterpreterParams, ERROR_CODE } from '@personal-agent/protocol'
 
-import { resolveRoot, toPosix } from '../roots'
+import { resolveRoot, resolveSandboxPython, toPosix } from '../roots'
 import { truncateOutput } from '../output-truncator'
 import type { CapabilityPlugin } from '../plugin'
 import { describeError, fail, invalid } from './helpers'
+
+/** 沙箱解释器:共享解析(roots.ts)兜底回 PATH 裸命令。 */
+function resolvePythonCmd(): string {
+  return resolveSandboxPython() ?? (process.platform === 'win32' ? 'python' : 'python3')
+}
 
 export const codeInterpreterPlugin: CapabilityPlugin = {
   name: 'code_interpreter',
@@ -50,9 +55,8 @@ export const codeInterpreterPlugin: CapabilityPlugin = {
     const scriptPath = join(sandboxDir, 'script.py')
     await writeFile(scriptPath, code, 'utf8')
 
-    // 优先选用 python，Windows 平台自动静默执行
-    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
-    const command = `${pythonCmd} script.py`
+    // 解释器解析见 resolvePythonCmd;命令带引号防路径空格(venv 路径可能含用户名空格)
+    const command = `"${resolvePythonCmd()}" script.py`
 
     return new Promise((resolveResult) => {
       exec(
