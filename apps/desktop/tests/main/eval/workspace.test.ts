@@ -70,4 +70,42 @@ describe('materializeCase', () => {
     // 路径要正斜杠：模型拿到 absolutePath 之后直接原样回传给 extract_pdf。
     expect(entries.every((e) => !e.absolutePath.includes('\\'))).toBe(true)
   })
+
+  it('支持 relativePath 多层子目录物化，并保持 posix 路径格式', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'pa-eval-ws-'))
+    const nestedCase: EvalCase = {
+      id: 'nested-case',
+      goal: '分析嵌套目录文档',
+      type: 'gaia_reasoning',
+      pdfs: [
+        {
+          name: 'spec.pdf',
+          relativePath: 'TeamB/security/spec.pdf',
+          pages: ['nested document page 1']
+        }
+      ],
+      extraFiles: [
+        {
+          name: 'debug.log',
+          relativePath: 'logs/audit/debug.log',
+          content: 'log data'
+        }
+      ],
+      target: 'spec.pdf',
+      keyPoints: [{ id: 'k1', text: 'nested document', keywords: ['nested'], pages: [1] }]
+    }
+    const materialized = materializeCase(dir, nestedCase)
+
+    expect(materialized.files).toHaveLength(2)
+    const specFile = materialized.files.find((f) => f.name === 'spec.pdf')
+    expect(specFile).toBeDefined()
+    expect(specFile!.path.endsWith('TeamB/security/spec.pdf')).toBe(true)
+
+    const logFile = materialized.files.find((f) => f.name === 'debug.log')
+    expect(logFile).toBeDefined()
+    expect(logFile!.path.endsWith('logs/audit/debug.log')).toBe(true)
+
+    const extracted = await extractPdf(new Uint8Array(readFileSync(specFile!.path)))
+    expect(extracted.ok).toBe(true)
+  })
 })

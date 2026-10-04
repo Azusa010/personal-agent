@@ -1,9 +1,9 @@
 import { mkdirSync, utimesSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import { buildPdf } from '../capabilities/pdf-fixtures'
 import { toPosix } from '../capabilities/roots'
-import { targetPdf, type EvalCase } from './case-manifest'
+import type { EvalCase } from './case-manifest'
 
 /**
  * 把一条 case 落成一次任务的授权根。
@@ -40,8 +40,10 @@ export function materializeCase(dir: string, evalCase: EvalCase): MaterializedCa
   const files: MaterializedFile[] = []
   let index = 0
 
-  const write = (name: string, data: string | Uint8Array): void => {
-    const path = join(dir, name)
+  const write = (name: string, data: string | Uint8Array, relativePath?: string): void => {
+    const rel = relativePath ?? name
+    const path = join(dir, rel)
+    mkdirSync(dirname(path), { recursive: true })
     writeFileSync(path, data)
     const mtimeSeconds = (MTIME_BASE_MS + index * MTIME_STEP_MS) / 1000
     utimesSync(path, mtimeSeconds, mtimeSeconds)
@@ -49,14 +51,12 @@ export function materializeCase(dir: string, evalCase: EvalCase): MaterializedCa
     index += 1
   }
 
-  for (const pdf of evalCase.pdfs) write(pdf.name, buildPdf(pdf.pages))
-  for (const extra of evalCase.extraFiles) write(extra.name, extra.content)
+  for (const pdf of evalCase.pdfs) write(pdf.name, buildPdf(pdf.pages), pdf.relativePath)
+  for (const extra of evalCase.extraFiles) write(extra.name, extra.content, extra.relativePath)
 
-  const targetName = targetPdf(evalCase).name
+  const targetName = evalCase.target ?? evalCase.targets?.[0] ?? evalCase.pdfs[0]?.name
   const target = files.find((f) => f.name === targetName)
-  if (target === undefined) {
-    throw new Error(`case ${evalCase.id} 的目标 PDF 没写进目录: ${targetName}`)
-  }
+  const targetPath = target?.path ?? files[0]?.path ?? ''
 
-  return { id: evalCase.id, dir: toPosix(dir), targetPath: target.path, files }
+  return { id: evalCase.id, dir: toPosix(dir), targetPath, files }
 }

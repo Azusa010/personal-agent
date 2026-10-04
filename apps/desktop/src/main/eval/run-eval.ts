@@ -89,13 +89,15 @@ export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
   const dbPath = join(options.workDir, 'eval-product-state.db')
   const db = openProductState(dbPath)
   migrate(db)
-  const broker = wireWritePath(db)
+  let currentDecision: 'approved' | 'denied' = 'approved'
+  const broker = wireWritePath(db, () => currentDecision)
 
   const results: EvalCaseResult[] = []
   const runs = Math.max(1, options.runs ?? 1)
   const savedRoot = process.env[DOWNLOADS_ENV]
   try {
     for (const evalCase of options.cases) {
+      currentDecision = evalCase.mockPermissionDecision ?? 'approved'
       const attempts: EvalCaseResult[] = []
       for (let run = 1; run <= runs; run += 1) {
         const attempt = await runOneCase(db, evalCase, options, run)
@@ -128,10 +130,12 @@ export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
 
 /**
  * WRITE 能力的批准、幂等与 Reminder 接线。eval 的「用户」是 fixture：权限一挂起
- * 就自动批准（与 golden-path E2E 的假用户同一手法）。只读 case 的 risk 是 NONE，
- * 走不到这一层，所以统一接上对读链路没有副作用。
+ * 就自动响应（默认 approved，也支持按用例 mockPermissionDecision 动态返回 denied）。
  */
-function wireWritePath(db: SqliteDatabase): PermissionBroker {
+function wireWritePath(
+  db: SqliteDatabase,
+  getDecision?: () => 'approved' | 'denied'
+): PermissionBroker {
   const permissions = new SqlitePermissionRepository(db)
   const events = new SqliteEventRepository(db)
   const broker = createPermissionBroker({
@@ -142,7 +146,8 @@ function wireWritePath(db: SqliteDatabase): PermissionBroker {
       // broker 是「先 notify 再登记挂起项」，同步 respond 会撞上「批准窗口已关闭」
       // （golden-path 的同款注释：真实用户也是过一会儿才点）。
       queueMicrotask(() => {
-        broker.respond(notice.permission.id, 'approved')
+        const decision = getDecision ? getDecision() : 'approved'
+        broker.respond(notice.permission.id, decision)
       })
     }
   })
@@ -224,7 +229,10 @@ function stderrTail(chunks: readonly string[]): string {
 
 /** 页集合取证用的目标 PDF 路径：写链路按期望终态（已移进 stateful.dir），读链路原位 */
 function expectedTargetPath(evalCase: EvalCase, materialized: MaterializedCase): string {
-  if (evalCase.type === 'stateful_ops' && evalCase.stateful !== undefined) {
+  if (
+    (evalCase.type === 'stateful_ops' || evalCase.type === 'tau_interactive') &&
+    evalCase.stateful !== undefined
+  ) {
     return `${materialized.dir}/${evalCase.stateful.dir}/${targetPdf(evalCase).name}`
   }
   return materialized.targetPath
@@ -232,11 +240,16 @@ function expectedTargetPath(evalCase: EvalCase, materialized: MaterializedCase):
 
 /** 握手下发的能力清单，按维度分派。描述符全部取自 registry，不手写 */
 function capabilitiesFor(evalCase: EvalCase): readonly CapabilityDescriptor[] {
-  if (evalCase.type !== 'stateful_ops') return listReadOnlyCapabilities()
-  const writes = listVisibleCapabilities().filter((c) =>
-    STATEFUL_WRITE_CAPABILITIES.includes(c.name)
-  )
-  return [...listReadOnlyCapabilities(), ...writes]
+  if (
+    evalCase.type === 'stateful_ops' ||
+    (evalCase.type === 'tau_interactive' && evalCase.stateful !== undefined)
+  ) {
+    const writes = listVisibleCapabilities().filter((c) =>
+      STATEFUL_WRITE_CAPABILITIES.includes(c.name)
+    )
+    return [...listReadOnlyCapabilities(), ...writes]
+  }
+  return listReadOnlyCapabilities()
 }
 
 async function runOneCase(
@@ -306,7 +319,11 @@ async function runOneCase(
         // 老路径重读页集合会读不到，fail-closed 会把成功的 run 误判成读不出来。
         targetPath: expectedTargetPath(evalCase, materialized),
         // 写链路要终态文件清单当证据；读链路工作区不动，不采
-        rootDir: evalCase.type === 'stateful_ops' ? materialized.dir : null
+        rootDir:
+          (evalCase.type === 'stateful_ops' || evalCase.type === 'tau_interactive') &&
+          evalCase.stateful !== undefined
+            ? materialized.dir
+            : null
       }
     )
     observation = collected.observation
@@ -413,7 +430,10 @@ export function writeScriptedDecisions(
   // 之前（ActionAlignment 严格模式下第 i 次调用必须等于第 i 个带 capability 的
   // 计划步骤，顺序错一步就被拒）。remindAt 取运行时刻 +1 小时：binder 拒收过去
   // 的时间，而剧本是每次跑现场合成的，不需要跨运行可比。
-  if (evalCase.type === 'stateful_ops' && evalCase.stateful !== undefined) {
+  if (
+    (evalCase.type === 'stateful_ops' || evalCase.type === 'tau_interactive') &&
+    evalCase.stateful !== undefined
+  ) {
     const { dir, reminderMessage } = evalCase.stateful
     const targetName = targetPdf(evalCase).name
     decisions.push(

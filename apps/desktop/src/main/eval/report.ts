@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import { summarize, type EvalCaseResult, type EvalPricing } from './metrics'
 import { ModelUsagePayload } from './observation'
+import { EvalCaseType } from './case-manifest'
 
 /**
  * Live Eval 的结果报告。
@@ -79,7 +80,7 @@ const EvalCaseReportSchema = z.object({
   id: z.string().min(1),
   goal: z.string().min(1),
   /** case 维度。老报告（v1 早期）没有这个字段，可选 */
-  type: z.enum(['pdf_summary', 'stateful_ops']).optional(),
+  type: EvalCaseType.optional(),
   status: z.enum(['completed', 'failed', 'unknown']),
   latencyMs: z.number().nonnegative(),
   facts: z.number().int().nonnegative(),

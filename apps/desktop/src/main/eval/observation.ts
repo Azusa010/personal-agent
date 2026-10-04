@@ -77,8 +77,7 @@ export async function collectObservation(
   const toolCalls = collectToolCalls(events)
   const extractedPaths = toolCalls
     .filter(
-      (call) =>
-        call.capability === EXTRACT_PDF_CAPABILITY || call.capability === 'read_document'
+      (call) => call.capability === EXTRACT_PDF_CAPABILITY || call.capability === 'read_document'
     )
     .map((call) => call.arguments['path'])
     .filter((path): path is string => typeof path === 'string')

@@ -87,7 +87,9 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
 
     it('每条 case 都按计划调了 list 与 extract，写链路的三个 WRITE 也都在，没有预算耗尽', () => {
       const report = theReport()
-      const statefulCount = report.cases.filter((c) => c.type === 'stateful_ops').length
+      const statefulCount = report.cases.filter(
+        (c) => c.type === 'stateful_ops' || c.finalStateOk != null
+      ).length
 
       expect(report.metrics.tools.byCapability).toEqual({
         document_extract_pdf: report.cases.length,

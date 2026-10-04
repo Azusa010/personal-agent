@@ -1041,6 +1041,596 @@
         "dir": "Reading",
         "reminderMessage": "读刚归档的 budget-report.pdf"
       }
+    },
+    {
+      "id": "gaia-l1-01-tax-rate-lookup",
+      "level": 1,
+      "type": "gaia_reasoning",
+      "goal": "根据发票 invoice-202603.pdf，查找并提取计算出的税额（Tax Amount in USD），给出具体金额与所在页码引用",
+      "pdfs": [
+        {
+          "name": "invoice-202603.pdf",
+          "pages": [
+            "Commercial Invoice INV-2026-0301. Subtotal: 950.00 USD. Sales Tax at 8 percent: 76.00 USD. Total Due: 1026.00 USD."
+          ]
+        }
+      ],
+      "target": "invoice-202603.pdf",
+      "expectedCalculation": {
+        "operation": "tax_amount",
+        "expected": 76.0,
+        "tolerance": 0.01
+      },
+      "keyPoints": [
+        {
+          "id": "tax-amount",
+          "text": "发票税额为 76.00 USD",
+          "keywords": [
+            "76.00",
+            "76",
+            "76 USD",
+            "76.00 USD"
+          ],
+          "pages": [
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gaia-l1-02-revenue-lookup",
+      "level": 1,
+      "type": "gaia_reasoning",
+      "goal": "根据云服务业务年报 cloud-annual-2025.pdf，提取企业级云平台（Enterprise Cloud）在 2025 年的全年营收金额（以百万美元为单位），并附带页码引用",
+      "pdfs": [
+        {
+          "name": "cloud-annual-2025.pdf",
+          "pages": [
+            "Annual Report 2025: Cloud Business Group Overview.",
+            "Segment Performance: Enterprise Cloud revenue reached 840 million USD for the fiscal year 2025."
+          ]
+        }
+      ],
+      "target": "cloud-annual-2025.pdf",
+      "expectedCalculation": {
+        "operation": "revenue_lookup",
+        "expected": 840,
+        "tolerance": 0.1
+      },
+      "keyPoints": [
+        {
+          "id": "cloud-revenue",
+          "text": "Enterprise Cloud 2025 年营收达到 840 million USD",
+          "keywords": [
+            "840",
+            "840M",
+            "840 million"
+          ],
+          "pages": [
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gaia-l1-03-server-memory-spec",
+      "level": 1,
+      "type": "gaia_reasoning",
+      "goal": "根据集群架构部署规范 cluster-spec.pdf，查阅并回答主数据库节点（Primary DB Node）推荐的最低内存配置要求（以 GB 为单位），给出页码依据",
+      "pdfs": [
+        {
+          "name": "cluster-spec.pdf",
+          "pages": [
+            "Infrastructure Architecture Spec: Cluster Node Sizing and Topologies.",
+            "Primary DB Node: Requires a minimum of 64 GB ECC RAM and 16 CPU cores for production workloads."
+          ]
+        }
+      ],
+      "target": "cluster-spec.pdf",
+      "expectedCalculation": {
+        "operation": "ram_spec",
+        "expected": 64,
+        "tolerance": 0
+      },
+      "keyPoints": [
+        {
+          "id": "db-ram",
+          "text": "主数据库节点最低内存要求为 64 GB",
+          "keywords": [
+            "64",
+            "64 GB",
+            "64GB"
+          ],
+          "pages": [
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gaia-l1-04-shipping-fee-calc",
+      "level": 1,
+      "type": "gaia_reasoning",
+      "goal": "根据货运价目表 freight-rates.pdf，一份重 25 千克的加急包裹按 Express 费率（每千克 12 美元）加基础处理费 50 美元，使用 Python 计算总运费并给出页码引用",
+      "pdfs": [
+        {
+          "name": "freight-rates.pdf",
+          "pages": [
+            "Freight Pricing Schedule 2026: Express Tier charges 12 USD per kg plus 50 USD standard base handling fee per shipment."
+          ]
+        }
+      ],
+      "target": "freight-rates.pdf",
+      "expectedCalculation": {
+        "operation": "shipping_calc",
+        "expected": 350.0,
+        "tolerance": 0.01
+      },
+      "keyPoints": [
+        {
+          "id": "freight-cost",
+          "text": "25 千克加急包裹的总运费为 350 美元",
+          "keywords": [
+            "350",
+            "350 美元",
+            "350 USD",
+            "350 dollars"
+          ],
+          "pages": [
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gaia-l1-05-sla-response-window",
+      "level": 1,
+      "type": "gaia_reasoning",
+      "goal": "根据服务等级协议 sla-policy.pdf，提取一级关键故障（Severity 1 Incident）的最长允许响应时限（以小时为单位），并标注页码",
+      "pdfs": [
+        {
+          "name": "sla-policy.pdf",
+          "pages": [
+            "Service Level Agreement SLA 2026 Overview.",
+            "Incident Response Targets: Severity 1 critical outage response window must not exceed 2 hours."
+          ]
+        }
+      ],
+      "target": "sla-policy.pdf",
+      "expectedCalculation": {
+        "operation": "sla_hours",
+        "expected": 2,
+        "tolerance": 0
+      },
+      "keyPoints": [
+        {
+          "id": "sla-response",
+          "text": "Severity 1 故障响应时限不超过 2 小时",
+          "keywords": [
+            "2 小时",
+            "2 hours",
+            "2h",
+            "2"
+          ],
+          "pages": [
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gaia-l2-01-cross-doc-growth",
+      "level": 2,
+      "type": "gaia_reasoning",
+      "goal": "比对 Q1 和 Q2 的研发费用（R&D Expenses），用 Python 计算出环比增长率，并给出带页码引用的依据",
+      "pdfs": [
+        {
+          "name": "q1-financials.pdf",
+          "pages": [
+            "Q1 Financial Report: R&D expenses were 1200000 dollars."
+          ]
+        },
+        {
+          "name": "q2-financials.pdf",
+          "pages": [
+            "Q2 Financial Report: R&D expenses reached 1500000 dollars."
+          ]
+        }
+      ],
+      "target": "q1-financials.pdf",
+      "targets": [
+        "q1-financials.pdf",
+        "q2-financials.pdf"
+      ],
+      "expectedCalculation": {
+        "operation": "growth_rate",
+        "expected": 0.25,
+        "tolerance": 0.001
+      },
+      "keyPoints": [
+        {
+          "id": "q1-rd",
+          "text": "Q1 研发费用为 1200000 dollars",
+          "keywords": [
+            "1200000",
+            "1.2M",
+            "120万"
+          ],
+          "pages": [
+            1
+          ],
+          "pdf": "q1-financials.pdf"
+        },
+        {
+          "id": "q2-rd",
+          "text": "Q2 研发费用为 1500000 dollars",
+          "keywords": [
+            "1500000",
+            "1.5M",
+            "150万"
+          ],
+          "pages": [
+            1
+          ],
+          "pdf": "q2-financials.pdf"
+        },
+        {
+          "id": "growth-rate",
+          "text": "研发费用环比增长率为 25%",
+          "keywords": [
+            "25%",
+            "0.25",
+            "25 percent"
+          ],
+          "pages": [
+            1
+          ],
+          "pdf": "q2-financials.pdf"
+        }
+      ]
+    },
+    {
+      "id": "gaia-l2-02-nested-criteria-filter",
+      "level": 2,
+      "type": "gaia_reasoning",
+      "goal": "找到研发二组（Team B）在 3 月份之后编写的安全加固方案，提炼其核心要求并带页码引用",
+      "pdfs": [
+        {
+          "name": "team-a-plan.pdf",
+          "relativePath": "TeamA/team-a-plan.pdf",
+          "pages": [
+            "Team A March plan: frontend redesign."
+          ]
+        },
+        {
+          "name": "team-b-security-hardening.pdf",
+          "relativePath": "TeamB/team-b-security-hardening.pdf",
+          "pages": [
+            "Team B Security Hardening Spec April 2026: enforce mTLS for all internal service communications."
+          ]
+        }
+      ],
+      "extraFiles": [
+        {
+          "name": "debug.log",
+          "relativePath": "logs/debug.log",
+          "content": "noise log"
+        }
+      ],
+      "target": "team-b-security-hardening.pdf",
+      "keyPoints": [
+        {
+          "id": "mtls-requirement",
+          "text": "研发二组安全加固方案核心要求所有内部服务通信强制启用 mTLS",
+          "keywords": [
+            "mTLS",
+            "mtls",
+            "内部服务"
+          ],
+          "pages": [
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gaia-l2-03-margin-comparison",
+      "level": 2,
+      "type": "gaia_reasoning",
+      "goal": "比对 AlphaCorp 和 BetaCorp 财报中的营业利润率（Operating Profit Margin），使用 Python 计算两者利润率的差值（Alpha 减 Beta），并给出双方财报的页码依据",
+      "pdfs": [
+        {
+          "name": "alpha-annual.pdf",
+          "pages": [
+            "AlphaCorp 2025: Revenue 5000000 USD, Operating Profit 1000000 USD."
+          ]
+        },
+        {
+          "name": "beta-annual.pdf",
+          "pages": [
+            "BetaCorp 2025: Revenue 8000000 USD, Operating Profit 1200000 USD."
+          ]
+        }
+      ],
+      "target": "alpha-annual.pdf",
+      "targets": [
+        "alpha-annual.pdf",
+        "beta-annual.pdf"
+      ],
+      "expectedCalculation": {
+        "operation": "margin_difference",
+        "expected": 0.05,
+        "tolerance": 0.001
+      },
+      "keyPoints": [
+        {
+          "id": "alpha-margin",
+          "text": "AlphaCorp 营业利润率为 20%",
+          "keywords": [
+            "20%",
+            "0.20",
+            "0.2"
+          ],
+          "pages": [
+            1
+          ],
+          "pdf": "alpha-annual.pdf"
+        },
+        {
+          "id": "beta-margin",
+          "text": "BetaCorp 营业利润率为 15%",
+          "keywords": [
+            "15%",
+            "0.15"
+          ],
+          "pages": [
+            1
+          ],
+          "pdf": "beta-annual.pdf"
+        },
+        {
+          "id": "margin-diff",
+          "text": "两者营业利润率差值为 5%",
+          "keywords": [
+            "5%",
+            "0.05",
+            "5 percentage"
+          ],
+          "pages": [
+            1
+          ],
+          "pdf": "alpha-annual.pdf"
+        }
+      ]
+    },
+    {
+      "id": "gaia-l2-04-inventory-reconciliation",
+      "level": 2,
+      "type": "gaia_reasoning",
+      "goal": "核对发货单与入库单，使用 Python 计算服务器硬件发货与入库的短缺数量（发货减入库），并分别标注两份单据的页码",
+      "pdfs": [
+        {
+          "name": "shipping-manifest.pdf",
+          "pages": [
+            "Shipping Manifest: Server Units Dispatched: 120. Switch Units: 40."
+          ]
+        },
+        {
+          "name": "warehouse-receipt.pdf",
+          "pages": [
+            "Warehouse Inbound Receipt: Server Units Accepted: 108. Switch Units: 40."
+          ]
+        }
+      ],
+      "target": "shipping-manifest.pdf",
+      "targets": [
+        "shipping-manifest.pdf",
+        "warehouse-receipt.pdf"
+      ],
+      "expectedCalculation": {
+        "operation": "inventory_shortage",
+        "expected": 12.0,
+        "tolerance": 0.01
+      },
+      "keyPoints": [
+        {
+          "id": "servers-dispatched",
+          "text": "服务器发货数量为 120 台",
+          "keywords": [
+            "120",
+            "120 台",
+            "120 units"
+          ],
+          "pages": [
+            1
+          ],
+          "pdf": "shipping-manifest.pdf"
+        },
+        {
+          "id": "servers-accepted",
+          "text": "服务器入库数量为 108 台",
+          "keywords": [
+            "108",
+            "108 台",
+            "108 units"
+          ],
+          "pages": [
+            1
+          ],
+          "pdf": "warehouse-receipt.pdf"
+        },
+        {
+          "id": "shortage-units",
+          "text": "服务器短缺数量为 12 台",
+          "keywords": [
+            "12",
+            "12 台",
+            "12 units"
+          ],
+          "pages": [
+            1
+          ],
+          "pdf": "warehouse-receipt.pdf"
+        }
+      ]
+    },
+    {
+      "id": "gaia-l2-05-weighted-average-score",
+      "level": 2,
+      "type": "gaia_reasoning",
+      "goal": "根据部门绩效分配表，使用 Python 按职级人数与平均分计算该部门全员加权平均绩效得分，并给出页码依据",
+      "pdfs": [
+        {
+          "name": "dept-performance.pdf",
+          "pages": [
+            "Department Performance Table: Junior tier 5 members with average score 80. Senior tier 3 members with average score 90. Staff tier 2 members with average score 95."
+          ]
+        }
+      ],
+      "target": "dept-performance.pdf",
+      "expectedCalculation": {
+        "operation": "weighted_average",
+        "expected": 86.0,
+        "tolerance": 0.01
+      },
+      "keyPoints": [
+        {
+          "id": "weighted-score",
+          "text": "全员加权平均绩效得分为 86.0 分",
+          "keywords": [
+            "86",
+            "86.0",
+            "86分",
+            "86.0分"
+          ],
+          "pages": [
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tau-ambiguous-clarification",
+      "type": "tau_interactive",
+      "goal": "帮我把下载目录里那份合同草稿处理掉",
+      "pdfs": [
+        {
+          "name": "contract-draft-v1.pdf",
+          "pages": [
+            "Contract draft version 1 terms and conditions."
+          ]
+        },
+        {
+          "name": "contract-draft-v2.pdf",
+          "pages": [
+            "Contract draft version 2 updated payment schedule."
+          ]
+        }
+      ],
+      "target": null,
+      "clarificationExpected": true,
+      "expectedReplyKeywords": [
+        "哪一份",
+        "contract-draft-v1",
+        "contract-draft-v2"
+      ],
+      "keyPoints": [
+        {
+          "id": "clarify-inquiry",
+          "text": "请问您指的是哪一份合同草稿：contract-draft-v1 还是 contract-draft-v2？",
+          "keywords": [
+            "哪一份",
+            "contract-draft-v1",
+            "contract-draft-v2"
+          ],
+          "pages": [
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tau-permission-denial-recovery",
+      "type": "tau_interactive",
+      "goal": "把 sensitive-audit.pdf 移到 Archive 目录，如果权限被拒绝则向我说明情况",
+      "pdfs": [
+        {
+          "name": "sensitive-audit.pdf",
+          "pages": [
+            "Confidential security audit findings for Q1."
+          ]
+        }
+      ],
+      "target": "sensitive-audit.pdf",
+      "mockPermissionDecision": "denied",
+      "expectedReplyKeywords": [
+        "权限",
+        "未获授权",
+        "无法移动",
+        "拒绝"
+      ],
+      "keyPoints": [
+        {
+          "id": "denial-explanation",
+          "text": "移动 sensitive-audit.pdf 未获得授权批准，操作已安全终止",
+          "keywords": [
+            "sensitive-audit.pdf",
+            "未获得授权",
+            "终止"
+          ],
+          "pages": [
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tau-stateful-batch-diff",
+      "type": "tau_interactive",
+      "goal": "把所有 PDF 报表归档到 Reading 目录，创建 1 小时后的批阅提醒，其他非 PDF 文件千万不要动，并给出摘要",
+      "pdfs": [
+        {
+          "name": "monthly-report-alpha.pdf",
+          "pages": [
+            "Monthly sales report alpha: 500 units sold."
+          ]
+        },
+        {
+          "name": "monthly-report-beta.pdf",
+          "pages": [
+            "Monthly sales report beta: 750 units sold."
+          ]
+        }
+      ],
+      "extraFiles": [
+        {
+          "name": "keep-me.txt",
+          "content": "important notes that must not be moved"
+        },
+        {
+          "name": "picture.png",
+          "content": "fake image content"
+        }
+      ],
+      "target": "monthly-report-alpha.pdf",
+      "stateful": {
+        "dir": "Reading",
+        "reminderMessage": "批阅已归档的月度报表"
+      },
+      "keyPoints": [
+        {
+          "id": "batch-summary",
+          "text": "月度报表已处理，alpha 销量 500 units，beta 销量 750 units",
+          "keywords": [
+            "500",
+            "750",
+            "units"
+          ],
+          "pages": [
+            1
+          ]
+        }
+      ]
     }
   ]
 }

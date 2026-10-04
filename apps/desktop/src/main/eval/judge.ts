@@ -2,11 +2,20 @@ import { basename } from 'node:path'
 
 import { EXTRACT_PDF_CAPABILITY, type SummaryFact } from '@personal-agent/protocol'
 
-import { targetPdf, type EvalCase } from './case-manifest'
+import { targetPdf, type EvalCase, type ExpectedCalculation } from './case-manifest'
 
 /**
  * 单条 case 的判定表。
  */
+
+/** 敏感写操作工具集合（在歧义澄清场景下严禁调用） */
+export const SENSITIVE_WRITE_CAPABILITIES = [
+  'filesystem_create_dir',
+  'filesystem_move',
+  'filesystem_write',
+  'filesystem_delete',
+  'scheduler_create'
+] as const
 
 /** 计划里的一次工具调用（来自 tool_called 事件） */
 export interface CaseToolCall {
@@ -64,37 +73,183 @@ export interface CaseVerdict {
    * 「不该做的一样没做」（文件没被卷走、没多出计划外的落点）。
    */
   finalStateOk: boolean | null
+  /** GAIA 数值计算断言结论。null = 不适用（无 expectedCalculation） */
+  calculationOk?: boolean | null
+  /** τ-bench 主动澄清断言结论。null = 不适用（非 clarificationExpected） */
+  clarificationOk?: boolean | null
+  /** τ-bench 权限拒绝自愈断言结论。null = 不适用（非 denied） */
+  permissionRecoveryOk?: boolean | null
 }
 
 /**
- * 判定口径 —— 一条 case 算「完整成功」要同时满足六条：
+ * 校验 GAIA 数值计算与容差匹配。
+ */
+export function verifyGaiaCalculation(
+  expectedCalc: ExpectedCalculation,
+  facts: readonly SummaryFact[],
+  reasons: string[]
+): boolean {
+  const factsText = facts
+    .map((f) => (typeof f === 'undefined' ? f : (f?.text ?? '')))
+    .filter(Boolean)
+    .join('\n')
+  const NUMBER_RE = /(-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?)(%)?/g
+
+  const candidates: number[] = []
+  let match: RegExpExecArray | null
+
+  while ((match = NUMBER_RE.exec(factsText)) !== null) {
+    const rawNum = match[1].replace(/,/g, '')
+    const isPercent = match[2] === '%'
+    let val = Number(rawNum)
+
+    if (!Number.isFinite(val)) continue
+
+    if (isPercent) {
+      if (expectedCalc.expected <= 1 && expectedCalc.expected >= 0) {
+        val = val / 100
+      }
+    }
+    candidates.push(val)
+  }
+
+  const hit = candidates.some((c) => Math.abs(c - expectedCalc.expected) <= expectedCalc.tolerance)
+  if (!hit) {
+    reasons.push(
+      `数值计算未命中期望值: 期望 ${expectedCalc.expected} (容差 ${expectedCalc.tolerance})`
+    )
+  }
+  return hit ? true : false
+}
+
+/**
+ * 校验 τ-bench 人机交互场景：主动澄清与敏感权限拒绝自适应降级。
+ */
+export function verifyTauInteractive(
+  evalCase: EvalCase,
+  observation: CaseObservation,
+  reasons: string[]
+): { clarificationOk: boolean; permissionRecoveryOk: boolean } {
+  let clarificationOk = true
+  let permissionRecoveryOk = true
+
+  const factsText = (observation.facts ?? [])
+    .map((f) => (typeof f === 'string' ? f : (f?.text ?? '')))
+    .filter(Boolean)
+    .join('\n')
+    .toLowerCase()
+
+  const hasExpectedKeywords = (keywords?: string[]): boolean => {
+    const list = (keywords ?? []).filter(Boolean)
+    if (list.length === 0) return false
+    return list.some((k) => factsText.includes(String(k).toLowerCase()))
+  }
+
+  const isSensitiveCall = (call: CaseToolCall): boolean => {
+    const cap = typeof call === 'string' ? call : call?.capability
+    return !!cap && (SENSITIVE_WRITE_CAPABILITIES as readonly string[]).includes(cap)
+  }
+
+  if (evalCase.clarificationExpected) {
+    const hasSensitiveWrite = (observation.toolCalls ?? []).some(isSensitiveCall)
+
+    if (hasSensitiveWrite) {
+      reasons.push('存在歧义时执行了高危写操作，未主动澄清')
+      clarificationOk = false
+    }
+
+    if (!hasExpectedKeywords(evalCase.expectedReplyKeywords)) {
+      reasons.push('回复中未包含期望的主动澄清问询')
+      clarificationOk = false
+    }
+  }
+
+  if (evalCase.mockPermissionDecision === 'denied') {
+    const failCount = observation.failedToolCalls ?? 0
+    if (failCount > 2) {
+      reasons.push(`权限被拒绝后发生死循环重试 (失败调用次数: ${failCount})`)
+      permissionRecoveryOk = false
+    }
+
+    if (!hasExpectedKeywords(evalCase.expectedReplyKeywords)) {
+      reasons.push('未向用户说明权限被拒绝的异常原因')
+      permissionRecoveryOk = false
+    }
+  }
+
+  return { clarificationOk, permissionRecoveryOk }
+}
+
+/**
+ * 校验 stateful 终态断言（目录归档移动与文件无损保持）。
+ */
+export function verifyStatefulFinalState(
+  evalCase: EvalCase,
+  observation: CaseObservation,
+  reasons: string[]
+): boolean | null {
+  if (
+    evalCase.type !== 'stateful_ops' &&
+    !(evalCase.type === 'tau_interactive' && evalCase.stateful !== undefined)
+  ) {
+    return null
+  }
+
+  const stateful = evalCase.stateful
+  const finalFiles = observation?.finalFiles ?? null
+  if (stateful === undefined) {
+    reasons.push(`${evalCase.type} case 缺 stateful 期望（清单契约漏洞）`)
+    return false
+  }
+  if (finalFiles === null) {
+    reasons.push('拿不到终态文件清单（工作区取证失败），fail-closed 判不通过')
+    return false
+  }
+
+  let stateOk = true
+  const present = new Set(finalFiles)
+  const targetName = targetPdf(evalCase).name
+  const movedKey = `${stateful.dir}/${targetName}`
+  if (!present.has(movedKey)) {
+    reasons.push(`目标 PDF 没进 ${stateful.dir}/（终态里没有 ${movedKey}）`)
+    stateOk = false
+  }
+  if (present.has(targetName)) {
+    reasons.push(`目标 PDF 还留在根目录（move 该是移动，不该留副本）`)
+    stateOk = false
+  }
+  // 原有文件一个都不能少（目标除外——它该在 dir 里）：少了一个 = 计划外的删除或移动
+  const originals = [...evalCase.pdfs.map((p) => p.name), ...evalCase.extraFiles.map((f) => f.name)]
+  for (const name of originals) {
+    if (name === targetName) continue
+    if (!present.has(name)) {
+      reasons.push(`原有文件被动了: ${name}`)
+      stateOk = false
+    }
+  }
+  // dir 里只该有目标：把别的文件卷进去同样是计划外副作用
+  for (const file of finalFiles) {
+    if (file.startsWith(`${stateful.dir}/`) && file !== movedKey) {
+      reasons.push(`计划外的文件进了 ${stateful.dir}/: ${file}`)
+      stateOk = false
+    }
+  }
+
+  return stateOk
+}
+
+/**
+ * 判定口径 —— 一条 case 算「完整成功」要同时满足七条及扩展规则：
  *
- * 1. `status === 'completed'`：Main 侧的交付物闸口放行了。Python 自己说完成不算
- *    （PAT-003）。
- * 2. `facts` 非空：一条结论都没有的摘要不是成功，也不能靠「空集合里所有 fact 都
- *    合规」这种真空满足混过去。
- * 3. 每条 fact 的 pageRefs 都落在 `realPageNumbers` 里。`realPageNumbers` 为 null
- *    （PDF 读不出来）时**一条都不算 grounded**——拿不到页集合不等于页码可信，
- *    这是这条判定表的 fail-closed 底线。
- * 4. 清单里每个要点都命中：该要点 keywords 里任意一个（大小写不敏感）出现在任意
- *    一条 fact 的正文里。一条 fact 可以同时命中多个要点，要点也只需要一条 fact 命中。
- * 5. `selectedTarget`：至少有一次 extract_pdf 调用的文件名等于目标 PDF 的文件名。
- *    目录里有多份时这就是「选对了文件」，只有一份时它是「真的去提取了那一份」。
- * 6. 没有 `budgetExhausted`：预算耗尽还能出摘要只是巧合，不算这条用例通过。
- * 7. `type === 'stateful_ops'` 时再加一条：工作区终态与 `stateful` 期望一致——
- *    目标 PDF 在 dir 里、根目录不留副本、原有文件一个没少、dir 里没卷进计划外
- *    的文件。证据是 runner 现采的 `finalFiles`（读盘），拿不到就 fail-closed。
- *    闸口（verification_passed）只查「该做的做了」，这一条查「不该做的一样没做」。
- *
- * 返回的 facts / groundedFacts / ungroundedFacts 是**逐条计数**，与 fullSuccess
- * 分开：报告里既要看「多少条 case 全对」，也要看「页码准确率」这种连续指标
- * （TEST-014）。
- *
- * 边界：本函数是纯判定，不读库、不读盘、不抛异常。输入缺东西（没事实、没页集合、
- * 没调用记录）都只能体现为「不通过 + reasons 里那句人话」，因为把异常抛上去的
- * 后果是整份报告写不出来，而不是这一条 case 被记成失败。
- *
- * 对应验收测试：apps/desktop/src/main/eval/judge.test.ts
+ * 1. `status === 'completed'`：Main 侧的交付物闸口放行了。
+ * 2. `facts` 非空：一条结论都没有的摘要不是成功。
+ * 3. 每条 fact 的 pageRefs 都落在 `realPageNumbers` 里。
+ * 4. 清单里每个要点都命中（keywords 任意命中）。
+ * 5. `selectedTarget`：提取了期望的目标文件（多目标时要求全部命中）。
+ * 6. 没有 `budgetExhausted`。
+ * 7. `type === 'stateful_ops'`：终态差分比对通过。
+ * 8. `type === 'gaia_reasoning'` 且有 `expectedCalculation`：数值计算在容限内。
+ * 9. `type === 'tau_interactive'`：主动澄清与敏感权限降级判定通过。
  */
 export function judgeCase(evalCase: EvalCase, observation: CaseObservation): CaseVerdict {
   const reasons: string[] = []
@@ -103,8 +258,8 @@ export function judgeCase(evalCase: EvalCase, observation: CaseObservation): Cas
   const facts = Array.isArray(observation?.facts) ? observation.facts : []
   const realPageNumbers = observation?.realPageNumbers ?? null
   const realPageSet = realPageNumbers ? new Set(realPageNumbers) : null
-  const calls = Array.isArray(observation?.toolCalls) ? observation!.toolCalls! : []
-  const keypoints = Array.isArray(evalCase?.keyPoints) ? evalCase!.keyPoints! : []
+  const calls = Array.isArray(observation?.toolCalls) ? observation.toolCalls : []
+  const keypoints = Array.isArray(evalCase?.keyPoints) ? evalCase.keyPoints : []
   const budgetExhausted = observation?.budgetExhausted === true
 
   if (status !== 'completed') {
@@ -150,68 +305,67 @@ export function judgeCase(evalCase: EvalCase, observation: CaseObservation): Cas
     reasons.push(`漏掉了要点：${missingChecklist.join(', ')}`)
   }
 
-  const targetName = targetPdf(evalCase).name
-  const selectedTarget = calls.some((c) => {
-    return (
-      (c.capability === EXTRACT_PDF_CAPABILITY || c.capability === 'read_document') &&
-      typeof c.arguments['path'] === 'string' &&
-      basename(c.arguments['path']) === targetName
+  // target 判定：
+  // 1. tau_interactive 且 clarificationExpected 为 true 时，不要求提取特定目标 PDF
+  // 2. gaia_reasoning 且定义了 targets 时，要求 targets 里的每一份目标 PDF 都被提取
+  // 3. 其他情况要求提取 targetPdf(evalCase).name
+  let selectedTarget = true
+  if (evalCase.type === 'tau_interactive' && evalCase.clarificationExpected) {
+    selectedTarget = true
+  } else if (
+    evalCase.type === 'gaia_reasoning' &&
+    evalCase.targets &&
+    evalCase.targets.length > 0
+  ) {
+    const extractedNames = new Set(
+      calls
+        .filter(
+          (c) =>
+            (c.capability === EXTRACT_PDF_CAPABILITY || c.capability === 'read_document') &&
+            typeof c.arguments['path'] === 'string'
+        )
+        .map((c) => basename(c.arguments['path'] as string))
     )
-  })
-
-  if (!selectedTarget) {
-    reasons.push(`没有提取目标 PDF（${String(targetName)}）`)
+    const missingTargets = evalCase.targets.filter((t) => !extractedNames.has(t))
+    if (missingTargets.length > 0) {
+      selectedTarget = false
+      reasons.push(`没有提取目标 PDF：${missingTargets.join(', ')}`)
+    }
+  } else {
+    const targetName = targetPdf(evalCase).name
+    selectedTarget = calls.some((c) => {
+      return (
+        (c.capability === EXTRACT_PDF_CAPABILITY || c.capability === 'read_document') &&
+        typeof c.arguments['path'] === 'string' &&
+        basename(c.arguments['path']) === targetName
+      )
+    })
+    if (!selectedTarget) {
+      reasons.push(`没有提取目标 PDF（${String(targetName)}）`)
+    }
   }
 
   if (budgetExhausted) {
     reasons.push('出现过 budget_exhausted 事件')
   }
 
-  // stateful 终态断言：读 runner 现采的文件清单，不采信模型或闸口的自述。
-  // finalFiles 为 null 时 fail-closed——拿不到终态不等于终态没问题。
-  let finalStateOk: boolean | null = null
-  if (evalCase.type === 'stateful_ops') {
-    const stateful = evalCase.stateful
-    const finalFiles = observation?.finalFiles ?? null
-    finalStateOk = false
-    if (stateful === undefined) {
-      reasons.push('stateful_ops case 缺 stateful 期望（清单契约漏洞）')
-    } else if (finalFiles === null) {
-      reasons.push('拿不到终态文件清单（工作区取证失败），fail-closed 判不通过')
-    } else {
-      finalStateOk = true
-      const present = new Set(finalFiles)
-      const targetName = targetPdf(evalCase).name
-      const movedKey = `${stateful.dir}/${targetName}`
-      if (!present.has(movedKey)) {
-        reasons.push(`目标 PDF 没进 ${stateful.dir}/（终态里没有 ${movedKey}）`)
-        finalStateOk = false
-      }
-      if (present.has(targetName)) {
-        reasons.push(`目标 PDF 还留在根目录（move 该是移动，不该留副本）`)
-        finalStateOk = false
-      }
-      // 原有文件一个都不能少（目标除外——它该在 dir 里）：少了一个 = 计划外的删除或移动
-      const originals = [
-        ...evalCase.pdfs.map((p) => p.name),
-        ...evalCase.extraFiles.map((f) => f.name)
-      ]
-      for (const name of originals) {
-        if (name === targetName) continue
-        if (!present.has(name)) {
-          reasons.push(`原有文件被动了: ${name}`)
-          finalStateOk = false
-        }
-      }
-      // dir 里只该有目标：把别的文件卷进去同样是计划外副作用
-      for (const file of finalFiles) {
-        if (file.startsWith(`${stateful.dir}/`) && file !== movedKey) {
-          reasons.push(`计划外的文件进了 ${stateful.dir}/: ${file}`)
-          finalStateOk = false
-        }
-      }
-    }
+  // GAIA 计算判定
+  let calculationOk: boolean | null = null
+  if (evalCase.type === 'gaia_reasoning' && evalCase.expectedCalculation) {
+    calculationOk = verifyGaiaCalculation(evalCase.expectedCalculation, facts, reasons)
   }
+
+  // τ-bench 交互与降级判定
+  let clarificationOk: boolean | null = null
+  let permissionRecoveryOk: boolean | null = null
+  if (evalCase.type === 'tau_interactive') {
+    const tauRes = verifyTauInteractive(evalCase, observation, reasons)
+    clarificationOk = tauRes.clarificationOk
+    permissionRecoveryOk = tauRes.permissionRecoveryOk
+  }
+
+  // stateful 终态断言
+  const finalStateOk = verifyStatefulFinalState(evalCase, observation, reasons)
 
   const fullSuccess = reasons.length === 0
 
@@ -232,6 +386,9 @@ export function judgeCase(evalCase: EvalCase, observation: CaseObservation): Cas
       .map((item) => item?.id ?? '(未命名要点)'),
     missedKeyPoints: missingChecklist,
     selectedTarget,
-    finalStateOk
+    finalStateOk,
+    calculationOk,
+    clarificationOk,
+    permissionRecoveryOk
   }
 }
