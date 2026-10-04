@@ -96,6 +96,7 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
 PROPERTY_DESCRIPTIONS: dict[str, dict[str, str]] = {
     "filesystem_list": {
         "rootId": "授权根标识，如 downloads",
+        "path": "可选子目录路径（相对路径或绝对路径），不传则列出根目录",
     },
     "document_extract_pdf": {
         "path": "目标 PDF 文件的绝对路径",

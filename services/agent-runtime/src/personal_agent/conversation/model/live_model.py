@@ -48,7 +48,10 @@ from personal_agent.conversation.model.gateway import (
     ToolCallDecision,
     ToolCallItem,
 )
-from personal_agent.conversation.model.json_parser import safe_parse_model_json
+from personal_agent.conversation.model.json_parser import (
+    parse_tool_call_arguments,
+    safe_parse_model_json,
+)
 from personal_agent.shared import emit_thinking_chunks
 
 log = logging.getLogger("personal_agent")
@@ -62,7 +65,10 @@ DECISION_SCHEMA: dict[str, Any] = DECISION_ADAPTER.json_schema()
 
 # 向后兼容说明书（供文字提示与既有测试使用）
 TOOL_SPECS: dict[str, str] = {
-    "filesystem_list": '列出指定授权根目录下的文件与子目录条目。参数 {"rootId": "<授权根标识，如 downloads>"}',
+    "filesystem_list": (
+        '列出指定授权根目录下的文件与子目录条目。参数 {"rootId": "<授权根标识，如 downloads>", '
+        '"path": "<可选子目录路径，深入遍历子目录>"}'
+    ),
     "document_extract_pdf": '解析并提取 PDF 文件的逐页文本与页码。参数 {"path": "<目标 PDF 文件的绝对路径>"}',
     "read_document": (
         '多格式统一文档读取器，提取逐页文本并支持分页与字符限制。参数 {"path": "<文档相对路径>", '
@@ -664,18 +670,7 @@ class LiveModel:
                 func = getattr(tc, "function", None)
                 func_name = getattr(func, "name", "")
                 func_args_raw = getattr(func, "arguments", {})
-                try:
-                    args = (
-                        safe_parse_model_json(func_args_raw)
-                        if isinstance(func_args_raw, str)
-                        else dict(func_args_raw)
-                    )
-                    if not isinstance(args, dict):
-                        raise TypeError(
-                            f"工具入参期望对象，实际为 {type(args).__name__}"
-                        )
-                except Exception as e:
-                    raise ModelCallFailed(f"工具调用入参不是合法 JSON: {e}") from e
+                args = parse_tool_call_arguments(func_args_raw)
                 if func_name == FINISH_TASK_TOOL_NAME:
                     reply = args.get("reply")
                     if not isinstance(reply, str) or not reply.strip():
@@ -712,18 +707,7 @@ class LiveModel:
                     func = getattr(tc, "function", None)
                     func_name = getattr(func, "name", "")
                     func_args_raw = getattr(func, "arguments", {})
-                    try:
-                        args = (
-                            safe_parse_model_json(func_args_raw)
-                            if isinstance(func_args_raw, str)
-                            else dict(func_args_raw)
-                        )
-                        if not isinstance(args, dict):
-                            raise TypeError(
-                                f"工具入参期望对象，实际为 {type(args).__name__}"
-                            )
-                    except Exception as e:
-                        raise ModelCallFailed(f"工具调用入参不是合法 JSON: {e}") from e
+                    args = parse_tool_call_arguments(func_args_raw)
                     call_id = getattr(tc, "id", None) or f"call-{len(items) + 1}"
                     items.append(
                         ToolCallItem(

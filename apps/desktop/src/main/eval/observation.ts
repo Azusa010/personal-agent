@@ -91,6 +91,7 @@ export async function collectObservation(
       caseId: input.caseId,
       taskId: input.taskId,
       status: task?.status === 'completed' || task?.status === 'failed' ? task.status : 'unknown',
+      reply: collectReply(events),
       facts,
       realPageNumbers: await readPageNumbers(input.targetPath),
       toolCalls,
@@ -144,6 +145,14 @@ function collectFacts(events: { type: string; payload: unknown }[]): SummaryFact
   const payload = asRecord(last.payload)
   const parsed = z.array(SummaryFact).safeParse(payload['facts'])
   return parsed.success ? parsed.data : []
+}
+
+function collectReply(events: { type: string; payload: unknown }[]): string | null {
+  const completed = events.filter((e) => e.type === EVENT_TASK_COMPLETED)
+  const last = completed.at(-1)
+  if (last === undefined) return null
+  const payload = asRecord(last.payload)
+  return typeof payload['reply'] === 'string' ? payload['reply'] : null
 }
 
 function collectToolCalls(events: { type: string; payload: unknown }[]): CaseToolCall[] {

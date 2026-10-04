@@ -114,7 +114,11 @@ describe('collectObservation：从库里取事实', () => {
     events.append({
       taskId: TASK_ID,
       type: 'task_completed',
-      payload: { factCount: 1, facts: [{ text: '总额 4800', pageRefs: [1] }] },
+      payload: {
+        factCount: 1,
+        reply: '发票分析完毕',
+        facts: [{ text: '总额 4800', pageRefs: [1] }]
+      },
       occurredAt: AT
     })
     events.append({
@@ -132,6 +136,7 @@ describe('collectObservation：从库里取事实', () => {
     })
 
     expect(collected.observation.status).toBe('completed')
+    expect(collected.observation.reply).toBe('发票分析完毕')
     expect(collected.observation.facts).toEqual([{ text: '总额 4800', pageRefs: [1] }])
     expect(collected.observation.toolCalls.map((c) => c.capability)).toEqual([
       'filesystem_list',

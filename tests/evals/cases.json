@@ -399,7 +399,8 @@
           "text": "第三周关闭了 14 support tickets 与一个事故",
           "keywords": [
             "14 support tickets",
-            "14 个工单"
+            "14 个工单",
+            "14 个支持工单"
           ],
           "pages": [
             1
@@ -450,7 +451,9 @@
           "text": "五月会议决定在发布前 freeze the scope",
           "keywords": [
             "freeze the scope",
-            "冻结范围"
+            "冻结范围",
+            "冻结scope",
+            "freeze"
           ],
           "pages": [
             1
@@ -1369,7 +1372,9 @@
           "keywords": [
             "20%",
             "0.20",
-            "0.2"
+            "0.2",
+            "20.0%",
+            "20.00%"
           ],
           "pages": [
             1
@@ -1381,7 +1386,9 @@
           "text": "BetaCorp 营业利润率为 15%",
           "keywords": [
             "15%",
-            "0.15"
+            "0.15",
+            "15.0%",
+            "15.00%"
           ],
           "pages": [
             1
@@ -1394,7 +1401,9 @@
           "keywords": [
             "5%",
             "0.05",
-            "5 percentage"
+            "5 percentage",
+            "5.0",
+            "百分点"
           ],
           "pages": [
             1
@@ -1576,7 +1585,9 @@
           "keywords": [
             "sensitive-audit.pdf",
             "未获得授权",
-            "终止"
+            "终止",
+            "拒绝",
+            "权限"
           ],
           "pages": [
             1
@@ -1613,6 +1624,10 @@
         }
       ],
       "target": "monthly-report-alpha.pdf",
+      "targets": [
+        "monthly-report-alpha.pdf",
+        "monthly-report-beta.pdf"
+      ],
       "stateful": {
         "dir": "Reading",
         "reminderMessage": "批阅已归档的月度报表"

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
+import type { AuthorizedCall } from '../../../src/main/policy/execution-policy'
 import { listDirectory, listPdfs } from '../../../src/main/capabilities/filesystem-list'
 import { formatModifiedAt, toPosix } from '../../../src/main/capabilities/roots'
 
@@ -179,5 +180,68 @@ describe('listDirectory：通用目录列举与过滤', () => {
 
     const entries = await listDirectory(dir, { pattern: 'doc_*' })
     expect(entries.map((e) => e.name).sort()).toEqual(['doc_1.pdf', 'doc_2.pdf'])
+  })
+})
+
+describe('filesystemListPlugin：带 path 的子目录列举能力插件', () => {
+  it('支持列举相对子目录并在 execute 中只返回子目录条目', async () => {
+    const { filesystemListPlugin } =
+      await import('../../../src/main/capabilities/plugins/filesystem')
+    const prevDownloads = process.env.PERSONAL_AGENT_DOWNLOADS_DIR
+    process.env.PERSONAL_AGENT_DOWNLOADS_DIR = dir
+    try {
+      const subDir = join(dir, 'TeamB')
+      await mkdir(subDir)
+      await writeFile(join(subDir, 'report.pdf'), 'content')
+      await writeFile(join(dir, 'root.pdf'), 'root')
+
+      // 绑定参数
+      const bound = await filesystemListPlugin.bindArguments({
+        rootId: 'downloads',
+        path: 'TeamB'
+      })
+      expect(bound.ok).toBe(true)
+      if (!bound.ok) return
+
+      expect(bound.bound.args['path']).toBe('TeamB')
+      expect(bound.bound.paths['targetDir']).toContain('TeamB')
+
+      // 执行调用
+      const res = await filesystemListPlugin.execute(
+        {
+          callId: 'call-1',
+          capability: filesystemListPlugin.descriptor as unknown as AuthorizedCall['capability'],
+          bound: bound.bound,
+          taskId: 'task-1'
+        },
+        {}
+      )
+
+      expect(res.ok).toBe(true)
+      const entries = (res as { ok: true; entries: Array<{ name: string }> }).entries
+      expect(entries).toHaveLength(1)
+      expect(entries[0].name).toBe('report.pdf')
+    } finally {
+      process.env.PERSONAL_AGENT_DOWNLOADS_DIR = prevDownloads
+    }
+  })
+
+  it('拦截越界逃逸路径 (../)', async () => {
+    const { filesystemListPlugin } =
+      await import('../../../src/main/capabilities/plugins/filesystem')
+    const prevDownloads = process.env.PERSONAL_AGENT_DOWNLOADS_DIR
+    process.env.PERSONAL_AGENT_DOWNLOADS_DIR = dir
+    try {
+      const bound = await filesystemListPlugin.bindArguments({
+        rootId: 'downloads',
+        path: '../../etc'
+      })
+      expect(bound.ok).toBe(false)
+      if (!bound.ok) {
+        expect(bound.code).toBe('PATH_OUT_OF_ROOT')
+      }
+    } finally {
+      process.env.PERSONAL_AGENT_DOWNLOADS_DIR = prevDownloads
+    }
   })
 })

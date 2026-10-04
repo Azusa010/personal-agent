@@ -47,7 +47,7 @@ import { materializeCase, type MaterializedCase } from './workspace'
 export const SCRIPT_ENV = 'PERSONAL_AGENT_SCRIPT'
 export const LIVE_MODEL_ENV = 'OPENAI_MODEL'
 export const DOWNLOADS_ENV = ROOT_ENV['downloads'] ?? 'PERSONAL_AGENT_DOWNLOADS_DIR'
-
+export const WORKSPACE_ENV = ROOT_ENV['workspace'] ?? 'PERSONAL_AGENT_WORKSPACE_DIR'
 /** 目标 PDF 该被提取的那一步：与 Python planning.py 的三步计划前两步对齐 */
 const LIST_CAPABILITY = 'filesystem_list'
 const EXTRACT_CAPABILITY = 'document_extract_pdf'
@@ -95,6 +95,7 @@ export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
   const results: EvalCaseResult[] = []
   const runs = Math.max(1, options.runs ?? 1)
   const savedRoot = process.env[DOWNLOADS_ENV]
+  const savedWorkspace = process.env[WORKSPACE_ENV]
   try {
     for (const evalCase of options.cases) {
       currentDecision = evalCase.mockPermissionDecision ?? 'approved'
@@ -115,6 +116,8 @@ export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
     broker.dispose()
     if (savedRoot === undefined) delete process.env[DOWNLOADS_ENV]
     else process.env[DOWNLOADS_ENV] = savedRoot
+    if (savedWorkspace === undefined) delete process.env[WORKSPACE_ENV]
+    else process.env[WORKSPACE_ENV] = savedWorkspace
   }
 
   return buildReport({
@@ -239,10 +242,11 @@ function expectedTargetPath(evalCase: EvalCase, materialized: MaterializedCase):
 }
 
 /** 握手下发的能力清单，按维度分派。描述符全部取自 registry，不手写 */
-function capabilitiesFor(evalCase: EvalCase): readonly CapabilityDescriptor[] {
+export function capabilitiesFor(evalCase: EvalCase): readonly CapabilityDescriptor[] {
   if (
     evalCase.type === 'stateful_ops' ||
-    (evalCase.type === 'tau_interactive' && evalCase.stateful !== undefined)
+    (evalCase.type === 'tau_interactive' &&
+      (evalCase.stateful !== undefined || evalCase.mockPermissionDecision === 'denied'))
   ) {
     const writes = listVisibleCapabilities().filter((c) =>
       STATEFUL_WRITE_CAPABILITIES.includes(c.name)
@@ -275,7 +279,9 @@ async function runOneCase(
   let latencyMs = 0
 
   const savedRoot = process.env[DOWNLOADS_ENV]
+  const savedWorkspace = process.env[WORKSPACE_ENV]
   process.env[DOWNLOADS_ENV] = materialized.dir
+  process.env[WORKSPACE_ENV] = materialized.dir
   const supervisor = new PythonSupervisor({
     command: options.runtime.command,
     args: options.runtime.args,
@@ -335,6 +341,8 @@ async function runOneCase(
     await supervisor.stop().catch(() => {})
     if (savedRoot === undefined) delete process.env[DOWNLOADS_ENV]
     else process.env[DOWNLOADS_ENV] = savedRoot
+    if (savedWorkspace === undefined) delete process.env[WORKSPACE_ENV]
+    else process.env[WORKSPACE_ENV] = savedWorkspace
   }
 
   const verdict = judgeCase(evalCase, observation)
@@ -501,6 +509,7 @@ function emptyObservation(caseId: string): CaseObservation {
     caseId,
     taskId: '',
     status: 'unknown',
+    reply: null,
     facts: [],
     realPageNumbers: null,
     toolCalls: [],

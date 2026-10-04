@@ -56,6 +56,7 @@ RootId = Literal["downloads", "workspace"]
 
 class FilesystemListParams(ProtocolModel):
     rootId: RootId
+    path: str | None = None
     pattern: str | None = None
 
 

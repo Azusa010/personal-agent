@@ -6,6 +6,7 @@ export type RootId = z.infer<typeof RootId>;
 
 export const FilesystemListParams = z.object({
   rootId: RootId,
+  path: z.string().optional(),
   pattern: z.string().optional(),
 });
 

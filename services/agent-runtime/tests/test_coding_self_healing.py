@@ -53,6 +53,11 @@ class ScriptedCodingChannel:
         self.calls.append(params)
         if not self._results:
             raise AssertionError(f"ScriptedCodingChannel 预设调用已耗尽: {params.capability}")
+        for i, item in enumerate(self._results):
+            if "_capability" in item and item["_capability"] == params.capability:
+                data = dict(self._results.pop(i))
+                data.pop("_capability")
+                return HostExecuteToolResult.model_validate(data)
         data = self._results.pop(0)
         return HostExecuteToolResult.model_validate(data)
 
@@ -181,9 +186,9 @@ def test_concurrent_read_then_self_healing_write():
     # 1. 宿主返回值（第 1 轮并发双读，第 2 轮单写带诊断，第 3 轮单改自愈）
     host_results = [
         # 并发读 1
-        {"ok": True, "matches": [{"path": "specs/auth.spec.md", "line": 1}]},
+        {"_capability": "file_search", "ok": True, "matches": [{"path": "specs/auth.spec.md", "line": 1}]},
         # 并发读 2
-        {"ok": True, "path": "src/utils.ts", "content": "1: export const SECRET = 'xyz';"},
+        {"_capability": "file_read", "ok": True, "path": "src/utils.ts", "content": "1: export const SECRET = 'xyz';"},
         # 写入代码（带 Linter 告警）
         {
             "ok": True,
@@ -270,8 +275,7 @@ def test_concurrent_read_then_self_healing_write():
     assert outcome.kind == "completed"
     assert len(channel.calls) == 4
     # 验证前两次是并发 READ，随后是两次串行 WRITE
-    assert channel.calls[0].capability == "file_search"
-    assert channel.calls[1].capability == "file_read"
+    assert {channel.calls[0].capability, channel.calls[1].capability} == {"file_search", "file_read"}
     assert channel.calls[2].capability == "file_write"
     assert channel.calls[3].capability == "file_edit"
 

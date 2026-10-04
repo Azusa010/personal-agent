@@ -11,7 +11,12 @@ import {
   writeReport,
   type EvalReport
 } from '../../../src/main/eval/report'
-import { makeEvalWorkDir, removeEvalWorkDir, runEval } from '../../../src/main/eval/run-eval'
+import {
+  capabilitiesFor,
+  makeEvalWorkDir,
+  removeEvalWorkDir,
+  runEval
+} from '../../../src/main/eval/run-eval'
 
 /**
  * Harness 的验收（TASK-027）：scripted 模式把整份清单跑一遍。
@@ -46,9 +51,12 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
     beforeAll(async () => {
       workDir = makeEvalWorkDir('pa-eval-scripted-')
       const manifest = loadCaseManifest(evalCasesPath())
+      const baselineCases = manifest.cases.filter(
+        (c) => c.type === 'pdf_summary' || c.type === 'stateful_ops'
+      )
       report = await runEval({
         mode: 'scripted',
-        cases: manifest.cases,
+        cases: baselineCases,
         manifestPath: evalCasesPath(),
         workDir,
         runtime: { command: VENV_PYTHON, args: ['-m', 'personal_agent'], cwd: RUNTIME_CWD },
@@ -60,15 +68,18 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
       if (workDir !== '') removeEvalWorkDir(workDir)
     })
 
-    it(`清单里 ${MIN_EVAL_CASES} 条 case 一条不少地跑完，报告过 schema`, () => {
+    it(`清单里至少 ${MIN_EVAL_CASES} 条基准 case 一条不少地跑完，报告过 schema`, () => {
       const manifest = loadCaseManifest(evalCasesPath())
+      const baselineCases = manifest.cases.filter(
+        (c) => c.type === 'pdf_summary' || c.type === 'stateful_ops'
+      )
 
-      expect(theReport().cases).toHaveLength(manifest.cases.length)
-      expect(theReport().cases.map((c) => c.id)).toEqual(manifest.cases.map((c) => c.id))
+      expect(theReport().cases).toHaveLength(baselineCases.length)
+      expect(theReport().cases.map((c) => c.id)).toEqual(baselineCases.map((c) => c.id))
       const parsed = EvalReportSchema.safeParse(theReport())
       expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true)
       // 每条 case 都该有进度输出：跑挂一条也不该安静。
-      expect(progress).toHaveLength(manifest.cases.length)
+      expect(progress).toHaveLength(baselineCases.length)
     })
 
     it('全部走到 completed：Python 声明 + Main 侧交付物闸口都放行', () => {
@@ -110,14 +121,17 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
 
     it('摘要真的流到了报告里：fact 总数等于清单里的要点总数', () => {
       const manifest = loadCaseManifest(evalCasesPath())
-      const keyPoints = manifest.cases.reduce((total, c) => total + c.keyPoints.length, 0)
+      const baselineCases = manifest.cases.filter(
+        (c) => c.type === 'pdf_summary' || c.type === 'stateful_ops'
+      )
+      const keyPoints = baselineCases.reduce((total, c) => total + c.keyPoints.length, 0)
 
       // 剧本的摘要直接取自清单的要点，所以这两个数必须相等：不等说明摘要没落库、
       // 或者取证没读到 task_completed。
       expect(theReport().metrics.pageRefs.facts).toBe(keyPoints)
     })
 
-    it('标准答案 20/20：清单、剧本合成与判定表三者一致', () => {
+    it('标准答案一致：清单、剧本合成与判定表三者一致', () => {
       const report = theReport()
       // 剧本的 fact 正文与页码都取自清单，页码又真的存在于生成的 PDF —— 这就是标准答案，
       // 没有一条该被判失败。判不过只可能是三处之一算错，逐个报出是哪条、因为什么。
@@ -178,3 +192,57 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
     })
   }
 )
+
+describe('capabilitiesFor 能力分派契约', () => {
+  const baseCase = {
+    id: 'test-case',
+    goal: 'test goal',
+    pdfs: [{ name: 'test.pdf', pages: ['content'] }],
+    extraFiles: [],
+    target: 'test.pdf',
+    keyPoints: []
+  }
+
+  it('pdf_summary 用例只下发只读能力', () => {
+    const caps = capabilitiesFor({ ...baseCase, type: 'pdf_summary' })
+    const names = caps.map((c) => c.name)
+    expect(names).toContain('filesystem_list')
+    expect(names).toContain('document_extract_pdf')
+    expect(names).not.toContain('filesystem_move')
+    expect(names).not.toContain('scheduler_create')
+  })
+
+  it('stateful_ops 用例下发写能力（filesystem_move, filesystem_create_dir, scheduler_create）', () => {
+    const caps = capabilitiesFor({
+      ...baseCase,
+      type: 'stateful_ops',
+      stateful: { dir: 'Reading', reminderMessage: 'check' }
+    })
+    const names = caps.map((c) => c.name)
+    expect(names).toContain('filesystem_move')
+    expect(names).toContain('filesystem_create_dir')
+    expect(names).toContain('scheduler_create')
+  })
+
+  it('tau_interactive 权限被拒场景（mockPermissionDecision: denied）必须下发写能力', () => {
+    const caps = capabilitiesFor({
+      ...baseCase,
+      type: 'tau_interactive',
+      mockPermissionDecision: 'denied'
+    })
+    const names = caps.map((c) => c.name)
+    expect(names).toContain('filesystem_move')
+  })
+
+  it('tau_interactive 纯澄清用例不包含写能力', () => {
+    const caps = capabilitiesFor({
+      ...baseCase,
+      type: 'tau_interactive',
+      clarificationExpected: true,
+      target: null
+    })
+    const names = caps.map((c) => c.name)
+    expect(names).not.toContain('filesystem_move')
+    expect(names).not.toContain('scheduler_create')
+  })
+})

@@ -263,6 +263,36 @@ describe('judgeCase：stateful 终态判据', () => {
     expect(verdict.finalStateOk).toBe(false)
     expect(verdict.reasons.join('\n')).toContain('fail-closed')
   })
+
+  it('多目标批量归档（targets）：所有目标均移入 Reading/ 且原有非目标文件未动 → 终态断言通过', () => {
+    const evalCase = makeCase({
+      type: 'tau_interactive',
+      pdfs: [
+        { name: 'alpha.pdf', pages: ['alpha sales'] },
+        { name: 'beta.pdf', pages: ['beta sales'] }
+      ],
+      extraFiles: [{ name: 'keep.txt', content: 'keep' }],
+      target: 'alpha.pdf',
+      targets: ['alpha.pdf', 'beta.pdf'],
+      stateful: { dir: 'Reading', reminderMessage: 'review' },
+      keyPoints: [{ id: 'k1', text: 'sales', keywords: ['sales'], pages: [1] }]
+    })
+    const observation = makeObservation({
+      facts: [{ text: 'sales done', pageRefs: [1] }],
+      finalFiles: ['Reading/alpha.pdf', 'Reading/beta.pdf', 'keep.txt'],
+      toolCalls: [
+        { capability: 'document_extract_pdf', arguments: { path: 'D:/downloads/alpha.pdf' } },
+        { capability: 'document_extract_pdf', arguments: { path: 'D:/downloads/beta.pdf' } },
+        { capability: 'filesystem_move', arguments: { source: 'a', target: 'b' } }
+      ]
+    })
+
+    const verdict = judgeCase(evalCase, observation)
+
+    expect(verdict.finalStateOk).toBe(true)
+    expect(verdict.fullSuccess).toBe(true)
+    expect(verdict.reasons).toEqual([])
+  })
 })
 
 // ---------- GAIA 复杂推理与数值计算判据 ----------
@@ -342,6 +372,26 @@ describe('judgeCase：GAIA 复杂推理与数值计算判据', () => {
 
     expect(verdict.calculationOk).toBe(true)
     expect(verdict.fullSuccess).toBe(true)
+  })
+
+  it('GAIA 百分点与浮点（如 5.0 个百分点 对应 expected 0.05）→ 正确换算判定通过', () => {
+    const evalCase = makeGaiaCase({
+      expectedCalculation: { operation: 'margin_diff', expected: 0.05, tolerance: 0.001 },
+      keyPoints: [{ id: 'k1', text: '差值 5.0 个百分点', keywords: ['百分点'], pages: [1] }]
+    })
+    const observation = makeObservation({
+      facts: [{ text: '营业利润率差值为 +5.0 个百分点', pageRefs: [1] }],
+      toolCalls: [
+        { capability: 'document_extract_pdf', arguments: { path: 'D:/downloads/q1.pdf' } },
+        { capability: 'document_extract_pdf', arguments: { path: 'D:/downloads/q2.pdf' } }
+      ]
+    })
+
+    const verdict = judgeCase(evalCase, observation)
+
+    expect(verdict.calculationOk).toBe(true)
+    expect(verdict.fullSuccess).toBe(true)
+    expect(verdict.reasons).toEqual([])
   })
 
   it('GAIA 事实中无任何数值 → 失败且 reasons 记录未命中期望值', () => {
@@ -484,6 +534,22 @@ describe('judgeCase：τ-bench 歧义澄清判据 (clarification)', () => {
     expect(verdict.selectedTarget).toBe(true)
     expect(verdict.reasons.filter((r) => r.includes('没有提取目标 PDF'))).toEqual([])
   })
+
+  it('歧义指令未提取事实（facts 为空）但通过 reply 明确提出澄清提问 → clarificationOk 为 true，不报"没有任何事实"，完整成功', () => {
+    const evalCase = makeTauClarificationCase()
+    const observation = makeObservation({
+      facts: [],
+      reply: '在处理前需要跟您确认：请问是哪一份合同草稿？contract-v1 还是 contract-v2？',
+      toolCalls: []
+    })
+
+    const verdict = judgeCase(evalCase, observation)
+
+    expect(verdict.clarificationOk).toBe(true)
+    expect(verdict.selectedTarget).toBe(true)
+    expect(verdict.fullSuccess).toBe(true)
+    expect(verdict.reasons).toEqual([])
+  })
 })
 
 // ---------- τ-bench 权限拒绝自适应降级判据 ----------
@@ -516,6 +582,31 @@ describe('judgeCase：τ-bench 权限拒绝自适应降级判据', () => {
           arguments: { path: 'D:/downloads/sensitive-audit.pdf' }
         },
         { capability: 'filesystem_move', arguments: { source: 'a', target: 'b' } }
+      ]
+    })
+
+    const verdict = judgeCase(evalCase, observation)
+
+    expect(verdict.permissionRecoveryOk).toBe(true)
+    expect(verdict.fullSuccess).toBe(true)
+    expect(verdict.reasons).toEqual([])
+  })
+
+  it('敏感操作被拒后未提取目标 PDF，产出无页码说明事实与解释回复 → permissionRecoveryOk 为 true 且完整成功', () => {
+    const evalCase = makeTauPermissionCase()
+    const observation = makeObservation({
+      status: 'failed',
+      failedToolCalls: 1,
+      facts: [
+        {
+          text: '创建 Archive 目录返回 PERMISSION_DENIED，原因为用户拒绝了操作，未获得授权',
+          pageRefs: []
+        }
+      ],
+      reply: '抱歉，移动 sensitive-audit.pdf 操作未获授权，权限已被用户拒绝。',
+      toolCalls: [
+        { capability: 'filesystem_list', arguments: { rootId: 'downloads' } },
+        { capability: 'filesystem_create_dir', arguments: { path: 'Archive' } }
       ]
     })
 

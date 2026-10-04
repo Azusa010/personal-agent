@@ -88,3 +88,57 @@ def test_safe_parse_scalar_json_raises():
     with pytest.raises(ModelCallFailed) as e:
         safe_parse_model_json('"just a plain json string"')
     assert "不是合法 JSON" in e.value.reason
+
+
+def test_parse_tool_call_arguments_empty_or_none():
+    from personal_agent.conversation.model.json_parser import parse_tool_call_arguments
+
+    assert parse_tool_call_arguments(None) == {}
+    assert parse_tool_call_arguments("") == {}
+    assert parse_tool_call_arguments("   ") == {}
+    assert parse_tool_call_arguments("{}") == {}
+    assert parse_tool_call_arguments("None") == {}
+    assert parse_tool_call_arguments("null") == {}
+    assert parse_tool_call_arguments("()") == {}
+
+
+def test_parse_tool_call_arguments_dict_and_standard_json():
+    from personal_agent.conversation.model.json_parser import parse_tool_call_arguments
+
+    assert parse_tool_call_arguments({"rootId": "downloads"}) == {"rootId": "downloads"}
+    assert parse_tool_call_arguments('{"rootId": "downloads"}') == {"rootId": "downloads"}
+
+
+def test_parse_tool_call_arguments_windows_path_and_missing_braces():
+    from personal_agent.conversation.model.json_parser import parse_tool_call_arguments
+
+    raw_path = '{"path": "C:/Users/Azusama/Downloads/report.pdf"}'
+    parsed = parse_tool_call_arguments(raw_path)
+    assert parsed["path"] == "C:/Users/Azusama/Downloads/report.pdf"
+
+    # 缺少外层大括号
+    assert parse_tool_call_arguments('"path": "report.pdf"') == {"path": "report.pdf"}
+    assert parse_tool_call_arguments("'path': 'report.pdf'") == {"path": "report.pdf"}
+
+
+def test_parse_tool_call_arguments_python_call_syntax():
+    from personal_agent.conversation.model.json_parser import parse_tool_call_arguments
+
+    # 函数调用包裹语法
+    assert parse_tool_call_arguments('document_extract_pdf(path="weekly-03.pdf")') == {
+        "path": "weekly-03.pdf"
+    }
+    # 纯关键字参数语法
+    assert parse_tool_call_arguments('rootId="downloads", path="TeamB"') == {
+        "rootId": "downloads",
+        "path": "TeamB",
+    }
+
+
+def test_parse_tool_call_arguments_corrupt_raises_model_call_failed():
+    from personal_agent.conversation.model.json_parser import parse_tool_call_arguments
+
+    with pytest.raises(ModelCallFailed) as e:
+        parse_tool_call_arguments("{not_json")
+    assert "不是合法 JSON" in e.value.reason
+

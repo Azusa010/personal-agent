@@ -1,4 +1,4 @@
-import { dirname } from 'node:path'
+import { dirname, isAbsolute, resolve } from 'node:path'
 
 import {
   ERROR_CODE,
@@ -27,23 +27,36 @@ export const filesystemListPlugin: CapabilityPlugin = {
   async bindArguments(args) {
     const parsed = FilesystemListParams.safeParse(args)
     if (!parsed.success) return invalid('filesystem_list', parsed.error.message)
+    let targetDir: string | undefined
+    if (parsed.data.path && parsed.data.path.trim() !== '') {
+      const root = resolveRoot(parsed.data.rootId)
+      const cand = parsed.data.path.trim()
+      const target = isAbsolute(cand) ? cand : resolve(root, cand)
+      const guarded = await resolveWithinRootReal(root, target)
+      if (!guarded.ok) {
+        return { ok: false, code: guarded.code, reason: guarded.reason }
+      }
+      targetDir = guarded.path
+    }
     return {
       ok: true,
       bound: {
         args: {
           rootId: parsed.data.rootId,
+          ...(parsed.data.path ? { path: parsed.data.path } : {}),
           ...(parsed.data.pattern ? { pattern: parsed.data.pattern } : {})
         },
-        paths: {}
+        paths: targetDir ? { targetDir } : {}
       }
     }
   },
   async execute(call) {
     const rootId = String(call.bound.args['rootId'])
+    const targetDir = call.bound.paths['targetDir'] ?? resolveRoot(rootId)
     const pattern =
       typeof call.bound.args['pattern'] === 'string' ? call.bound.args['pattern'] : undefined
     try {
-      const entries = await listDirectory(resolveRoot(rootId), { pattern })
+      const entries = await listDirectory(targetDir, { pattern })
       return { ok: true, entries }
     } catch (e) {
       return fail(ERROR_CODE.FILESYSTEM_ROOT_UNAVAILABLE, `授权根不可用 (${describeError(e)})`)

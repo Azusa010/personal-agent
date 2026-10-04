@@ -504,8 +504,13 @@ class ReActLoop:
                     self._context.record(observation)
                 tool_calls_used += len(decision.calls)
             elif isinstance(decision, SummaryDecision):
+                evidence = collect_retrieved_evidence(self._context.observations)
+                require_grounded = (
+                    self._plan_requires_grounded_summary()
+                    and len(evidence.pages) > 0
+                )
                 candidate_facts = decision.facts
-                if self._plan_requires_grounded_summary():
+                if require_grounded:
                     valid_grounded = [
                         f
                         for f in decision.facts
@@ -534,11 +539,10 @@ class ReActLoop:
                 sys.stderr.write(f"  [Reply] {decision.reply!r}\n")
                 sys.stderr.flush()
                 try:
-                    evidence = collect_retrieved_evidence(self._context.observations)
                     facts = verify_summary(
                         candidate_facts,
                         evidence.pages,
-                        require_page_refs=self._plan_requires_grounded_summary(),
+                        require_page_refs=require_grounded,
                         evidence=evidence,
                     )
                 except SummaryRejected as e:

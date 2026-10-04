@@ -322,15 +322,12 @@ def normalize_raw_decision(
             or res.get("action_input")
             or res.get("actionInput")
         )
-        if isinstance(tool_args, str):
+        if tool_args is not None and not isinstance(tool_args, dict):
             from personal_agent.conversation.model.json_parser import (
-                safe_parse_model_json,
+                parse_tool_call_arguments,
             )
 
-            try:
-                tool_args = safe_parse_model_json(tool_args)
-            except Exception:  # noqa: BLE001
-                tool_args = {}
+            tool_args = parse_tool_call_arguments(tool_args)
         if not isinstance(tool_args, dict):
             tool_args = {
                 k: v
