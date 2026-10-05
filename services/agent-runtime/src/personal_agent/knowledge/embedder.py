@@ -91,6 +91,56 @@ class MockEmbedder(BaseEmbedder):
         return [await self.embed_query(t) for t in texts]
 
 
+class SemanticMockEmbedder(BaseEmbedder):
+    """用于测试与真实数据库检索消融的语义特征投影嵌入器。
+
+    特性：
+    - 0 毫秒生成、零外部依赖；
+    - 基于中文二元字符切分 (bi-gram) 与英文 token 散列投影到 1024 维空间；
+    - 在 PostgreSQL pgvector (dense_embedding <=> $1) 下产生真实的余弦相似度区分度：
+      文本具有语义/词汇重合时，距离显著缩小；完全无关文本距离接近 1.0。
+    """
+
+    def __init__(self, dim: int = EMBEDDING_DIM):
+        self.dim = dim
+
+    def _embed(self, text: str) -> list[float]:
+        tokens = [t.strip().lower() for t in text.split() if t.strip()]
+        bigrams = [
+            text[i : i + 2]
+            for i in range(len(text) - 1)
+            if not text[i : i + 2].isspace()
+        ]
+        all_features = tokens + bigrams
+        vec = [0.0] * self.dim
+        for feat in all_features:
+            idx = (
+                int(hashlib.md5(feat.encode("utf-8")).hexdigest()[:8], 16)
+                % self.dim
+            )
+            vec[idx] += 1.0
+        norm = math.sqrt(sum(x * x for x in vec)) or 1.0
+        return [round(x / norm, 6) for x in vec]
+
+    def _generate_sparse_weights(self, text: str) -> dict[str, float]:
+        tokens = [t.strip().lower() for t in text.split() if t.strip()]
+        if not tokens:
+            tokens = [text.strip()] if text.strip() else ["empty"]
+        counts: dict[str, int] = {}
+        for t in tokens:
+            counts[t] = counts.get(t, 0) + 1
+        total = sum(counts.values())
+        return {k: round(v / total, 4) for k, v in counts.items()}
+
+    async def embed_query(self, text: str) -> EmbeddingOutput:
+        dense = self._embed(text)
+        sparse = self._generate_sparse_weights(text)
+        return EmbeddingOutput(dense=dense, sparse=sparse)
+
+    async def embed_documents(self, texts: list[str]) -> list[EmbeddingOutput]:
+        return [await self.embed_query(t) for t in texts]
+
+
 class BgeM3Embedder(BaseEmbedder):
     """基于本地 BAAI/bge-m3 权重的双编码嵌入器。"""
 
@@ -168,6 +218,10 @@ def get_embedder(
     if target_mode == "mock":
         logger.info("使用 MockEmbedder 模式")
         return MockEmbedder()
+
+    if target_mode in ("mock_semantic", "semantic_mock", "semantic"):
+        logger.info("使用 SemanticMockEmbedder 模式")
+        return SemanticMockEmbedder()
 
     if target_mode == "local":
         return BgeM3Embedder(model_path=path)

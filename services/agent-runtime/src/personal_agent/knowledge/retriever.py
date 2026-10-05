@@ -141,9 +141,12 @@ class HybridRetriever:
         document_ids: list[str] | None = None,
         file_types: list[str] | None = None,
     ) -> list[ScoredChunk]:
-        """第一阶段：PostgreSQL FTS + pg_jieba 中文全文检索。"""
+        """第一阶段：PostgreSQL FTS + pg_jieba 中文全文检索。
+
+        采用 OR 分词构建与 ts_rank_cd 密度排序，大幅提升自然语言长问句的召回韧性。
+        """
         clean_text = clean_fts_query(query_text)
-        conditions = ["c.fts_vector @@ plainto_tsquery('jiebacfg', $1)"]
+        conditions = ["q.query_ts IS NOT NULL", "c.fts_vector @@ q.query_ts"]
         params: list[Any] = [clean_text, limit]
 
         if document_ids:
@@ -155,10 +158,19 @@ class HybridRetriever:
 
         where_clause = " AND ".join(conditions)
         query = f"""
+        WITH q AS (
+            SELECT CASE
+                WHEN count(lexeme) > 0 THEN to_tsquery('jiebacfg', string_agg(quote_literal(lexeme), ' | '))
+                ELSE NULL
+            END AS query_ts
+            FROM unnest(to_tsvector('jiebacfg', $1))
+            WHERE length(trim(lexeme)) > 0
+        )
         SELECT c.id, c.document_id, c.chunk_index, c.page_numbers, c.heading_path,
                c.raw_text, d.file_name, d.source_path,
-               ts_rank_cd(c.fts_vector, plainto_tsquery('jiebacfg', $1)) AS sparse_score
+               ts_rank_cd(c.fts_vector, q.query_ts) AS sparse_score
         FROM chunks c
+        CROSS JOIN q
         JOIN documents d ON c.document_id = d.id
         WHERE {where_clause}
         ORDER BY sparse_score DESC
@@ -181,6 +193,7 @@ class HybridRetriever:
                 )
             )
         return results
+
 
     async def search(
         self,

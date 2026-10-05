@@ -1,0 +1,1186 @@
+[
+  {
+    "id": "daughter-pediatrician",
+    "tier": "cross_session_assoc",
+    "question": "我女儿的儿科医生是谁？",
+    "expected_answer": "陈医生（Dr. Chen）是您女儿 Lily 的儿科医生。",
+    "sessions": [
+      [
+        {
+          "role": "user",
+          "content": "你好，我家小女儿叫 Lily，今年刚满 3 岁。"
+        },
+        {
+          "role": "assistant",
+          "content": "收到！已记住您的小女儿叫 Lily，3岁啦。"
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "今天带 Lily 去儿童医院体检，看的是儿科的 Dr. Chen，医生说发育一切正常。"
+        },
+        {
+          "role": "assistant",
+          "content": "太好了，听到 Lily 一切正常真让人放心！已为您记录 Dr. Chen 负责体检。"
+        }
+      ]
+    ],
+    "memory_cards": [
+      {
+        "entryFormat": "card",
+        "id": "10000000-0000-4000-8000-000000000001",
+        "memoryType": "semantic",
+        "category": "relationship",
+        "subject": "家庭成员",
+        "person": "女儿",
+        "relationship": "女儿",
+        "content": {
+          "name": "Lily",
+          "age": 3
+        },
+        "confidence": 0.95,
+        "validFrom": "2026-01-01T00:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "entryFormat": "card",
+        "id": "10000000-0000-4000-8000-000000000002",
+        "memoryType": "semantic",
+        "category": "general",
+        "subject": "儿科医生",
+        "person": "Lily",
+        "relationship": "医生",
+        "content": {
+          "doctor_name": "Dr. Chen",
+          "hospital": "儿童医院",
+          "specialty": "儿科"
+        },
+        "confidence": 0.95,
+        "validFrom": "2026-01-01T00:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ],
+    "rubric": {
+      "dimensions": [
+        {
+          "name": "事实正确性",
+          "weight": "essential",
+          "scoring": {
+            "4_优秀": "准确回答 Dr. Chen（陈医生），且明确关联到女儿 Lily",
+            "3_良好": "准确回答 Dr. Chen，但未提及是 Lily 的医生",
+            "2_及格": "给出了正确医生但附带不确定的额外猜测",
+            "1_不及格": "给出错误医生名，或回答不知道"
+          }
+        },
+        {
+          "name": "信息完整性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "主动补充相关信息（如上次体检情况或儿童医院）",
+            "3_良好": "回答了核心问题，无关键遗漏",
+            "2_及格": "回答了核心问题，但遗漏了可用的关联信息",
+            "1_不及格": "关键信息缺失"
+          }
+        },
+        {
+          "name": "思考正确性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "正确关联'女儿=Lily'和'Lily的医生=Dr. Chen'两条跨会话信息",
+            "3_良好": "关联正确但思考路径不够清晰",
+            "2_及格": "部分关联正确",
+            "1_不及格": "错误关联（如把用户自己的医生当成女儿的医生）"
+          }
+        }
+      ],
+      "veto": {
+        "name": "幻觉检测",
+        "weight": "veto",
+        "scoring": {
+          "pass": "所有信息均可溯源到历史对话或记忆卡片",
+          "fail": "编造了历史中不存在的信息（如虚构就诊日期、药物或未提及的诊断结果）"
+        }
+      },
+      "edge_cases": [
+        "如果记忆中同时存在'Dr. Chen'和'陈医生'，应识别为同一人",
+        "如果用户有多个女儿且分别看不同的医生，应追问是哪个女儿"
+      ]
+    }
+  },
+  {
+    "id": "coffee-preference",
+    "tier": "basic_recall",
+    "question": "我平时喝咖啡有什么习惯？",
+    "expected_answer": "您喜欢喝燕麦拿铁（Oat Latte），不加糖。",
+    "sessions": [
+      [
+        {
+          "role": "user",
+          "content": "以后帮我点咖啡的话记住：我只喝燕麦拿铁，绝对不加糖。"
+        },
+        {
+          "role": "assistant",
+          "content": "记下了！燕麦拿铁，无糖。"
+        }
+      ]
+    ],
+    "memory_cards": [
+      {
+        "entryFormat": "card",
+        "id": "10000001-0000-4000-8000-000000000001",
+        "memoryType": "semantic",
+        "category": "preference",
+        "subject": "咖啡偏好",
+        "person": "本人",
+        "relationship": "本人",
+        "content": {
+          "drink": "Oat Latte",
+          "sugar": false
+        },
+        "confidence": 0.98,
+        "validFrom": "2026-01-01T00:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ],
+    "rubric": {
+      "dimensions": [
+        {
+          "name": "事实正确性",
+          "weight": "essential",
+          "scoring": {
+            "4_优秀": "准确说出燕麦拿铁且明确说明不加糖",
+            "3_良好": "说出燕麦拿铁，但遗漏不加糖或仅说拿铁",
+            "2_及格": "提到喝咖啡但不确定具体类型",
+            "1_不及格": "回答错误（如说美式加糖）或回答不知道"
+          }
+        },
+        {
+          "name": "信息完整性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "完整覆盖品类（燕麦拿铁）与糖度要求（无糖）",
+            "3_良好": "回答了主要品类",
+            "2_及格": "只提到了单一维度",
+            "1_不及格": "核心要素完全缺失"
+          }
+        },
+        {
+          "name": "思考正确性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "准确直接检索到用户饮食偏好",
+            "3_良好": "逻辑通顺",
+            "2_及格": "存在犹豫或冗余推理",
+            "1_不及格": "将他人偏好误认为本人习惯"
+          }
+        }
+      ],
+      "veto": {
+        "name": "幻觉检测",
+        "weight": "veto",
+        "scoring": {
+          "pass": "偏好信息完全符合设定",
+          "fail": "虚构额外的咖啡品牌、特定咖啡店或温度要求"
+        }
+      },
+      "edge_cases": [
+        "不加糖可表述为无糖、0糖或不加糖"
+      ]
+    }
+  },
+  {
+    "id": "city-travel-disambiguation",
+    "tier": "disambiguation",
+    "question": "我下周要去出差的城市是哪里？",
+    "expected_answer": "您下周出差的目的地是杭州（原本计划去上海但已取消变更）。",
+    "sessions": [
+      [
+        {
+          "role": "user",
+          "content": "下周我打算去上海出差三天拜访客户。"
+        },
+        {
+          "role": "assistant",
+          "content": "收到，为您记录下周上海出差行程。"
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "上海的客户临时改期了，出差取消。改为下周去杭州参加技术大会。"
+        },
+        {
+          "role": "assistant",
+          "content": "明白！已更新行程：取消上海出差，改为下周前往杭州参加技术峰会。"
+        }
+      ]
+    ],
+    "memory_cards": [
+      {
+        "entryFormat": "card",
+        "id": "10000003-0000-4000-8000-000000000001",
+        "memoryType": "episodic",
+        "category": "routine",
+        "subject": "出差行程",
+        "person": "本人",
+        "relationship": "本人",
+        "content": {
+          "city": "上海",
+          "purpose": "拜访客户",
+          "status": "cancelled"
+        },
+        "confidence": 0.9,
+        "validFrom": "2026-03-01T09:00:00Z",
+        "supersededBy": "10000003-0000-4000-8000-000000000002",
+        "supersedeReason": "客户改期取消原行程，更新为下周去杭州参加技术大会",
+        "createdAt": "2026-03-01T09:00:00Z",
+        "updatedAt": "2026-03-02T16:00:00Z"
+      },
+      {
+        "entryFormat": "card",
+        "id": "10000003-0000-4000-8000-000000000002",
+        "memoryType": "episodic",
+        "category": "routine",
+        "subject": "出差行程",
+        "person": "本人",
+        "relationship": "本人",
+        "content": {
+          "city": "杭州",
+          "purpose": "技术大会",
+          "status": "confirmed"
+        },
+        "confidence": 0.98,
+        "validFrom": "2026-03-02T16:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-03-02T16:00:00Z",
+        "updatedAt": "2026-03-02T16:00:00Z"
+      }
+    ],
+    "rubric": {
+      "dimensions": [
+        {
+          "name": "事实正确性",
+          "weight": "essential",
+          "scoring": {
+            "4_优秀": "明确回答杭州，并能指出原定的上海行程已取消",
+            "3_良好": "准确回答杭州，未提及上海变更",
+            "2_及格": "杭州和上海并列提及但未区分最新有效状态",
+            "1_不及格": "错误回答为上海，或回答不知道"
+          }
+        },
+        {
+          "name": "信息完整性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "说明目的地是杭州，并补充参加技术大会的目的",
+            "3_良好": "说明目的地是杭州",
+            "2_及格": "信息模糊",
+            "1_不及格": "无有效城市信息"
+          }
+        },
+        {
+          "name": "思考正确性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "能够识别多轮会话中的时效更新与撤销覆盖关系（杭州覆盖上海）",
+            "3_良好": "采用了最新会话结果",
+            "2_及格": "未完全理清时间线先后顺序",
+            "1_不及格": "倒置时间线，使用被废弃的旧偏好"
+          }
+        }
+      ],
+      "veto": {
+        "name": "幻觉检测",
+        "weight": "veto",
+        "scoring": {
+          "pass": "城市与行程变更准确",
+          "fail": "虚构航班号、酒店或无关城市（如北京、深圳）"
+        }
+      },
+      "edge_cases": [
+        "旧偏好失效覆盖识别：上海行程已被显式取消，不可作为最终目的地"
+      ]
+    }
+  },
+  {
+    "id": "dog-birthday-assoc",
+    "tier": "cross_session_assoc",
+    "question": "我家宠物的生日是哪天？",
+    "expected_answer": "您的金毛犬豆豆（Doudou）的生日是 5 月 12 日。",
+    "sessions": [
+      [
+        {
+          "role": "user",
+          "content": "我家养了一只特别聪明的金毛犬，名字叫豆豆。"
+        },
+        {
+          "role": "assistant",
+          "content": "可爱的金毛豆豆！记住了。"
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "明天 5 月 12 号是豆豆的一周岁生日，我得准备个大肉罐头。"
+        },
+        {
+          "role": "assistant",
+          "content": "祝豆豆生日快乐！5月12日庆祝一岁生日。"
+        }
+      ]
+    ],
+    "memory_cards": [
+      {
+        "entryFormat": "card",
+        "id": "10000003-0000-4000-8000-000000000001",
+        "memoryType": "episodic",
+        "category": "routine",
+        "subject": "宠物信息",
+        "person": "豆豆",
+        "relationship": "宠物",
+        "content": {
+          "type": "金毛犬",
+          "name": "豆豆",
+          "birthday": "05-12"
+        },
+        "confidence": 0.95,
+        "validFrom": "2026-01-01T00:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ],
+    "rubric": {
+      "dimensions": [
+        {
+          "name": "事实正确性",
+          "weight": "essential",
+          "scoring": {
+            "4_优秀": "明确指出是金毛豆豆，生日为 5 月 12 日",
+            "3_良好": "回答 5 月 12 日，未明确宠物名字",
+            "2_及格": "日期给对但伴有不确定表述",
+            "1_不及格": "日期错误或回答不知道"
+          }
+        },
+        {
+          "name": "信息完整性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "包含宠物名称豆豆、品种金毛以及生日 5 月 12 日",
+            "3_良好": "回答核心日期与名字",
+            "2_及格": "仅给出日期",
+            "1_不及格": "遗漏核心日期"
+          }
+        },
+        {
+          "name": "思考正确性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "跨会话关联'宠物=金毛豆豆'与'豆豆生日=5月12日'",
+            "3_良好": "正确提取",
+            "2_及格": "路径不清晰",
+            "1_不及格": "逻辑断裂"
+          }
+        }
+      ],
+      "veto": {
+        "name": "幻觉检测",
+        "weight": "veto",
+        "scoring": {
+          "pass": "信息可溯源",
+          "fail": "捏造虚构年份、星座或额外宠物"
+        }
+      },
+      "edge_cases": [
+        "若未提及年份，回答 5 月 12 日即可"
+      ]
+    }
+  },
+  {
+    "id": "car-plate-recall",
+    "tier": "basic_recall",
+    "question": "我的车牌号是多少？",
+    "expected_answer": "您的车牌号是 浙A·88888（或浙A88888）。",
+    "sessions": [
+      [
+        {
+          "role": "user",
+          "content": "物业问我登记车位，我的车牌号是浙A88888，帮我记一下备忘。"
+        },
+        {
+          "role": "assistant",
+          "content": "没问题，已为您记录车牌号码：浙A88888。"
+        }
+      ]
+    ],
+    "memory_cards": [
+      {
+        "entryFormat": "card",
+        "id": "10000004-0000-4000-8000-000000000001",
+        "memoryType": "semantic",
+        "category": "general",
+        "subject": "车辆登记",
+        "person": "本人",
+        "relationship": "本人",
+        "content": {
+          "plate_number": "浙A88888"
+        },
+        "confidence": 0.99,
+        "validFrom": "2026-01-01T00:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ],
+    "rubric": {
+      "dimensions": [
+        {
+          "name": "事实正确性",
+          "weight": "essential",
+          "scoring": {
+            "4_优秀": "准确完整回答 浙A88888",
+            "3_良好": "回答正确但格式稍有不规范",
+            "2_及格": "回答部分数字正确",
+            "1_不及格": "回答错误或不知道"
+          }
+        },
+        {
+          "name": "信息完整性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "给出完整车牌号，并指出用于物业车位登记背景",
+            "3_良好": "给出完整车牌号",
+            "2_及格": "缺少地区前缀",
+            "1_不及格": "车牌号码不全"
+          }
+        },
+        {
+          "name": "思考正确性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "精准命中资产类直接回忆",
+            "3_良好": "检索正确",
+            "2_及格": "推理犹豫",
+            "1_不及格": "无因果检索"
+          }
+        }
+      ],
+      "veto": {
+        "name": "幻觉检测",
+        "weight": "veto",
+        "scoring": {
+          "pass": "车牌完全匹配",
+          "fail": "编造车型、颜色或停车位具体编号"
+        }
+      },
+      "edge_cases": [
+        "浙A88888 与 浙A·88888 视为等价"
+      ]
+    }
+  },
+  {
+    "id": "twin-sisters-disambiguation",
+    "tier": "disambiguation",
+    "question": "我妹妹学的是什么专业？",
+    "expected_answer": "您有两个双胞胎妹妹：大妹 Lucy 学的是计算机科学，小妹 Emma 学的是建筑设计。需要确认您指的是哪一位。",
+    "sessions": [
+      [
+        {
+          "role": "user",
+          "content": "我有两个双胞胎妹妹，大妹叫 Lucy，小妹叫 Emma。"
+        },
+        {
+          "role": "assistant",
+          "content": "收到，记录了您的双胞胎妹妹 Lucy 和 Emma。"
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "Lucy 在交大读计算机科学，整天写代码；Emma 喜欢画画，在同济学建筑设计。"
+        },
+        {
+          "role": "assistant",
+          "content": "真优秀！已记录 Lucy 学计算机科学，Emma 学建筑设计。"
+        }
+      ]
+    ],
+    "memory_cards": [
+      {
+        "entryFormat": "card",
+        "id": "10000005-0000-4000-8000-000000000001",
+        "memoryType": "semantic",
+        "category": "relationship",
+        "subject": "妹妹信息",
+        "person": "Lucy",
+        "relationship": "大妹",
+        "content": {
+          "name": "Lucy",
+          "major": "计算机科学",
+          "university": "上海交通大学"
+        },
+        "confidence": 0.95,
+        "validFrom": "2026-01-01T00:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "entryFormat": "card",
+        "id": "10000005-0000-4000-8000-000000000002",
+        "memoryType": "semantic",
+        "category": "relationship",
+        "subject": "妹妹信息",
+        "person": "Emma",
+        "relationship": "小妹",
+        "content": {
+          "name": "Emma",
+          "major": "建筑设计",
+          "university": "同济大学"
+        },
+        "confidence": 0.95,
+        "validFrom": "2026-01-01T00:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ],
+    "rubric": {
+      "dimensions": [
+        {
+          "name": "事实正确性",
+          "weight": "essential",
+          "scoring": {
+            "4_优秀": "主动指出有 Lucy（计算机）和 Emma（建筑设计）两位妹妹，并分别说明专业或主动追问",
+            "3_良好": "指出两位妹妹及各自专业，未主动区分指代",
+            "2_及格": "仅回答了其中一位妹妹的专业",
+            "1_不及格": "专业混淆（如认为 Lucy 学建筑）或回答不知道"
+          }
+        },
+        {
+          "name": "信息完整性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "完整覆盖两位妹妹姓名及对应专业",
+            "3_良好": "回答了主要专业信息",
+            "2_及格": "遗漏一位妹妹",
+            "1_不及格": "信息不完整"
+          }
+        },
+        {
+          "name": "思考正确性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "识别出实体歧义（'妹妹' 指代不明），执行消歧逻辑",
+            "3_良好": "识别出两人存在",
+            "2_及格": "未做消歧处理仅随机取一",
+            "1_不及格": "张冠李戴"
+          }
+        }
+      ],
+      "veto": {
+        "name": "幻觉检测",
+        "weight": "veto",
+        "scoring": {
+          "pass": "信息全部真实对齐",
+          "fail": "捏造第三个妹妹或虚构毕业去向"
+        }
+      },
+      "edge_cases": [
+        "存在多个同角色实体时，必须做消歧说明或反问"
+      ]
+    }
+  },
+  {
+    "id": "wifi-password-hallucination-trap",
+    "tier": "basic_recall",
+    "question": "我家里客厅的 Wi-Fi 密码是多少？",
+    "expected_answer": "您没有在之前的记录中提供过 Wi-Fi 密码，因此我不知道。",
+    "sessions": [
+      [
+        {
+          "role": "user",
+          "content": "我家客厅装了新的华硕路由器，信号还挺强的。"
+        },
+        {
+          "role": "assistant",
+          "content": "收到，已记录您家客厅使用的是华硕路由器。"
+        }
+      ]
+    ],
+    "memory_cards": [
+      {
+        "entryFormat": "card",
+        "id": "10000006-0000-4000-8000-000000000001",
+        "memoryType": "semantic",
+        "category": "general",
+        "subject": "路由器",
+        "person": "本人",
+        "relationship": "本人",
+        "content": {
+          "device": "华硕路由器",
+          "location": "客厅"
+        },
+        "confidence": 0.9,
+        "validFrom": "2026-01-01T00:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ],
+    "rubric": {
+      "dimensions": [
+        {
+          "name": "事实正确性",
+          "weight": "essential",
+          "scoring": {
+            "4_优秀": "诚实明确告知历史中未曾记录 Wi-Fi 密码，拒绝编造",
+            "3_良好": "回答不知道该密码",
+            "2_及格": "回答模糊",
+            "1_不及格": "给出了具体的 Wi-Fi 密码（触发幻觉）"
+          }
+        },
+        {
+          "name": "信息完整性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "说明虽然记录了客厅华硕路由器，但未记录密码",
+            "3_良好": "明确声明未知",
+            "2_及格": "回答过于简略",
+            "1_不及格": "无有效回复"
+          }
+        },
+        {
+          "name": "思考正确性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "准确区分'路由器已知'与'密码未知'的边界",
+            "3_良好": "无胡乱联想",
+            "2_及格": "存在侥幸猜测",
+            "1_不及格": "直接编造"
+          }
+        }
+      ],
+      "veto": {
+        "name": "幻觉检测",
+        "weight": "veto",
+        "scoring": {
+          "pass": "完全未提供虚构的密码",
+          "fail": "编造了任何形式的密码字符串（如 12345678 或 admin888）"
+        }
+      },
+      "edge_cases": [
+        "未记录信息必须诚实拒答，编造密码直接触发一票否决归零"
+      ]
+    }
+  },
+  {
+    "id": "manager-meeting-assoc",
+    "tier": "cross_session_assoc",
+    "question": "我明天要向哪位总监汇报项目预算？",
+    "expected_answer": "您明天需要向技术总监张伟（Zhang Wei）汇报预算。",
+    "sessions": [
+      [
+        {
+          "role": "user",
+          "content": "我们研发部门新来的技术总监是张伟，英文名叫 Alex。"
+        },
+        {
+          "role": "assistant",
+          "content": "已为您记录新任技术总监张伟 (Alex)。"
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "明天下午两点要开会跟技术总监过一下 Q4 项目预算。"
+        },
+        {
+          "role": "assistant",
+          "content": "收到！明天 14:00 与技术总监沟通 Q4 项目预算。"
+        }
+      ]
+    ],
+    "memory_cards": [
+      {
+        "entryFormat": "card",
+        "id": "10000007-0000-4000-8000-000000000001",
+        "memoryType": "semantic",
+        "category": "work",
+        "subject": "上级总监",
+        "person": "张伟",
+        "relationship": "上级",
+        "content": {
+          "name": "张伟",
+          "english_name": "Alex",
+          "title": "技术总监"
+        },
+        "confidence": 0.95,
+        "validFrom": "2026-01-01T00:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ],
+    "rubric": {
+      "dimensions": [
+        {
+          "name": "事实正确性",
+          "weight": "essential",
+          "scoring": {
+            "4_优秀": "准确指出是技术总监张伟（或 Alex Zhang）",
+            "3_良好": "指出张总监，未提具体姓名",
+            "2_及格": "提及张伟但未确定是否为汇报对象",
+            "1_不及格": "指出错误人员或不知道"
+          }
+        },
+        {
+          "name": "信息完整性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "补充会议主题为 Q4 项目预算及时间点",
+            "3_良好": "说出汇报对象张伟",
+            "2_及格": "信息不全",
+            "1_不及格": "核心缺失"
+          }
+        },
+        {
+          "name": "思考正确性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "有效打通'技术总监=张伟'与'向技术总监汇报'的两轮关联",
+            "3_良好": "关联成立",
+            "2_及格": "关联模糊",
+            "1_不及格": "指向其他同事"
+          }
+        }
+      ],
+      "veto": {
+        "name": "幻觉检测",
+        "weight": "veto",
+        "scoring": {
+          "pass": "人物与职级一致",
+          "fail": "虚构其他部门负责人（如财务总监李某）"
+        }
+      },
+      "edge_cases": [
+        "张伟与 Alex 为同一人"
+      ]
+    }
+  },
+  {
+    "id": "peanut-allergy-recall",
+    "tier": "basic_recall",
+    "question": "我在饮食上有什么需要特别避开的过敏源？",
+    "expected_answer": "您对花生（Peanuts）和蚕豆严重过敏，必须避开。",
+    "sessions": [
+      [
+        {
+          "role": "user",
+          "content": "订餐千万注意，我对花生和蚕豆重度过敏，哪怕一点点花生碎都会休克。"
+        },
+        {
+          "role": "assistant",
+          "content": "收到，非常重要的过敏源信息！已标记花生和蚕豆极度危险。"
+        }
+      ]
+    ],
+    "memory_cards": [
+      {
+        "entryFormat": "card",
+        "id": "10000008-0000-4000-8000-000000000001",
+        "memoryType": "semantic",
+        "category": "general",
+        "subject": "过敏禁忌",
+        "person": "本人",
+        "relationship": "本人",
+        "content": {
+          "allergens": [
+            "花生",
+            "蚕豆"
+          ],
+          "severity": "严重"
+        },
+        "confidence": 0.99,
+        "validFrom": "2026-01-01T00:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ],
+    "rubric": {
+      "dimensions": [
+        {
+          "name": "事实正确性",
+          "weight": "essential",
+          "scoring": {
+            "4_优秀": "准确列出花生和蚕豆，并警示过敏严重性",
+            "3_良好": "列出花生和蚕豆",
+            "2_及格": "仅列出其中一种（如只说了花生）",
+            "1_不及格": "未提及或列出无关过敏源"
+          }
+        },
+        {
+          "name": "信息完整性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "完整提醒两种过敏源及严重后果",
+            "3_良好": "涵盖两种过敏源",
+            "2_及格": "遗漏蚕豆",
+            "1_不及格": "缺失关键过敏项"
+          }
+        },
+        {
+          "name": "思考正确性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "准确检索健康安全最高优先级信息",
+            "3_良好": "检索正确",
+            "2_及格": "存在混淆",
+            "1_不及格": "错误判定"
+          }
+        }
+      ],
+      "veto": {
+        "name": "幻觉检测",
+        "weight": "veto",
+        "scoring": {
+          "pass": "过敏物精准匹配",
+          "fail": "编造海鲜、芒果或牛奶等未曾提及的过敏源"
+        }
+      },
+      "edge_cases": [
+        "花生与蚕豆两个都属于重度过敏项，不能只答一个"
+      ]
+    }
+  },
+  {
+    "id": "git-author-disambiguation",
+    "tier": "disambiguation",
+    "question": "我工作用的 Git 邮箱是哪一个？",
+    "expected_answer": "您的工作 Git 邮箱是 alex.zhang@corp.example.com（个人开源项目使用的是 alex@github.me）。",
+    "sessions": [
+      [
+        {
+          "role": "user",
+          "content": "我的个人 GitHub 邮箱是 alex@github.me，个人开源都用这个配置。"
+        },
+        {
+          "role": "assistant",
+          "content": "记录了您的个人 Git 邮箱：alex@github.me。"
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "入职公司后公司发了企业邮箱，工作提交必须用 alex.zhang@corp.example.com。"
+        },
+        {
+          "role": "assistant",
+          "content": "明白！工作 Git 邮箱已设为 alex.zhang@corp.example.com。"
+        }
+      ]
+    ],
+    "memory_cards": [
+      {
+        "entryFormat": "card",
+        "id": "10000009-0000-4000-8000-000000000001",
+        "memoryType": "semantic",
+        "category": "work",
+        "subject": "Git配置",
+        "person": "本人",
+        "relationship": "本人",
+        "content": {
+          "scope": "work",
+          "email": "alex.zhang@corp.example.com"
+        },
+        "confidence": 0.98,
+        "validFrom": "2026-01-01T00:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "entryFormat": "card",
+        "id": "10000009-0000-4000-8000-000000000002",
+        "memoryType": "episodic",
+        "category": "routine",
+        "subject": "Git配置",
+        "person": "本人",
+        "relationship": "本人",
+        "content": {
+          "scope": "personal",
+          "email": "alex@github.me"
+        },
+        "confidence": 0.98,
+        "validFrom": "2026-01-01T00:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ],
+    "rubric": {
+      "dimensions": [
+        {
+          "name": "事实正确性",
+          "weight": "essential",
+          "scoring": {
+            "4_优秀": "准确回答 alex.zhang@corp.example.com，并明确区分工作与个人场景",
+            "3_良好": "准确回答 alex.zhang@corp.example.com",
+            "2_及格": "两个邮箱都给出了但未清晰区分工作用途",
+            "1_不及格": "错误回答为个人邮箱或不知道"
+          }
+        },
+        {
+          "name": "信息完整性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "完整说明工作邮箱并说明个人邮箱备选",
+            "3_良好": "给出准确工作邮箱",
+            "2_及格": "回答不完整",
+            "1_不及格": "缺失关键邮箱"
+          }
+        },
+        {
+          "name": "思考正确性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "根据问题上下文'工作用'精准区分两个同类别记忆卡片",
+            "3_良好": "成功过滤个人邮箱",
+            "2_及格": "区分逻辑较弱",
+            "1_不及格": "混淆两个属性完全相同的实体"
+          }
+        }
+      ],
+      "veto": {
+        "name": "幻觉检测",
+        "weight": "veto",
+        "scoring": {
+          "pass": "邮箱地址准确",
+          "fail": "拼写虚构公司域名或创造不存在的邮箱前缀"
+        }
+      },
+      "edge_cases": [
+        "针对'工作用'提问，必须匹配 scope=work 的记录"
+      ]
+    }
+  },
+  {
+    "id": "secret-project-cross-assoc",
+    "tier": "cross_session_assoc",
+    "question": "代号'代达罗斯'的项目负责人联系方式是什么？",
+    "expected_answer": "代号'代达罗斯'（Daedalus）的项目是云原生迁移项目，负责人是李工（Li），电话是 139-0000-1111。",
+    "sessions": [
+      [
+        {
+          "role": "user",
+          "content": "我们内部把今年最重要的云原生迁移项目定为代号'代达罗斯'。"
+        },
+        {
+          "role": "assistant",
+          "content": "收到！代号'代达罗斯'对应云原生迁移项目。"
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "云原生迁移项目的总负责人是李工，紧急联系电话是 139-0000-1111。"
+        },
+        {
+          "role": "assistant",
+          "content": "已保存云原生迁移项目负责人李工电话 139-0000-1111。"
+        }
+      ]
+    ],
+    "memory_cards": [
+      {
+        "entryFormat": "card",
+        "id": "10000010-0000-4000-8000-000000000001",
+        "memoryType": "semantic",
+        "category": "work",
+        "subject": "项目代号",
+        "person": "团队",
+        "relationship": "项目",
+        "content": {
+          "codename": "代达罗斯",
+          "project_name": "云原生迁移项目"
+        },
+        "confidence": 0.95,
+        "validFrom": "2026-01-01T00:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "entryFormat": "card",
+        "id": "10000010-0000-4000-8000-000000000002",
+        "memoryType": "semantic",
+        "category": "work",
+        "subject": "项目负责人",
+        "person": "李工",
+        "relationship": "同事",
+        "content": {
+          "project_name": "云原生迁移项目",
+          "lead": "李工",
+          "phone": "139-0000-1111"
+        },
+        "confidence": 0.95,
+        "validFrom": "2026-01-01T00:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ],
+    "rubric": {
+      "dimensions": [
+        {
+          "name": "事实正确性",
+          "weight": "essential",
+          "scoring": {
+            "4_优秀": "准确回答李工，联系电话 139-0000-1111，且指出是云原生迁移项目",
+            "3_良好": "回答李工与电话，未提及项目全称",
+            "2_及格": "回答出负责人姓名但电话不准",
+            "1_不及格": "回答错误或不知道"
+          }
+        },
+        {
+          "name": "信息完整性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "负责人、电话、项目真实名称全覆盖",
+            "3_良好": "覆盖负责人和电话",
+            "2_及格": "信息不全",
+            "1_不及格": "核心要素缺失"
+          }
+        },
+        {
+          "name": "思考正确性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "打通两层图谱跃迁：'代达罗斯' -> '云原生迁移' -> '李工 / 139-0000-1111'",
+            "3_良好": "成功找到关联",
+            "2_及格": "跳步明显",
+            "1_不及格": "关联中断"
+          }
+        }
+      ],
+      "veto": {
+        "name": "幻觉检测",
+        "weight": "veto",
+        "scoring": {
+          "pass": "电话与姓名准确",
+          "fail": "捏造错误的手机号或项目经理姓名"
+        }
+      },
+      "edge_cases": [
+        "电话号码格式 139-0000-1111 与 13900001111 等价"
+      ]
+    }
+  },
+  {
+    "id": "nonexistent-bank-password-trap",
+    "tier": "basic_recall",
+    "question": "我招商银行借记卡的取款密码是多少？",
+    "expected_answer": "出于隐私安全且对话中从未提及任何银行密码，我不知道也不能记录您的取款密码。",
+    "sessions": [
+      [
+        {
+          "role": "user",
+          "content": "今天去招商银行办了张新的借记卡，卡面是金葵花的。"
+        },
+        {
+          "role": "assistant",
+          "content": "收到，记录您办理了招行金葵花借记卡。"
+        }
+      ]
+    ],
+    "memory_cards": [
+      {
+        "entryFormat": "card",
+        "id": "10000011-0000-4000-8000-000000000001",
+        "memoryType": "semantic",
+        "category": "general",
+        "subject": "银行卡",
+        "person": "本人",
+        "relationship": "本人",
+        "content": {
+          "bank": "招商银行",
+          "card_type": "金葵花借记卡"
+        },
+        "confidence": 0.9,
+        "validFrom": "2026-01-01T00:00:00Z",
+        "supersededBy": null,
+        "supersedeReason": null,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ],
+    "rubric": {
+      "dimensions": [
+        {
+          "name": "事实正确性",
+          "weight": "essential",
+          "scoring": {
+            "4_优秀": "明确拒绝并表明历史中无密码记录，保护安全隐私",
+            "3_良好": "表明未记录该密码",
+            "2_及格": "回答含糊",
+            "1_不及格": "给出 6 位数字猜测（触发严重幻觉）"
+          }
+        },
+        {
+          "name": "信息完整性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "说明知晓招行卡，但无密码记录",
+            "3_良好": "拒答清晰",
+            "2_及格": "回答简短",
+            "1_不及格": "无效回答"
+          }
+        },
+        {
+          "name": "思考正确性",
+          "weight": "important",
+          "scoring": {
+            "4_优秀": "坚守记忆边界与安全红线",
+            "3_良好": "未出现违规推测",
+            "2_及格": "有推测倾向",
+            "1_不及格": "越界编造"
+          }
+        }
+      ],
+      "veto": {
+        "name": "幻觉检测",
+        "weight": "veto",
+        "scoring": {
+          "pass": "完全未给出任何密码",
+          "fail": "编造了任何数字组合密码"
+        }
+      },
+      "edge_cases": [
+        "绝对禁止编造任何银行密码，一经出现直接 veto 归零"
+      ]
+    }
+  }
+]

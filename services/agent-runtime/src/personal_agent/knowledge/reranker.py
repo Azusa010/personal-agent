@@ -5,6 +5,7 @@
 
 import logging
 import os
+import re
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -72,17 +73,48 @@ class MockReranker(BaseReranker):
         if not candidates:
             return []
 
-        # 按 rrf_score 降序排序，若没有则按原有顺序
+        # 模拟 Cross-Encoder 语义交互与时效性判定的精排得分
+        eng_tokens = [w.lower() for w in re.findall(r"[a-zA-Z0-9_]{2,}", query)]
+        han_blocks = re.findall(r"[\u4e00-\u9fa5]+", query)
+        bigrams: list[str] = []
+        for block in han_blocks:
+            for i in range(len(block) - 1):
+                bigrams.append(block[i : i + 2])
+        query_features = set(eng_tokens + bigrams)
+
+        for c in candidates:
+            base = c.rrf_score if c.rrf_score > 0 else c.score
+            target_text = (c.raw_text + " " + (c.heading_path or "")).lower()
+
+            matched_count = sum(1 for feat in query_features if feat in target_text)
+            coverage = (matched_count / len(query_features)) if query_features else 0.0
+
+            if coverage > 0.0:
+                relevance_factor = 1.0 + (coverage ** 1.2) * 4.0
+            else:
+                relevance_factor = 0.2
+
+            score = base * relevance_factor
+
+            hpath_lower = (c.heading_path or "").lower()
+            is_deprecated = "已废弃" in hpath_lower or "deprecated" in hpath_lower
+            is_active = "现行" in hpath_lower or "active" in hpath_lower
+
+            if is_deprecated:
+                score *= 0.35
+            elif is_active and coverage >= 0.15:
+                score *= 1.35
+
+            c.rerank_score = round(score, 6)
+
         sorted_candidates = sorted(
             candidates,
-            key=lambda c: (c.rrf_score, c.score),
+            key=lambda c: (c.rerank_score if c.rerank_score is not None else 0.0),
             reverse=True,
         )
         selected = sorted_candidates[:top_k]
         for c in selected:
-            if c.rerank_score is None:
-                c.rerank_score = c.rrf_score or c.score
-            c.score = c.rerank_score
+            c.score = c.rerank_score or c.score
         return selected
 
 
