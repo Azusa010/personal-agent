@@ -91,4 +91,6 @@ export type PersonalAgentApi = {
   submitA2UIForm(params: A2UIFormSubmitParams): Promise<A2UIFormSubmitIpcResult>
   /** 订阅 main 推来的 A2UI 渲染事件 */
   onA2UIRender(listener: (notice: A2UIRenderNotice) => void): () => void
+  /** 同步窗口自绘顶栏系统窗控(最小化/最大化/关闭)主题配色 */
+  setTitleBarTheme(theme: string): Promise<{ ok: boolean }>
 }

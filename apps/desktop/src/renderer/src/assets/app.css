@@ -146,6 +146,99 @@
   --info-foreground: #f2f6fc;
 }
 
+/* ── 主题系统 (Theme System) ──
+   默认: 经典青绿纸感 (Classic Mint Paper · 原生默认保留不变)
+   可选项: 象牙暖书纸 (paper-warm)、熟宣暗炭纸 (paper-dark)
+*/
+
+[data-theme='paper-warm'],
+[data-theme='paper-warm'].dark,
+[data-theme='paper-warm'] .dark,
+html[data-theme='paper-warm'] {
+  --radius: 0.75rem;
+
+  --background: #f7f6f2; /* 象牙暖纸 */
+  --foreground: #2d2a26; /* 松烟暖墨 */
+  --card: #ffffff; /* 暖白卡片 */
+  --card-foreground: #2d2a26;
+  --popover: #ffffff;
+  --popover-foreground: #2d2a26;
+  /* 暖印赤陶/朱砂红: 沉稳典雅的书卷印泥色 */
+  --primary: #c45535;
+  --primary-foreground: #ffffff;
+  --secondary: #ede9e0; /* 沉香深纸(侧栏与次级面) */
+  --secondary-foreground: #2d2a26;
+  --muted: #ede9e0;
+  --muted-foreground: #736d63;
+  --accent: #f5ebe6; /* hover 浅赤陶底 */
+  --accent-foreground: #a63f22;
+  --destructive: #bf4a42;
+  --destructive-foreground: #ffffff;
+  --border: #e2ddd3; /* 象牙暖灰边框 */
+  --input: #d0c9bd;
+  --ring: #c45535;
+
+  --paper-warm: #fcfbf8;
+  --mint: #c45535;
+  --mint-deep: #a63f22;
+  --mint-tint: #f5ebe6;
+  --mint-line: #e8d2c8;
+  --amber-strong: #8a5106;
+  --amber-tint: #fdf3e2;
+  --amber-line: #eed9ae;
+
+  --success: #2f6b4f;
+  --success-foreground: #f2fbf6;
+  --warning: #a16207;
+  --warning-foreground: #fdf8ee;
+  --info: #3a5a8c;
+  --info-foreground: #f2f6fc;
+}
+
+[data-theme='paper-dark'],
+[data-theme='paper-dark'].dark,
+[data-theme='paper-dark'] .dark,
+html[data-theme='paper-dark'] {
+  --radius: 0.75rem;
+
+  --background: #171614; /* 熟宣暗炭纸底 */
+  --foreground: #e6e2dc; /* 宣纸素白 */
+  --card: #1f1e1a; /* 暗炭浮层卡片 */
+  --card-foreground: #e6e2dc;
+  --popover: #1f1e1a;
+  --popover-foreground: #e6e2dc;
+  /* 柔珊瑚赤陶: 暗色下柔和不刺眼的朱印 */
+  --primary: #da7756;
+  --primary-foreground: #171614;
+  --secondary: #252420; /* 炭灰侧栏与深层 */
+  --secondary-foreground: #e6e2dc;
+  --muted: #252420;
+  --muted-foreground: #9a9488;
+  --accent: #2e2621; /* hover 炭焦暖底 */
+  --accent-foreground: #ea9477;
+  --destructive: #d45b53;
+  --destructive-foreground: #ffffff;
+  --border: #33312b; /* 炭墨边框 */
+  --input: #423f37;
+  --ring: #da7756;
+
+  --paper-warm: #1f1e1a;
+  --mint: #da7756;
+  --mint-deep: #ea9477;
+  --mint-tint: #2e2621;
+  --mint-line: #524741;
+  --amber-strong: #d97706;
+  --amber-tint: #3b2811;
+  --amber-line: #6b4c1b;
+
+  --success: #388e63;
+  --success-foreground: #0e2b1c;
+  --warning: #d97706;
+  --warning-foreground: #2d1b06;
+  --info: #4a7ab5;
+  --info-foreground: #0d1e33;
+}
+
 /* 细滚动条 · 暖纸调(透明轨道 + 暖沙圆头;不设 scrollbar-width,避免被标准属性接管) */
 ::-webkit-scrollbar {
   width: 7px;
@@ -155,13 +248,13 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #d3c9b6;
+  background: var(--input);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #a49b8a;
+  background: var(--muted-foreground);
   border: 2px solid transparent;
   background-clip: padding-box;
 }

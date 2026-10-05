@@ -95,6 +95,9 @@ if (process.contextIsolated) {
         return () => {
           ipcRenderer.removeListener('personal-agent:a2ui-render-notice', wrapped)
         }
+      },
+      setTitleBarTheme: (theme: string) => {
+        return ipcRenderer.invoke('personal-agent:set-title-bar-theme', theme)
       }
     })
   } catch (error) {

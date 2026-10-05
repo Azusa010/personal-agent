@@ -148,7 +148,7 @@ function createWindow(): void {
     autoHideMenuBar: true,
     titleBarStyle: 'hidden',
     ...(process.platform === 'win32'
-      ? { titleBarOverlay: { color: '#f4f0e7', symbolColor: '#6e675a', height: 40 } }
+      ? { titleBarOverlay: { color: '#efe9dd', symbolColor: '#6e675a', height: 40 } }
       : {}),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -690,6 +690,32 @@ app.whenReady().then(() => {
       }
     }
   )
+
+  const THEME_TITLEBAR_OVERLAYS: Record<string, { color: string; symbolColor: string }> = {
+    classic: { color: '#efe9dd', symbolColor: '#6e675a' },
+    'paper-warm': { color: '#ede9e0', symbolColor: '#736d63' },
+    'paper-dark': { color: '#252420', symbolColor: '#e6e2dc' }
+  }
+
+  ipcMain.handle('personal-agent:set-title-bar-theme', (_e, theme: unknown) => {
+    if (process.platform !== 'win32') return { ok: true }
+    const themeKey = typeof theme === 'string' ? theme : 'classic'
+    const overlay = THEME_TITLEBAR_OVERLAYS[themeKey] ?? THEME_TITLEBAR_OVERLAYS.classic
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        try {
+          win.setTitleBarOverlay({
+            color: overlay.color,
+            symbolColor: overlay.symbolColor,
+            height: 40
+          })
+        } catch (err) {
+          console.warn('[main] setTitleBarOverlay update failed:', err)
+        }
+      }
+    }
+    return { ok: true }
+  })
 
   createWindow()
 

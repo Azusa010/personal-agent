@@ -43,7 +43,7 @@ createServer((req, res) => {
     req.on('close', () => clients.delete(res))
     return
   }
-  const rel = url.pathname === '/' ? 'claude-desktop-agent.html' : decodeURIComponent(url.pathname.slice(1))
+  const rel = url.pathname === '/' ? 'linear-agent-workspace.html' : decodeURIComponent(url.pathname.slice(1))
   const file = normalize(join(ROOT, rel))
   if (!file.startsWith(ROOT)) {
     res.writeHead(403).end()
