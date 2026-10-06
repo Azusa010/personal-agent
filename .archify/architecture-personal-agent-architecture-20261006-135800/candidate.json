@@ -1,0 +1,291 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "PersonalAgent 系统全景架构",
+    "subtitle": "双运行时隔离 · 八级纵深安全管线 · 跨语言契约对齐",
+    "output": "personal-agent-architecture.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "ui",
+      "type": "frontend",
+      "label": "React 19 UI",
+      "sublabel": "Paper Warm / ThoughtChain",
+      "pos": [40, 80],
+      "size": [170, 64],
+      "tag": "Sandboxed"
+    },
+    {
+      "id": "ipc",
+      "type": "messagebus",
+      "label": "IPC ContextBridge",
+      "sublabel": "Preload Typed Contract",
+      "pos": [330, 80],
+      "size": [170, 64]
+    },
+    {
+      "id": "registry",
+      "type": "backend",
+      "label": "Capability Registry",
+      "sublabel": "22 项自描述能力插件",
+      "pos": [40, 200],
+      "size": [170, 64]
+    },
+    {
+      "id": "security",
+      "type": "security",
+      "label": "Security Pipeline",
+      "sublabel": "Scope → PathGuard → Sidecar",
+      "pos": [330, 200],
+      "size": [170, 64],
+      "tag": "8-Layer Guard"
+    },
+    {
+      "id": "sqlite",
+      "type": "database",
+      "label": "SQLite DB (WAL)",
+      "sublabel": "better-sqlite3 双库持久化",
+      "pos": [40, 320],
+      "size": [170, 64]
+    },
+    {
+      "id": "gate",
+      "type": "security",
+      "label": "Deliverables Gate",
+      "sublabel": "verifyDeliverables 物理核验",
+      "pos": [330, 320],
+      "size": [170, 64],
+      "tag": "Fail-Closed"
+    },
+    {
+      "id": "stdio_rpc",
+      "type": "messagebus",
+      "label": "stdio NDJSON RPC",
+      "sublabel": "JSON-RPC 2.0 双向通道",
+      "pos": [620, 200],
+      "size": [170, 64],
+      "tag": "Process Boundary"
+    },
+    {
+      "id": "rpc_server",
+      "type": "backend",
+      "label": "JSON-RPC Server",
+      "sublabel": "HostChannel (asyncio)",
+      "pos": [910, 80],
+      "size": [170, 64]
+    },
+    {
+      "id": "engine",
+      "type": "backend",
+      "label": "Multi-Strategy Engine",
+      "sublabel": "Plan-Execute / ReAct",
+      "pos": [910, 200],
+      "size": [170, 64],
+      "tag": "Cognitive Core"
+    },
+    {
+      "id": "defense",
+      "type": "security",
+      "label": "Trajectory Defense",
+      "sublabel": "QueryLoop / CircuitBreaker",
+      "pos": [1200, 200],
+      "size": [170, 64],
+      "tag": "Anti-Deadlock"
+    },
+    {
+      "id": "prompt",
+      "type": "backend",
+      "label": "Sectioned Prompt",
+      "sublabel": "XML 结构化分层设计",
+      "pos": [910, 320],
+      "size": [170, 64],
+      "tag": "KV Cache Aware"
+    },
+    {
+      "id": "rag",
+      "type": "database",
+      "label": "Hybrid RAG & Memory",
+      "sublabel": "BGE-M3 + RAPTOR + Viking",
+      "pos": [1200, 320],
+      "size": [170, 64]
+    },
+    {
+      "id": "zod",
+      "type": "frontend",
+      "label": "Zod Wire Schemas",
+      "sublabel": "packages/protocol (TS)",
+      "pos": [220, 480],
+      "size": [180, 64],
+      "tag": "Single Source"
+    },
+    {
+      "id": "fixtures",
+      "type": "external",
+      "label": "Shared JSON Fixtures",
+      "sublabel": "双端独立 parse 交叉测试",
+      "pos": [550, 480],
+      "size": [180, 64],
+      "tag": "Zero Drift"
+    },
+    {
+      "id": "pydantic",
+      "type": "backend",
+      "label": "Pydantic v2 Models",
+      "sublabel": "extra=allow 逐字段镜像",
+      "pos": [880, 480],
+      "size": [180, 64],
+      "tag": "Python Mirror"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "apps/desktop (可信宿主 · Electron 39 / Node.js)",
+      "wraps": ["ui", "ipc", "registry", "security", "sqlite", "gate"]
+    },
+    {
+      "kind": "region",
+      "label": "services/agent-runtime (认知大脑 · Python 3.13+)",
+      "wraps": ["rpc_server", "engine", "defense", "prompt", "rag"]
+    },
+    {
+      "kind": "region",
+      "label": "packages/protocol (跨语言契约 · 单一事实来源)",
+      "wraps": ["zod", "fixtures", "pydantic"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "conn-ui-ipc",
+      "from": "ui",
+      "to": "ipc",
+      "label": "Typed Invoke",
+      "variant": "default"
+    },
+    {
+      "id": "conn-ipc-registry",
+      "from": "ipc",
+      "to": "registry",
+      "label": "Dispatch",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    },
+    {
+      "id": "conn-registry-security",
+      "from": "registry",
+      "to": "security",
+      "label": "Bind & Guard",
+      "variant": "security"
+    },
+    {
+      "id": "conn-security-gate",
+      "from": "security",
+      "to": "gate",
+      "label": "Evidence Check",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "security"
+    },
+    {
+      "id": "conn-gate-sqlite",
+      "from": "gate",
+      "to": "sqlite",
+      "label": "Commit",
+      "variant": "default"
+    },
+    {
+      "id": "conn-security-rpc",
+      "from": "security",
+      "to": "stdio_rpc",
+      "label": "host.execute_tool",
+      "variant": "emphasis"
+    },
+    {
+      "id": "conn-rpc-server",
+      "from": "stdio_rpc",
+      "to": "rpc_server",
+      "label": "NDJSON Stdio",
+      "fromSide": "top",
+      "toSide": "left",
+      "variant": "emphasis"
+    },
+    {
+      "id": "conn-server-engine",
+      "from": "rpc_server",
+      "to": "engine",
+      "label": "Session",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    },
+    {
+      "id": "conn-engine-defense",
+      "from": "engine",
+      "to": "defense",
+      "label": "Loop Monitor",
+      "variant": "security"
+    },
+    {
+      "id": "conn-engine-prompt",
+      "from": "engine",
+      "to": "prompt",
+      "label": "Context",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "variant": "default"
+    },
+    {
+      "id": "conn-engine-rag",
+      "from": "engine",
+      "to": "rag",
+      "label": "Query",
+      "variant": "default"
+    },
+    {
+      "id": "conn-zod-fixtures",
+      "from": "zod",
+      "to": "fixtures",
+      "label": "Cross-Validation",
+      "variant": "dashed"
+    },
+    {
+      "id": "conn-fixtures-pydantic",
+      "from": "fixtures",
+      "to": "pydantic",
+      "label": "Mirror Sync",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "可信宿主 (Host)",
+      "items": [
+        "Electron Main 为唯一信任根与副作用执行体",
+        "八级纵深安全管线逐级阻断越界调用",
+        "verifyDeliverables 8项物理证据强验收"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "认知大脑 (Brain)",
+      "items": [
+        "Python 3.13+ 子进程负责无头推理与计划编排",
+        "ReAct / Plan-and-Execute 多策略引擎与防御网",
+        "XML 缓存感知分段式 Prompt 架构 (Prefix Caching)"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "跨语言契约 (Contract)",
+      "items": [
+        "Zod (TS) ↔ Pydantic v2 (Python) 双向镜像",
+        "共享 JSON Fixtures 双端交叉跑测防语义漂移",
+        "stdio NDJSON JSON-RPC 2.0 异步跨进程通信"
+      ]
+    }
+  ]
+}

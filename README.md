@@ -134,6 +134,17 @@ personal-agent/
 
 ## 系统架构
 
+<p align="center">
+  <img src="docs/images/architecture.svg" alt="PersonalAgent 系统全景架构图 (Archify)" width="100%" />
+</p>
+
+<p align="center">
+  <sub>🌐 由 <a href="https://github.com/tt-a1i/archify">Archify</a> 自动化验证构建 · 支持暗黑/浅色自适应 · 本地可打开 <a href="docs/architecture.html"><code>docs/architecture.html</code></a> 进行交互式全景探索与节点追踪</sub>
+</p>
+
+<details>
+<summary><b>查看 Mermaid 源码版本流程图</b></summary>
+
 ```mermaid
 flowchart TB
     subgraph Desktop ["apps/desktop (可信宿主 - Electron / TypeScript)"]
@@ -184,6 +195,8 @@ flowchart TB
     Zod -.->|"类型导入"| Desktop
     Pydantic -.->|"模型对齐"| Runtime
 ```
+
+</details>
 
 ### Monorepo 三包结构
 

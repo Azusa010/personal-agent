@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "658f122d-c134-492f-8256-2f743b726866",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "D:\\BaiduNetdiskDownload\\dailyProjects\\Projects\\PersonalAgent\\personal-agent\\.archify\\architecture-personal-agent-architecture-20261006-135800\\candidate.json",
+  "output": "D:\\BaiduNetdiskDownload\\dailyProjects\\Projects\\PersonalAgent\\personal-agent\\.archify\\architecture-personal-agent-architecture-20261006-135800\\personal-agent-architecture.html",
+  "specification": {
+    "sha256": "c5b30cf73511f00b7a78a50c53fac0a28abf730e583da437db31249f3a80fb0f",
+    "bytes": 7166
+  },
+  "artifact": {
+    "sha256": "522156b63b507879abfec296ccbafeb17d8d36c290b86f031d19dfaf1240a87a",
+    "bytes": 780136
+  }
+}
