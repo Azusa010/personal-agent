@@ -15,6 +15,7 @@
   <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React" />
   <img src="https://img.shields.io/badge/Python-3.13+-3776AB?logo=python&logoColor=white" alt="Python" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
 </p>
 
 ---
@@ -465,3 +466,9 @@ pnpm package:win  → NSIS 安装包
 - 仅支持 Windows 10/11
 - PDF 限可提取文本（不做 OCR）
 - 无自动更新机制
+
+---
+
+## 开源许可
+
+本项目基于 [MIT 许可证](LICENSE) 开源。

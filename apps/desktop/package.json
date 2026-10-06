@@ -6,6 +6,7 @@
   "main": "./out/main/index.js",
   "author": "example.com",
   "homepage": "https://electron-vite.org",
+  "license": "MIT",
   "scripts": {
     "test": "vitest run",
     "format": "prettier --write .",
