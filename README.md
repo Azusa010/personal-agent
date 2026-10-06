@@ -11,7 +11,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-blue" alt="Platform" />
-  <img src="https://img.shields.io/badge/tests-2750%2B%20passed-brightgreen" alt="Tests" />
+  <a href="https://github.com/Azusa010/personal-agent/actions/workflows/ci.yml"><img src="https://github.com/Azusa010/personal-agent/actions/workflows/ci.yml/badge.svg?branch=master" alt="CI Status" /></a>
+  <img src="https://img.shields.io/badge/tests-2760%2B%20passed-brightgreen" alt="Tests" />
   <img src="https://img.shields.io/badge/gates-100%25%20passing-success" alt="Gates" />
   <img src="https://img.shields.io/badge/Electron-39-47848F?logo=electron&logoColor=white" alt="Electron" />
   <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React" />
