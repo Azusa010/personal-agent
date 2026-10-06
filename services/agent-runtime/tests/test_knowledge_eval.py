@@ -10,8 +10,12 @@
 7. 确定性脚本模式 (scripted) 全链路端到端评测冒烟。
 """
 
+import socket
 from pathlib import Path
 
+import pytest
+
+from personal_agent.db.postgres import get_postgres_config
 from personal_agent.eval.knowledge_judge import (
     calculate_knowledge_score,
     score_to_normalized,
@@ -235,6 +239,19 @@ def test_essential_blocker_gate():
     assert passed is False, "essential 维度不及格必须阻断通过"
 
 
+def _is_pg_reachable() -> bool:
+    cfg = get_postgres_config()
+    try:
+        with socket.create_connection((cfg["host"], cfg["port"]), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
+@pytest.mark.skipif(
+    not _is_pg_reachable(),
+    reason="PostgreSQL 未运行 (127.0.0.1:5432)：这条要真把语料写进 pgvector",
+)
 def test_scripted_eval_pipeline_e2e(tmp_path: Path):
     """端到端验证知识库评测脚本化运行器与报告生成。"""
     cases_path = _get_cases_path()
