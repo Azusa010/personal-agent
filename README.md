@@ -11,6 +11,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-blue" alt="Platform" />
+  <img src="https://img.shields.io/badge/tests-2750%2B%20passed-brightgreen" alt="Tests" />
+  <img src="https://img.shields.io/badge/gates-100%25%20passing-success" alt="Gates" />
   <img src="https://img.shields.io/badge/Electron-39-47848F?logo=electron&logoColor=white" alt="Electron" />
   <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React" />
   <img src="https://img.shields.io/badge/Python-3.13+-3776AB?logo=python&logoColor=white" alt="Python" />
@@ -384,22 +386,23 @@ packages/protocol/fixtures/*.json       ← 共享样本，双端各自 parse �
 
 ## 工程实践
 
-### 验证门禁 — `pnpm verify`
+### 验证门禁与测试状态 — `pnpm verify`
 
-所有改动提交前必须通过一条命令跑完全部门禁：
+所有改动提交前必须通过一条命令跑完全部门禁（三端静态检查 + 2,750+ 自动化测试）：
 
 ```
 pnpm verify = typecheck + lint:ts + lint:py + test:pack + test:ts + test:py
 ```
 
-| 门禁          | 工具                    | 覆盖范围                 |
-| ------------- | ----------------------- | ------------------------ |
-| 类型检查      | TypeScript (node + web) | 双 tsconfig 全量类型检查 |
-| TS Lint       | ESLint + Prettier       | 代码风格与质量           |
-| Python Lint   | Ruff                    | Python 代码规范          |
-| Protocol 测试 | Vitest                  | 跨语言 fixture 交叉验证  |
-| Desktop 测试  | Vitest                  | 单元 + 集成 + E2E + Eval |
-| Python 测试   | Pytest                  | Agent 逻辑 + RAG + 协议  |
+| 门禁项             | 工具 / 框架             | 测试文件 | 用例数            | 状态             | 覆盖范畴                                                                                     |
+| ------------------ | ----------------------- | -------- | ----------------- | ---------------- | -------------------------------------------------------------------------------------------- |
+| **类型检查**       | TypeScript (node + web) | —        | —                 | ✅ Passing       | 双 tsconfig 全量严格类型检查                                                                 |
+| **TS 规范**        | ESLint + Prettier       | —        | —                 | ✅ Passing       | 代码风格与质量门禁                                                                           |
+| **Python 规范**    | Ruff                    | —        | —                 | ✅ Passing       | Python 代码风格与 Lint 规则                                                                  |
+| **Protocol 契约**  | Vitest                  | 11 个    | 296 Passed        | ✅ 100%          | 跨语言协议 Schema、双向契约与 Fixtures 交叉验证                                              |
+| **Desktop 桌面端** | Vitest                  | 117 个   | 1,571 Passed      | ✅ 100%          | 单元测试、八级安全管线、Path-Guard、SQLite 状态机、Golden Path E2E、失败回归集、GAIA/τ-bench |
+| **Agent 运行时**   | Pytest                  | 79 个    | 899 Passed        | ✅ 100%          | Agent 认知循环、多策略规划引擎、RAG 向量检索、RAPTOR 树、反幻觉摘要验证、轨迹防御网          |
+| **全量门禁汇总**   | **综合门禁**            | **207+** | **2,766+ Passed** | **✅ All Green** | **全栈类型安全、多语言自动化测试全绿通过**                                                   |
 
 ### 代码质量
 
