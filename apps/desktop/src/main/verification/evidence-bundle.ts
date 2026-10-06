@@ -248,7 +248,12 @@ export function collectToolResults(events: ExecutionEventRecord[]): ToolCallEvid
     if (e.type !== TOOL_CALLED_EVENT) continue
     const p = readPayload(e)
     if (p === null) continue
-    const item: ToolCallEvidence = { callId: p.callId, capability: p.capability, ok: false, hasResult: false }
+    const item: ToolCallEvidence = {
+      callId: p.callId,
+      capability: p.capability,
+      ok: false,
+      hasResult: false
+    }
     out.push(item)
     const list = pendingByCallId.get(p.callId) ?? []
     list.push(item)

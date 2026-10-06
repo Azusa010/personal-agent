@@ -266,68 +266,68 @@ function App(): React.JSX.Element {
     <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-foreground">
       <TitleBar />
       <div className="flex min-h-0 flex-1">
-      <Sidebar
-        conversations={conversations}
-        selectedConversationId={selectedConversationId}
-        runtimeStatus={runtimeStatus}
-        indexedCount={indexedCount}
-        activeView={activeView}
-        onSelectView={setActiveView}
-        onSelectConversation={handleSelectConversation}
-        onNewChat={handleNewChat}
-        onOpenIndex={() => setIndexOpen(true)}
-        onOpenDiagnostics={() => setDiagnosticsOpen(true)}
-        onSettings={() => setSettingsOpen(true)}
-      />
+        <Sidebar
+          conversations={conversations}
+          selectedConversationId={selectedConversationId}
+          runtimeStatus={runtimeStatus}
+          indexedCount={indexedCount}
+          activeView={activeView}
+          onSelectView={setActiveView}
+          onSelectConversation={handleSelectConversation}
+          onNewChat={handleNewChat}
+          onOpenIndex={() => setIndexOpen(true)}
+          onOpenDiagnostics={() => setDiagnosticsOpen(true)}
+          onSettings={() => setSettingsOpen(true)}
+        />
 
-      {activeView === 'chat' ? (
-        <section className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-[70px] shrink-0 items-center justify-between border-b border-border px-6">
-            <div className="min-w-0">
-              <h2 className="m-0 truncate text-[15px] font-semibold">
-                {selected === null ? '新对话' : selected.title}
-              </h2>
-              <p className="m-0 mt-1 truncate text-[11px] text-muted-foreground">
-                {selected === null
-                  ? '本地优先的个人助理'
-                  : `最近活动 ${formatOccurredAt(selected.updatedAt)}`}
-              </p>
-            </div>
-            <button
-              type="button"
-              aria-label="更多操作"
-              onClick={() => showFeedback('更多会话操作暂未实现。')}
-              className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
-            >
-              <Ellipsis size={18} />
-            </button>
-          </header>
+        {activeView === 'chat' ? (
+          <section className="flex min-w-0 flex-1 flex-col">
+            <header className="flex h-[70px] shrink-0 items-center justify-between border-b border-border px-6">
+              <div className="min-w-0">
+                <h2 className="m-0 truncate text-[15px] font-semibold">
+                  {selected === null ? '新对话' : selected.title}
+                </h2>
+                <p className="m-0 mt-1 truncate text-[11px] text-muted-foreground">
+                  {selected === null
+                    ? '本地优先的个人助理'
+                    : `最近活动 ${formatOccurredAt(selected.updatedAt)}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="更多操作"
+                onClick={() => showFeedback('更多会话操作暂未实现。')}
+                className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
+              >
+                <Ellipsis size={18} />
+              </button>
+            </header>
 
-          <MessageStream
-            messages={messages}
-            pendingText={pendingText}
-            messagesError={messagesError}
-            feedback={feedback}
-            streamState={streamState}
-            agentName={agentProfile?.name}
-            thinkingByTaskId={thinkingByTaskId}
-            pendingPermission={pendingPermission}
-            onDecidePermission={handleDecide}
-          />
+            <MessageStream
+              messages={messages}
+              pendingText={pendingText}
+              messagesError={messagesError}
+              feedback={feedback}
+              streamState={streamState}
+              agentName={agentProfile?.name}
+              thinkingByTaskId={thinkingByTaskId}
+              pendingPermission={pendingPermission}
+              onDecidePermission={handleDecide}
+            />
 
-          <Composer
-            running={running}
-            inputRef={inputRef}
-            onSend={(text) => void handleSend(text)}
-            onScan={() => void handleScan()}
-            onOpenIndex={() => setIndexOpen(true)}
-            onOpenDiagnostics={() => setDiagnosticsOpen(true)}
-            onExport={() => void handleExport()}
-          />
-        </section>
-      ) : (
-        <WorkflowCenter onCompleted={() => void loadIndexedCount()} />
-      )}
+            <Composer
+              running={running}
+              inputRef={inputRef}
+              onSend={(text) => void handleSend(text)}
+              onScan={() => void handleScan()}
+              onOpenIndex={() => setIndexOpen(true)}
+              onOpenDiagnostics={() => setDiagnosticsOpen(true)}
+              onExport={() => void handleExport()}
+            />
+          </section>
+        ) : (
+          <WorkflowCenter onCompleted={() => void loadIndexedCount()} />
+        )}
       </div>
 
       <IndexDialog open={indexOpen} onOpenChange={setIndexOpen} />

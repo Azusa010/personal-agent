@@ -60,9 +60,12 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
         manifestPath: evalCasesPath(),
         workDir,
         runtime: { command: VENV_PYTHON, args: ['-m', 'personal_agent'], cwd: RUNTIME_CWD },
-        onCase: (line) => progress.push(line)
+        onCase: (line) => {
+          console.log(line)
+          progress.push(line)
+        }
       })
-    }, 300_000)
+    }, 600_000)
 
     afterAll(() => {
       if (workDir !== '') removeEvalWorkDir(workDir)

@@ -33,7 +33,6 @@ def test_format_memory_entry_dict_content():
         updatedAt="2026-09-20T00:00:00Z",
     )
     line = format_memory_entry(card)
-    # TODO(你填)[验证与质量]: 断言 —— 期望：格式化后的条目应映射出 [个人偏好] 标签，且包含主题 '缩进风格' 与缩进内容
     assert "[个人偏好]" in line
     assert "缩进风格" in line
     assert "indent: 2 spaces" in line

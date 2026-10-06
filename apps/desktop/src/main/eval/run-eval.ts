@@ -209,7 +209,11 @@ export function makeEvalWorkDir(prefix = 'pa-eval-'): string {
 }
 
 export function removeEvalWorkDir(dir: string): void {
-  rmSync(dir, { recursive: true, force: true })
+  try {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+  } catch {
+    // 忽略 Windows 偶发异步文件句柄未完全释放的清理错误
+  }
 }
 
 /** 第 run 次跑的工作区子目录。第 1 次保持原名（报告与工作区对得上），后续加后缀 */

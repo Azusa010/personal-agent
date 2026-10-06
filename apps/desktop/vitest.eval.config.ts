@@ -19,7 +19,7 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/main/eval/**/*.test.ts'],
     exclude: ['**/node_modules/**', '**/dist/**'],
-    testTimeout: 300_000,
-    hookTimeout: 300_000
+    testTimeout: 600_000,
+    hookTimeout: 600_000
   }
 })

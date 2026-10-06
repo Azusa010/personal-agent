@@ -442,785 +442,790 @@ export default function DesignLab(): React.JSX.Element {
         </span>
       </header>
       <div className="mx-auto max-w-[1200px] px-10 pb-14 pt-10">
-      {/* ── 刊头 ── */}
-      <header className="mb-10">
-        <p className="font-mono text-[11px] tracking-[0.22em] text-[var(--mint-deep)] uppercase">
-          Personal Agent · Interactive Prototype (React + shadcn)
-        </p>
-        <h1 className="font-claude mt-3 text-4xl font-bold tracking-wide">
-          温暖纸感 <span className="text-[var(--mint-deep)]">×</span> 薄荷青绿
-        </h1>
-        <p className="mt-3 max-w-[640px] text-sm leading-7 text-muted-foreground">
-          用项目现有的 Tailwind + shadcn 组件搭建的可点击原型,主题令牌只作用于本页;
-          定稿后按下方「落地映射」搬进 app.css 即为正式界面。发一条任务、批准一次写操作试试。
-        </p>
-        <div className="mt-5 flex flex-wrap gap-2">
-          {[
-            ['基调', '浅色清新'],
-            ['风格', '温暖纸感'],
-            ['主色', '薄荷青绿 #0F9D8F'],
-            ['圆角', '10–20px'],
-            ['投影', '暖棕调 · 低透明度']
-          ].map(([k, v]) => (
-            <span
-              key={k}
-              className="rounded-full border bg-card px-3.5 py-1 text-xs text-muted-foreground"
-            >
-              {k} <b className="font-semibold text-foreground">{v}</b>
-            </span>
-          ))}
-        </div>
-      </header>
-
-      {/* ── 演示控制台 ── */}
-      <div className="mb-3.5 flex flex-wrap items-center gap-2">
-        <span className="mr-1 font-mono text-[10.5px] tracking-[0.18em] text-muted-foreground/70">
-          演示控制台
-        </span>
-        {SCENARIO_CHIPS.map((chip) => (
-          <Button
-            key={chip.key}
-            size="sm"
-            variant={scenario === chip.key ? 'default' : 'outline'}
-            onClick={() => enterScenario(chip.key)}
-          >
-            {chip.label}
-          </Button>
-        ))}
-        <span className="ml-auto text-[11px] text-muted-foreground/70">
-          或在输入舱里随便发一条任务,原型会完整播放执行流程
-        </span>
-      </div>
-
-      {/* ── 应用窗体 ── */}
-      <div className="overflow-hidden rounded-2xl border border-[var(--input)] bg-[#fbf8f2] shadow-[0_1px_2px_rgba(94,80,53,0.05),0_8px_28px_rgba(94,80,53,0.08)]">
-        {/* 标题栏 */}
-        <div className="flex h-[42px] items-center border-b bg-[#f4f0e7] px-4">
-          <div className="flex items-center gap-2.5">
-            <div className="grid size-5 place-items-center rounded-md bg-gradient-to-br from-[var(--mint)] to-[var(--mint-deep)] text-white">
-              <Sparkles className="size-3" />
-            </div>
-            <span className="font-claude text-[13px] font-bold tracking-wide">PersonalAgent</span>
+        {/* ── 刊头 ── */}
+        <header className="mb-10">
+          <p className="font-mono text-[11px] tracking-[0.22em] text-[var(--mint-deep)] uppercase">
+            Personal Agent · Interactive Prototype (React + shadcn)
+          </p>
+          <h1 className="font-claude mt-3 text-4xl font-bold tracking-wide">
+            温暖纸感 <span className="text-[var(--mint-deep)]">×</span> 薄荷青绿
+          </h1>
+          <p className="mt-3 max-w-[640px] text-sm leading-7 text-muted-foreground">
+            用项目现有的 Tailwind + shadcn 组件搭建的可点击原型,主题令牌只作用于本页;
+            定稿后按下方「落地映射」搬进 app.css 即为正式界面。发一条任务、批准一次写操作试试。
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            {[
+              ['基调', '浅色清新'],
+              ['风格', '温暖纸感'],
+              ['主色', '薄荷青绿 #0F9D8F'],
+              ['圆角', '10–20px'],
+              ['投影', '暖棕调 · 低透明度']
+            ].map(([k, v]) => (
+              <span
+                key={k}
+                className="rounded-full border bg-card px-3.5 py-1 text-xs text-muted-foreground"
+              >
+                {k} <b className="font-semibold text-foreground">{v}</b>
+              </span>
+            ))}
           </div>
-          <div className="ml-auto flex select-none gap-5 text-xs text-muted-foreground/60">
-            <span>—</span>
-            <span>□</span>
-            <span>✕</span>
-          </div>
-        </div>
+        </header>
 
-        <div className="relative flex h-[780px]">
-          {/* 侧栏 */}
-          <aside className="flex w-[252px] shrink-0 flex-col border-r bg-secondary px-3.5 pt-4 pb-3.5">
-            <div className="mb-3.5 flex w-fit items-center gap-2 rounded-full border bg-card/70 px-3 py-1 text-[11.5px] text-muted-foreground">
-              <span className="lab-pulse-dot size-[7px] rounded-full bg-[var(--mint)]" />
-              运行时正常 · v0.3
-            </div>
-
+        {/* ── 演示控制台 ── */}
+        <div className="mb-3.5 flex flex-wrap items-center gap-2">
+          <span className="mr-1 font-mono text-[10.5px] tracking-[0.18em] text-muted-foreground/70">
+            演示控制台
+          </span>
+          {SCENARIO_CHIPS.map((chip) => (
             <Button
-              variant="outline"
-              className="mb-5 w-full rounded-xl border-[var(--input)] font-semibold shadow-sm"
-              onClick={() => enterScenario('idle')}
+              key={chip.key}
+              size="sm"
+              variant={scenario === chip.key ? 'default' : 'outline'}
+              onClick={() => enterScenario(chip.key)}
             >
-              <Plus className="text-[var(--mint-deep)]" />
-              新对话
+              {chip.label}
             </Button>
+          ))}
+          <span className="ml-auto text-[11px] text-muted-foreground/70">
+            或在输入舱里随便发一条任务,原型会完整播放执行流程
+          </span>
+        </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              {HIST_GROUPS.map((group) => (
-                <div key={group} className="mb-4">
-                  <div className="mb-2 px-1.5 text-[10.5px] font-semibold tracking-[0.14em] text-muted-foreground/70">
-                    {group}
-                  </div>
-                  {HISTORY.filter((h) => h.group === group).map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        setActiveHist(item.id)
-                        if (item.demo) enterScenario('running')
-                        else showToast('原型演示:只有「发票 PDF 摘要与归档」带完整流程')
-                      }}
-                      className={cn(
-                        'mb-0.5 flex w-full flex-col items-start gap-0.5 rounded-xl px-2.5 py-2 text-left transition-colors',
-                        activeHist === item.id ? 'border bg-card shadow-sm' : 'hover:bg-card/70'
-                      )}
-                    >
-                      <span
+        {/* ── 应用窗体 ── */}
+        <div className="overflow-hidden rounded-2xl border border-[var(--input)] bg-[#fbf8f2] shadow-[0_1px_2px_rgba(94,80,53,0.05),0_8px_28px_rgba(94,80,53,0.08)]">
+          {/* 标题栏 */}
+          <div className="flex h-[42px] items-center border-b bg-[#f4f0e7] px-4">
+            <div className="flex items-center gap-2.5">
+              <div className="grid size-5 place-items-center rounded-md bg-gradient-to-br from-[var(--mint)] to-[var(--mint-deep)] text-white">
+                <Sparkles className="size-3" />
+              </div>
+              <span className="font-claude text-[13px] font-bold tracking-wide">PersonalAgent</span>
+            </div>
+            <div className="ml-auto flex select-none gap-5 text-xs text-muted-foreground/60">
+              <span>—</span>
+              <span>□</span>
+              <span>✕</span>
+            </div>
+          </div>
+
+          <div className="relative flex h-[780px]">
+            {/* 侧栏 */}
+            <aside className="flex w-[252px] shrink-0 flex-col border-r bg-secondary px-3.5 pt-4 pb-3.5">
+              <div className="mb-3.5 flex w-fit items-center gap-2 rounded-full border bg-card/70 px-3 py-1 text-[11.5px] text-muted-foreground">
+                <span className="lab-pulse-dot size-[7px] rounded-full bg-[var(--mint)]" />
+                运行时正常 · v0.3
+              </div>
+
+              <Button
+                variant="outline"
+                className="mb-5 w-full rounded-xl border-[var(--input)] font-semibold shadow-sm"
+                onClick={() => enterScenario('idle')}
+              >
+                <Plus className="text-[var(--mint-deep)]" />
+                新对话
+              </Button>
+
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {HIST_GROUPS.map((group) => (
+                  <div key={group} className="mb-4">
+                    <div className="mb-2 px-1.5 text-[10.5px] font-semibold tracking-[0.14em] text-muted-foreground/70">
+                      {group}
+                    </div>
+                    {HISTORY.filter((h) => h.group === group).map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveHist(item.id)
+                          if (item.demo) enterScenario('running')
+                          else showToast('原型演示:只有「发票 PDF 摘要与归档」带完整流程')
+                        }}
                         className={cn(
-                          'w-full truncate text-[12.5px] leading-snug',
-                          activeHist === item.id
-                            ? 'font-semibold text-foreground'
-                            : 'text-muted-foreground'
+                          'mb-0.5 flex w-full flex-col items-start gap-0.5 rounded-xl px-2.5 py-2 text-left transition-colors',
+                          activeHist === item.id ? 'border bg-card shadow-sm' : 'hover:bg-card/70'
                         )}
                       >
-                        {item.title}
-                        {activeHist === item.id && (
-                          <span className="text-[var(--mint-deep)]">{hist.mark}</span>
-                        )}
-                      </span>
-                      <span className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground/70">
                         <span
                           className={cn(
-                            'size-1.5 rounded-full',
-                            activeHist === item.id && hist.running
-                              ? 'bg-[var(--amber-strong)]'
-                              : 'bg-[var(--mint)]'
+                            'w-full truncate text-[12.5px] leading-snug',
+                            activeHist === item.id
+                              ? 'font-semibold text-foreground'
+                              : 'text-muted-foreground'
                           )}
-                        />
-                        {activeHist === item.id ? hist.time : item.time}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t pt-3">
-              <div className="mb-3 flex items-center gap-1.5 px-1 text-[11.5px] text-muted-foreground">
-                <FileText className="size-3.5" />
-                已索引文档 <b className="font-semibold text-foreground">12</b> 份
-              </div>
-              <div className="flex gap-1.5">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex-1 rounded-lg text-[11px] text-muted-foreground"
-                  onClick={() => setIndexOpen(true)}
-                >
-                  <FileText className="size-3" />
-                  索引
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex-1 rounded-lg text-[11px] text-muted-foreground"
-                  onClick={() => showToast('诊断:运行时正常 · 已注册能力 14 项 · 无告警')}
-                >
-                  <Activity className="size-3" />
-                  诊断
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex-1 rounded-lg text-[11px] text-muted-foreground"
-                  onClick={() => setSettingsOpen(true)}
-                >
-                  <SlidersHorizontal className="size-3" />
-                  设置
-                </Button>
-              </div>
-            </div>
-          </aside>
-
-          {/* 主区 */}
-          <main className="flex min-w-0 flex-1 flex-col">
-            {idle ? (
-              <div className="flex flex-1 flex-col items-center justify-center gap-3.5 px-10 pb-24 text-center">
-                <div className="grid size-16 place-items-center rounded-3xl bg-gradient-to-br from-[var(--mint)] to-[var(--mint-deep)] text-white shadow-[0_10px_24px_rgba(15,157,143,0.3)]">
-                  <Sparkles className="size-6" />
-                </div>
-                <h5 className="font-claude text-xl font-bold">开始一段新对话</h5>
-                <p className="text-xs leading-6 text-muted-foreground/80">
-                  描述你想完成的任务——读文档、做摘要、整理文件、设提醒都行。
-                  <br />
-                  涉及写操作时,我会先征得你的批准。
-                </p>
-                <div className="mt-1.5 flex flex-wrap justify-center gap-2">
-                  {QUICK_FILLS.map((q) => (
-                    <button
-                      key={q.label}
-                      type="button"
-                      onClick={() => setInput(q.prompt)}
-                      className="flex items-center gap-1.5 rounded-full border bg-[var(--paper-warm)] px-3 py-1.5 text-[11.5px] text-muted-foreground transition-colors hover:border-[var(--mint-line)] hover:bg-[var(--mint-tint)] hover:text-[var(--mint-deep)]"
-                    >
-                      <q.icon className="size-3" />
-                      {q.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="relative min-h-0 flex-1">
-                {/* 消息轨(ZCode 式):每条 User 消息一格,点击跳转;当前滚动位置高亮 */}
-                <div className="absolute top-1/2 left-1.5 z-10 flex -translate-y-1/2 flex-col items-center gap-2.5">
-                  {turns.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      title={t.goal}
-                      aria-label={'跳转到消息:' + t.goal}
-                      onClick={() => jumpTo(t.id)}
-                      className={cn(
-                        'h-[2px] w-2.5 rounded-full transition-all duration-150 hover:w-4',
-                        activeTurn === t.id
-                          ? 'bg-[var(--mint)]'
-                          : 'bg-muted-foreground/30 hover:bg-[var(--mint-deep)]'
-                      )}
-                    />
-                  ))}
-                </div>
-                <div
-                  ref={scrollRef}
-                  onScroll={handleChatScroll}
-                  className="h-full overflow-y-auto px-8 py-7"
-                >
-                  <div className="mx-auto flex max-w-[660px] flex-col">
-                    <div className="mb-5 text-center text-[10.5px] tracking-[0.12em] text-muted-foreground/70">
-                      <span className="bg-[#fbf8f2] px-3">今天</span>
-                    </div>
-
-                    {turns.map((t, i) => (
-                      <Fragment key={t.id}>
-                        <div id={'turn-' + t.id} className="mb-5 flex scroll-mt-3 justify-end">
-                          <div
+                        >
+                          {item.title}
+                          {activeHist === item.id && (
+                            <span className="text-[var(--mint-deep)]">{hist.mark}</span>
+                          )}
+                        </span>
+                        <span className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground/70">
+                          <span
                             className={cn(
-                              'max-w-[78%] rounded-2xl rounded-br-md border border-[var(--mint-line)] bg-[var(--mint-tint)] px-4 py-3 text-[13.5px] leading-relaxed text-[#1d4f49]',
-                              flashId === t.id && 'lab-flash'
+                              'size-1.5 rounded-full',
+                              activeHist === item.id && hist.running
+                                ? 'bg-[var(--amber-strong)]'
+                                : 'bg-[var(--mint)]'
                             )}
-                          >
-                            {t.goal}
-                          </div>
-                        </div>
-                        {t.brief && (
-                          <div className="font-claude mb-6 px-1 text-[14px] leading-loose">
-                            已读完整份合同(14 页)。违约条款集中在第 7–9
-                            条:提前退租需支付一个月租金作为违约金,涨租需提前 60 日书面通知。
-                            <span className="ml-1 rounded bg-[var(--mint-tint)] px-1.5 py-0.5 font-mono text-[9.5px] text-[var(--mint-deep)]">
-                              p.9
-                            </span>
-                          </div>
+                          />
+                          {activeHist === item.id ? hist.time : item.time}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t pt-3">
+                <div className="mb-3 flex items-center gap-1.5 px-1 text-[11.5px] text-muted-foreground">
+                  <FileText className="size-3.5" />
+                  已索引文档 <b className="font-semibold text-foreground">12</b> 份
+                </div>
+                <div className="flex gap-1.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1 rounded-lg text-[11px] text-muted-foreground"
+                    onClick={() => setIndexOpen(true)}
+                  >
+                    <FileText className="size-3" />
+                    索引
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1 rounded-lg text-[11px] text-muted-foreground"
+                    onClick={() => showToast('诊断:运行时正常 · 已注册能力 14 项 · 无告警')}
+                  >
+                    <Activity className="size-3" />
+                    诊断
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1 rounded-lg text-[11px] text-muted-foreground"
+                    onClick={() => setSettingsOpen(true)}
+                  >
+                    <SlidersHorizontal className="size-3" />
+                    设置
+                  </Button>
+                </div>
+              </div>
+            </aside>
+
+            {/* 主区 */}
+            <main className="flex min-w-0 flex-1 flex-col">
+              {idle ? (
+                <div className="flex flex-1 flex-col items-center justify-center gap-3.5 px-10 pb-24 text-center">
+                  <div className="grid size-16 place-items-center rounded-3xl bg-gradient-to-br from-[var(--mint)] to-[var(--mint-deep)] text-white shadow-[0_10px_24px_rgba(15,157,143,0.3)]">
+                    <Sparkles className="size-6" />
+                  </div>
+                  <h5 className="font-claude text-xl font-bold">开始一段新对话</h5>
+                  <p className="text-xs leading-6 text-muted-foreground/80">
+                    描述你想完成的任务——读文档、做摘要、整理文件、设提醒都行。
+                    <br />
+                    涉及写操作时,我会先征得你的批准。
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap justify-center gap-2">
+                    {QUICK_FILLS.map((q) => (
+                      <button
+                        key={q.label}
+                        type="button"
+                        onClick={() => setInput(q.prompt)}
+                        className="flex items-center gap-1.5 rounded-full border bg-[var(--paper-warm)] px-3 py-1.5 text-[11.5px] text-muted-foreground transition-colors hover:border-[var(--mint-line)] hover:bg-[var(--mint-tint)] hover:text-[var(--mint-deep)]"
+                      >
+                        <q.icon className="size-3" />
+                        {q.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="relative min-h-0 flex-1">
+                  {/* 消息轨(ZCode 式):每条 User 消息一格,点击跳转;当前滚动位置高亮 */}
+                  <div className="absolute top-1/2 left-1.5 z-10 flex -translate-y-1/2 flex-col items-center gap-2.5">
+                    {turns.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        title={t.goal}
+                        aria-label={'跳转到消息:' + t.goal}
+                        onClick={() => jumpTo(t.id)}
+                        className={cn(
+                          'h-[2px] w-2.5 rounded-full transition-all duration-150 hover:w-4',
+                          activeTurn === t.id
+                            ? 'bg-[var(--mint)]'
+                            : 'bg-muted-foreground/30 hover:bg-[var(--mint-deep)]'
                         )}
-                        {i === turns.length - 1 && (
-                          <Fragment>
-                            {/* 思考链 */}
-                            <Collapsible
-                              defaultOpen
-                              className={cn('mb-3.5', scenario === 'demo' && 'hidden')}
+                      />
+                    ))}
+                  </div>
+                  <div
+                    ref={scrollRef}
+                    onScroll={handleChatScroll}
+                    className="h-full overflow-y-auto px-8 py-7"
+                  >
+                    <div className="mx-auto flex max-w-[660px] flex-col">
+                      <div className="mb-5 text-center text-[10.5px] tracking-[0.12em] text-muted-foreground/70">
+                        <span className="bg-[#fbf8f2] px-3">今天</span>
+                      </div>
+
+                      {turns.map((t, i) => (
+                        <Fragment key={t.id}>
+                          <div id={'turn-' + t.id} className="mb-5 flex scroll-mt-3 justify-end">
+                            <div
+                              className={cn(
+                                'max-w-[78%] rounded-2xl rounded-br-md border border-[var(--mint-line)] bg-[var(--mint-tint)] px-4 py-3 text-[13.5px] leading-relaxed text-[#1d4f49]',
+                                flashId === t.id && 'lab-flash'
+                              )}
                             >
-                              <Card className="gap-0 border-[var(--border)] bg-[var(--paper-warm)] py-0 shadow-sm">
-                                <CollapsibleTrigger asChild>
-                                  <CardHeader className="cursor-pointer grid-cols-[auto_auto_1fr_auto] items-center gap-2.5 border-b px-4 py-3">
-                                    <CardTitle className="font-claude text-[13.5px]">
-                                      思考过程
-                                    </CardTitle>
-                                    <Badge
-                                      variant="outline"
-                                      className="border-[var(--mint-line)] bg-[var(--mint-tint)] font-mono text-[10px] text-[var(--mint-deep)]"
-                                    >
-                                      thought-chain
-                                    </Badge>
-                                    <span />
-                                    <ChevronDown className="size-4 text-muted-foreground" />
-                                  </CardHeader>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent>
-                                  <CardContent className="relative px-4 pt-2.5 pb-3.5">
-                                    <div className="lab-think-rail" />
-                                    {THINK_LINES.map((line) => (
-                                      <div key={line.tm} className="flex gap-3 py-1">
-                                        <span className="mt-[3px] w-[52px] shrink-0 font-mono text-[10px] text-muted-foreground/70">
-                                          {line.tm}
-                                        </span>
-                                        <span className="text-xs leading-relaxed text-muted-foreground">
-                                          {line.tx}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </CardContent>
-                                </CollapsibleContent>
-                              </Card>
-                            </Collapsible>
-
-                            {/* 执行计划 */}
-                            <Collapsible defaultOpen className="mb-3.5">
-                              <Card className="gap-0 py-0 shadow-sm">
-                                <CollapsibleTrigger asChild>
-                                  <CardHeader className="cursor-pointer grid-cols-[auto_auto_1fr_auto] items-center gap-2.5 border-b px-4 py-3">
-                                    <CardTitle className="font-claude text-[13.5px]">
-                                      执行计划
-                                    </CardTitle>
-                                    <Badge
-                                      variant="outline"
-                                      className="border-[var(--mint-line)] bg-[var(--mint-tint)] font-mono text-[10px] text-[var(--mint-deep)]"
-                                    >
-                                      {planBadge}
-                                    </Badge>
-                                    <span />
-                                    <ChevronDown className="size-4 text-muted-foreground" />
-                                  </CardHeader>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent>
-                                  <CardContent className="px-2 py-1.5">
-                                    {PLAN_STEPS.map((meta, idx) => {
-                                      const st = steps[idx]
-                                      return (
-                                        <div
-                                          key={meta.cap}
-                                          className={cn(
-                                            'flex items-start gap-3 px-2 py-2.5',
-                                            idx > 0 && 'border-t border-dashed',
-                                            st === 'running' && 'text-[var(--mint-deep)]',
-                                            st === 'cancel' && 'text-destructive'
-                                          )}
-                                        >
-                                          <span className="mt-0.5 flex shrink-0">
-                                            <StepIcon state={st} />
-                                          </span>
-                                          <div className="min-w-0 flex-1">
-                                            <div className="text-[12.8px] leading-relaxed text-foreground">
-                                              {meta.desc}
-                                            </div>
-                                            <div className="mt-0.5 font-mono text-[10px] text-muted-foreground/70">
-                                              {meta.cap}
-                                            </div>
-                                          </div>
-                                          <span className="mt-0.5 shrink-0 font-mono text-[10px] text-muted-foreground/70">
-                                            {stepDur(st, meta.dur)}
-                                          </span>
-                                        </div>
-                                      )
-                                    })}
-                                  </CardContent>
-                                </CollapsibleContent>
-                              </Card>
-                            </Collapsible>
-
-                            {/* 权限审批 · 流内卡片(不弹窗):pending 展示完整请求,决定后收成一条记录 */}
-                            {permStatus === 'pending' && (
-                              <Card
-                                ref={permCardRef}
-                                className="mb-3.5 gap-0 overflow-hidden border-[var(--amber-line)] py-0 shadow-[0_1px_2px_rgba(94,80,53,0.06),0_6px_20px_rgba(161,98,7,0.12)]"
+                              {t.goal}
+                            </div>
+                          </div>
+                          {t.brief && (
+                            <div className="font-claude mb-6 px-1 text-[14px] leading-loose">
+                              已读完整份合同(14 页)。违约条款集中在第 7–9
+                              条:提前退租需支付一个月租金作为违约金,涨租需提前 60 日书面通知。
+                              <span className="ml-1 rounded bg-[var(--mint-tint)] px-1.5 py-0.5 font-mono text-[9.5px] text-[var(--mint-deep)]">
+                                p.9
+                              </span>
+                            </div>
+                          )}
+                          {i === turns.length - 1 && (
+                            <Fragment>
+                              {/* 思考链 */}
+                              <Collapsible
+                                defaultOpen
+                                className={cn('mb-3.5', scenario === 'demo' && 'hidden')}
                               >
-                                <div className="flex items-center gap-2.5 border-b border-[var(--amber-line)] bg-[var(--amber-tint)] px-4 py-2">
-                                  <AlertTriangle className="size-4 shrink-0 text-[var(--amber-strong)]" />
-                                  <span className="text-xs font-semibold tracking-wide text-[var(--amber-strong)]">
-                                    写操作请求 · 需要你的批准
-                                  </span>
-                                  <div
-                                    className="relative ml-auto grid size-9 place-items-center rounded-full"
-                                    style={{
-                                      background: `conic-gradient(${remaining <= 10 ? 'var(--amber-strong)' : 'var(--mint)'} ${(remaining / 45) * 360}deg, var(--border) 0)`
-                                    }}
-                                  >
-                                    <div className="absolute inset-[3px] rounded-full bg-card" />
-                                    <span className="relative font-mono text-[10px] font-bold">
-                                      {remaining}
-                                    </span>
-                                  </div>
-                                </div>
-                                <CardContent className="px-4 pt-3.5 pb-4">
-                                  <div className="font-claude text-[15.5px] font-bold leading-snug">
-                                    移动 3 个发票 PDF 到归档文件夹?
-                                  </div>
-                                  <div className="mt-2.5 flex items-center gap-2">
-                                    <span className="rounded-lg border border-[var(--amber-line)] bg-[var(--amber-tint)] px-2 py-0.5 font-mono text-[11px] text-[var(--amber-strong)]">
-                                      filesystem_move
-                                    </span>
-                                    <span className="text-[11px] text-muted-foreground">
-                                      风险等级 中 · 与计划第 4 步一致
-                                    </span>
-                                  </div>
-                                  <div className="mt-3 flex flex-col gap-1">
-                                    <div className="flex items-center gap-2.5 rounded-lg border bg-[var(--paper-warm)] px-3 py-2 font-mono text-[10.5px] text-muted-foreground">
-                                      <FileText className="size-3.5 shrink-0" />
-                                      <span className="truncate">
-                                        C:\Users\Azusa\Downloads\发票-云服务-2026-06.pdf 等 3 个文件
-                                      </span>
-                                    </div>
-                                    <ArrowDown className="mx-auto size-3 text-muted-foreground" />
-                                    <div className="flex items-center gap-2.5 rounded-lg border border-[var(--mint-line)] bg-[var(--mint-tint)] px-3 py-2 font-mono text-[10.5px] text-[#1d4f49]">
-                                      <FolderOpen className="size-3.5 shrink-0 text-[var(--mint-deep)]" />
-                                      <span className="truncate">
-                                        C:\Users\Azusa\Documents\发票\2026-06\
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="mt-2.5 flex items-center gap-2 text-[10.5px] text-muted-foreground">
-                                    参数指纹
-                                    <code className="rounded border bg-[var(--paper-warm)] px-1.5 py-0.5 font-mono text-[10px]">
-                                      fp:3f9a-c21e-88b7
-                                    </code>
-                                    · 与批准过的列表、提取参数同源
-                                  </div>
-                                  <div className="mt-3.5 flex items-center gap-2.5">
-                                    <span className="text-[10.5px] leading-relaxed text-muted-foreground/80">
-                                      {remaining} 秒后自动拒绝
-                                      <br />
-                                      过期需重新发起
-                                    </span>
-                                    <div className="ml-auto flex gap-2">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="border border-[var(--input)]"
-                                        onClick={() => decide(false)}
-                                      >
-                                        拒绝
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        onClick={() => decide(true)}
-                                        className="shadow-[0_4px_14px_rgba(15,157,143,0.35)]"
-                                      >
-                                        <Check strokeWidth={2.4} />
-                                        批准并执行
-                                      </Button>
-                                    </div>
-                                  </div>
-                                  <div className="mt-3 flex items-center gap-1.5 border-t border-dashed pt-2.5 text-[10px] text-muted-foreground/70">
-                                    <ShieldCheck className="size-3" />
-                                    所有写操作都先经你批准 · 指纹用于防止计划外的参数篡改
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            )}
-                            {permStatus !== 'idle' && permStatus !== 'pending' && (
-                              <div
-                                className={cn(
-                                  'mb-3.5 flex items-center gap-2.5 rounded-xl border px-4 py-2.5 text-xs',
-                                  permStatus === 'approved' &&
-                                    'border-[var(--mint-line)] bg-[var(--mint-tint)] text-[#1d4f49]',
-                                  permStatus === 'denied' &&
-                                    'border-destructive/30 bg-destructive/10 text-destructive',
-                                  permStatus === 'expired' &&
-                                    'border-[var(--amber-line)] bg-[var(--amber-tint)] text-[var(--amber-strong)]'
-                                )}
-                              >
-                                {permStatus === 'approved' ? (
-                                  <Check className="size-3.5 shrink-0" strokeWidth={2.4} />
-                                ) : (
-                                  <X className="size-3.5 shrink-0" strokeWidth={2.4} />
-                                )}
-                                <span className="font-semibold">
-                                  {permStatus === 'approved' && '已批准并执行'}
-                                  {permStatus === 'denied' && '已拒绝 · 未移动任何文件'}
-                                  {permStatus === 'expired' && '超时未处理,已自动拒绝'}
-                                </span>
-                                <span className="ml-auto truncate font-mono text-[10px] opacity-70">
-                                  filesystem_move · fp:3f9a-c21e-88b7 · 09:44
-                                </span>
-                              </div>
-                            )}
-
-                            {/* 摘要卡 */}
-                            {factsRevealed && (
-                              <Collapsible defaultOpen className="mb-3.5">
-                                <Card className="gap-0 py-0 shadow-sm">
+                                <Card className="gap-0 border-[var(--border)] bg-[var(--paper-warm)] py-0 shadow-sm">
                                   <CollapsibleTrigger asChild>
                                     <CardHeader className="cursor-pointer grid-cols-[auto_auto_1fr_auto] items-center gap-2.5 border-b px-4 py-3">
                                       <CardTitle className="font-claude text-[13.5px]">
-                                        摘要 · 3 份发票
+                                        思考过程
                                       </CardTitle>
                                       <Badge
                                         variant="outline"
                                         className="border-[var(--mint-line)] bg-[var(--mint-tint)] font-mono text-[10px] text-[var(--mint-deep)]"
                                       >
-                                        页码可溯源
+                                        thought-chain
                                       </Badge>
                                       <span />
                                       <ChevronDown className="size-4 text-muted-foreground" />
                                     </CardHeader>
                                   </CollapsibleTrigger>
                                   <CollapsibleContent>
-                                    <CardContent className="px-4 pt-2 pb-3.5">
-                                      {FACTS.map((f) => (
-                                        <div
-                                          key={f.ft}
-                                          className="flex items-baseline gap-2.5 py-1.5"
-                                        >
-                                          <span className="text-[12.8px] leading-relaxed">
-                                            {f.ft}
+                                    <CardContent className="relative px-4 pt-2.5 pb-3.5">
+                                      <div className="lab-think-rail" />
+                                      {THINK_LINES.map((line) => (
+                                        <div key={line.tm} className="flex gap-3 py-1">
+                                          <span className="mt-[3px] w-[52px] shrink-0 font-mono text-[10px] text-muted-foreground/70">
+                                            {line.tm}
                                           </span>
-                                          <span className="shrink-0 rounded-md bg-[var(--mint-tint)] px-1.5 font-mono text-[9.5px] text-[var(--mint-deep)]">
-                                            {f.pg}
+                                          <span className="text-xs leading-relaxed text-muted-foreground">
+                                            {line.tx}
                                           </span>
                                         </div>
                                       ))}
-                                      <div className="mt-2 rounded-lg bg-[var(--paper-warm)] px-3 py-2.5 text-xs text-muted-foreground">
-                                        合计 <b className="text-[var(--mint-deep)]">¥15,260.00</b>
-                                        ,三份均为增值税普通发票,已写入{' '}
-                                        <b className="text-[var(--mint-deep)]">
-                                          文档/发票摘要-2026-06.md
-                                        </b>
-                                      </div>
                                     </CardContent>
                                   </CollapsibleContent>
                                 </Card>
                               </Collapsible>
-                            )}
 
-                            {/* 回复:Agent 的话用衬线呈现(Claude 式),用户气泡保持无衬线 */}
-                            {reply === 'ok' && (
-                              <div className="font-claude px-1 text-[14px] leading-loose">
-                                归档完成:3 份原件已移入
-                                <span className="font-semibold text-[var(--mint-deep)]">
-                                  发票 / 2026-06
-                                </span>
-                                ,任务结束。
-                                <div className="font-sans mt-1.5 text-xs text-muted-foreground/70">
-                                  所有事实均来自原文并附页码,可点击页码跳转核对。
+                              {/* 执行计划 */}
+                              <Collapsible defaultOpen className="mb-3.5">
+                                <Card className="gap-0 py-0 shadow-sm">
+                                  <CollapsibleTrigger asChild>
+                                    <CardHeader className="cursor-pointer grid-cols-[auto_auto_1fr_auto] items-center gap-2.5 border-b px-4 py-3">
+                                      <CardTitle className="font-claude text-[13.5px]">
+                                        执行计划
+                                      </CardTitle>
+                                      <Badge
+                                        variant="outline"
+                                        className="border-[var(--mint-line)] bg-[var(--mint-tint)] font-mono text-[10px] text-[var(--mint-deep)]"
+                                      >
+                                        {planBadge}
+                                      </Badge>
+                                      <span />
+                                      <ChevronDown className="size-4 text-muted-foreground" />
+                                    </CardHeader>
+                                  </CollapsibleTrigger>
+                                  <CollapsibleContent>
+                                    <CardContent className="px-2 py-1.5">
+                                      {PLAN_STEPS.map((meta, idx) => {
+                                        const st = steps[idx]
+                                        return (
+                                          <div
+                                            key={meta.cap}
+                                            className={cn(
+                                              'flex items-start gap-3 px-2 py-2.5',
+                                              idx > 0 && 'border-t border-dashed',
+                                              st === 'running' && 'text-[var(--mint-deep)]',
+                                              st === 'cancel' && 'text-destructive'
+                                            )}
+                                          >
+                                            <span className="mt-0.5 flex shrink-0">
+                                              <StepIcon state={st} />
+                                            </span>
+                                            <div className="min-w-0 flex-1">
+                                              <div className="text-[12.8px] leading-relaxed text-foreground">
+                                                {meta.desc}
+                                              </div>
+                                              <div className="mt-0.5 font-mono text-[10px] text-muted-foreground/70">
+                                                {meta.cap}
+                                              </div>
+                                            </div>
+                                            <span className="mt-0.5 shrink-0 font-mono text-[10px] text-muted-foreground/70">
+                                              {stepDur(st, meta.dur)}
+                                            </span>
+                                          </div>
+                                        )
+                                      })}
+                                    </CardContent>
+                                  </CollapsibleContent>
+                                </Card>
+                              </Collapsible>
+
+                              {/* 权限审批 · 流内卡片(不弹窗):pending 展示完整请求,决定后收成一条记录 */}
+                              {permStatus === 'pending' && (
+                                <Card
+                                  ref={permCardRef}
+                                  className="mb-3.5 gap-0 overflow-hidden border-[var(--amber-line)] py-0 shadow-[0_1px_2px_rgba(94,80,53,0.06),0_6px_20px_rgba(161,98,7,0.12)]"
+                                >
+                                  <div className="flex items-center gap-2.5 border-b border-[var(--amber-line)] bg-[var(--amber-tint)] px-4 py-2">
+                                    <AlertTriangle className="size-4 shrink-0 text-[var(--amber-strong)]" />
+                                    <span className="text-xs font-semibold tracking-wide text-[var(--amber-strong)]">
+                                      写操作请求 · 需要你的批准
+                                    </span>
+                                    <div
+                                      className="relative ml-auto grid size-9 place-items-center rounded-full"
+                                      style={{
+                                        background: `conic-gradient(${remaining <= 10 ? 'var(--amber-strong)' : 'var(--mint)'} ${(remaining / 45) * 360}deg, var(--border) 0)`
+                                      }}
+                                    >
+                                      <div className="absolute inset-[3px] rounded-full bg-card" />
+                                      <span className="relative font-mono text-[10px] font-bold">
+                                        {remaining}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <CardContent className="px-4 pt-3.5 pb-4">
+                                    <div className="font-claude text-[15.5px] font-bold leading-snug">
+                                      移动 3 个发票 PDF 到归档文件夹?
+                                    </div>
+                                    <div className="mt-2.5 flex items-center gap-2">
+                                      <span className="rounded-lg border border-[var(--amber-line)] bg-[var(--amber-tint)] px-2 py-0.5 font-mono text-[11px] text-[var(--amber-strong)]">
+                                        filesystem_move
+                                      </span>
+                                      <span className="text-[11px] text-muted-foreground">
+                                        风险等级 中 · 与计划第 4 步一致
+                                      </span>
+                                    </div>
+                                    <div className="mt-3 flex flex-col gap-1">
+                                      <div className="flex items-center gap-2.5 rounded-lg border bg-[var(--paper-warm)] px-3 py-2 font-mono text-[10.5px] text-muted-foreground">
+                                        <FileText className="size-3.5 shrink-0" />
+                                        <span className="truncate">
+                                          C:\Users\Azusa\Downloads\发票-云服务-2026-06.pdf 等 3
+                                          个文件
+                                        </span>
+                                      </div>
+                                      <ArrowDown className="mx-auto size-3 text-muted-foreground" />
+                                      <div className="flex items-center gap-2.5 rounded-lg border border-[var(--mint-line)] bg-[var(--mint-tint)] px-3 py-2 font-mono text-[10.5px] text-[#1d4f49]">
+                                        <FolderOpen className="size-3.5 shrink-0 text-[var(--mint-deep)]" />
+                                        <span className="truncate">
+                                          C:\Users\Azusa\Documents\发票\2026-06\
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="mt-2.5 flex items-center gap-2 text-[10.5px] text-muted-foreground">
+                                      参数指纹
+                                      <code className="rounded border bg-[var(--paper-warm)] px-1.5 py-0.5 font-mono text-[10px]">
+                                        fp:3f9a-c21e-88b7
+                                      </code>
+                                      · 与批准过的列表、提取参数同源
+                                    </div>
+                                    <div className="mt-3.5 flex items-center gap-2.5">
+                                      <span className="text-[10.5px] leading-relaxed text-muted-foreground/80">
+                                        {remaining} 秒后自动拒绝
+                                        <br />
+                                        过期需重新发起
+                                      </span>
+                                      <div className="ml-auto flex gap-2">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="border border-[var(--input)]"
+                                          onClick={() => decide(false)}
+                                        >
+                                          拒绝
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          onClick={() => decide(true)}
+                                          className="shadow-[0_4px_14px_rgba(15,157,143,0.35)]"
+                                        >
+                                          <Check strokeWidth={2.4} />
+                                          批准并执行
+                                        </Button>
+                                      </div>
+                                    </div>
+                                    <div className="mt-3 flex items-center gap-1.5 border-t border-dashed pt-2.5 text-[10px] text-muted-foreground/70">
+                                      <ShieldCheck className="size-3" />
+                                      所有写操作都先经你批准 · 指纹用于防止计划外的参数篡改
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              )}
+                              {permStatus !== 'idle' && permStatus !== 'pending' && (
+                                <div
+                                  className={cn(
+                                    'mb-3.5 flex items-center gap-2.5 rounded-xl border px-4 py-2.5 text-xs',
+                                    permStatus === 'approved' &&
+                                      'border-[var(--mint-line)] bg-[var(--mint-tint)] text-[#1d4f49]',
+                                    permStatus === 'denied' &&
+                                      'border-destructive/30 bg-destructive/10 text-destructive',
+                                    permStatus === 'expired' &&
+                                      'border-[var(--amber-line)] bg-[var(--amber-tint)] text-[var(--amber-strong)]'
+                                  )}
+                                >
+                                  {permStatus === 'approved' ? (
+                                    <Check className="size-3.5 shrink-0" strokeWidth={2.4} />
+                                  ) : (
+                                    <X className="size-3.5 shrink-0" strokeWidth={2.4} />
+                                  )}
+                                  <span className="font-semibold">
+                                    {permStatus === 'approved' && '已批准并执行'}
+                                    {permStatus === 'denied' && '已拒绝 · 未移动任何文件'}
+                                    {permStatus === 'expired' && '超时未处理,已自动拒绝'}
+                                  </span>
+                                  <span className="ml-auto truncate font-mono text-[10px] opacity-70">
+                                    filesystem_move · fp:3f9a-c21e-88b7 · 09:44
+                                  </span>
                                 </div>
-                              </div>
-                            )}
-                            {reply === 'deny' && (
-                              <div className="font-claude px-1 text-[14px] leading-loose">
-                                已按你的决定
-                                <span className="font-semibold text-[var(--mint-deep)]">
-                                  取消归档
-                                </span>
-                                ,未移动任何文件。汇总文档仍保留在「文档 /
-                                发票摘要-2026-06.md」,随时可以重新发起归档。
-                              </div>
-                            )}
-                          </Fragment>
-                        )}
-                      </Fragment>
+                              )}
+
+                              {/* 摘要卡 */}
+                              {factsRevealed && (
+                                <Collapsible defaultOpen className="mb-3.5">
+                                  <Card className="gap-0 py-0 shadow-sm">
+                                    <CollapsibleTrigger asChild>
+                                      <CardHeader className="cursor-pointer grid-cols-[auto_auto_1fr_auto] items-center gap-2.5 border-b px-4 py-3">
+                                        <CardTitle className="font-claude text-[13.5px]">
+                                          摘要 · 3 份发票
+                                        </CardTitle>
+                                        <Badge
+                                          variant="outline"
+                                          className="border-[var(--mint-line)] bg-[var(--mint-tint)] font-mono text-[10px] text-[var(--mint-deep)]"
+                                        >
+                                          页码可溯源
+                                        </Badge>
+                                        <span />
+                                        <ChevronDown className="size-4 text-muted-foreground" />
+                                      </CardHeader>
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent>
+                                      <CardContent className="px-4 pt-2 pb-3.5">
+                                        {FACTS.map((f) => (
+                                          <div
+                                            key={f.ft}
+                                            className="flex items-baseline gap-2.5 py-1.5"
+                                          >
+                                            <span className="text-[12.8px] leading-relaxed">
+                                              {f.ft}
+                                            </span>
+                                            <span className="shrink-0 rounded-md bg-[var(--mint-tint)] px-1.5 font-mono text-[9.5px] text-[var(--mint-deep)]">
+                                              {f.pg}
+                                            </span>
+                                          </div>
+                                        ))}
+                                        <div className="mt-2 rounded-lg bg-[var(--paper-warm)] px-3 py-2.5 text-xs text-muted-foreground">
+                                          合计 <b className="text-[var(--mint-deep)]">¥15,260.00</b>
+                                          ,三份均为增值税普通发票,已写入{' '}
+                                          <b className="text-[var(--mint-deep)]">
+                                            文档/发票摘要-2026-06.md
+                                          </b>
+                                        </div>
+                                      </CardContent>
+                                    </CollapsibleContent>
+                                  </Card>
+                                </Collapsible>
+                              )}
+
+                              {/* 回复:Agent 的话用衬线呈现(Claude 式),用户气泡保持无衬线 */}
+                              {reply === 'ok' && (
+                                <div className="font-claude px-1 text-[14px] leading-loose">
+                                  归档完成:3 份原件已移入
+                                  <span className="font-semibold text-[var(--mint-deep)]">
+                                    发票 / 2026-06
+                                  </span>
+                                  ,任务结束。
+                                  <div className="font-sans mt-1.5 text-xs text-muted-foreground/70">
+                                    所有事实均来自原文并附页码,可点击页码跳转核对。
+                                  </div>
+                                </div>
+                              )}
+                              {reply === 'deny' && (
+                                <div className="font-claude px-1 text-[14px] leading-loose">
+                                  已按你的决定
+                                  <span className="font-semibold text-[var(--mint-deep)]">
+                                    取消归档
+                                  </span>
+                                  ,未移动任何文件。汇总文档仍保留在「文档 /
+                                  发票摘要-2026-06.md」,随时可以重新发起归档。
+                                </div>
+                              )}
+                            </Fragment>
+                          )}
+                        </Fragment>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 输入舱 */}
+              <div className="pt-2.5 pb-6">
+                <div className="mx-auto max-w-[660px] rounded-[20px] border border-[var(--input)] bg-card px-4 pt-3.5 pb-3 shadow-[0_1px_2px_rgba(94,80,53,0.05),0_8px_28px_rgba(94,80,53,0.08)] transition-shadow focus-within:shadow-[0_1px_2px_rgba(94,80,53,0.05),0_8px_28px_rgba(15,157,143,0.14)]">
+                  <Textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        send()
+                      }
+                    }}
+                    placeholder="描述你的任务,或点下面的快捷动作…"
+                    className="min-h-7 resize-none border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 md:text-[13.5px]"
+                    rows={1}
+                  />
+                  <div className="flex items-center gap-1.5">
+                    {QUICK_FILLS.map((q) => (
+                      <button
+                        key={q.label}
+                        type="button"
+                        onClick={() => setInput(q.prompt)}
+                        className="flex items-center gap-1.5 rounded-full border bg-[var(--paper-warm)] px-3 py-1.5 text-[11.5px] text-muted-foreground transition-colors hover:border-[var(--mint-line)] hover:bg-[var(--mint-tint)] hover:text-[var(--mint-deep)]"
+                      >
+                        <q.icon className="size-3" />
+                        {q.label}
+                      </button>
                     ))}
+                    <button
+                      type="button"
+                      onClick={() => showToast('已将当前会话导出为 Markdown 并复制到剪贴板')}
+                      className="flex items-center gap-1.5 rounded-full border bg-[var(--paper-warm)] px-3 py-1.5 text-[11.5px] text-muted-foreground transition-colors hover:border-[var(--mint-line)] hover:bg-[var(--mint-tint)] hover:text-[var(--mint-deep)]"
+                    >
+                      <FileDown className="size-3" />
+                      导出 Markdown
+                    </button>
+                    <Button
+                      size="icon"
+                      onClick={send}
+                      className="ml-auto size-9 rounded-full shadow-[0_4px_12px_rgba(15,157,143,0.35)]"
+                      aria-label="发送"
+                    >
+                      <ArrowUp strokeWidth={2.4} />
+                    </Button>
+                  </div>
+                  <div className="mt-2 flex gap-3.5 px-1 text-[10px] text-muted-foreground/70">
+                    <span>
+                      <kbd className="rounded border bg-[var(--paper-warm)] px-1 font-mono text-[9px]">
+                        Enter
+                      </kbd>{' '}
+                      发送
+                    </span>
+                    <span>
+                      <kbd className="rounded border bg-[var(--paper-warm)] px-1 font-mono text-[9px]">
+                        Shift + Enter
+                      </kbd>{' '}
+                      换行
+                    </span>
                   </div>
                 </div>
               </div>
-            )}
+            </main>
+          </div>
+        </div>
 
-            {/* 输入舱 */}
-            <div className="pt-2.5 pb-6">
-              <div className="mx-auto max-w-[660px] rounded-[20px] border border-[var(--input)] bg-card px-4 pt-3.5 pb-3 shadow-[0_1px_2px_rgba(94,80,53,0.05),0_8px_28px_rgba(94,80,53,0.08)] transition-shadow focus-within:shadow-[0_1px_2px_rgba(94,80,53,0.05),0_8px_28px_rgba(15,157,143,0.14)]">
-                <Textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      send()
-                    }
-                  }}
-                  placeholder="描述你的任务,或点下面的快捷动作…"
-                  className="min-h-7 resize-none border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 md:text-[13.5px]"
-                  rows={1}
-                />
-                <div className="flex items-center gap-1.5">
-                  {QUICK_FILLS.map((q) => (
-                    <button
-                      key={q.label}
-                      type="button"
-                      onClick={() => setInput(q.prompt)}
-                      className="flex items-center gap-1.5 rounded-full border bg-[var(--paper-warm)] px-3 py-1.5 text-[11.5px] text-muted-foreground transition-colors hover:border-[var(--mint-line)] hover:bg-[var(--mint-tint)] hover:text-[var(--mint-deep)]"
-                    >
-                      <q.icon className="size-3" />
-                      {q.label}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => showToast('已将当前会话导出为 Markdown 并复制到剪贴板')}
-                    className="flex items-center gap-1.5 rounded-full border bg-[var(--paper-warm)] px-3 py-1.5 text-[11.5px] text-muted-foreground transition-colors hover:border-[var(--mint-line)] hover:bg-[var(--mint-tint)] hover:text-[var(--mint-deep)]"
-                  >
-                    <FileDown className="size-3" />
-                    导出 Markdown
-                  </button>
-                  <Button
-                    size="icon"
-                    onClick={send}
-                    className="ml-auto size-9 rounded-full shadow-[0_4px_12px_rgba(15,157,143,0.35)]"
-                    aria-label="发送"
-                  >
-                    <ArrowUp strokeWidth={2.4} />
-                  </Button>
-                </div>
-                <div className="mt-2 flex gap-3.5 px-1 text-[10px] text-muted-foreground/70">
-                  <span>
-                    <kbd className="rounded border bg-[var(--paper-warm)] px-1 font-mono text-[9px]">
-                      Enter
-                    </kbd>{' '}
-                    发送
-                  </span>
-                  <span>
-                    <kbd className="rounded border bg-[var(--paper-warm)] px-1 font-mono text-[9px]">
-                      Shift + Enter
-                    </kbd>{' '}
-                    换行
-                  </span>
-                </div>
+        {/* ── 索引管理 ── */}
+        <Dialog open={indexOpen} onOpenChange={setIndexOpen}>
+          <DialogContent className="max-w-[540px] rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="font-claude">索引管理</DialogTitle>
+              <DialogDescription>已索引的 PDF 文档及其扫描时间</DialogDescription>
+            </DialogHeader>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>文档</TableHead>
+                  <TableHead>首次扫描</TableHead>
+                  <TableHead>最近扫描</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {[
+                  ['产品白皮书.pdf', '2026-06-28', '今天 08:02'],
+                  ['租房合同.pdf', '2026-06-30', '昨天 21:10'],
+                  ['报价单-A.pdf', '2026-07-01', '昨天 15:00']
+                ].map(([name, first, last]) => (
+                  <TableRow key={name}>
+                    <TableCell className="font-medium">{name}</TableCell>
+                    <TableCell className="text-muted-foreground">{first}</TableCell>
+                    <TableCell>
+                      <span className="rounded-md bg-[var(--mint-tint)] px-1.5 py-0.5 font-mono text-[9.5px] text-[var(--mint-deep)]">
+                        {last}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <p className="text-[11px] text-muted-foreground/70">
+              共 12 份已索引 · 演示仅展示最近 3 份
+            </p>
+          </DialogContent>
+        </Dialog>
+
+        {/* ── 模型设置 ── */}
+        <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+          <DialogContent className="max-w-[540px] rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="font-claude">模型设置</DialogTitle>
+              <DialogDescription>配置 API Key、模型名与 API Base URL</DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-3.5">
+              <div className="flex flex-col gap-1.5">
+                <Label>API Key</Label>
+                <Input type="password" autoComplete="off" placeholder="留空 = 不修改已保存的 Key" />
+                <p className="text-[10.5px] leading-relaxed text-muted-foreground/70">
+                  Key 只写本地,永不回传到界面;清除请用「清除已存的 Key」。
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>模型名</Label>
+                <Input placeholder="如 glm-4-flash(留空 = 清空)" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>API Base URL</Label>
+                <Input placeholder="https://…(留空 = 清空)" />
               </div>
             </div>
-          </main>
-        </div>
-      </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setSettingsOpen(false)}>
+                取消
+              </Button>
+              <Button
+                onClick={() => {
+                  setSettingsOpen(false)
+                  showToast('已保存 · 运行时重启后新配置生效(演示)')
+                }}
+              >
+                保存并重启运行时
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* ── 索引管理 ── */}
-      <Dialog open={indexOpen} onOpenChange={setIndexOpen}>
-        <DialogContent className="max-w-[540px] rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="font-claude">索引管理</DialogTitle>
-            <DialogDescription>已索引的 PDF 文档及其扫描时间</DialogDescription>
-          </DialogHeader>
-          <Table>
+        {/* ── Toast ── */}
+        <div
+          className={cn(
+            'fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full bg-[#3a372f] px-4.5 py-2 text-xs text-[#fdfcf8] shadow-lg transition-all',
+            toast ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-2.5 opacity-0'
+          )}
+          role="status"
+        >
+          {toast}
+        </div>
+
+        {/* ── 落地映射 ── */}
+        <section className="mt-16 rounded-2xl border bg-card p-7 shadow-sm">
+          <h2 className="font-claude text-base font-bold">
+            落地映射 — 设计实验室令牌 → app.css 现有变量
+          </h2>
+          <Table className="mt-3">
             <TableHeader>
               <TableRow>
-                <TableHead>文档</TableHead>
-                <TableHead>首次扫描</TableHead>
-                <TableHead>最近扫描</TableHead>
+                <TableHead className="w-[160px]">现变量</TableHead>
+                <TableHead className="w-[240px]">新取值</TableHead>
+                <TableHead>说明</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {[
-                ['产品白皮书.pdf', '2026-06-28', '今天 08:02'],
-                ['租房合同.pdf', '2026-06-30', '昨天 21:10'],
-                ['报价单-A.pdf', '2026-07-01', '昨天 15:00']
-              ].map(([name, first, last]) => (
-                <TableRow key={name}>
-                  <TableCell className="font-medium">{name}</TableCell>
-                  <TableCell className="text-muted-foreground">{first}</TableCell>
-                  <TableCell>
-                    <span className="rounded-md bg-[var(--mint-tint)] px-1.5 py-0.5 font-mono text-[9.5px] text-[var(--mint-deep)]">
-                      {last}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))}
+              <TableRow>
+                <TableCell className="font-mono text-xs text-[var(--mint-deep)]">
+                  --background
+                </TableCell>
+                <TableCell>
+                  <span className="mr-1.5 inline-block size-2.5 rounded-sm border border-[#d3c9b6] bg-[#f6f3ec] align-middle" />
+                  <b>#F6F3EC 纸白</b>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  全局底色;侧栏用{' '}
+                  <code className="font-mono text-xs text-[var(--mint-deep)]">--secondary</code>{' '}
+                  #EFE9DD 拉开一层
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-mono text-xs text-[var(--mint-deep)]">--card</TableCell>
+                <TableCell>
+                  <span className="mr-1.5 inline-block size-2.5 rounded-sm border border-[#d3c9b6] bg-[#fffdf8] align-middle" />
+                  <b>#FFFDF8 暖白</b>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  计划卡 / 摘要卡 / 弹窗;投影换暖棕调
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-mono text-xs text-[var(--mint-deep)]">
+                  --foreground
+                </TableCell>
+                <TableCell>
+                  <span className="mr-1.5 inline-block size-2.5 rounded-sm border border-[#d3c9b6] bg-[#3a372f] align-middle" />
+                  <b>#3A372F 暖墨</b>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  正文;次级 #6E675A,弱化 #A49B8A,边线 #E4DDCF
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-mono text-xs text-[var(--mint-deep)]">
+                  --primary
+                </TableCell>
+                <TableCell>
+                  <span className="mr-1.5 inline-block size-2.5 rounded-sm border border-[#d3c9b6] bg-[#0f9d8f] align-middle" />
+                  <b>#0F9D8F 薄荷</b>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  只用于发送键、批准键、选中态、进行中动画;浅底 #E4F3F1
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-mono text-xs text-[var(--mint-deep)]">
+                  --warning
+                </TableCell>
+                <TableCell>
+                  <span className="mr-1.5 inline-block size-2.5 rounded-sm border border-[#eed9ae] bg-[#fdf3e2] align-middle" />
+                  <b>琥珀系</b>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  权限审批警示带、等待批准状态;深字 #8A5106
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-mono text-xs text-[var(--mint-deep)]">
+                  --font-claude(新增)
+                </TableCell>
+                <TableCell>
+                  <b>Source Serif 4 + Noto Serif SC(Claude 式衬线)</b>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  应用名、卡片标题、弹窗标题、Agent 回复;fontsource CDN 按需分包,断网回退系统宋体
+                </TableCell>
+              </TableRow>
             </TableBody>
           </Table>
-          <p className="text-[11px] text-muted-foreground/70">
-            共 12 份已索引 · 演示仅展示最近 3 份
-          </p>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── 模型设置 ── */}
-      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="max-w-[540px] rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="font-claude">模型设置</DialogTitle>
-            <DialogDescription>配置 API Key、模型名与 API Base URL</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3.5">
-            <div className="flex flex-col gap-1.5">
-              <Label>API Key</Label>
-              <Input type="password" autoComplete="off" placeholder="留空 = 不修改已保存的 Key" />
-              <p className="text-[10.5px] leading-relaxed text-muted-foreground/70">
-                Key 只写本地,永不回传到界面;清除请用「清除已存的 Key」。
-              </p>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>模型名</Label>
-              <Input placeholder="如 glm-4-flash(留空 = 清空)" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>API Base URL</Label>
-              <Input placeholder="https://…(留空 = 清空)" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setSettingsOpen(false)}>
-              取消
-            </Button>
-            <Button
-              onClick={() => {
-                setSettingsOpen(false)
-                showToast('已保存 · 运行时重启后新配置生效(演示)')
-              }}
-            >
-              保存并重启运行时
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Toast ── */}
-      <div
-        className={cn(
-          'fixed bottom-24 left-1/2 z-[70] -translate-x-1/2 rounded-full bg-[#3a372f] px-4.5 py-2 text-xs text-[#fdfcf8] shadow-lg transition-all',
-          toast ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-2.5 opacity-0'
-        )}
-        role="status"
-      >
-        {toast}
-      </div>
-
-      {/* ── 落地映射 ── */}
-      <section className="mt-16 rounded-2xl border bg-card p-7 shadow-sm">
-        <h2 className="font-claude text-base font-bold">
-          落地映射 — 设计实验室令牌 → app.css 现有变量
-        </h2>
-        <Table className="mt-3">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[160px]">现变量</TableHead>
-              <TableHead className="w-[240px]">新取值</TableHead>
-              <TableHead>说明</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow>
-              <TableCell className="font-mono text-xs text-[var(--mint-deep)]">
-                --background
-              </TableCell>
-              <TableCell>
-                <span className="mr-1.5 inline-block size-2.5 rounded-sm border border-[#d3c9b6] bg-[#f6f3ec] align-middle" />
-                <b>#F6F3EC 纸白</b>
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                全局底色;侧栏用{' '}
-                <code className="font-mono text-xs text-[var(--mint-deep)]">--secondary</code>{' '}
-                #EFE9DD 拉开一层
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="font-mono text-xs text-[var(--mint-deep)]">--card</TableCell>
-              <TableCell>
-                <span className="mr-1.5 inline-block size-2.5 rounded-sm border border-[#d3c9b6] bg-[#fffdf8] align-middle" />
-                <b>#FFFDF8 暖白</b>
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                计划卡 / 摘要卡 / 弹窗;投影换暖棕调
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="font-mono text-xs text-[var(--mint-deep)]">
-                --foreground
-              </TableCell>
-              <TableCell>
-                <span className="mr-1.5 inline-block size-2.5 rounded-sm border border-[#d3c9b6] bg-[#3a372f] align-middle" />
-                <b>#3A372F 暖墨</b>
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                正文;次级 #6E675A,弱化 #A49B8A,边线 #E4DDCF
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="font-mono text-xs text-[var(--mint-deep)]">--primary</TableCell>
-              <TableCell>
-                <span className="mr-1.5 inline-block size-2.5 rounded-sm border border-[#d3c9b6] bg-[#0f9d8f] align-middle" />
-                <b>#0F9D8F 薄荷</b>
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                只用于发送键、批准键、选中态、进行中动画;浅底 #E4F3F1
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="font-mono text-xs text-[var(--mint-deep)]">--warning</TableCell>
-              <TableCell>
-                <span className="mr-1.5 inline-block size-2.5 rounded-sm border border-[#eed9ae] bg-[#fdf3e2] align-middle" />
-                <b>琥珀系</b>
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                权限审批警示带、等待批准状态;深字 #8A5106
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="font-mono text-xs text-[var(--mint-deep)]">
-                --font-claude(新增)
-              </TableCell>
-              <TableCell>
-                <b>Source Serif 4 + Noto Serif SC(Claude 式衬线)</b>
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                应用名、卡片标题、弹窗标题、Agent 回复;fontsource CDN 按需分包,断网回退系统宋体
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </section>
+        </section>
       </div>
     </>
   )
