@@ -293,4 +293,19 @@ describe('resolveWithinRootReal：TEST-004 授权根边界（真文件系统）'
 
     expect(await resolveWithinRootReal(dir, first.path)).toEqual(first)
   })
+
+  it('根的拼写与真身不同时按真身判：真身在根内就放行（8.3 短名这类别名）', async () => {
+    // CI 的 tmpdir 是 RUNNER~1（短名），realpath 给 runneradmin（长名）——同一目录的
+    // 两种拼写。修复前 realpath 之前先做词法预检，把这种合法路径判成 PATH_OUT_OF_ROOT
+    // （CI 的 11 个用例一起挂在这上）。用 junction 造同一结构，任何机器都能重放：
+    // 根的拼写（alias-root）在词法上不包含候选（inner/a.pdf），真身是同一个目录。
+    const inner = join(dir, 'inner')
+    await mkdir(inner)
+    await writeFile(join(inner, 'a.pdf'), 'A')
+    await symlink(inner, join(dir, 'alias-root'), 'junction')
+
+    const out = await resolveWithinRootReal(join(dir, 'alias-root'), join(inner, 'a.pdf'))
+
+    expect(out).toEqual({ ok: true, path: `${realRoot}/inner/a.pdf` })
+  })
 })

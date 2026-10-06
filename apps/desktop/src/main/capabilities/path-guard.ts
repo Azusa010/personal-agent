@@ -82,15 +82,6 @@ export async function resolveWithinRootReal(
     }
   }
 
-  // base 不在根内
-  if (resolveWithinRoot(base, abs) === null) {
-    return {
-      ok: false,
-      code: 'PATH_OUT_OF_ROOT',
-      reason: `路径不在授权根 ${base} 内: ${candidate}`
-    }
-  }
-
   // 根自己可能就是 junction，不先解开的话下面拿一个假根去比。
   let realRoot: string
   try {
@@ -112,11 +103,22 @@ export async function resolveWithinRootReal(
   const stem = realExisting.endsWith('/') ? realExisting.slice(0, -1) : realExisting
   const real = rest.length === 0 ? realExisting : `${stem}/${rest.join('/')}`
 
+  // 放行与否只认真身：8.3 短名与长名是同一目录的两种拼写，拿拼写去比会把
+  // 授权根内的合法路径误判成越界（CI 的 TEMP 就是 RUNNER~1/runneradmin 这一对）。
+  // 词法比较在这里只当分类器用：真身在内而词法在外 = 拼写差异，放行；
+  // 真身在外时，词法在内说明是 junction/symlink 把根内的路径指了出去。
   if (resolveWithinRoot(realRoot, real) === null) {
+    if (resolveWithinRoot(base, abs) !== null) {
+      return {
+        ok: false,
+        code: 'PATH_ESCAPES_ROOT_VIA_LINK',
+        reason: `路径经链接指向授权根 ${realRoot} 之外: ${candidate}`
+      }
+    }
     return {
       ok: false,
-      code: 'PATH_ESCAPES_ROOT_VIA_LINK',
-      reason: `路径经链接指向授权根 ${realRoot} 之外: ${candidate}`
+      code: 'PATH_OUT_OF_ROOT',
+      reason: `路径不在授权根 ${base} 内: ${candidate}`
     }
   }
   // 回真实路径：下游直接喂 readFile，不要再 resolve 一次，

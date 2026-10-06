@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { stat } from 'node:fs/promises'
+import { realpath, stat } from 'node:fs/promises'
 import { delimiter, resolve } from 'node:path'
 
 import { ERROR_CODE, TerminalExecuteParams } from '@personal-agent/protocol'
@@ -53,7 +53,9 @@ export const terminalExecutePlugin: CapabilityPlugin = {
       }
       paths['cwd'] = guarded.path
     } else {
-      paths['cwd'] = toPosix(activeCwd)
+      // 归一到真实路径：bound.paths 会被拿去算 Canonical Arguments Hash（TASK-018），
+      // 8.3 短名与长名是同一目录的两种拼写，不归一同一个操作会算出两个 hash。
+      paths['cwd'] = toPosix(await realpath(activeCwd).catch(() => activeCwd))
     }
 
     return {

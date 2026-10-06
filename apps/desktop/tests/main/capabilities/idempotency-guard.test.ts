@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -44,7 +44,9 @@ let db: SqliteDatabase | null = null
 let repo: SqliteToolExecutionRepository
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'pa-idem-guard-'))
+  // 与 executor.test.ts 同一条规矩：tmpdir 的短名先归一到 realpath，
+  // moveKey 才与执行体内部（realpath 后）算出的 key 对得上。
+  dir = await realpath(await mkdtemp(join(tmpdir(), 'pa-idem-guard-')))
   vi.stubEnv(ENV_NAME, dir)
   db = openProductState(MEMORY_DB)
   migrate(db)

@@ -504,7 +504,23 @@ def resolve_strategy() -> AgentStrategy:
     return PlanAndExecuteStrategy()
 
 
+def _force_utf8_stdio() -> None:
+    """stdin/stdout 一律按 UTF-8 编解码。
+
+    非 UTF-8 区域（CI 是 en-US，默认 cp1252）下，含中文的握手报文会在
+    sys.stdin.readline 里抛 UnicodeDecodeError 直接打死进程——握手报文带
+    中文能力描述时必现。JSON-RPC 是按行分帧的文本协议，两端说好的一直是
+    UTF-8；靠区域设置兜底等于把协议编码交给宿主机。
+    """
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8")
+
+
 def run(channel: HostChannel | None = None) -> None:
+    if channel is None:
+        _force_utf8_stdio()
     ch = (
         channel
         if channel is not None

@@ -1,4 +1,7 @@
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 from personal_agent.live_model import LIVE_MODEL_ENV, LiveModel
@@ -978,3 +981,32 @@ def test_user_memory_search_dispatch_success(monkeypatch):
 
 
 
+
+
+def test_initialize_payload_survives_non_utf8_locale():
+    """非 UTF-8 区域下中文报文不能打死进程（CI 是 en-US，默认 cp1252）。
+
+    握手报文带中文能力描述时，sys.stdin.readline 按 cp1252 解码 UTF-8 字节
+    抛 UnicodeDecodeError，子进程直接 exit 1——CI 上 initialize 握手用例
+    必红，而纯 ASCII 的 system.ping 却能过。修法是 run() 启动时
+    _force_utf8_stdio。这里把 PYTHONIOENCODING=cp1252 钉进子进程环境，
+    任何机器都能重放这个曾经打崩 CI 的场景。
+    """
+    fixture = REPO_ROOT / "packages" / "protocol" / "fixtures" / "initialize.request.json"
+    request = json.dumps(json.loads(fixture.read_text(encoding="utf-8")), ensure_ascii=False)
+    env = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+
+    proc = subprocess.run(
+        [sys.executable, "-m", "personal_agent"],
+        input=request + "\n",
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env=env,
+        timeout=30,
+        check=False,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    response = json.loads(proc.stdout.strip().splitlines()[0])
+    assert response["result"]["server"]["name"] == "personal-agent-runtime"

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -87,7 +87,9 @@ function denyRetriever(code: AuthorizeDenialCode): ToolRetriever {
 }
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'pa-exec-'))
+  // 归一成 realpath：CI 的 tmpdir 是 8.3 短名（RUNNER~1），执行体回的是长名。
+  // 同一目录的两种拼写不是两个目录，期望值必须与产品一致地用真身拼。
+  dir = await realpath(await mkdtemp(join(tmpdir(), 'pa-exec-')))
   vi.stubEnv(ENV_NAME, dir)
   // ui origin：本文件测的是契约校验、路径关卡、错误码三件事，
   // 不该被任务槽耦合进去。agent origin 的行为在 execution-policy.test.ts。
