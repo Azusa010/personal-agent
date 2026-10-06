@@ -166,3 +166,17 @@ def test_instructions_xml_sectioning_and_prompt_builders():
     sec_prompt = compose_sectioned_prompt(EXECUTOR_SECTIONS, profile)
     assert isinstance(sec_prompt, SectionedSystemPrompt)
     assert sec_prompt.has_section("persona")
+
+
+def test_instructions_strictly_constrain_facts_format_and_forbid_action_status():
+    """验证执行器指令与通用规则中严格约束 facts 格式，严禁放入工具执行状态/元说明。"""
+    assert "严禁在 facts 中放入任何工具执行状态或元说明" in EXECUTOR_INSTRUCTIONS
+    assert "facts 只能包含从文档页面正文提炼出的事实知识" in EXECUTOR_INSTRUCTIONS
+    assert "每条事实必须包含至少一个有效页码" in EXECUTOR_INSTRUCTIONS
+
+
+def test_instructions_guide_nested_directory_traversal():
+    """验证执行器与规划器包含嵌套子目录深入遍历指引。"""
+    assert "深入逐级遍历" in EXECUTOR_INSTRUCTIONS or "深入遍历" in EXECUTOR_INSTRUCTIONS
+    assert "深入遍历" in PLANNER_INSTRUCTIONS
+
