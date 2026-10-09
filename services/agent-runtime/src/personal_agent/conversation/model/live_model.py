@@ -647,7 +647,8 @@ class LiveModel:
                         arguments={"code": extracted},
                         thinking=extract_thinking_from_text(text),
                     )
-            raise ModelCallFailed(f"模型输出不符合 ModelDecision 契约: {e}") from e
+            raise ModelCallFailed(_format_validation_error(e, raw, text)) from e
+
 
     def _parse_chat_completions(
         self, response: Any, context: ModelContext | None = None
@@ -729,6 +730,8 @@ class LiveModel:
                 raw = normalize_raw_decision(raw, context=context, raw_text=text)
                 if isinstance(raw, dict) and "kind" in raw:
                     return DECISION_ADAPTER.validate_python(raw)
+            except ValidationError as val_err:
+                raise ModelCallFailed(_format_validation_error(val_err, raw, text)) from val_err
             except Exception:  # noqa: BLE001, S110
                 pass
             if should_heal_to_code_interpreter(context):
@@ -804,3 +807,26 @@ def _as_int(value: Any) -> int:
 
 def _describe(e: Exception) -> str:
     return f"{type(e).__name__}: {e}"
+
+def _format_validation_error(e: ValidationError, raw: Any, raw_text: str, model_name: str = "ModelDecision") -> str:
+    truncated_text = raw_text[:200] + ("..." if len(raw_text) > 200 else "")
+    errors = []
+    for err in e.errors():
+        loc = ".".join(str(l) for l in err["loc"])
+        msg = err["msg"]
+        errors.append(f"字段 `{loc}`: {msg}")
+    reasons = "\n- ".join(errors)
+    raw_json = ""
+    try:
+        import json
+        raw_json = json.dumps(raw, ensure_ascii=False)
+    except Exception:  # noqa: BLE001
+        raw_json = str(raw)
+    truncated_json = raw_json[:200] + ("..." if len(raw_json) > 200 else "")
+    
+    return (
+        f"模型输出不符合 {model_name} 契约\n"
+        f"校验失败原因：\n- {reasons}\n\n"
+        f"解析后的结构：{truncated_json}\n"
+        f"原始输出（截断）：{truncated_text}"
+    )

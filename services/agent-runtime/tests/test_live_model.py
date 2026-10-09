@@ -543,7 +543,45 @@ def test_json_that_violates_the_decision_contract_is_a_model_call_failure():
     with pytest.raises(ModelCallFailed) as e:
         model.decide(context_with())
 
-    assert "ModelDecision" in e.value.reason
+    reason = e.value.reason
+    assert "ModelDecision" in reason
+    assert "校验失败原因" in reason
+    assert "callId" in reason
+    assert "解析后的结构" in reason
+    assert "原始输出" in reason
+
+
+def test_json_with_field_type_error_is_a_model_call_failure():
+    bad = json.dumps({"kind": "tool_call", "callId": 123, "capability": ["filesystem_list"]})
+    model = LiveModel(model="gpt-test", client=FakeClient([FakeResponse(bad)]))
+
+    with pytest.raises(ModelCallFailed) as e:
+        model.decide(context_with())
+
+    reason = e.value.reason
+    assert "ModelDecision" in reason
+    assert "校验失败原因" in reason
+    assert "str type expected" in reason.lower() or "string" in reason.lower() or "类型" in reason
+    assert "callId" in reason
+    assert "capability" in reason
+
+
+def test_chat_completions_json_that_violates_contract_is_a_model_call_failure():
+    bad = json.dumps({"kind": "tool_call", "capability": "filesystem_list"})
+    resp = FakeChatCompletion(FakeMessage(content=bad))
+    model = LiveModel(
+        model="gpt-test",
+        client=FakeClient([resp]),
+        api_protocol="chat_completions",
+    )
+
+    with pytest.raises(ModelCallFailed) as e:
+        model.decide(context_with())
+
+    reason = e.value.reason
+    assert "ModelDecision" in reason
+    assert "校验失败原因" in reason
+    assert "callId" in reason
 
 
 def test_responses_mode_recovers_from_raw_arguments_dict_without_kind():
