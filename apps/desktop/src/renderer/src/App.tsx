@@ -1,3 +1,4 @@
+import { WelcomeView } from './components/WelcomeView'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Ellipsis } from 'lucide-react'
 import type {
@@ -314,6 +315,12 @@ function App(): React.JSX.Element {
               pendingPermission={pendingPermission}
               onDecidePermission={handleDecide}
             />
+
+            {messages.length === 0 && !pendingText && (
+              <div className="absolute inset-0 z-10 bg-background flex flex-col justify-end">
+                <WelcomeView onAction={(text) => void handleSend(text)} />
+              </div>
+            )}
 
             <Composer
               running={running}

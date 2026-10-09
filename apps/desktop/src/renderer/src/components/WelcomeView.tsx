@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
 import React, { useRef } from 'react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
 import { MessageSquare, Code, FileSearch, Sparkles } from 'lucide-react'
 
-export function WelcomeView({ onAction }: { onAction: (text: string) => void }) {
+export function WelcomeView({ onAction }: { onAction: (text: string) => void }): React.JSX.Element {
   const container = useRef<HTMLDivElement>(null)
 
   useGSAP(
@@ -50,7 +49,7 @@ export function WelcomeView({ onAction }: { onAction: (text: string) => void }) 
     { scope: container }
   )
 
-  const handleMagnetic = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleMagnetic = (e: React.MouseEvent<HTMLButtonElement>): void => {
     const el = e.currentTarget
     const rect = el.getBoundingClientRect()
     const x = e.clientX - rect.left - rect.width / 2
@@ -65,7 +64,7 @@ export function WelcomeView({ onAction }: { onAction: (text: string) => void }) 
     })
   }
 
-  const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>): void => {
     gsap.to(e.currentTarget, {
       x: 0,
       y: 0,
@@ -130,3 +129,5 @@ export function WelcomeView({ onAction }: { onAction: (text: string) => void }) 
     </div>
   )
 }
+
+

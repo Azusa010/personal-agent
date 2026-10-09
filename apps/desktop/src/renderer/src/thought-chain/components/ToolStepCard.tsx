@@ -60,7 +60,7 @@ export const ToolStepCard: React.FC<ToolStepCardProps> = ({
 
   return (
     <div
-      className="flex flex-col gap-1 w-full my-0.5 group"
+      className="flex flex-col gap-1 w-fit max-w-full my-0.5 group"
       role="region"
       aria-label={`工具调用: ${step.capability}`}
     >
