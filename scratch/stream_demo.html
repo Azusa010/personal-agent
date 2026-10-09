@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream & Tool Call UI Design Options</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Satoshi', sans-serif; background-color: #09090b; color: #fafafa; }
+        .demo-box { background: #18181b; border-radius: 16px; padding: 1.5rem; margin-top: 1rem; border: 1px solid #27272a; cursor: pointer; transition: all 0.3s ease; }
+        .demo-box:hover { background: #27272a; border-color: #3f3f46; transform: translateY(-2px); }
+        .demo-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; letter-spacing: -0.02em; color: white; }
+        .demo-desc { color: #a1a1aa; font-size: 0.95rem; margin-bottom: 1.5rem; }
+        .mock-window { position: relative; background: #09090b; border-radius: 8px; border: 1px solid #27272a; padding: 1.5rem; min-height: 100px; overflow: hidden; display: flex; align-items: center; justify-content: center;}
+
+        /* Micro Pulse */
+        @keyframes micro-pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+        .animate-micro-pulse { animation: micro-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow { animation: spin-slow 3s linear infinite; }
+    </style>
+</head>
+<body class="p-8 max-w-5xl mx-auto pb-32">
+    <h2 class="text-3xl font-bold mb-4 text-white">Tool Call Styling - Redesign</h2>
+    <p class="text-zinc-400 mb-8">You mentioned the previous ones were too big and not beautiful. Here are two ultra-minimalist, sleek micro-designs.</p>
+
+    <h3 class="text-xl font-semibold mb-2">Q3 (Retry): Tool Call Styling</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+        
+        <!-- Option C -->
+        <div class="demo-box" onclick="playToolC(this)">
+            <div class="demo-title">C. Micro Glass Pills</div>
+            <div class="demo-desc">Extremely tiny, elegant pills with a subtle glow. They shrink to just an icon when finished.</div>
+            <div class="mock-window bg-[#09090b]">
+                <!-- Running state -->
+                <div class="tool-c-badge flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-800/50 border border-zinc-700/50 backdrop-blur-md shadow-sm transition-all duration-500 overflow-hidden" style="width: 130px;">
+                    <i data-lucide="loader-2" class="w-3 h-3 text-zinc-400 animate-spin-slow flex-shrink-0 tool-icon"></i>
+                    <span class="text-[11px] font-medium text-zinc-300 whitespace-nowrap tool-text animate-micro-pulse">Searching web...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Option D -->
+        <div class="demo-box" onclick="playToolD(this)">
+            <div class="demo-title">D. Naked Typography + Status Dot</div>
+            <div class="demo-desc">No backgrounds at all. Just beautiful, tiny typography with a pulsing indicator dot.</div>
+            <div class="mock-window bg-[#09090b]">
+                <div class="tool-d-badge flex items-center gap-2 text-zinc-400 transition-colors duration-500">
+                    <div class="w-1.5 h-1.5 rounded-full bg-amber-500 tool-dot animate-micro-pulse"></div>
+                    <div class="text-[11px] font-mono tracking-wide tool-text">running: search_web</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        function playToolC(el) {
+            const badge = el.querySelector('.tool-c-badge');
+            const icon = badge.querySelector('.tool-icon');
+            const text = badge.querySelector('.tool-text');
+            
+            // Success state
+            gsap.to(badge, { width: '28px', backgroundColor: 'rgba(16, 163, 127, 0.1)', borderColor: 'rgba(16, 163, 127, 0.2)', duration: 0.5, ease: 'power3.inOut' });
+            gsap.to(text, { opacity: 0, duration: 0.2 });
+            icon.classList.remove('animate-spin-slow', 'text-zinc-400');
+            icon.classList.add('text-[#10a37f]');
+            icon.setAttribute('data-lucide', 'check');
+            lucide.createIcons();
+            
+            setTimeout(() => {
+                // Reset to running state
+                gsap.to(badge, { width: '130px', backgroundColor: 'rgba(39, 39, 42, 0.5)', borderColor: 'rgba(63, 63, 70, 0.5)', duration: 0.5, ease: 'power3.inOut' });
+                gsap.to(text, { opacity: 1, duration: 0.4, delay: 0.2 });
+                icon.classList.add('animate-spin-slow', 'text-zinc-400');
+                icon.classList.remove('text-[#10a37f]');
+                icon.setAttribute('data-lucide', 'loader-2');
+                lucide.createIcons();
+            }, 2500);
+        }
+
+        function playToolD(el) {
+            const badge = el.querySelector('.tool-d-badge');
+            const dot = badge.querySelector('.tool-dot');
+            const text = badge.querySelector('.tool-text');
+            
+            // Success state
+            dot.classList.remove('animate-micro-pulse', 'bg-amber-500');
+            dot.classList.add('bg-[#10a37f]');
+            text.innerText = 'completed: search_web';
+            text.classList.add('text-zinc-500');
+            
+            setTimeout(() => {
+                // Reset
+                dot.classList.add('animate-micro-pulse', 'bg-amber-500');
+                dot.classList.remove('bg-[#10a37f]');
+                text.innerText = 'running: search_web';
+                text.classList.remove('text-zinc-500');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>

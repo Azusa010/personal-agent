@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UI/UX Pro Max - Chat Layout Options</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Satoshi', sans-serif; background-color: #212121; color: #ececf1; }
+        .demo-box { background: #2f2f2f; border-radius: 12px; padding: 2rem; margin-top: 1rem; border: 1px solid #3f3f3f; cursor: pointer; transition: all 0.3s ease; }
+        .demo-box:hover { background: #3a3a3a; transform: translateY(-2px); border-color: #555; }
+        .demo-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; letter-spacing: -0.02em; color: white; }
+        .demo-desc { color: #aaa; font-size: 0.95rem; margin-bottom: 1.5rem; }
+        
+        /* Mock Chat Layout Container */
+        .mock-window { position: relative; height: 300px; background: #111; border-radius: 8px; overflow: hidden; border: 1px solid #333; display: flex; }
+    </style>
+</head>
+<body class="p-8 max-w-5xl mx-auto">
+    <h2 class="text-3xl font-bold mb-4 text-white">Chat Layout Design Options</h2>
+    <p class="text-zinc-300 mb-8">Let's lock in the core ChatGPT-style interface.</p>
+
+    <!-- Q5: Sidebar Layout -->
+    <h3 class="text-xl font-semibold mb-2">Q5: Sidebar Navigation</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+        <div class="demo-box" onmouseenter="playSidebarA(this)" onmouseleave="resetSidebarA(this)">
+            <div class="demo-title">A. Collapsible Fixed Panel</div>
+            <div class="demo-desc">Sidebar sits on the left, pushes main content.</div>
+            <div class="mock-window">
+                <div class="w-16 bg-[#171717] h-full sidebar-a flex-shrink-0 transition-all duration-300 border-r border-zinc-800"></div>
+                <div class="flex-grow bg-[#212121] h-full flex flex-col p-4">
+                    <div class="w-full h-8 bg-zinc-800 rounded mb-2"></div>
+                    <div class="w-3/4 h-8 bg-zinc-800 rounded"></div>
+                </div>
+            </div>
+        </div>
+        <div class="demo-box" onmouseenter="playSidebarB(this)" onmouseleave="resetSidebarB(this)">
+            <div class="demo-title">B. Floating Glass Overlay</div>
+            <div class="demo-desc">Sidebar floats OVER the content, saving layout space.</div>
+            <div class="mock-window relative">
+                <div class="absolute left-0 top-0 bottom-0 w-16 bg-[#171717]/90 backdrop-blur-md z-10 sidebar-b transition-all duration-300 border-r border-zinc-700/50 -translate-x-full"></div>
+                <div class="flex-grow bg-[#212121] h-full flex flex-col p-4">
+                    <div class="w-full h-8 bg-zinc-800 rounded mb-2"></div>
+                    <div class="w-3/4 h-8 bg-zinc-800 rounded"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Q6: Input Bar -->
+    <h3 class="text-xl font-semibold mb-2">Q6: Chat Input Area</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+        <div class="demo-box">
+            <div class="demo-title">A. Floating Pill Input</div>
+            <div class="demo-desc">Detached, rounded input hovering above the bottom.</div>
+            <div class="mock-window flex-col justify-end p-4 pb-6">
+                <div class="w-full h-12 bg-[#2f2f2f] rounded-full border border-zinc-700 shadow-xl flex items-center px-4 justify-between">
+                    <div class="w-1/2 h-2 bg-zinc-500 rounded"></div>
+                    <div class="w-6 h-6 bg-[#10a37f] rounded-full"></div>
+                </div>
+            </div>
+        </div>
+        <div class="demo-box">
+            <div class="demo-title">B. Fixed Bottom Bar</div>
+            <div class="demo-desc">Full-width section attached seamlessly to the bottom.</div>
+            <div class="mock-window flex-col justify-end">
+                <div class="w-full h-16 bg-[#171717] border-t border-zinc-800 flex items-center px-4 justify-between">
+                    <div class="w-full h-10 bg-[#2f2f2f] rounded flex items-center px-4 justify-between">
+                        <div class="w-1/2 h-2 bg-zinc-500 rounded"></div>
+                        <div class="w-6 h-6 bg-[#10a37f] rounded"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Q7: Message UI Style -->
+    <h3 class="text-xl font-semibold mb-2">Q7: Message UI Style</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+        <div class="demo-box">
+            <div class="demo-title">A. Minimalist Seamless</div>
+            <div class="demo-desc">No bubble backgrounds. AI has a green icon.</div>
+            <div class="mock-window flex-col p-4 gap-6 bg-[#212121]">
+                <div class="flex gap-4">
+                    <div class="w-6 h-6 rounded-full bg-zinc-600 flex-shrink-0"></div>
+                    <div class="flex-grow">
+                        <div class="text-sm font-semibold mb-1">User</div>
+                        <div class="w-3/4 h-3 bg-zinc-500 rounded mb-1"></div>
+                        <div class="w-1/2 h-3 bg-zinc-500 rounded"></div>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="w-6 h-6 rounded-sm bg-[#10a37f] flex-shrink-0"></div>
+                    <div class="flex-grow">
+                        <div class="text-sm font-semibold mb-1">AI</div>
+                        <div class="w-full h-3 bg-zinc-400 rounded mb-1"></div>
+                        <div class="w-5/6 h-3 bg-zinc-400 rounded mb-1"></div>
+                        <div class="w-2/3 h-3 bg-zinc-400 rounded"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="demo-box">
+            <div class="demo-title">B. Card-based Bubbles</div>
+            <div class="demo-desc">Each message sits in its own elevated bubble.</div>
+            <div class="mock-window flex-col p-4 gap-4 bg-[#171717]">
+                <div class="self-end max-w-[80%] bg-zinc-700 rounded-2xl rounded-tr-sm p-3">
+                    <div class="w-32 h-3 bg-zinc-300 rounded mb-1"></div>
+                    <div class="w-24 h-3 bg-zinc-300 rounded"></div>
+                </div>
+                <div class="self-start max-w-[80%] bg-[#212121] border border-zinc-700 rounded-2xl rounded-tl-sm p-3 flex gap-3">
+                    <div class="w-6 h-6 rounded-sm bg-[#10a37f] flex-shrink-0"></div>
+                    <div class="flex-grow pt-1">
+                        <div class="w-48 h-3 bg-zinc-300 rounded mb-1"></div>
+                        <div class="w-32 h-3 bg-zinc-300 rounded"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function playSidebarA(el) {
+            el.querySelector('.sidebar-a').style.width = '120px';
+        }
+        function resetSidebarA(el) {
+            el.querySelector('.sidebar-a').style.width = '4rem'; // 64px (w-16)
+        }
+        function playSidebarB(el) {
+            el.querySelector('.sidebar-b').style.transform = 'translateX(0)';
+            el.querySelector('.sidebar-b').style.width = '120px';
+        }
+        function resetSidebarB(el) {
+            el.querySelector('.sidebar-b').style.transform = 'translateX(-100%)';
+        }
+    </script>
+</body>
+</html>
