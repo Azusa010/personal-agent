@@ -47,13 +47,6 @@ function AssistantMessage({
         </div>
       )}
 
-      {/* 结构垂直连线：思考步骤 -> (|) -> 正文 */}
-      {hasTrajectory && (Boolean(message.text) || facts.length > 0) && (
-        <div className="ml-1.5 flex h-3 items-center border-l border-border/50 pl-2 select-none">
-          <span className="text-[9px] text-muted-foreground/40 font-mono">↓</span>
-        </div>
-      )}
-
       {/* 2. 下层：最后的正文（Agent 的话用衬线呈现，Claude 式人机对照） */}
       <div className="font-serif pt-0.5 text-[13.5px] leading-6">
         <MarkdownContent content={message.text} />
@@ -229,9 +222,6 @@ export function MessageStream({
                     (streamState.events && streamState.events.length > 0)) ? (
                     <div className="space-y-1">
                       <ThoughtChainViewer liveStream={streamState} isStreaming={true} />
-                      <div className="ml-1.5 flex h-3 items-center border-l border-border/50 pl-2 select-none">
-                        <span className="text-[9px] text-muted-foreground/40 font-mono">↓</span>
-                      </div>
                     </div>
                   ) : (
                     <div className="flex items-center gap-1.5 py-0.5 text-xs text-muted-foreground select-none">

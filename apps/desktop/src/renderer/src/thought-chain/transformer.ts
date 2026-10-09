@@ -158,21 +158,39 @@ export function eventsToSteps(
         const reason = typeof report['reason'] === 'string' ? report['reason'] : undefined
         const factCount =
           typeof payload['factCount'] === 'number' ? payload['factCount'] : undefined
-
-        const verStep: VerificationStepView = {
-          id: `verify-${i}`,
-          type: 'verification',
-          title: isEnded ? (isPassed ? '交付物校验通过' : '交付物校验未通过') : '开始校验交付物',
-          status: isEnded ? (isPassed ? 'success' : 'failed') : 'running',
-          startedAt: ev.occurredAt,
-          factCount,
-          passedCount,
-          totalChecks,
-          reason,
-          checks,
-          rawPayload: ev.payload
+        const existingIdx = steps.findIndex((s) => s.type === 'verification')
+        if (existingIdx !== -1) {
+          const existing = steps[existingIdx] as VerificationStepView
+          existing.title = isEnded
+            ? isPassed
+              ? '交付物校验通过'
+              : '交付物校验未通过'
+            : '开始校验交付物'
+          existing.status = isEnded ? (isPassed ? 'success' : 'failed') : 'running'
+          existing.factCount = factCount
+          existing.passedCount = passedCount
+          existing.totalChecks = totalChecks
+          existing.reason = reason
+          existing.checks = checks
+          if (ev.payload) {
+            existing.rawPayload = ev.payload
+          }
+        } else {
+          const verStep: VerificationStepView = {
+            id: `verify-${i}`,
+            type: 'verification',
+            title: isEnded ? (isPassed ? '交付物校验通过' : '交付物校验未通过') : '开始校验交付物',
+            status: isEnded ? (isPassed ? 'success' : 'failed') : 'running',
+            startedAt: ev.occurredAt,
+            factCount,
+            passedCount,
+            totalChecks,
+            reason,
+            checks,
+            rawPayload: ev.payload
+          }
+          steps.push(verStep)
         }
-        steps.push(verStep)
         break
       }
 

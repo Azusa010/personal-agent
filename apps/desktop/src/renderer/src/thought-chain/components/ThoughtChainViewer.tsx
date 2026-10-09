@@ -17,7 +17,6 @@ import { NoticeStepCard } from './NoticeStepCard'
 import { RawSpanDialog } from './RawSpanDialog'
 import { ThoughtStepCard } from './ThoughtStepCard'
 import { ToolStepCard } from './ToolStepCard'
-import { VerificationStepCard } from './VerificationStepCard'
 
 export interface ThoughtChainViewerProps {
   timeline?: TaskTimeline | null
@@ -39,7 +38,7 @@ export const ThoughtChainViewer: React.FC<ThoughtChainViewerProps> = ({
   const [filter, setFilter] = useState<StepFilter>('all')
   const [allExpanded, setAllExpanded] = useState<boolean | null>(null)
   const [inspectStep, setInspectStep] = useState<ThoughtChainStep | null>(null)
-  const [copiedMd, setCopiedMd] = useState(false)
+  const [_copiedMd, setCopiedMd] = useState(false)
 
   // 转换原始数据为统一的步骤列表
   const steps = useMemo(() => {
@@ -194,7 +193,7 @@ export const ThoughtChainViewer: React.FC<ThoughtChainViewerProps> = ({
                 aria-label="复制完整轨迹为 Markdown"
                 className="rounded p-1 hover:bg-secondary hover:text-foreground text-muted-foreground"
               >
-                {copiedMd ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                {_copiedMd ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
               </button>
             </div>
           </div>
@@ -228,15 +227,10 @@ export const ThoughtChainViewer: React.FC<ThoughtChainViewerProps> = ({
             )
           }
           if (step.type === 'verification') {
-            return (
-              <VerificationStepCard
-                key={step.id}
-                step={step}
-                onInspectRaw={(s) => setInspectStep(s)}
-              />
-            )
+            return null
           }
           if (step.type === 'notice') {
+            if (step.noticeKind === 'permission') return null
             return <NoticeStepCard key={step.id} step={step} />
           }
           return null
@@ -254,3 +248,5 @@ export const ThoughtChainViewer: React.FC<ThoughtChainViewerProps> = ({
     </div>
   )
 }
+
+
