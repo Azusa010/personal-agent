@@ -304,23 +304,33 @@ function App(): React.JSX.Element {
               </button>
             </header>
 
-            <MessageStream
-              messages={messages}
-              pendingText={pendingText}
-              messagesError={messagesError}
-              feedback={feedback}
-              streamState={streamState}
-              agentName={agentProfile?.name}
-              thinkingByTaskId={thinkingByTaskId}
-              pendingPermission={pendingPermission}
-              onDecidePermission={handleDecide}
-            />
+            <div className="relative flex min-h-0 flex-1 flex-col">
+              <MessageStream
+                messages={messages}
+                pendingText={pendingText}
+                messagesError={messagesError}
+                feedback={feedback}
+                streamState={streamState}
+                agentName={agentProfile?.name}
+                thinkingByTaskId={thinkingByTaskId}
+                pendingPermission={pendingPermission}
+                onDecidePermission={handleDecide}
+              />
 
-            {messages.length === 0 && !pendingText && (
-              <div className="absolute inset-0 z-10 bg-background flex flex-col justify-end">
-                <WelcomeView onAction={(text) => void handleSend(text)} />
-              </div>
-            )}
+              {messages.length === 0 &&
+                !pendingText &&
+                messagesError === null &&
+                pendingPermission === null && (
+                  <div className="absolute inset-0 z-10 flex flex-col justify-end bg-background">
+                    <WelcomeView onAction={(text) => void handleSend(text)} />
+                    {feedback !== null && (
+                      <p className="pb-3 text-center text-[12px] text-muted-foreground">
+                        {feedback}
+                      </p>
+                    )}
+                  </div>
+                )}
+            </div>
 
             <Composer
               running={running}

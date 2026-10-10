@@ -98,30 +98,29 @@ export function WelcomeView({ onAction }: { onAction: (text: string) => void }):
   ]
 
   return (
-    // Fixed, non-scrollable container
     <div
       ref={container}
-      className="w-full h-full flex flex-col items-center justify-center bg-background text-foreground overflow-hidden px-6 relative"
+      className="relative flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-background px-6 py-6 text-foreground"
     >
       {/* Centered Hero Greeting */}
-      <div className="hero-greeting text-center mb-12 max-w-2xl">
-        <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-foreground mb-4">
+      <div className="hero-greeting mb-8 max-w-2xl text-center">
+        <h1 className="mb-3 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
           How can I help you today?
         </h1>
-        <p className="text-muted-foreground text-lg">Your local, private AI agent is ready.</p>
+        <p className="text-base text-muted-foreground">Your local, private AI agent is ready.</p>
       </div>
 
       {/* Suggestion Chips Grid (replaces the massive Bento Grid) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl w-full mb-[15vh]">
+      <div className="grid w-full max-w-2xl grid-cols-1 gap-3 md:grid-cols-2">
         {suggestions.map((item, idx) => (
           <button
             key={idx}
-            className="suggestion-chip flex items-center gap-3 p-4 bg-card hover:bg-secondary border border-border rounded-2xl text-left transition-colors duration-200"
+            className="suggestion-chip flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left transition-colors duration-200 hover:bg-secondary"
             onMouseMove={handleMagnetic}
             onMouseLeave={handleMouseLeave}
             onClick={() => onAction(item.prompt)}
           >
-            <div className="text-muted-foreground flex-shrink-0">{item.icon}</div>
+            <div className="flex-shrink-0 text-muted-foreground">{item.icon}</div>
             <span className="text-sm font-medium text-card-foreground">{item.text}</span>
           </button>
         ))}
@@ -129,5 +128,3 @@ export function WelcomeView({ onAction }: { onAction: (text: string) => void }):
     </div>
   )
 }
-
-
