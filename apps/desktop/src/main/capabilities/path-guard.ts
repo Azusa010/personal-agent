@@ -17,7 +17,11 @@ export function resolveWithinRoot(root: string, candidate: string): string | nul
 }
 
 export type PathGuardCode =
-  'PATH_OUT_OF_ROOT' | 'PATH_ESCAPES_ROOT_VIA_LINK' | 'PATH_UNC_NOT_ALLOWED'
+  | 'PATH_OUT_OF_ROOT' // 解析后路径不在授权根内
+  | 'PATH_ESCAPES_ROOT_VIA_LINK' // 通过真实路径（realpath）探测，拦截借助 Symlink / Junction 跳出授权根；
+  | 'PATH_UNC_NOT_ALLOWED' // UNC / 设备路径
+  | 'PATH_DEVICE_NAME_FORBIDDEN' // 拦截任何路径段匹配 CON, PRN, AUX, NUL, COM[1-9], LPT[1-9]
+  | 'PATH_INVALID_CHAR' // 拦截任何路径段包含控制字符或 <>:"|?* 等非法字符
 
 export type PathGuardResult =
   { ok: true; path: string } | { ok: false; code: PathGuardCode; reason: string }
@@ -58,6 +62,9 @@ export async function splitExisting(abs: string): Promise<{ existing: string; re
   return { existing: drive, rest: segments }
 }
 
+export const WINDOWS_DEVICE_NAME_REGEX =
+  /(^|[/\\])(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.[^/\\]*)?([/\\]|$)/i
+
 /** 词法检查之外再加一层：把 junction / symlink 解开之后再判一次
  *
  * resolveWithinRoot 只做字符串运算，'D:/root/link.pdf' 这种「根内的链接
@@ -82,6 +89,23 @@ export async function resolveWithinRootReal(
     }
   }
 
+  if (WINDOWS_DEVICE_NAME_REGEX.test(candidate)) {
+    return {
+      ok: false,
+      code: 'PATH_DEVICE_NAME_FORBIDDEN',
+      reason: `路径包含 Windows 保留设备名: ${candidate}`
+    }
+  }
+
+  const normalizedCandidate = candidate.replace(/^[a-zA-Z]:[/\\]?/, '')
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1f<>"|?*]/.test(normalizedCandidate)) {
+    return {
+      ok: false,
+      code: 'PATH_INVALID_CHAR',
+      reason: `路径包含非法或控制字符: ${candidate}`
+    }
+  }
   // 根自己可能就是 junction，不先解开的话下面拿一个假根去比。
   let realRoot: string
   try {
@@ -127,8 +151,6 @@ export async function resolveWithinRootReal(
 }
 
 export const VIKING_URI_PREFIX = 'viking://'
-export const WINDOWS_DEVICE_NAME_REGEX =
-  /(^|[/\\])(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.[^/\\]*)?([/\\]|$)/i
 
 /**
  * 将 viking:// 虚拟 URI 安全解析并约束在 Viking 本地知识库根目录下。
