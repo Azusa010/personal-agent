@@ -140,8 +140,8 @@ function createWindow(): void {
   // Windows 上启用 titleBarOverlay,系统窗控钮(最小化/最大化/关闭)仍由 OS 绘制,
   // 配色与纸感主题一致,且保留 Win11 悬停贴靠布局;macOS 的红绿灯随 hidden 自动保留。
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+    width: 1200,
+    height: 900,
     minWidth: 720,
     minHeight: 560,
     show: false,
