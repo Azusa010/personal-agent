@@ -3,9 +3,9 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
-import { writeFileAtomic } from '../../../src/main/capabilities/file-write'
-import { editFileStrict } from '../../../src/main/capabilities/file-edit'
-import { readFileWithLineNumbers } from '../../../src/main/capabilities/file-read'
+import { writeFileAtomic } from '../../../src/main/capabilities/plugins/file-write'
+import { editFileStrict } from '../../../src/main/capabilities/plugins/file-edit'
+import { readFileWithLineNumbers } from '../../../src/main/capabilities/plugins/file-read'
 import { ROOT_ENV } from '../../../src/main/capabilities/roots'
 
 describe('Coding Agent E2E: 真实工作区编程、语法探针与即时自愈闭环', () => {

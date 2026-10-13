@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { extractPdf } from '../../../src/main/capabilities/document-extract-pdf'
-import { listPdfs } from '../../../src/main/capabilities/filesystem-list'
+import { extractPdf } from '../../../src/main/capabilities/plugins/document'
+import { listPdfs } from '../../../src/main/capabilities/plugins/filesystem'
 import type { EvalCase } from '../../../src/main/eval/case-manifest'
 import { materializeCase, MTIME_STEP_MS } from '../../../src/main/eval/workspace'
 

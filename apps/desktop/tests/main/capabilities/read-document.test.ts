@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { ERROR_CODE } from '@personal-agent/protocol'
-import { readDocument } from '../../../src/main/capabilities/read-document'
+import { readDocument } from '../../../src/main/capabilities/plugins/document'
 import { buildCorruptPdf, buildPdf } from '../../../src/main/capabilities/pdf-fixtures'
 
 describe('readDocument (Modernized Unified Document Reader)', () => {

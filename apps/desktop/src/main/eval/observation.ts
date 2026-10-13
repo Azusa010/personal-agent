@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 import { z } from 'zod'
 
-import { extractPdf } from '../capabilities/document-extract-pdf'
+import { extractPdf } from '../capabilities/plugins/document'
 import type { EventRepository } from '../product-state/event-repository'
 import type { TaskRepository } from '../product-state/task-repository'
 import { EXTRACT_PDF_CAPABILITY, SummaryFact } from '@personal-agent/protocol'

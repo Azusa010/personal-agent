@@ -1,10 +1,15 @@
 import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ERROR_CODE } from '@personal-agent/protocol'
 
-import { formatFileLines, readFileWithLineNumbers } from '../../../src/main/capabilities/file-read'
+import {
+  formatFileLines,
+  readFileWithLineNumbers,
+  fileReadPlugin
+} from '../../../src/main/capabilities/plugins/file-read'
+import { toPosix } from '../../../src/main/capabilities/roots'
 
 describe('file-read: formatFileLines', () => {
   it('处理空字符串返回空内容与 0 行', () => {
@@ -43,8 +48,19 @@ describe('file-read: formatFileLines', () => {
   it('startLine > endLine 时返回空内容', () => {
     const raw = 'alpha\nbeta\ngamma'
     const res = formatFileLines(raw, 3, 2)
-    expect(res.content).toBe('')
     expect(res.totalLines).toBe(3)
+    expect(res.startLine).toBe(3)
+    expect(res.endLine).toBe(2)
+    expect(res.content).toBe('')
+  })
+
+  it('单个非空行正常输出行号 1', () => {
+    const raw = 'hello world'
+    const res = formatFileLines(raw)
+    expect(res.totalLines).toBe(1)
+    expect(res.startLine).toBe(1)
+    expect(res.endLine).toBe(1)
+    expect(res.content).toBe('1: hello world')
   })
 })
 
@@ -59,20 +75,17 @@ describe('file-read: readFileWithLineNumbers', () => {
     await rm(tempDir, { recursive: true, force: true })
   })
 
-  it('成功读取真实文件并返回带行号内容', () => {
-    // 异步由外层包装
-    return (async () => {
-      const filePath = join(tempDir, 'demo.txt')
-      await writeFile(filePath, 'foo\nbar\nbaz', 'utf8')
+  it('成功读取真实文件并返回带行号内容', async () => {
+    const filePath = join(tempDir, 'demo.txt')
+    await writeFile(filePath, 'foo\nbar\nbaz', 'utf8')
 
-      const outcome = await readFileWithLineNumbers(filePath, { startLine: 1, endLine: 2 })
-      expect(outcome.ok).toBe(true)
-      if (outcome.ok) {
-        expect(outcome.path).toBe(filePath)
-        expect(outcome.totalLines).toBe(3)
-        expect(outcome.content).toBe('1: foo\n2: bar')
-      }
-    })()
+    const outcome = await readFileWithLineNumbers(filePath, { startLine: 1, endLine: 2 })
+    expect(outcome.ok).toBe(true)
+    if (outcome.ok) {
+      expect(outcome.path).toBe(filePath)
+      expect(outcome.totalLines).toBe(3)
+      expect(outcome.content).toBe('1: foo\n2: bar')
+    }
   })
 
   it('文件不存在时返回稳定错误码 FILE_UNREADABLE', async () => {
@@ -92,6 +105,90 @@ describe('file-read: readFileWithLineNumbers', () => {
     if (!outcome.ok) {
       expect(outcome.code).toBe(ERROR_CODE.FILE_UNREADABLE)
       expect(outcome.reason).toContain('目录')
+    }
+  })
+})
+
+describe('fileReadPlugin: 自描述插件闭环 (defineBinder + execute)', () => {
+  let workspaceDir: string
+
+  beforeEach(async () => {
+    workspaceDir = await mkdtemp(join(tmpdir(), 'pa-test-plugin-read-'))
+    vi.stubEnv('PERSONAL_AGENT_WORKSPACE_DIR', workspaceDir)
+  })
+
+  afterEach(async () => {
+    vi.unstubAllEnvs()
+    await rm(workspaceDir, { recursive: true, force: true })
+  })
+
+  it('插件基础元数据符合规范', () => {
+    expect(fileReadPlugin.name).toBe('file_read')
+    expect(fileReadPlugin.descriptor.kind).toBe('READ')
+    expect(fileReadPlugin.descriptor.name).toBe('file_read')
+  })
+
+  it('bindArguments：合法工作区相对路径规范化成功', async () => {
+    const target = join(workspaceDir, 'hello.txt')
+    await writeFile(target, 'line1\nline2', 'utf8')
+
+    const bindRes = await fileReadPlugin.bindArguments({ path: 'hello.txt', startLine: 1, endLine: 1 })
+    expect(bindRes.ok).toBe(true)
+    if (bindRes.ok) {
+      expect(toPosix(bindRes.bound.paths['path'])).toBe(toPosix(target))
+      expect(bindRes.bound.args['startLine']).toBe(1)
+      expect(bindRes.bound.args['endLine']).toBe(1)
+    }
+  })
+
+  it('bindArguments：路径逃逸触发 PATH_OUT_OF_ROOT 拦截', async () => {
+    const bindRes = await fileReadPlugin.bindArguments({ path: '../../evil.txt' })
+    expect(bindRes.ok).toBe(false)
+    if (!bindRes.ok) {
+      expect(bindRes.code).toBe('PATH_OUT_OF_ROOT')
+    }
+  })
+
+  it('bindArguments：Windows 保留设备名触发 PATH_DEVICE_NAME_FORBIDDEN 拦截', async () => {
+    const bindRes = await fileReadPlugin.bindArguments({ path: 'CON.txt' })
+    expect(bindRes.ok).toBe(false)
+    if (!bindRes.ok) {
+      expect(bindRes.code).toBe('PATH_DEVICE_NAME_FORBIDDEN')
+    }
+  })
+
+  it('bindArguments：非法参数缺少必填 path 返回验证错误', async () => {
+    const bindRes = await fileReadPlugin.bindArguments({})
+    expect(bindRes.ok).toBe(false)
+    if (!bindRes.ok) {
+      expect(bindRes.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
+    }
+  })
+
+  it('execute：通过 ValidatedCall 执行读取并正确透传切片选项', async () => {
+    const target = join(workspaceDir, 'code.ts')
+    await writeFile(target, 'const a = 1;\nconst b = 2;\nconst c = 3;', 'utf8')
+
+    const call = {
+      taskScope: {
+        taskId: 't-1',
+        conversationId: 'c-1',
+        capabilities: ['file_read']
+      },
+      capability: fileReadPlugin.descriptor,
+      bound: {
+        args: { path: 'code.ts', startLine: 2, endLine: 3 },
+        paths: { path: target }
+      }
+    } as any
+
+    const outcome = await fileReadPlugin.execute(call, {})
+    expect(outcome.ok).toBe(true)
+    if (outcome.ok) {
+      expect(outcome.content).toBe('2: const b = 2;\n3: const c = 3;')
+      expect(outcome.totalLines).toBe(3)
+      expect(outcome.startLine).toBe(2)
+      expect(outcome.endLine).toBe(3)
     }
   })
 })

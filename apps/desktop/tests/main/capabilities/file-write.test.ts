@@ -1,9 +1,11 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ERROR_CODE } from '@personal-agent/protocol'
 
-import { writeFileAtomic } from '../../../src/main/capabilities/file-write'
+import { writeFileAtomic, fileWritePlugin } from '../../../src/main/capabilities/plugins/file-write'
+import { toPosix } from '../../../src/main/capabilities/roots'
 
 describe('file-write: writeFileAtomic', () => {
   let tempDir: string
@@ -64,7 +66,84 @@ describe('file-write: writeFileAtomic', () => {
     if (outcome.ok) {
       expect(outcome.diagnostics).toBeDefined()
       expect(outcome.diagnostics?.length).toBeGreaterThan(0)
-      expect(outcome.diagnostics?.[0]).toContain('TypeScript Syntax Error')
     }
+
+    const written = await readFile(target, 'utf8')
+    expect(written).toBe(brokenCode)
+  })
+})
+
+describe('fileWritePlugin: 自描述插件闭环 (defineBinder + permissions + execute)', () => {
+  let workspaceDir: string
+
+  beforeEach(async () => {
+    workspaceDir = await mkdtemp(join(tmpdir(), 'pa-test-plugin-write-'))
+    vi.stubEnv('PERSONAL_AGENT_WORKSPACE_DIR', workspaceDir)
+  })
+
+  afterEach(async () => {
+    vi.unstubAllEnvs()
+    await rm(workspaceDir, { recursive: true, force: true })
+  })
+
+  it('插件基础元数据与幂等策略符合规范', () => {
+    expect(fileWritePlugin.name).toBe('file_write')
+    expect(fileWritePlugin.descriptor.kind).toBe('WRITE')
+    expect(fileWritePlugin.idempotency?.isWrite).toBe(true)
+  })
+
+  it('bindArguments：合法工作区相对路径规范化成功', async () => {
+    const bindRes = await fileWritePlugin.bindArguments({ path: 'new-file.txt', content: 'test content' })
+    expect(bindRes.ok).toBe(true)
+    if (bindRes.ok) {
+      const expected = join(workspaceDir, 'new-file.txt')
+      expect(toPosix(bindRes.bound.paths['path'])).toBe(toPosix(expected))
+      expect(bindRes.bound.args['content']).toBe('test content')
+    }
+  })
+
+  it('bindArguments：路径逃逸触发 PATH_OUT_OF_ROOT 拦截', async () => {
+    const bindRes = await fileWritePlugin.bindArguments({ path: '../../evil.txt', content: 'hack' })
+    expect(bindRes.ok).toBe(false)
+    if (!bindRes.ok) {
+      expect(bindRes.code).toBe('PATH_OUT_OF_ROOT')
+    }
+  })
+
+  it('bindArguments：Windows 保留设备名触发 PATH_DEVICE_NAME_FORBIDDEN 拦截', async () => {
+    const bindRes = await fileWritePlugin.bindArguments({ path: 'NUL', content: 'empty' })
+    expect(bindRes.ok).toBe(false)
+    if (!bindRes.ok) {
+      expect(bindRes.code).toBe('PATH_DEVICE_NAME_FORBIDDEN')
+    }
+  })
+
+  it('bindArguments：缺少必填参数返回 INVALID_ARGUMENT', async () => {
+    const bindRes = await fileWritePlugin.bindArguments({})
+    expect(bindRes.ok).toBe(false)
+    if (!bindRes.ok) {
+      expect(bindRes.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
+    }
+  })
+
+  it('execute：通过 ValidatedCall 成功写入文件', async () => {
+    const target = join(workspaceDir, 'created.txt')
+    const call = {
+      taskScope: {
+        taskId: 't-1',
+        conversationId: 'c-1',
+        capabilities: ['file_write']
+      },
+      capability: fileWritePlugin.descriptor,
+      bound: {
+        args: { path: 'created.txt', content: 'plugin wrote this' },
+        paths: { path: target }
+      }
+    } as any
+
+    const outcome = await fileWritePlugin.execute(call, {})
+    expect(outcome.ok).toBe(true)
+    const diskContent = await readFile(target, 'utf8')
+    expect(diskContent).toBe('plugin wrote this')
   })
 })

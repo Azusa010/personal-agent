@@ -1,10 +1,52 @@
-import { FileWriteParams } from '@personal-agent/protocol'
+import {
+  ERROR_CODE,
+  FileWriteParams,
+  type FileWriteOutcome,
+  type FileWriteResult
+} from '@personal-agent/protocol'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 
-import { writeFileAtomic } from '../file-write'
-import { resolveWithinRootReal } from '../path-guard'
 import { resolveRoot } from '../roots'
 import type { CapabilityPlugin } from '../plugin'
-import { auditExpectedValues, invalid, safeStat } from './helpers'
+import { auditExpectedValues, safeStat } from './helpers'
+import { runDiagnosticProbe } from '../diagnostic-probe'
+import { defineBinder } from '../binder'
+
+export async function writeFileAtomic(absPath: string, content: string): Promise<FileWriteOutcome> {
+  try {
+    const parentDir = dirname(absPath)
+    await mkdir(parentDir, { recursive: true })
+    await writeFile(absPath, content, 'utf8')
+    const bytesWritten = Buffer.byteLength(content, 'utf8')
+
+    let workspaceRoot: string
+    try {
+      workspaceRoot = resolveRoot('workspace')
+    } catch {
+      workspaceRoot = parentDir
+    }
+
+    const probe = await runDiagnosticProbe(workspaceRoot, absPath, content).catch(() => ({
+      diagnostics: []
+    }))
+
+    const result: FileWriteResult = {
+      ok: true,
+      path: absPath,
+      bytesWritten,
+      ...(probe.diagnostics.length > 0 ? { diagnostics: probe.diagnostics } : {})
+    }
+    return result
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return {
+      ok: false,
+      code: ERROR_CODE.FILE_WRITE_FAILED,
+      reason: `写入文件失败 (${msg}): ${absPath}`
+    }
+  }
+}
 
 export const fileWritePlugin: CapabilityPlugin = {
   name: 'file_write',
@@ -13,24 +55,9 @@ export const fileWritePlugin: CapabilityPlugin = {
     kind: 'WRITE',
     description: '在工作区内写入或完全覆盖文件，自动创建父级目录'
   },
-  async bindArguments(args) {
-    const parsed = FileWriteParams.safeParse(args)
-    if (!parsed.success) return invalid('file_write', parsed.error.message)
-
-    const root = resolveRoot('workspace')
-    const guarded = await resolveWithinRootReal(root, parsed.data.path)
-    if (!guarded.ok) {
-      return { ok: false, code: guarded.code, reason: guarded.reason }
-    }
-
-    return {
-      ok: true,
-      bound: {
-        args: parsed.data as Record<string, unknown>,
-        paths: { path: guarded.path }
-      }
-    }
-  },
+  bindArguments: defineBinder('file_write', FileWriteParams, [
+    { field: 'path', root: 'workspace' }
+  ]),
   extractPermissionPaths(bound) {
     return { sourcePaths: [], targetPath: bound.paths['path'] ?? null }
   },

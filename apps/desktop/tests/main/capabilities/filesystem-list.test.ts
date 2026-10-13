@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import type { AuthorizedCall } from '../../../src/main/policy/execution-policy'
-import { listDirectory, listPdfs } from '../../../src/main/capabilities/filesystem-list'
+import { listDirectory, listPdfs } from '../../../src/main/capabilities/plugins/filesystem'
 import { formatModifiedAt, toPosix } from '../../../src/main/capabilities/roots'
 
 let dir: string

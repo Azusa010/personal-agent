@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   extractPdf,
   type PdfExtractionResult
-} from '../../../src/main/capabilities/document-extract-pdf'
+} from '../../../src/main/capabilities/plugins/document'
 import {
   buildPdf,
   buildBlankPdf,

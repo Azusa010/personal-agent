@@ -47,7 +47,7 @@ export function defineBinder<T extends Record<string, unknown>>(
           return {
             ok: false,
             code: guarded.code,
-            reason: guarded.reason
+            reason: `${guarded.reason}（${capabilityName} 的 ${String(rule.field)} 参数）`
           }
         }
         paths[rule.destKey ?? rule.field] = guarded.path

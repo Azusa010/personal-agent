@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ERROR_CODE } from '@personal-agent/protocol'
-import { searchTavily, WebSearchError } from '../../../src/main/capabilities/web-search'
-import { webSearchPlugin } from '../../../src/main/capabilities/plugins/web-search'
+import {
+  searchTavily,
+  WebSearchError,
+  webSearchPlugin
+} from '../../../src/main/capabilities/plugins/web-search'
 
 describe('web_search (Tavily Search Tool)', () => {
   const originalApiKey = process.env.TAVILY_API_KEY

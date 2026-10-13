@@ -1,6 +1,6 @@
 import { readFile, stat } from 'node:fs/promises'
 
-import { extractPdf } from '../capabilities/document-extract-pdf'
+import { extractPdf } from '../capabilities/plugins/document'
 import { resolveWithinRootReal } from '../capabilities/path-guard'
 import { resolveRoot } from '../capabilities/roots'
 import type { PageNumbersRead, VerificationPorts } from './evidence-bundle'

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { buildPdf } from '../../../src/main/capabilities/pdf-fixtures'
-import { extractPdf } from '../../../src/main/capabilities/document-extract-pdf'
+import { extractPdf } from '../../../src/main/capabilities/plugins/document'
 
 /**
  * 往上找 pnpm-workspace.yaml 定位仓库根。

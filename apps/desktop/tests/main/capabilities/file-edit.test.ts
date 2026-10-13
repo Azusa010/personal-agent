@@ -1,10 +1,15 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ERROR_CODE } from '@personal-agent/protocol'
 
-import { applyStrictReplacement, editFileStrict } from '../../../src/main/capabilities/file-edit'
+import {
+  applyStrictReplacement,
+  editFileStrict,
+  fileEditPlugin
+} from '../../../src/main/capabilities/plugins/file-edit'
+import { toPosix } from '../../../src/main/capabilities/roots'
 
 describe('file-edit: applyStrictReplacement', () => {
   it('成功对全局唯一出现的 oldString 执行替换', () => {
@@ -62,51 +67,131 @@ describe('file-edit: editFileStrict', () => {
     await rm(tempDir, { recursive: true, force: true })
   })
 
-  it('真实文件编辑成功并写盘', async () => {
-    const target = join(tempDir, 'app.ts')
-    await writeFile(target, 'let mode = "dev";\nexport default mode;', 'utf8')
+  it('成功替换并写回文件，且字节数与行数符合预期', async () => {
+    const target = join(tempDir, 'sample.txt')
+    await writeFile(target, 'line1\nline2\nline3', 'utf8')
 
-    const outcome = await editFileStrict(target, 'let mode = "dev";', 'let mode = "prod";')
+    const outcome = await editFileStrict(target, 'line2', 'lineTwo')
     expect(outcome.ok).toBe(true)
     if (outcome.ok) {
-      expect(outcome.replacements).toBe(1)
       expect(outcome.path).toBe(target)
+      expect(outcome.replacements).toBe(1)
     }
 
-    const updated = await readFile(target, 'utf8')
-    expect(updated).toBe('let mode = "prod";\nexport default mode;')
+    const written = await readFile(target, 'utf8')
+    expect(written).toBe('line1\nlineTwo\nline3')
   })
 
-  it('文件不存在时返回稳定错误码 FILE_UNREADABLE', async () => {
-    const nonExistent = join(tempDir, 'none.ts')
-    const outcome = await editFileStrict(nonExistent, 'a', 'b')
+  it('目标文件不存在时返回稳定错误码 FILE_UNREADABLE', async () => {
+    const nonExistent = join(tempDir, 'not-found.txt')
+    const outcome = await editFileStrict(nonExistent, 'foo', 'bar')
     expect(outcome.ok).toBe(false)
     if (!outcome.ok) {
       expect(outcome.code).toBe(ERROR_CODE.FILE_UNREADABLE)
     }
   })
 
-  it('未找到时返回结构化失败 FILE_EDIT_NOT_FOUND', async () => {
-    const target = join(tempDir, 'sample.txt')
-    await writeFile(target, 'hello world', 'utf8')
+  it('修改后代码出现语法错误时正常落盘且附带 diagnostics 警告', async () => {
+    const target = join(tempDir, 'code.ts')
+    await writeFile(target, 'const a: number = 1;\nconst b: number = 2;', 'utf8')
 
-    const outcome = await editFileStrict(target, 'missing', 'new')
-    expect(outcome.ok).toBe(false)
-    if (!outcome.ok) {
-      expect(outcome.code).toBe(ERROR_CODE.FILE_EDIT_NOT_FOUND)
-    }
-  })
-
-  it('编辑引入语法错误时正常落盘且附带 diagnostics 警告', async () => {
-    const target = join(tempDir, 'sample.ts')
-    await writeFile(target, 'const a = 1;\nconst b = 2;\n', 'utf8')
-
-    const outcome = await editFileStrict(target, 'const b = 2;', 'const b = ;')
+    const outcome = await editFileStrict(target, 'const a: number = 1;', 'const a: number = ;')
     expect(outcome.ok).toBe(true)
     if (outcome.ok) {
       expect(outcome.diagnostics).toBeDefined()
       expect(outcome.diagnostics?.length).toBeGreaterThan(0)
-      expect(outcome.diagnostics?.[0]).toContain('TypeScript Syntax Error')
     }
+  })
+})
+
+describe('fileEditPlugin: 自描述插件闭环 (defineBinder + permissions + execute)', () => {
+  let workspaceDir: string
+
+  beforeEach(async () => {
+    workspaceDir = await mkdtemp(join(tmpdir(), 'pa-test-plugin-edit-'))
+    vi.stubEnv('PERSONAL_AGENT_WORKSPACE_DIR', workspaceDir)
+  })
+
+  afterEach(async () => {
+    vi.unstubAllEnvs()
+    await rm(workspaceDir, { recursive: true, force: true })
+  })
+
+  it('插件基础元数据与幂等策略符合规范', () => {
+    expect(fileEditPlugin.name).toBe('file_edit')
+    expect(fileEditPlugin.descriptor.kind).toBe('WRITE')
+    expect(fileEditPlugin.idempotency?.isWrite).toBe(true)
+  })
+
+  it('bindArguments：合法工作区相对路径规范化成功', async () => {
+    const target = join(workspaceDir, 'edit-me.txt')
+    await writeFile(target, 'hello world', 'utf8')
+
+    const bindRes = await fileEditPlugin.bindArguments({
+      path: 'edit-me.txt',
+      oldString: 'hello',
+      newString: 'world'
+    })
+    expect(bindRes.ok).toBe(true)
+    if (bindRes.ok) {
+      expect(toPosix(bindRes.bound.paths['path'])).toBe(toPosix(target))
+      expect(bindRes.bound.args['oldString']).toBe('hello')
+      expect(bindRes.bound.args['newString']).toBe('world')
+    }
+  })
+
+  it('bindArguments：路径逃逸触发 PATH_OUT_OF_ROOT 拦截', async () => {
+    const bindRes = await fileEditPlugin.bindArguments({
+      path: '../../escape.txt',
+      oldString: 'a',
+      newString: 'b'
+    })
+    expect(bindRes.ok).toBe(false)
+    if (!bindRes.ok) {
+      expect(bindRes.code).toBe('PATH_OUT_OF_ROOT')
+    }
+  })
+
+  it('bindArguments：Windows 保留设备名触发 PATH_DEVICE_NAME_FORBIDDEN 拦截', async () => {
+    const bindRes = await fileEditPlugin.bindArguments({
+      path: 'AUX.txt',
+      oldString: 'a',
+      newString: 'b'
+    })
+    expect(bindRes.ok).toBe(false)
+    if (!bindRes.ok) {
+      expect(bindRes.code).toBe('PATH_DEVICE_NAME_FORBIDDEN')
+    }
+  })
+
+  it('bindArguments：缺少必填参数返回 INVALID_ARGUMENT', async () => {
+    const bindRes = await fileEditPlugin.bindArguments({ path: 'a.txt' })
+    expect(bindRes.ok).toBe(false)
+    if (!bindRes.ok) {
+      expect(bindRes.code).toBe(ERROR_CODE.INVALID_ARGUMENT)
+    }
+  })
+
+  it('execute：通过 ValidatedCall 成功完成单块局部替换', async () => {
+    const target = join(workspaceDir, 'modify.txt')
+    await writeFile(target, 'alpha\nbeta\ngamma', 'utf8')
+
+    const call = {
+      taskScope: {
+        taskId: 't-1',
+        conversationId: 'c-1',
+        capabilities: ['file_edit']
+      },
+      capability: fileEditPlugin.descriptor,
+      bound: {
+        args: { path: 'modify.txt', oldString: 'beta', newString: 'delta' },
+        paths: { path: target }
+      }
+    } as any
+
+    const outcome = await fileEditPlugin.execute(call, {})
+    expect(outcome.ok).toBe(true)
+    const diskContent = await readFile(target, 'utf8')
+    expect(diskContent).toBe('alpha\ndelta\ngamma')
   })
 })

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { ERROR_CODE, FilesystemCreateDirOutcome } from '@personal-agent/protocol'
 
-import { createDir } from '../../../src/main/capabilities/filesystem-create-dir'
+import { createDir } from '../../../src/main/capabilities/plugins/filesystem'
 import { toPosix } from '../../../src/main/capabilities/roots'
 
 let dir: string

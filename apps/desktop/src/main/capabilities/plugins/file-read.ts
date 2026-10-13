@@ -1,10 +1,113 @@
-import { FileReadParams } from '@personal-agent/protocol'
+import {
+  ERROR_CODE,
+  FileReadOutcome,
+  FileReadParams,
+  FileReadResult
+} from '@personal-agent/protocol'
 
-import { readFileWithLineNumbers } from '../file-read'
-import { resolveWithinRootReal } from '../path-guard'
-import { resolveRoot } from '../roots'
 import type { CapabilityPlugin } from '../plugin'
-import { invalid } from './helpers'
+import { readFile, stat } from 'node:fs/promises'
+import { defineBinder } from '../binder'
+
+export interface ReadFileOptions {
+  readonly startLine?: number
+  readonly endLine?: number
+}
+
+export interface FormattedLines {
+  readonly content: string
+  readonly totalLines: number
+  readonly startLine: number
+  readonly endLine: number
+}
+
+export function formatFileLines(
+  rawText: string,
+  startLine?: number,
+  endLine?: number
+): FormattedLines {
+  if (rawText === '') {
+    return {
+      content: '',
+      totalLines: 0,
+      startLine: 1,
+      endLine: 0
+    }
+  }
+  const lines = rawText.split(/\r?\n/)
+  const totalLines = lines.length
+  const actualStart = Math.max(1, startLine ?? 1)
+  const actualEnd = Math.min(totalLines, endLine ?? totalLines)
+
+  if (actualStart > actualEnd) {
+    return {
+      content: '',
+      totalLines,
+      startLine: actualStart,
+      endLine: actualEnd
+    }
+  }
+
+  const slicedLines = lines.slice(actualStart - 1, actualEnd)
+  const formattedLines = slicedLines.map((line, index) => `${actualStart + index}: ${line}`)
+  const content = formattedLines.join('\n')
+
+  return {
+    content,
+    totalLines,
+    startLine: actualStart,
+    endLine: actualEnd
+  }
+}
+
+export async function readFileWithLineNumbers(
+  absPath: string,
+  options: ReadFileOptions = {}
+): Promise<FileReadOutcome> {
+  let fileStats
+  try {
+    fileStats = await stat(absPath)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return {
+      ok: false,
+      code: ERROR_CODE.FILE_UNREADABLE,
+      reason: `文件不存在或无法访问 (${msg}): ${absPath}`
+    }
+  }
+
+  if (fileStats.isDirectory()) {
+    return {
+      ok: false,
+      code: ERROR_CODE.FILE_UNREADABLE,
+      reason: `目标路径是目录而非文件: ${absPath}`
+    }
+  }
+
+  let rawText: string
+  try {
+    rawText = await readFile(absPath, 'utf8')
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return {
+      ok: false,
+      code: ERROR_CODE.FILE_UNREADABLE,
+      reason: `文件读取失败 (${msg}): ${absPath}`
+    }
+  }
+
+  const formatted = formatFileLines(rawText, options.startLine, options.endLine)
+
+  const result: FileReadResult = {
+    ok: true,
+    path: absPath,
+    content: formatted.content,
+    totalLines: formatted.totalLines,
+    startLine: formatted.startLine,
+    endLine: formatted.endLine
+  }
+  return result
+}
 
 export const fileReadPlugin: CapabilityPlugin = {
   name: 'file_read',
@@ -13,24 +116,7 @@ export const fileReadPlugin: CapabilityPlugin = {
     kind: 'READ',
     description: '读取指定文件内容，支持按起始行号与结束行号分页读取，每行自带行号前缀'
   },
-  async bindArguments(args) {
-    const parsed = FileReadParams.safeParse(args)
-    if (!parsed.success) return invalid('file_read', parsed.error.message)
-
-    const root = resolveRoot('workspace')
-    const guarded = await resolveWithinRootReal(root, parsed.data.path)
-    if (!guarded.ok) {
-      return { ok: false, code: guarded.code, reason: guarded.reason }
-    }
-
-    return {
-      ok: true,
-      bound: {
-        args: parsed.data as Record<string, unknown>,
-        paths: { path: guarded.path }
-      }
-    }
-  },
+  bindArguments: defineBinder('file_read', FileReadParams, [{ field: 'path', root: 'workspace' }]),
   async execute(call) {
     const absPath = call.bound.paths['path']
     const startLine =

@@ -2,6 +2,7 @@ import type { CapabilityDescriptor, CapabilityExposure, CapabilityKind } from '.
 import type { BoundArgs, BindResult } from '../policy/argument-binders'
 import type { AuthorizedCall } from '../policy/execution-policy'
 export type { AuthorizedCall }
+export type ValidatedCall = AuthorizedCall
 import type { RecoveryVerdict } from './idempotency'
 import type { ToolExecutionRecord } from '../product-state/tool-execution-repository'
 import type { ReminderRecord } from '../../shared/domain'
