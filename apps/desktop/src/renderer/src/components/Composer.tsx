@@ -1,57 +1,20 @@
 import { useState } from 'react'
-import {
-  Activity,
-  ArrowUp,
-  Columns2,
-  Download,
-  FileText,
-  FolderCog,
-  FolderOpen,
-  Paperclip,
-  ScanSearch
-} from 'lucide-react'
+import { ArrowUp, FolderOpen, Paperclip } from 'lucide-react'
+import type { BotView } from '../../../shared/ipc-contract'
 
 export interface ComposerProps {
   running: boolean
   inputRef: React.RefObject<HTMLTextAreaElement | null>
+  activeBot?: BotView | null
   onSend: (goal: string) => void
-  onScan: () => void
-  onOpenIndex: () => void
-  onOpenDiagnostics: () => void
-  onExport: () => void
+  onScan?: () => void
+  onOpenIndex?: () => void
+  onOpenDiagnostics?: () => void
+  onExport?: () => void
 }
-
-interface QuickAction {
-  label: string
-  icon: React.JSX.Element
-  /** 有 prompt 的芯片把示例指令填进输入框；没有的直接触发动作 */
-  prompt?: string
-  run?: (props: ComposerProps) => void
-}
-
-const QUICK_ACTIONS: QuickAction[] = [
-  {
-    label: '全文摘要',
-    icon: <FileText size={14} />,
-    prompt: '请对当前索引里的全部 PDF 做全文摘要'
-  },
-  {
-    label: '两文档对比',
-    icon: <Columns2 size={14} />,
-    prompt: '对比索引里两份 PDF 的付款条款差异'
-  },
-  {
-    label: '关键条款提取',
-    icon: <ScanSearch size={14} />,
-    prompt: '提取当前合同中的关键条款与风险点'
-  },
-  { label: '索引管理', icon: <FolderCog size={14} />, run: (p) => p.onOpenIndex() },
-  { label: '运行诊断', icon: <Activity size={14} />, run: (p) => p.onOpenDiagnostics() },
-  { label: '导出 Markdown', icon: <Download size={14} />, run: (p) => p.onExport() }
-]
 
 export function Composer(props: ComposerProps): React.JSX.Element {
-  const { running, inputRef, onSend } = props
+  const { running, inputRef, onSend, activeBot } = props
   const [value, setValue] = useState('')
 
   const send = (): void => {
@@ -61,14 +24,18 @@ export function Composer(props: ComposerProps): React.JSX.Element {
     onSend(goal)
   }
 
+  const placeholderText = activeBot
+    ? `向 ${activeBot.name} 发送消息或任务指令…`
+    : '问点什么，或让它去读某份 PDF…'
+
   return (
-    <footer className="shrink-0 px-6 pb-4 pt-3">
+    <footer className="shrink-0 px-6 pb-4 pt-2">
       <div className="rounded-[20px] border border-input bg-card px-4 pt-3 pb-2.5 shadow-[0_1px_2px_rgba(94,80,53,0.05),0_8px_28px_rgba(94,80,53,0.08)] transition-shadow focus-within:shadow-[0_1px_2px_rgba(94,80,53,0.05),0_8px_28px_rgba(15,157,143,0.14)]">
         <textarea
           ref={inputRef}
           rows={2}
           aria-label="输入消息"
-          placeholder="问点什么，或让它去读某份 PDF…"
+          placeholder={placeholderText}
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
@@ -80,7 +47,18 @@ export function Composer(props: ComposerProps): React.JSX.Element {
           className="block w-full resize-none border-0 bg-transparent px-1 py-1.5 text-[13px] leading-5 text-foreground outline-none placeholder:text-muted-foreground"
         />
         <div className="flex items-center justify-between px-1">
-          <div className="flex gap-1">
+          <div className="flex items-center gap-1">
+            {activeBot && (
+              <div
+                className="flex items-center gap-1.5 rounded-full bg-secondary/80 border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground mr-1 shadow-2xs"
+                title={`当前对话智能体：${activeBot.name}`}
+              >
+                <span>{activeBot.avatar || '🤖'}</span>
+                <span className="font-medium text-foreground max-w-[100px] truncate">
+                  {activeBot.name}
+                </span>
+              </div>
+            )}
             <button
               type="button"
               aria-label="扫描 Downloads 里的 PDF"
@@ -110,31 +88,6 @@ export function Composer(props: ComposerProps): React.JSX.Element {
             <ArrowUp size={14} />
           </button>
         </div>
-      </div>
-      <div className="flex items-center justify-between gap-3 pt-2">
-        <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {QUICK_ACTIONS.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              onClick={() => {
-                if (action.run !== undefined) {
-                  action.run(props)
-                  return
-                }
-                setValue(action.prompt ?? '')
-                inputRef.current?.focus()
-              }}
-              className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-[var(--paper-warm)] px-2.5 py-1.5 text-[11px] text-muted-foreground transition-colors hover:border-[var(--mint-line)] hover:bg-[var(--mint-tint)] hover:text-[var(--mint-deep)]"
-            >
-              {action.icon}
-              <span>{action.label}</span>
-            </button>
-          ))}
-        </div>
-        <p className="m-0 shrink-0 text-[11px] text-muted-foreground">
-          Enter 发送 · Shift+Enter 换行
-        </p>
       </div>
     </footer>
   )

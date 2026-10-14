@@ -25,7 +25,13 @@ import type {
   ResetCircuitBreakerResult,
   A2UIFormSubmitParams,
   A2UIFormSubmitIpcResult,
-  A2UIRenderNotice
+  A2UIRenderNotice,
+  ListBotsResult,
+  GetBotResult,
+  CreateBotInput,
+  CreateBotResult,
+  UpdateBotInput,
+  UpdateBotResult
 } from '../shared/ipc-contract'
 
 export type {
@@ -63,8 +69,20 @@ export type PersonalAgentApi = {
   listConversations(): Promise<ListConversationsResult>
   /** 读一段会话的全部消息；assistant 消息内嵌任务 timeline */
   getConversation(conversationId: string): Promise<GetConversationResult>
-  /** 发一条消息。conversationId 传 null = 开新会话；回包带会话 id */
-  sendMessage(input: { conversationId: string | null; text: string }): Promise<SendMessageIpcResult>
+  /** 发一条消息。conversationId 传 null = 开新会话；回包带会话 id；可指定 botId */
+  sendMessage(input: {
+    conversationId: string | null
+    text: string
+    botId?: string | null
+  }): Promise<SendMessageIpcResult>
+  /** 获取全部已注册的伴侣 Bot（携带各自唯一 conversationId） */
+  listBots(): Promise<ListBotsResult>
+  /** 根据 ID 查询 Bot 详情 */
+  getBot(botId: string): Promise<GetBotResult>
+  /** 创建自定义伴侣 Bot 并初始化专属伴随会话 */
+  createBot(input: CreateBotInput): Promise<CreateBotResult>
+  /** 更新伴侣 Bot 人设与名称 */
+  updateBot(input: UpdateBotInput): Promise<UpdateBotResult>
   /** taskId 传 null 表示读最近创建的任务：应用重启后 renderer 的 state 已清空，没有这个入口就再也指不回上一个任务 */
   getTimeline(taskId: string | null): Promise<TimelineIpcResult>
   /** 批准面板的「批准 / 拒绝」。同结论重复调用无副作用，repeated 会是 true */

@@ -7,7 +7,9 @@ import type {
   PermissionDecision,
   PermissionNotice,
   SetAgentProfileInput,
-  SetModelSettingsInput
+  SetModelSettingsInput,
+  CreateBotInput,
+  UpdateBotInput
 } from '../shared/ipc-contract'
 
 // Use `contextBridge` APIs to expose Electron APIs to
@@ -34,8 +36,20 @@ if (process.contextIsolated) {
       getConversation: (conversationId: string) => {
         return ipcRenderer.invoke('personal-agent:get-conversation', conversationId)
       },
-      sendMessage: (input: { conversationId: string | null; text: string }) => {
+      sendMessage: (input: { conversationId: string | null; text: string; botId?: string | null }) => {
         return ipcRenderer.invoke('personal-agent:send-message', input)
+      },
+      listBots: () => {
+        return ipcRenderer.invoke('personal-agent:list-bots')
+      },
+      getBot: (botId: string) => {
+        return ipcRenderer.invoke('personal-agent:get-bot', botId)
+      },
+      createBot: (input: CreateBotInput) => {
+        return ipcRenderer.invoke('personal-agent:create-bot', input)
+      },
+      updateBot: (input: UpdateBotInput) => {
+        return ipcRenderer.invoke('personal-agent:update-bot', input)
       },
       getTimeline: (taskId: string | null) => {
         return ipcRenderer.invoke('personal-agent:get-timeline', taskId)

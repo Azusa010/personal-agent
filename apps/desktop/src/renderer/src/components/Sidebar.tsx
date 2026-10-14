@@ -1,5 +1,5 @@
-import { Activity, FolderCog, MessageSquare, Plus, Settings, Zap } from 'lucide-react'
-import type { ConversationSummary, RuntimeStatus } from '../../../shared/ipc-contract'
+import { Activity, Edit2, FolderCog, MessageSquare, Plus, Settings, Zap } from 'lucide-react'
+import type { BotView, ConversationSummary, RuntimeStatus } from '../../../shared/ipc-contract'
 import { cn } from '@renderer/lib/utils'
 
 export interface SidebarProps {
@@ -8,8 +8,13 @@ export interface SidebarProps {
   runtimeStatus: RuntimeStatus | null
   indexedCount: number | null
   activeView: 'chat' | 'workflows'
+  bots?: BotView[]
+  activeBotId?: string | null
   onSelectView: (view: 'chat' | 'workflows') => void
   onSelectConversation: (conversationId: string) => void
+  onSelectBot?: (bot: BotView) => void
+  onCreateBot?: () => void
+  onEditBot?: (bot: BotView) => void
   onNewChat: () => void
   onOpenIndex: () => void
   onOpenDiagnostics: () => void
@@ -56,8 +61,13 @@ export function Sidebar({
   runtimeStatus,
   indexedCount,
   activeView,
+  bots = [],
+  activeBotId,
   onSelectView,
   onSelectConversation,
+  onSelectBot,
+  onCreateBot,
+  onEditBot,
   onNewChat,
   onOpenIndex,
   onOpenDiagnostics,
@@ -67,10 +77,14 @@ export function Sidebar({
   const statusText =
     indexedCount === null ? runtime.text : `${runtime.text} · 索引 ${indexedCount} 份 PDF`
 
+  // 过滤掉已作为专有智能体伴侣常驻会话的记录，避免历史列表中产生重复项
+  const botConvIds = new Set(bots.map((b) => b.conversationId).filter(Boolean))
+  const filteredConversations = conversations.filter((c) => !botConvIds.has(c.id))
+
   return (
-    <aside className="flex w-[232px] shrink-0 flex-col border-r border-border bg-secondary">
+    <aside className="flex w-[240px] shrink-0 flex-col border-r border-border bg-secondary">
       <div className="px-4 pt-4">
-        {/* 顶部主工作区切换标签(品牌区已上移到自绘 TitleBar) */}
+        {/* 顶部主工作区切换标签 */}
         <div className="grid grid-cols-2 gap-1 rounded-lg bg-[var(--paper-warm)] p-1 text-[12px] font-medium">
           <button
             type="button"
@@ -113,35 +127,116 @@ export function Sidebar({
       </div>
 
       {activeView === 'chat' ? (
-        <nav className="mt-4 flex-1 overflow-y-auto px-3" aria-label="历史会话">
-          {conversations.length === 0 && (
-            <p className="px-2 text-[11px] text-muted-foreground">还没有历史会话</p>
-          )}
-          {groupConversations(conversations).map((group) => (
-            <div key={group.label}>
-              <p className="mb-2 mt-4 px-2 text-[11px] font-medium text-muted-foreground first:mt-0">
-                {group.label}
-              </p>
-              <div className="space-y-1">
-                {group.items.map((conversation) => (
+        <nav className="mt-3 flex-1 overflow-y-auto px-3 space-y-4" aria-label="对话导航">
+          {/* 智能体伴侣专区 (Dots / Grok Bot 范式) */}
+          {bots.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between px-2 mb-1.5">
+                <span className="text-[11px] font-semibold tracking-wider text-muted-foreground">
+                  智能体伴侣
+                </span>
+                {onCreateBot && (
                   <button
-                    key={conversation.id}
                     type="button"
-                    onClick={() => onSelectConversation(conversation.id)}
-                    className={cn(
-                      'flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[13px]',
-                      conversation.id === selectedConversationId
-                        ? 'border border-border bg-card text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
-                    )}
+                    title="新建智能体角色"
+                    onClick={onCreateBot}
+                    className="flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 px-1 py-0.5 rounded hover:bg-primary/10 transition-colors"
                   >
-                    <MessageSquare size={14} className="shrink-0" />
-                    <span className="truncate">{conversation.title}</span>
+                    <Plus size={12} />
+                    <span>新建</span>
                   </button>
-                ))}
+                )}
+              </div>
+              <div className="space-y-1">
+                {bots.map((bot) => {
+                  const isSelected =
+                    bot.id === activeBotId ||
+                    (selectedConversationId !== null && bot.conversationId === selectedConversationId)
+                  return (
+                    <div
+                      key={bot.id}
+                      onClick={() => onSelectBot?.(bot)}
+                      className={cn(
+                        'group relative flex w-full items-center rounded-lg px-2.5 py-2 text-left text-[13px] cursor-pointer transition-colors',
+                        isSelected
+                          ? 'border border-border bg-card text-foreground shadow-xs font-medium'
+                          : 'text-muted-foreground hover:bg-card/60 hover:text-foreground border border-transparent'
+                      )}
+                    >
+                      <span className="mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-secondary text-base">
+                        {bot.avatar || '🤖'}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate">{bot.name}</span>
+                          {bot.isDefault && (
+                            <span className="rounded bg-primary/10 px-1 py-0.2 text-[9px] font-medium text-primary">
+                              默认
+                            </span>
+                          )}
+                        </div>
+                        {bot.description && (
+                          <div className="truncate text-[10px] text-muted-foreground font-normal">
+                            {bot.description}
+                          </div>
+                        )}
+                      </div>
+                      {onEditBot && (
+                        <button
+                          type="button"
+                          title="编辑伴侣设定"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onEditBot(bot)
+                          }}
+                          className="opacity-0 group-hover:opacity-100 rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-opacity"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
-          ))}
+          )}
+
+          {/* 独立历史会话列表 */}
+          <div>
+            <div className="flex items-center justify-between px-2 mb-1.5">
+              <span className="text-[11px] font-semibold tracking-wider text-muted-foreground">
+                历史会话
+              </span>
+            </div>
+            {filteredConversations.length === 0 && (
+              <p className="px-2 text-[11px] text-muted-foreground">还没有独立历史会话</p>
+            )}
+            {groupConversations(filteredConversations).map((group) => (
+              <div key={group.label}>
+                <p className="mb-2 mt-3 px-2 text-[11px] font-medium text-muted-foreground first:mt-0">
+                  {group.label}
+                </p>
+                <div className="space-y-1">
+                  {group.items.map((conversation) => (
+                    <button
+                      key={conversation.id}
+                      type="button"
+                      onClick={() => onSelectConversation(conversation.id)}
+                      className={cn(
+                        'flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[13px]',
+                        conversation.id === selectedConversationId
+                          ? 'border border-border bg-card text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+                      )}
+                    >
+                      <MessageSquare size={14} className="shrink-0" />
+                      <span className="truncate">{conversation.title}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </nav>
       ) : (
         <nav className="mt-4 flex-1 overflow-y-auto px-3" aria-label="工作流列表">

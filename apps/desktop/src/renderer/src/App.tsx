@@ -1,6 +1,6 @@
 import { WelcomeView } from './components/WelcomeView'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Ellipsis } from 'lucide-react'
+import { Edit2, Ellipsis } from 'lucide-react'
 import type {
   MessageView,
   PermissionDecision,
@@ -8,9 +8,11 @@ import type {
   PermissionRespondResult,
   SendMessageIpcResult,
   RuntimeStatus,
-  A2UIRenderNotice
+  A2UIRenderNotice,
+  BotView
 } from '../../shared/ipc-contract'
 import { A2UIDialog } from './components/a2ui'
+import { BotDialog } from './components/BotDialog'
 import { Composer } from './components/Composer'
 import { DiagnosticsDialog } from './components/DiagnosticsDialog'
 import { IndexDialog } from './components/IndexDialog'
@@ -29,6 +31,8 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 function App(): React.JSX.Element {
+  const queryClient = useQueryClient()
+
   const { data: conversations = [] } = useQuery({
     queryKey: ['conversations'],
     queryFn: async () => {
@@ -36,6 +40,15 @@ function App(): React.JSX.Element {
       return result.ok ? result.conversations : []
     }
   })
+
+  const { data: bots = [] } = useQuery({
+    queryKey: ['bots'],
+    queryFn: async () => {
+      const result = await window.personalAgent.listBots()
+      return result.ok ? result.bots : []
+    }
+  })
+
   const { data: agentProfile } = useQuery({
     queryKey: ['agentProfile'],
     queryFn: async () => {
@@ -43,7 +56,9 @@ function App(): React.JSX.Element {
       return result.ok ? result.profile : null
     }
   })
+
   const [activeView, setActiveView] = useState<'chat' | 'workflows'>('chat')
+  const [activeBotId, setActiveBotId] = useState<string | null>(null)
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<MessageView[]>([])
   const [messagesError, setMessagesError] = useState<string | null>(null)
@@ -56,6 +71,9 @@ function App(): React.JSX.Element {
   const [indexOpen, setIndexOpen] = useState(false)
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [botDialogOpen, setBotDialogOpen] = useState(false)
+  const [editingBot, setEditingBot] = useState<BotView | null>(null)
+
   // 自增即重开一轮 runtime 状态轮询：设置保存后 runtime 会重启，
   // 不重新拉的话状态栏会停在旧值。
   const [statusPollKey, setStatusPollKey] = useState(0)
@@ -63,6 +81,9 @@ function App(): React.JSX.Element {
   const [activeA2UIRender, setActiveA2UIRender] = useState<A2UIRenderNotice | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const feedbackTimer = useRef<number | null>(null)
+
+  const defaultBot = bots.find((b) => b.isDefault) ?? bots[0] ?? null
+  const activeBot = (activeBotId ? bots.find((b) => b.id === activeBotId) : null) ?? defaultBot
 
   const showFeedback = (text: string): void => {
     setFeedback(text)
@@ -84,6 +105,16 @@ function App(): React.JSX.Element {
       setMessagesError(err instanceof Error ? err.message : String(err))
     }
   }, [])
+
+  // 初始挂载时自动附着到默认智能体伴侣的常驻会话
+  const initialBotAttached = useRef(false)
+  useEffect(() => {
+    if (!initialBotAttached.current && activeBot?.conversationId) {
+      initialBotAttached.current = true
+      setSelectedConversationId(activeBot.conversationId)
+      void loadConversation(activeBot.conversationId)
+    }
+  }, [activeBot?.conversationId, loadConversation])
 
   const loadIndexedCount = useCallback(async (): Promise<void> => {
     try {
@@ -187,7 +218,36 @@ function App(): React.JSX.Element {
   const handleSelectConversation = (conversationId: string): void => {
     setActiveView('chat')
     setSelectedConversationId(conversationId)
+    const matchingBot = bots.find((b) => b.conversationId === conversationId)
+    if (matchingBot) {
+      setActiveBotId(matchingBot.id)
+    }
     void loadConversation(conversationId)
+  }
+
+  const handleSelectBot = (bot: BotView): void => {
+    setActiveBotId(bot.id)
+    setActiveView('chat')
+    setSelectedConversationId(bot.conversationId)
+    void loadConversation(bot.conversationId)
+  }
+
+  const handleCreateBot = (): void => {
+    setEditingBot(null)
+    setBotDialogOpen(true)
+  }
+
+  const handleEditBot = (bot: BotView): void => {
+    setEditingBot(bot)
+    setBotDialogOpen(true)
+  }
+
+  const handleBotSaved = (savedBot: BotView): void => {
+    void queryClient.invalidateQueries({ queryKey: ['bots'] })
+    setActiveBotId(savedBot.id)
+    setSelectedConversationId(savedBot.conversationId)
+    void loadConversation(savedBot.conversationId)
+    showFeedback(editingBot ? `已更新伴侣设定：${savedBot.name}` : `已创建伴侣：${savedBot.name}`)
   }
 
   const handleNewChat = (): void => {
@@ -198,7 +258,6 @@ function App(): React.JSX.Element {
     inputRef.current?.focus()
   }
 
-  const queryClient = useQueryClient()
   const handleSend = async (text: string): Promise<void> => {
     setRunning(true)
     setPendingText(text)
@@ -207,7 +266,8 @@ function App(): React.JSX.Element {
     try {
       result = await window.personalAgent.sendMessage({
         conversationId: selectedConversationId,
-        text
+        text,
+        botId: activeBot?.id ?? null
       })
     } catch (err) {
       // 正常不会进这里：sendMessage 的契约是永不抛。真抛了说明 preload / IPC 层坏了。
@@ -222,7 +282,7 @@ function App(): React.JSX.Element {
       setPendingText(null)
       setStreamState(null)
     }
-    queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    void queryClient.invalidateQueries({ queryKey: ['conversations'] })
     // 不管这轮成没成，会话里都留下了痕迹（user 消息 + 承载结局的 assistant 消息），重读它。
     setSelectedConversationId(result.conversationId)
     if (result.conversationId !== '') await loadConversation(result.conversationId)
@@ -273,8 +333,13 @@ function App(): React.JSX.Element {
           runtimeStatus={runtimeStatus}
           indexedCount={indexedCount}
           activeView={activeView}
+          bots={bots}
+          activeBotId={activeBot?.id ?? null}
           onSelectView={setActiveView}
           onSelectConversation={handleSelectConversation}
+          onSelectBot={handleSelectBot}
+          onCreateBot={handleCreateBot}
+          onEditBot={handleEditBot}
           onNewChat={handleNewChat}
           onOpenIndex={() => setIndexOpen(true)}
           onOpenDiagnostics={() => setDiagnosticsOpen(true)}
@@ -284,15 +349,44 @@ function App(): React.JSX.Element {
         {activeView === 'chat' ? (
           <section className="flex min-w-0 flex-1 flex-col">
             <header className="flex h-[70px] shrink-0 items-center justify-between border-b border-border px-6">
-              <div className="min-w-0">
-                <h2 className="m-0 truncate text-[15px] font-semibold">
-                  {selected === null ? '新对话' : selected.title}
-                </h2>
-                <p className="m-0 mt-1 truncate text-[11px] text-muted-foreground">
-                  {selected === null
-                    ? '本地优先的个人助理'
-                    : `最近活动 ${formatOccurredAt(selected.updatedAt)}`}
-                </p>
+              <div className="flex items-center gap-3 min-w-0">
+                {activeBot && (
+                  <div
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-secondary text-xl shadow-xs cursor-pointer hover:border-primary/50 transition-colors"
+                    title="点击编辑智能体人设"
+                    onClick={() => handleEditBot(activeBot)}
+                  >
+                    {activeBot.avatar || '🤖'}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="m-0 truncate text-[15px] font-semibold">
+                      {selected === null
+                        ? activeBot
+                          ? `与 ${activeBot.name} 的对话`
+                          : '新对话'
+                        : selected.title}
+                    </h2>
+                    {activeBot && (
+                      <button
+                        type="button"
+                        title="编辑伴侣人设"
+                        onClick={() => handleEditBot(activeBot)}
+                        className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                  <p className="m-0 mt-0.5 truncate text-[11px] text-muted-foreground">
+                    {activeBot?.description
+                      ? activeBot.description
+                      : selected === null
+                        ? '本地优先的个人助理'
+                        : `最近活动 ${formatOccurredAt(selected.updatedAt)}`}
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
@@ -311,7 +405,7 @@ function App(): React.JSX.Element {
                 messagesError={messagesError}
                 feedback={feedback}
                 streamState={streamState}
-                agentName={agentProfile?.name}
+                agentName={activeBot ? activeBot.name : agentProfile?.name}
                 thinkingByTaskId={thinkingByTaskId}
                 pendingPermission={pendingPermission}
                 onDecidePermission={handleDecide}
@@ -322,7 +416,11 @@ function App(): React.JSX.Element {
                 messagesError === null &&
                 pendingPermission === null && (
                   <div className="absolute inset-0 z-10 flex flex-col justify-end bg-background">
-                    <WelcomeView onAction={(text) => void handleSend(text)} />
+                    <WelcomeView
+                      activeBot={activeBot}
+                      onAction={(text) => void handleSend(text)}
+                      onEditBot={handleEditBot}
+                    />
                     {feedback !== null && (
                       <p className="pb-3 text-center text-[12px] text-muted-foreground">
                         {feedback}
@@ -335,6 +433,7 @@ function App(): React.JSX.Element {
             <Composer
               running={running}
               inputRef={inputRef}
+              activeBot={activeBot}
               onSend={(text) => void handleSend(text)}
               onScan={() => void handleScan()}
               onOpenIndex={() => setIndexOpen(true)}
@@ -360,6 +459,12 @@ function App(): React.JSX.Element {
           setStatusPollKey((key) => key + 1)
           void queryClient.invalidateQueries({ queryKey: ['agentProfile'] })
         }}
+      />
+      <BotDialog
+        open={botDialogOpen}
+        onOpenChange={setBotDialogOpen}
+        bot={editingBot}
+        onSaved={handleBotSaved}
       />
       <A2UIDialog
         render={activeA2UIRender}
