@@ -21,6 +21,7 @@ function makeRepo(): SqliteConversationRepository {
   const d = openProductState(MEMORY_DB)
   db = d
   migrate(d)
+  d.prepare('DELETE FROM conversations').run()
   return new SqliteConversationRepository(d)
 }
 

@@ -139,7 +139,7 @@ describe('fileWritePlugin: 自描述插件闭环 (defineBinder + permissions + e
         args: { path: 'created.txt', content: 'plugin wrote this' },
         paths: { path: target }
       }
-    } as any
+    } as unknown as Parameters<typeof fileWritePlugin.execute>[0]
 
     const outcome = await fileWritePlugin.execute(call, {})
     expect(outcome.ok).toBe(true)

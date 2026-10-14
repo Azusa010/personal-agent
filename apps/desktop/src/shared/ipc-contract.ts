@@ -188,6 +188,17 @@ export interface ConversationSummary {
   title: string
   updatedAt: string
 }
+export interface BotView {
+  id: string
+  name: string
+  avatar: string
+  persona: string
+  conversationId: string
+  isDefault: boolean
+  description: string
+  createdAt: string
+  updatedAt: string
+}
 
 export interface MessageView {
   seq: number
@@ -203,8 +214,38 @@ export type ListConversationsResult =
   | { ok: true; conversations: ConversationSummary[] }
   | { ok: false; code: IpcErrorCode; message: string }
 
+export type ListBotsResult =
+  { ok: true; bots: BotView[] } | { ok: false; code: IpcErrorCode; message: string }
+
+export type GetBotResult =
+  { ok: true; bot: BotView } | { ok: false; code: IpcErrorCode; message: string }
+
+export type CreateBotResult =
+  { ok: true; bot: BotView } | { ok: false; code: IpcErrorCode; message: string }
+
+export type UpdateBotResult =
+  { ok: true; bot: BotView } | { ok: false; code: IpcErrorCode; message: string }
+
 export type GetConversationResult =
   { ok: true; messages: MessageView[] } | { ok: false; code: IpcErrorCode; message: string }
+
+export interface CreateBotInput {
+  name: string
+  avatar: string
+  persona: string
+  description: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface UpdateBotInput {
+  id: string
+  name?: string
+  avatar?: string
+  persona?: string
+  description?: string
+  updatedAt: string
+}
 
 // 定义助手视图形状
 export interface AgentProfileView {

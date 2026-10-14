@@ -39,7 +39,13 @@ import type {
   RunWorkflowInput,
   RunWorkflowIpcResult,
   A2UIFormSubmitIpcResult,
-  A2UIRenderNotice
+  A2UIRenderNotice,
+  ListBotsResult,
+  GetBotResult,
+  CreateBotInput,
+  CreateBotResult,
+  UpdateBotInput,
+  UpdateBotResult
 } from '../shared/ipc-contract'
 import {
   formatA2UIFormSubmission,
@@ -84,6 +90,8 @@ import { onAgentStream } from './runtime/stream-fanout'
 import { AGENT_PROFILE_FILE_NAME, createAgentProfileStore } from './settings/agent-profile'
 import { getAgentProfileView, setAgentProfile } from './settings/agent-profile-ipc'
 import { initVikingStore, resolveVikingStoreRoot } from './viking/viking-store'
+import { SqliteBotRepository } from './product-state/bot-repository'
+import { createBotHandler, getBotHandler, listBotsHandler, updateBotHandler } from './tasks/bot-ipc'
 
 const PRELOAD_PATH = join(__dirname, '../preload/index.js')
 
@@ -623,6 +631,147 @@ app.whenReady().then(() => {
 
   onAgentStream(broadcastAgentStream)
   onA2UIRender(broadcastA2UIRender)
+
+  ipcMain.handle('personal-agent:list-bots', (): ListBotsResult => {
+    let store: SqliteDatabase
+    try {
+      store = getStore()
+    } catch (err) {
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: err instanceof Error ? err.message : String(err)
+      }
+    }
+    try {
+      const bots = listBotsHandler({
+        bots: new SqliteBotRepository(store),
+        convs: new SqliteConversationRepository(store)
+      })
+      if (bots.ok) {
+        return bots
+      }
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: bots.message
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: error instanceof Error ? error.message : String(error)
+      }
+    }
+  })
+
+  ipcMain.handle('personal-agent:get-bot', (_e, botId: string): GetBotResult => {
+    let store: SqliteDatabase
+    try {
+      store = getStore()
+    } catch (err) {
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: err instanceof Error ? err.message : String(err)
+      }
+    }
+    try {
+      const bot = getBotHandler(botId, {
+        bots: new SqliteBotRepository(store),
+        convs: new SqliteConversationRepository(store)
+      })
+      if (bot.ok) {
+        return {
+          ok: true,
+          bot: bot.bot
+        }
+      }
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: bot.message
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: error instanceof Error ? error.message : String(error)
+      }
+    }
+  })
+
+  ipcMain.handle('personal-agent:create-bot', (_e, input: CreateBotInput): CreateBotResult => {
+    let store: SqliteDatabase
+    try {
+      store = getStore()
+    } catch (err) {
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: err instanceof Error ? err.message : String(err)
+      }
+    }
+    try {
+      const bot = createBotHandler(input, {
+        bots: new SqliteBotRepository(store),
+        convs: new SqliteConversationRepository(store)
+      })
+      if (bot.ok) {
+        return {
+          ok: true,
+          bot: bot.bot
+        }
+      }
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: bot.message
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: error instanceof Error ? error.message : String(error)
+      }
+    }
+  })
+
+  ipcMain.handle('personal-agent:update-bot', (_e, input: UpdateBotInput): UpdateBotResult => {
+    let store: SqliteDatabase
+    try {
+      store = getStore()
+    } catch (err) {
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: err instanceof Error ? err.message : String(err)
+      }
+    }
+    try {
+      const result = updateBotHandler(input, {
+        bots: new SqliteBotRepository(store),
+        convs: new SqliteConversationRepository(store)
+      })
+      if (result.ok) {
+        return {
+          ok: true,
+          bot: result.bot
+        }
+      }
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: result.message
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        code: RUNTIME_ERROR_CODE.DB_FAILED,
+        message: error instanceof Error ? error.message : String(error)
+      }
+    }
+  })
 
   ipcMain.handle(
     A2UI_FORM_SUBMIT_CHANNEL,

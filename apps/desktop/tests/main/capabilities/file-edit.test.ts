@@ -187,7 +187,7 @@ describe('fileEditPlugin: 自描述插件闭环 (defineBinder + permissions + ex
         args: { path: 'modify.txt', oldString: 'beta', newString: 'delta' },
         paths: { path: target }
       }
-    } as any
+    } as unknown as Parameters<typeof fileEditPlugin.execute>[0]
 
     const outcome = await fileEditPlugin.execute(call, {})
     expect(outcome.ok).toBe(true)

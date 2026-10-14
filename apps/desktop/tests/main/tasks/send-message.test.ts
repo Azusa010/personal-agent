@@ -210,11 +210,12 @@ describe('sendMessage 编排（TASK-032）', () => {
 
   it('空 text（或非字符串）→ ok:false，不建会话不落消息', async () => {
     const deps = makeDeps(async () => completed())
+    const initialCount = deps.conversations.list().length
 
     for (const bad of ['', '   ', 42, null]) {
       const result = await sendMessage({ conversationId: null, text: bad as string }, deps)
       expect(result.ok).toBe(false)
     }
-    expect(deps.conversations.list()).toEqual([])
+    expect(deps.conversations.list()).toHaveLength(initialCount)
   })
 })

@@ -180,7 +180,7 @@ describe('fileReadPlugin: 自描述插件闭环 (defineBinder + execute)', () =>
         args: { path: 'code.ts', startLine: 2, endLine: 3 },
         paths: { path: target }
       }
-    } as any
+    } as unknown as Parameters<typeof fileReadPlugin.execute>[0]
 
     const outcome = await fileReadPlugin.execute(call, {})
     expect(outcome.ok).toBe(true)

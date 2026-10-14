@@ -169,6 +169,7 @@ export type MessageRole = (typeof MESSAGE_ROLES)[number]
 // 一个对话
 export interface ConversationRecord {
   id: string
+  botId?: string
   title: string
   createdAt: string
   updatedAt: string
@@ -183,4 +184,15 @@ export interface MessageRecord {
   text: string
   taskId: string | null
   createdAt: string
+}
+
+export interface BotRecord {
+  id: string
+  name: string
+  avatar: string
+  persona: string
+  description: string
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
 }
