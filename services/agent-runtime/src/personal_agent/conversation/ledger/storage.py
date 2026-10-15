@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import threading
 import time
 from pathlib import Path
@@ -53,7 +54,7 @@ class MainEventLedger:
         self.sequence = 0
         self.sequence_bits = 12
         self.max_sequence = (1 << self.sequence_bits) - 1  # 4095
-        self.enc = tiktoken.get_encoding("o200k_base")
+        self.enc = tiktoken.get_encoding(os.getenv("TIKTOKEN_ENCODING", "o200k_harmony"))
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
         if self.log_file.exists():
             for line in reverse_read(self.log_file):

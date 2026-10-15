@@ -93,7 +93,7 @@ def resolve_document_context_text(
     - 若超出 max_tokens：截取前 max_tokens 个 token 解码并附加 "\n\n...[文档超长，已截断安全上下文]"；
     - 对应验收测试：tests/test_knowledge_contextualizer.py::test_resolve_document_context_text
     """
-    encoding = tiktoken.get_encoding("cl100k_base")
+    encoding = tiktoken.get_encoding(os.getenv("TIKTOKEN_ENCODING", "o200k_harmony"))
     tokens = encoding.encode(parsed_doc.markdown)
     if len(tokens) <= max_tokens:
         return parsed_doc.markdown
