@@ -11,7 +11,7 @@ def backfeed_to_main_ledger(
         "status": result.status,
         "summary": result.summary,
         "output": result.output,
-        "trace_file": result.trace_file,
+        "trace_file": str(result.trace_file),
         "artifacts": result.artifacts,
         "total_steps": result.total_steps,
         "duration_ms": result.duration_ms,
