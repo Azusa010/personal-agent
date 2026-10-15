@@ -562,6 +562,15 @@ wheels = [
 ]
 
 [[package]]
+name = "file-read-backwards"
+version = "3.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5e/53/804f4321dd72e2953c6d5875e9d07d79415a1f8055d5197b92d6d97da19a/file_read_backwards-3.2.0.tar.gz", hash = "sha256:5478d305ebaeaae8fe3c6585a24dfc3262170224450acc9321398f0d26cdd109", size = 21824, upload-time = "2025-04-21T18:06:33.318Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/31/7e/4a844e232df643bdccef71819f32b3ba8bd716b4c9c3cbf39a3a579f694a/file_read_backwards-3.2.0-py2.py3-none-any.whl", hash = "sha256:15b261b3b65cd1452f5a66fad3e81e3fd15b1ba2c0e3a224ef0ba0f6392ec1a9", size = 7914, upload-time = "2025-04-21T18:06:31.606Z" },
+]
+
+[[package]]
 name = "filelock"
 version = "4.0.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1579,6 +1588,15 @@ wheels = [
 ]
 
 [[package]]
+name = "path"
+version = "17.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/dd/52/a7bdd5ef8488977d354b7915d1e75009bebbd04f73eff14e52372d5e9435/path-17.1.1.tar.gz", hash = "sha256:2dfcbfec8b4d960f3469c52acf133113c2a8bf12ac7b98d629fa91af87248d42", size = 50528, upload-time = "2025-07-27T20:40:23.79Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7c/50/11c9ee1ede64b45d687fd36eb8768dafc57afc78b4d83396920cfd69ed30/path-17.1.1-py3-none-any.whl", hash = "sha256:ec7e136df29172e5030dd07e037d55f676bdb29d15bfa09b80da29d07d3b9303", size = 23936, upload-time = "2025-07-27T20:40:22.453Z" },
+]
+
+[[package]]
 name = "pefile"
 version = "2024.8.26"
 source = { registry = "https://pypi.org/simple" }
@@ -1614,9 +1632,11 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "asyncpg" },
+    { name = "file-read-backwards" },
     { name = "flagembedding" },
     { name = "json-repair" },
     { name = "openai" },
+    { name = "path" },
     { name = "pgvector" },
     { name = "pydantic" },
     { name = "pypdf" },
@@ -1625,6 +1645,7 @@ dependencies = [
     { name = "requests" },
     { name = "tiktoken" },
     { name = "typesafe-sdk" },
+    { name = "uuid6" },
 ]
 
 [package.dev-dependencies]
@@ -1639,9 +1660,11 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "asyncpg", specifier = ">=0.31.0" },
+    { name = "file-read-backwards", specifier = ">=3.2.0" },
     { name = "flagembedding", specifier = ">=1.4.2" },
     { name = "json-repair", specifier = ">=0.30.0" },
     { name = "openai", specifier = ">=3.6.0" },
+    { name = "path" },
     { name = "pgvector", specifier = ">=0.5.0" },
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "pypdf", specifier = ">=5.0.0" },
@@ -1650,6 +1673,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31.0" },
     { name = "tiktoken", specifier = ">=0.14.0" },
     { name = "typesafe-sdk", specifier = ">=0.7.1" },
+    { name = "uuid6", specifier = ">=2025.0.1" },
 ]
 
 [package.metadata.requires-dev]
@@ -2709,6 +2733,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e3/05/b17359e1cefb4f909b5e40b1b90a496d987258916dbbf88e842c729f510e/urllib3-2.8.0.tar.gz", hash = "sha256:63bf2ead4c879426ebf22ef2a781eeb4aa3b4ae798a0435506f8687fd5bb9b63", size = 458972, upload-time = "2026-09-15T19:29:36.253Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl", hash = "sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3", size = 135717, upload-time = "2026-09-15T19:29:34.577Z" },
+]
+
+[[package]]
+name = "uuid6"
+version = "2025.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ca/b7/4c0f736ca824b3a25b15e8213d1bcfc15f8ac2ae48d1b445b310892dc4da/uuid6-2025.0.1.tar.gz", hash = "sha256:cd0af94fa428675a44e32c5319ec5a3485225ba2179eefcf4c3f205ae30a81bd", size = 13932, upload-time = "2025-07-04T18:30:35.186Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3d/b2/93faaab7962e2aa8d6e174afb6f76be2ca0ce89fde14d3af835acebcaa59/uuid6-2025.0.1-py3-none-any.whl", hash = "sha256:80530ce4d02a93cdf82e7122ca0da3ebbbc269790ec1cb902481fa3e9cc9ff99", size = 6979, upload-time = "2025-07-04T18:30:34.001Z" },
 ]
 
 [[package]]
