@@ -4,7 +4,7 @@ import sys
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, Callable
 
 from pydantic import ValidationError
 
@@ -123,6 +123,8 @@ class ReActLoop:
         is_background: bool = False,
         tool_detector: ToolFingerprintDetector | None = None,
         death_spiral_protector: DeathSpiralProtector | None = None,
+        local_executor: Callable[[ToolCallDecision | ToolCallItem], Observation | None]
+        | None = None,
     ) -> None:
         self._model = model
         self._channel = channel
@@ -142,6 +144,7 @@ class ReActLoop:
         self._watchdog = watchdog
         self._path_breaker = path_breaker or RecoveryPathBreaker()
         self._is_background = is_background
+        self._local_executor = local_executor
 
     def run(
         self,
@@ -506,8 +509,7 @@ class ReActLoop:
             elif isinstance(decision, SummaryDecision):
                 evidence = collect_retrieved_evidence(self._context.observations)
                 require_grounded = (
-                    self._plan_requires_grounded_summary()
-                    and len(evidence.pages) > 0
+                    self._plan_requires_grounded_summary() and len(evidence.pages) > 0
                 )
                 candidate_facts = decision.facts
                 if require_grounded:
@@ -735,6 +737,11 @@ class ReActLoop:
     def _execute(self, decision: ToolCallDecision | ToolCallItem) -> Observation:
         """执行一次工具调用。capability 不在协议枚举内时就地造 Observation，
         其余情况一律透传 host 的 ok 与 model_extra。"""
+        if self._local_executor is not None:
+            obs = self._local_executor(decision)
+            if obs is not None:
+                return obs
+
         try:
             params = HostExecuteToolParams(
                 callId=decision.callId,

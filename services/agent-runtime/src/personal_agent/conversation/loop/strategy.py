@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable, Callable
 
 from personal_agent.conversation.context import ContextManager
 from personal_agent.conversation.loop.engine import AgentEngine
@@ -15,6 +15,9 @@ from personal_agent.conversation.model.gateway import (
     ModelGateway,
     ModelUsage,  # noqa: F401
     UsageReporting,
+    ToolCallDecision,
+    ToolCallItem,
+    Observation,
 )
 from personal_agent.conversation.sidecar import (
     RejectionCircuitBreaker,
@@ -147,6 +150,7 @@ class DynamicLedgerStrategy:
         sidecar_llm: SidecarLlmClient | None = None,
         sliding_window: SlidingWindowLedger | None = None,
         time_gatekeeper: TimeGateKeeper | None = None,
+        local_executor: Callable[[ToolCallDecision | ToolCallItem], Observation | None] | None = None,
     ) -> RunTaskCompleted | RunTaskFailed:
         context = ContextManager(
             plan=plan,
@@ -166,6 +170,7 @@ class DynamicLedgerStrategy:
             sidecar_barrier=sidecar_barrier,
             circuit_breaker=circuit_breaker,
             sidecar_llm=sidecar_llm,
+            local_executor=local_executor
         )
 
         outcome = loop.run(goal, visible_capabilities, stop_on_step_complete=False)
