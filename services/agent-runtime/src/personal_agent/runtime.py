@@ -8,13 +8,16 @@ from dataclasses import dataclass, field
 
 from pydantic import ValidationError
 
+from personal_agent.conversation.ledger import MainEventLedger
 from personal_agent.conversation.loop.concurrency import register_capabilities
+from personal_agent.conversation.loop.strategy import DynamicLedgerStrategy
 from personal_agent.conversation.sidecar import (
     RejectionCircuitBreaker,
     SidecarLlmClient,
     StreamBarrier,
     intercept_query_memories,
 )
+from personal_agent.conversation.windows import SlidingWindowLedger, TimeGatekeeper
 from personal_agent.engine import Budget
 from personal_agent.host_channel import HostChannel
 from personal_agent.live_model import LIVE_MODEL_ENV, LiveModel
@@ -269,6 +272,14 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
         if deps.sidecar_llm_factory is not None
         else SidecarLlmClient()
     )
+    ledger_path = os.environ.get("PERSONAL_AGENT_LEDGER_PATH")
+    ledger = MainEventLedger(log_file=ledger_path) if ledger_path else None
+    sliding_window = SlidingWindowLedger(ledger=ledger) if ledger is not None else None
+    time_gatekeeper = TimeGatekeeper(sliding_window) if sliding_window is not None else None
+    extra_kwargs = {}
+    if isinstance(deps.strategy, DynamicLedgerStrategy):
+        extra_kwargs["sliding_window"] = sliding_window
+        extra_kwargs["time_gatekeeper"] = time_gatekeeper
     try:
         outcome = deps.strategy.execute(
             model=deps.model_factory(),
@@ -285,6 +296,7 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
             sidecar_barrier=barrier,
             circuit_breaker=cb,
             sidecar_llm=sidecar_llm,
+            **extra_kwargs
         )
     except Exception:
         log.exception("agent.run_task 未预期异常 (id=%s)", req.id)
@@ -495,13 +507,15 @@ def resolve_strategy() -> AgentStrategy:
     if os.environ.get(SCRIPT_ENV):
         return ClassicStrategy()
 
-    strategy_name = os.environ.get(STRATEGY_ENV, "plan_execute").strip().lower()
+    strategy_name = os.environ.get(STRATEGY_ENV, "dynamic_ledger ").strip().lower()
     if strategy_name == "react":
         from personal_agent.strategy import ReActStrategy
 
         return ReActStrategy()
+    if strategy_name == "plan_execute":
+        return PlanAndExecuteStrategy()
     # 默认 plan_execute
-    return PlanAndExecuteStrategy()
+    return DynamicLedgerStrategy()
 
 
 def _force_utf8_stdio() -> None:

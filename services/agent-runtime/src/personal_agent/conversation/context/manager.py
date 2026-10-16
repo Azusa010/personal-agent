@@ -9,13 +9,14 @@ observation 的条数已经被步数预算钉死（engine 侧），再叠一层�
 import json
 import logging
 import os
+import time
 from collections.abc import Sequence
 from typing import Any
 
 from personal_agent.conversation.context.sectioned_prompt import SectionedSystemPrompt
 from personal_agent.conversation.instructions import create_executor_sectioned_prompt
 from personal_agent.conversation.ledger import MainEventLedger
-from personal_agent.conversation.windows import SlidingWindowLedger
+from personal_agent.conversation.windows import SlidingWindowLedger, TimeGateKeeper
 
 log = logging.getLogger("personal_agent")
 
@@ -89,6 +90,7 @@ class ContextManager:
         user_memories: Sequence[str] = (),
         sectioned_prompt: SectionedSystemPrompt | None = None,
         sliding_window: SlidingWindowLedger | None = None,
+        time_gatekeeper: TimeGateKeeper | None = None,
     ) -> None:
         if maxCharsPerString < 1:
             raise ValueError(f"maxCharsPerString 必须 >= 1，收到 {maxCharsPerString}")
@@ -106,6 +108,7 @@ class ContextManager:
             if sectioned_prompt is not None
             else create_executor_sectioned_prompt(self._profile)
         )
+        self._time_gatekeeper = time_gatekeeper
         self._sliding_window = sliding_window
         if (
             len(self._history) != 0
@@ -140,6 +143,10 @@ class ContextManager:
         self._status_bar_manager = status_bar_manager or StatusBarManager()
         if self._plan:
             self._status_bar_manager.init_from_plan(self._plan)
+
+    @property
+    def time_gatekeeper(self) -> TimeGateKeeper | None:
+        return self._time_gatekeeper
 
     @property
     def sliding_window(self) -> SlidingWindowLedger | None:
@@ -237,9 +244,13 @@ class ContextManager:
             )
 
     def build(
-        self, taskGoal: str, visibleCapabilities: Sequence[str], summarizer_fn=None
+        self, taskGoal: str, visibleCapabilities: Sequence[str], summarizer_fn=None,
+            current_timestamp: float | None = None
     ) -> ModelContext:
         if self._sliding_window:
+            if self._time_gatekeeper:
+                self._time_gatekeeper.check_and_handle_timeout(current_timestamp=current_timestamp)
+                self._time_gatekeeper.record_interaction(timestamp=current_timestamp or time.time())
             self._sliding_window.compact_if_needed(summarizer_fn=summarizer_fn)
             snap = self._sliding_window.get_active_window()
             if snap.rolling_task_summary:

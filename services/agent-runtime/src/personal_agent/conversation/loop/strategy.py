@@ -22,6 +22,7 @@ from personal_agent.conversation.sidecar import (
     StreamBarrier,
     intercept_query_memories,
 )
+from personal_agent.conversation.windows import SlidingWindowLedger, TimeGateKeeper
 from personal_agent.planner import Planner
 from personal_agent.protocol.models import (
     PlanStepDto,
@@ -66,8 +67,9 @@ class AgentStrategy(Protocol):
         planner: Planner | None = None,
         user_memories: Sequence[str] = (),
         sidecar_barrier: StreamBarrier | None = None,
-        circuit_breaker:RejectionCircuitBreaker | None = None,
+        circuit_breaker: RejectionCircuitBreaker | None = None,
         sidecar_llm: SidecarLlmClient | None = None,
+        **kwargs: Any,
     ) -> RunTaskCompleted | RunTaskFailed: ...
 
 
@@ -122,6 +124,69 @@ def _settle_usage(model: ModelGateway, events: list[RunTaskEvent]) -> None:
             occurredAt=now_occurred_at(),
         ),
     )
+
+
+class DynamicLedgerStrategy:
+    """SOAT"""
+
+    def execute(
+        self,
+        model: ModelGateway,
+        channel: HostChannel,
+        goal: str,
+        visible_capabilities: Sequence[str],
+        plan: Sequence[PlanStepDto],
+        history: Sequence[Turn],
+        profile: ProfileDto | None,
+        budget: Budget,
+        stream: StreamSink | None,
+        planner: Planner | None = None,
+        user_memories: Sequence[str] = (),
+        sidecar_barrier: StreamBarrier | None = None,
+        circuit_breaker: RejectionCircuitBreaker | None = None,
+        sidecar_llm: SidecarLlmClient | None = None,
+        sliding_window: SlidingWindowLedger | None = None,
+        time_gatekeeper: TimeGateKeeper | None = None,
+    ) -> RunTaskCompleted | RunTaskFailed:
+        context = ContextManager(
+            plan=plan,
+            history=history,
+            profile=profile,
+            task_goal=goal,
+            user_memories=user_memories,
+            sliding_window=sliding_window,
+            time_gatekeeper=time_gatekeeper,
+        )
+        loop = ReActLoop(
+            model=model,
+            channel=channel,
+            context=context,
+            budget=budget,
+            stream=stream,
+            sidecar_barrier=sidecar_barrier,
+            circuit_breaker=circuit_breaker,
+            sidecar_llm=sidecar_llm,
+        )
+
+        outcome = loop.run(goal, visible_capabilities, stop_on_step_complete=False)
+
+        if outcome.kind in ("completed", "step_done"):
+            res = RunTaskCompleted(
+                status="completed",
+                reply=outcome.reply or "",
+                facts=outcome.facts or [],
+                events=outcome.events,
+            )
+            _settle_usage(model, res.events)
+            return res
+
+        failed_red = RunTaskFailed(
+            status="failed",
+            reason=outcome.reason or "任务执行失败",
+            events=outcome.events,
+        )
+        _settle_usage(model, failed_red.events)
+        return failed_red
 
 
 class ReActStrategy:
@@ -244,12 +309,16 @@ class PlanAndExecuteStrategy:
                 stream=stream,
                 sidecar_barrier=sidecar_barrier,
                 circuit_breaker=cb,
-                sidecar_llm=sidecar_llm
+                sidecar_llm=sidecar_llm,
             )
 
             is_last = len(remaining_steps) == 0
-            cap_hint = f"（指定必须执行能力：{step.capability}）" if step.capability else ""
-            step_goal = f"当前步骤目标：{step.description}{cap_hint}\n总任务目标：{goal}"
+            cap_hint = (
+                f"（指定必须执行能力：{step.capability}）" if step.capability else ""
+            )
+            step_goal = (
+                f"当前步骤目标：{step.description}{cap_hint}\n总任务目标：{goal}"
+            )
             outcome = loop.run(
                 step_goal,
                 visible_capabilities,
@@ -305,7 +374,7 @@ class PlanAndExecuteStrategy:
                     stream.event(req_event)
 
                 completed_summary = "; ".join(
-                    f"步骤 {i+1} ({s.description}) 已完成"
+                    f"步骤 {i + 1} ({s.description}) 已完成"
                     for i, s in enumerate(completed_steps)
                 )
                 replan_prompt = (
@@ -341,9 +410,7 @@ class PlanAndExecuteStrategy:
                     type=EVENT_REPLAN_COMPLETED,
                     payload={
                         "reason": outcome.reason,
-                        "newPlan": [
-                            s.model_dump(exclude_none=True) for s in full_plan
-                        ],
+                        "newPlan": [s.model_dump(exclude_none=True) for s in full_plan],
                         "remainingSteps": [
                             s.model_dump(exclude_none=True) for s in new_remaining
                         ],

@@ -80,10 +80,12 @@ def list_result():
 
 
 def test_strategies_implement_agent_strategy_protocol():
-    """三大策略必须都满足 AgentStrategy 接口契约。"""
+    """所有策略必须都满足 AgentStrategy 接口契约。"""
     assert isinstance(ClassicStrategy(), AgentStrategy)
     assert isinstance(ReActStrategy(), AgentStrategy)
     assert isinstance(PlanAndExecuteStrategy(), AgentStrategy)
+    from personal_agent.strategy import DynamicLedgerStrategy
+    assert isinstance(DynamicLedgerStrategy(), AgentStrategy)
 
 
 def test_resolve_strategy_env_routing(monkeypatch):
@@ -98,13 +100,18 @@ def test_resolve_strategy_env_routing(monkeypatch):
     monkeypatch.setenv(STRATEGY_ENV, "react")
     assert isinstance(resolve_strategy(), ReActStrategy)
 
-    # 3. 无剧本 + STRATEGY_ENV=plan_execute -> PlanAndExecuteStrategy
+    # 3. 无剧本 + STRATEGY_ENV=dynamic_ledger -> DynamicLedgerStrategy
+    monkeypatch.setenv(STRATEGY_ENV, "dynamic_ledger")
+    from personal_agent.strategy import DynamicLedgerStrategy
+    assert isinstance(resolve_strategy(), DynamicLedgerStrategy)
+
+    # 4. 无剧本 + STRATEGY_ENV=plan_execute -> PlanAndExecuteStrategy
     monkeypatch.setenv(STRATEGY_ENV, "plan_execute")
     assert isinstance(resolve_strategy(), PlanAndExecuteStrategy)
 
-    # 4. 默认无配置 -> PlanAndExecuteStrategy
+    # 5. 默认无配置 -> DynamicLedgerStrategy (SOTA 单主循环)
     monkeypatch.delenv(STRATEGY_ENV, raising=False)
-    assert isinstance(resolve_strategy(), PlanAndExecuteStrategy)
+    assert isinstance(resolve_strategy(), DynamicLedgerStrategy)
 
 
 def test_classic_strategy_executes_golden_path():
