@@ -30,6 +30,7 @@ from personal_agent.conversation.model import (
     Observation,
     ToolCallDecision,
 )
+from personal_agent.conversation.pipeline import run_task_memory_pipeline
 from personal_agent.conversation.status import StatusBarManager
 from personal_agent.conversation.verification import verify_summary
 
@@ -59,5 +60,6 @@ __all__ = [
     "TaskType",
     "ToolCallDecision",
     "count_tokens",
+    "run_task_memory_pipeline",
     "verify_summary",
 ]

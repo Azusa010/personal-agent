@@ -73,6 +73,12 @@ LOCAL_TOOL_PARAM_MODELS: dict[str, type[BaseModel]] = {
     "search_raw_events": SearchRawEventsParams,
 }
 
+LOCAL_TOOL_DESCRIPTIONS: dict[str, str] = {
+    "archive_current_topic_and_switch": "将当前话题归档为独立 Epoch，并切换到新话题",
+    "read_memory_topic": "读取长期记忆中指定话题的 Markdown 内容",
+    "search_raw_events": "在事件日志中按关键词检索原始事件记录",
+}
+
 # 工具层级高阶描述说明（对齐 ACI 目标导向）
 TOOL_DESCRIPTIONS: dict[str, str] = {
     "a2ui_render": "向桌面客户端推送受信任的 A2UI 声明式组件树进行安全渲染与交互",
@@ -101,9 +107,6 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "file_read": "读取指定文件内容，支持按起始行号与结束行号分页读取，每行自带行号前缀",
     "file_write": "在工作区内写入或完全覆盖文件，自动创建父级目录",
     "file_edit": "在现有文件中进行精准单块局部修改，Old String 必须在文件中全局唯一存在",
-    "archive_current_topic_and_switch": "将当前话题归档为独立 Epoch，并切换到新话题",
-    "read_memory_topic": "读取长期记忆中指定话题的 Markdown 内容",
-    "search_raw_events": "在事件日志中按关键词检索原始事件记录",
 }
 
 # 字段级语义描述增强（提供具象样例与约束）
@@ -254,7 +257,7 @@ def generate_local_tool_schema(
 ) -> dict[str, Any]:
     """根据本地能力名称及其对应的 Pydantic 模型生成 OpenAI Function Calling 规范。"""
     model_cls = LOCAL_TOOL_PARAM_MODELS.get(capability)
-    desc = description or TOOL_DESCRIPTIONS.get(capability, "")
+    desc = description or LOCAL_TOOL_DESCRIPTIONS.get(capability, "")
     if model_cls is None:
         return {
             "type": "function",

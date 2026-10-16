@@ -8,23 +8,13 @@
 """
 
 from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock
 
-import pytest
-
-from personal_agent.conversation.dream import DreamEngine
-from personal_agent.conversation.extractor import (
-    CandidateMemoryItem,
-    ColdMemoryExtractor,
-    ExtractorCursor,
-    MemoryInbox,
-)
-from personal_agent.conversation.extractor.llm_extractor import (
-    create_llm_memory_extractor,
-)
 from personal_agent.conversation.dream.llm_consolidator import (
     create_llm_dream_consolidator,
+)
+from personal_agent.conversation.extractor import CandidateMemoryItem
+from personal_agent.conversation.extractor.llm_extractor import (
+    create_llm_memory_extractor,
 )
 from personal_agent.conversation.ledger import LedgerEvent, MainEventLedger
 from personal_agent.conversation.model.gateway import (
@@ -35,7 +25,6 @@ from personal_agent.conversation.model.gateway import (
 )
 from personal_agent.conversation.pipeline import run_task_memory_pipeline
 from personal_agent.conversation.topics import ThreeTierRetriever
-
 
 # =========================================================================
 # Mock 辅助

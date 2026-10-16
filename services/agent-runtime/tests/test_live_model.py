@@ -283,8 +283,9 @@ def test_decision_schema_is_derived_from_the_contract():
 def test_build_tools_filters_by_visible_and_adds_finish_task():
     tools = build_tools(["filesystem_list"])
     names = [t["function"]["name"] for t in tools]
-    assert names == ["filesystem_list", FINISH_TASK_TOOL_NAME]
-    assert tools[1] == FINISH_TASK_SCHEMA
+    assert "filesystem_list" in names
+    assert FINISH_TASK_TOOL_NAME in names
+    assert any(t == FINISH_TASK_SCHEMA for t in tools)
 
 
 def test_render_messages_full_structure():

@@ -257,7 +257,6 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
 
     visible_capabilities = [c.name for c in deps.capabilities]
     emitter = _stream_emitter(deps, params.taskId)
-    memories = intercept_query_memories(params.goal)
     barrier = (
         deps.sidecar_barrier_factory()
         if deps.sidecar_barrier_factory is not None
@@ -294,6 +293,8 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
     retriever = ThreeTierRetriever(memory_dir=memory_dir, ledger=ledger)
 
     local_executor = create_local_executor(topic_handler, retriever)
+    sys_index = retriever.get_system_index()
+    memories = [sys_index] if sys_index else []
 
     extra_kwargs = {}
     if isinstance(deps.strategy, DynamicLedgerStrategy):
@@ -327,6 +328,18 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
                 barrier.close()
             except Exception:  # noqa: BLE001, S110
                 pass
+        try:
+            if deps is not None and deps.model_factory is not None:
+                from personal_agent.conversation.pipeline import (
+                    run_task_memory_pipeline,
+                )
+
+                run_task_memory_pipeline(
+                    harness_dir=harness_dir, model=deps.model_factory()
+                )
+        except Exception as e:
+            log.warning("后台长程记忆流水线执行异常: %s", e)
+
     return Response(jsonrpc="2.0", id=req.id, result=outcome.model_dump()).model_dump(
         exclude_none=True
     )

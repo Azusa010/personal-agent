@@ -10,6 +10,7 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from personal_agent.conversation.ledger import MainEventLedger
 from personal_agent.conversation.model.gateway import ToolCallDecision
@@ -24,12 +25,12 @@ from personal_agent.conversation.topics import (
     ThreeTierRetriever,
     TopicSwitchHandler,
 )
-from personal_agent.conversation.windows import SlidingWindowLedger
 from personal_agent.conversation.topics.models import (
     ArchiveTopicParams,
     ReadMemoryTopicParams,
     SearchRawEventsParams,
 )
+from personal_agent.conversation.windows import SlidingWindowLedger
 from personal_agent.runtime import create_local_executor
 
 # =========================================================================
@@ -47,7 +48,7 @@ def test_local_tool_param_models_validation():
     assert archive_params.old_topic_summary == "排查支付报错完毕"
     assert archive_params.new_topic_intent == "规划旅游行程"
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         # 缺少必要参数时应报错
         ArchiveTopicParams.model_validate({})
 
@@ -55,7 +56,7 @@ def test_local_tool_param_models_validation():
     read_params = ReadMemoryTopicParams(topic_name="coding_standards.md")
     assert read_params.topic_name == "coding_standards.md"
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         ReadMemoryTopicParams.model_validate({})
 
     # 3. search_raw_events
