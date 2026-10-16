@@ -21,6 +21,8 @@ class MemoryInbox:
 
     def read_pending(self) -> list[CandidateMemoryItem]:
         items:list[CandidateMemoryItem] = []
+        if not self.inbox_file.exists():
+            return items
         with self.lock, open(self.inbox_file, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
@@ -33,5 +35,7 @@ class MemoryInbox:
         return items
 
     def count_pending(self) -> int:
+        if not self.inbox_file.exists():
+            return 0
         with self.lock, open(self.inbox_file, "r", encoding="utf-8") as f:
             return sum(1 for _ in f)
