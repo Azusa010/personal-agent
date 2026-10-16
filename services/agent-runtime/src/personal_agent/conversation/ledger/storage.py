@@ -124,6 +124,8 @@ class MainEventLedger:
         self, since_seq_id=0, limit=None, epoch_id=None
     ) -> list[LedgerEvent]:
         events: list[LedgerEvent] = []
+        if not self.log_file.exists():
+            return events
         with open(self.log_file, "r", encoding="utf-8") as f:
             for line in f:
                 try:

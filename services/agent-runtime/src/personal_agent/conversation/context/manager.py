@@ -14,6 +14,8 @@ from typing import Any
 
 from personal_agent.conversation.context.sectioned_prompt import SectionedSystemPrompt
 from personal_agent.conversation.instructions import create_executor_sectioned_prompt
+from personal_agent.conversation.ledger import MainEventLedger
+from personal_agent.conversation.windows import SlidingWindowLedger
 
 log = logging.getLogger("personal_agent")
 
@@ -86,6 +88,7 @@ class ContextManager:
         status_bar_manager: StatusBarManager | None = None,
         user_memories: Sequence[str] = (),
         sectioned_prompt: SectionedSystemPrompt | None = None,
+        sliding_window: SlidingWindowLedger | None = None,
     ) -> None:
         if maxCharsPerString < 1:
             raise ValueError(f"maxCharsPerString 必须 >= 1，收到 {maxCharsPerString}")
@@ -103,6 +106,18 @@ class ContextManager:
             if sectioned_prompt is not None
             else create_executor_sectioned_prompt(self._profile)
         )
+        self._sliding_window = sliding_window
+        if (
+            len(self._history) != 0
+            and isinstance(self._sliding_window, SlidingWindowLedger)
+            and self._sliding_window.ledger.latest_seq_id == 0
+        ):
+            # 如果有历史但 sliding_window 里没有事件，说明 sliding_window 是新建的，应该把历史写入 ledger
+            for turn in self._history:
+                self._sliding_window.ledger.append_event(
+                    event_type=turn.role, payload={"text": turn.text}
+                )
+
         if max_window_chars is not None:
             self._max_window_tokens = max_window_chars
         else:
@@ -127,13 +142,21 @@ class ContextManager:
             self._status_bar_manager.init_from_plan(self._plan)
 
     @property
+    def sliding_window(self) -> SlidingWindowLedger | None:
+        return self._sliding_window
+
+    @property
+    def ledger(self) -> MainEventLedger | None:
+        return self._sliding_window.ledger if self._sliding_window else None
+
+    @property
     def status_bar_manager(self) -> StatusBarManager:
         return self._status_bar_manager
 
     @property
     def sectioned_prompt(self) -> SectionedSystemPrompt:
         return self._sectioned_prompt
-    
+
     @property
     def doc_manager(self) -> ProgressDocumentManager | None:
         return self._doc_manager
@@ -187,13 +210,50 @@ class ContextManager:
     def record_tool_call(self, call: ToolCallItem | ToolCallDecision) -> None:
         """记录已发起但尚未匹配到结果的工具调用（供轨迹完整性监控追踪）。"""
         self._tool_calls.append(call)
+        if self._sliding_window:
+            self._sliding_window.ledger.append_event(
+                event_type="tool_call",
+                payload={
+                    "callId": call.callId,
+                    "capability": call.capability,
+                    "arguments": call.arguments,
+                },
+            )
 
     def record(self, observation: Observation) -> None:
         self._observations.append(observation)
         self._step_observations.append(observation)
         self._status_bar_manager.record_tool_call(observation.capability)
+        if self._sliding_window:
+            self._sliding_window.ledger.append_event(
+                event_type="tool_result",
+                payload={
+                    "callId": observation.callId,
+                    "capability": observation.capability,
+                    "ok": observation.ok,
+                    "payload": observation.payload,
+                    "arguments": observation.arguments,
+                },
+            )
 
-    def build(self, taskGoal: str, visibleCapabilities: Sequence[str]) -> ModelContext:
+    def build(
+        self, taskGoal: str, visibleCapabilities: Sequence[str], summarizer_fn=None
+    ) -> ModelContext:
+        if self._sliding_window:
+            self._sliding_window.compact_if_needed(summarizer_fn=summarizer_fn)
+            snap = self._sliding_window.get_active_window()
+            if snap.rolling_task_summary:
+                self._sectioned_prompt.set_section(
+                    "project_context", snap.rolling_task_summary
+                )
+            call_ids_in_window = {e.payload.get("callId") for e in snap.events}
+            self._observations = [
+                obs for obs in self._observations if obs.callId in call_ids_in_window
+            ]
+            self._tool_calls = [
+                call for call in self._tool_calls if call.callId in call_ids_in_window
+            ]
+
         # 0. 轨迹完整性校验与配对自动修复 (§2.2 D)
         if self._tool_calls:
             from personal_agent.conversation.loop.trajectory import (
@@ -272,14 +332,18 @@ class ContextManager:
                 )
             else:
                 value = truncate_strings(observation.payload, self._maxCharsPerString)
-                args_val = truncate_strings(observation.arguments, self._maxCharsPerString)
+                args_val = truncate_strings(
+                    observation.arguments, self._maxCharsPerString
+                )
                 observations.append(
                     Observation(
                         callId=observation.callId,
                         capability=observation.capability,
                         ok=observation.ok,
                         payload=value,
-                        arguments=args_val if isinstance(args_val, dict) else observation.arguments,
+                        arguments=args_val
+                        if isinstance(args_val, dict)
+                        else observation.arguments,
                     )
                 )
 
