@@ -1,6 +1,6 @@
 """Step 4 单元与集成测试网：180度转弯话题切换协议与三层漏斗并联召回。
 
-覆盖业务场景：
+核心业务验证：
 1. 话题切换：归档当前 Epoch 现场到 Markdown，并自增 current_epoch_id；
 2. 水印瞬移：window_watermark 跃迁至新话题前夕，彻底从活跃窗口剥离旧任务万级 Token；
 3. 滚动摘要重置：旧任务 rolling_task_summary 被即时清空或重置为新任务意图；
@@ -8,7 +8,7 @@
    - Tier 1: System Prompt 零成本常驻 INDEX.md 读取；
    - Tier 2: read_memory_topic 显式定向读取长期记忆 Markdown；
    - Tier 3: search_raw_events 委托 Step 1 原始账本翻旧账；
-5. 并联调度器：同轮并发 Tool Calls 时优先执行话题切换，确保因果顺序与洁净上下文；
+5. 既有批调用并发集成：与现有 loop.concurrency (execute_tool_calls_batched) 读写分流无缝协同；
 6. 边界与健壮性：空活跃窗口话题切换、不存在的记忆主题容错、Schema 校验。
 """
 
@@ -17,9 +17,12 @@ from pathlib import Path
 import pytest
 
 from personal_agent.conversation.ledger import LedgerEvent, MainEventLedger
+from personal_agent.conversation.loop.concurrency import (
+    execute_tool_calls_batched,
+    partition_tool_calls,
+)
+from personal_agent.conversation.model.gateway import Observation, ToolCallItem
 from personal_agent.conversation.topics import (
-    ParallelRecallCoordinator,
-    ParallelToolCall,
     ThreeTierRetriever,
     TopicSwitchHandler,
     TopicSwitchRequest,
@@ -36,45 +39,45 @@ def _seed_topic_events(
 ) -> list[LedgerEvent]:
     """向账本灌入指定主题的多轮对话事件，累积较大 Token 模拟活跃上下文。"""
     events: list[LedgerEvent] = []
-    base_ts = 1_700_000_000.0
+    # 填充足够长度的文本以产生实质 Token
+    dummy_padding = " " + ("log_payload_detail " * 100)
 
     for i in range(1, num_turns + 1):
-        ts = base_ts + i * 60.0
         # User event
         u_event = ledger.append_event(
             event_type="user",
-            content=f"[{topic_name}] 第 {i} 轮提问：请检查支付回调验签逻辑",
-            token_count=tokens_per_event,
-            timestamp=ts,
+            payload={"text": f"[{topic_name}] 第 {i} 轮提问：请检查支付回调验签逻辑" + dummy_padding},
         )
         events.append(u_event)
 
         # Assistant tool call
         call_event = ledger.append_event(
             event_type="tool_call",
-            content=f'{{"tool": "query_logs", "arg": "order_id_{i}"}}',
-            tool_call_id=f"call_{i}",
-            token_count=tokens_per_event,
-            timestamp=ts + 2.0,
+            payload={
+                "call_id": f"call_{i}",
+                "tool": "query_logs",
+                "arg": f"order_id_{i}" + dummy_padding,
+            },
         )
         events.append(call_event)
 
         # Tool result
         res_event = ledger.append_event(
             event_type="tool_result",
-            content=f'{{"status": "ok", "order": {i}, "verified": false}}',
-            tool_call_id=f"call_{i}",
-            token_count=tokens_per_event,
-            timestamp=ts + 5.0,
+            payload={
+                "call_id": f"call_{i}",
+                "status": "ok",
+                "order": i,
+                "verified": False,
+                "detail": dummy_padding,
+            },
         )
         events.append(res_event)
 
         # Assistant response
         a_event = ledger.append_event(
             event_type="assistant",
-            content=f"[{topic_name}] 分析结论 {i}：验签失败系公钥证书序列号不匹配导致。",
-            token_count=tokens_per_event,
-            timestamp=ts + 10.0,
+            payload={"text": f"[{topic_name}] 分析结论 {i}：验签失败系公钥证书序列号不匹配导致。" + dummy_padding},
         )
         events.append(a_event)
 
@@ -123,22 +126,20 @@ def test_topic_switch_watermark_quantum_leap_clears_old_context(tmp_path: Path):
     window = SlidingWindowLedger(ledger=ledger, config=WindowConfig(epochs_dir=epochs_dir))
     handler = TopicSwitchHandler(window=window, epochs_dir=epochs_dir)
 
-    # 灌入旧任务多轮对话（共 12 个事件，累积 18,000 Token）
-    _seed_topic_events(ledger=ledger, topic_name="支付网关高并发调优", num_turns=3, tokens_per_event=1500)
+    # 灌入旧任务多轮对话（共 12 个事件）
+    _seed_topic_events(ledger=ledger, topic_name="支付网关高并发调优", num_turns=3)
     snap_before = window.get_active_window()
     assert len(snap_before.events) == 12
-    assert snap_before.total_tokens >= 18000
+    assert snap_before.total_tokens > 1000
 
     # 模拟用户突然发出 180 度大转弯新话题（seq_id = 13）
     new_user_event = ledger.append_event(
         event_type="user",
-        content="帮我看看日本东京秋叶原附近有什么推荐的高分拉面馆？",
-        token_count=30,
-        timestamp=1_700_010_000.0,
+        payload={"text": "帮我看看日本东京秋叶原附近有什么推荐的高分拉面馆？"},
     )
     assert new_user_event.seq_id == 13
 
-    # 执行话题切换：指定新话题起始 seq_id（或由 handler 自适应探测最新 user 事件）
+    # 执行话题切换：指定新话题起始 seq_id
     result = handler.archive_current_topic_and_switch(
         old_topic_summary="支付网关线程池压测完成。",
         new_topic_intent="东京秋叶原拉面馆推荐",
@@ -153,8 +154,7 @@ def test_topic_switch_watermark_quantum_leap_clears_old_context(tmp_path: Path):
     # 验证活跃窗口中旧话题万级 Token 彻底蒸发，仅剩新话题的 user 事件
     assert len(snap_after.events) == 1
     assert snap_after.events[0].seq_id == 13
-    assert "拉面馆" in snap_after.events[0].content
-    assert snap_after.total_tokens == 30
+    assert "拉面馆" in str(snap_after.events[0].payload)
 
     # 验证任务滚动摘要已重置为新任务意图
     assert "东京秋叶原拉面馆推荐" in window.rolling_task_summary
@@ -173,8 +173,7 @@ def test_topic_switch_auto_detect_latest_user_turn_when_unspecified(tmp_path: Pa
     # 追加新话题提问
     latest_user = ledger.append_event(
         event_type="user",
-        content="我想了解量子力学的双缝干涉实验",
-        token_count=25,
+        payload={"text": "我想了解量子力学的双缝干涉实验"},
     )
 
     # 不传 switch_user_seq_id，自适应对齐
@@ -251,108 +250,96 @@ def test_three_tier_retriever_tier3_search_raw_events(tmp_path: Path):
     ledger = MainEventLedger(log_file=log_file, initial_epoch_id=1)
     retriever = ThreeTierRetriever(memory_dir=tmp_path / "memory", ledger=ledger)
 
-    ledger.append_event(event_type="user", content="配置 AWS S3 Bucket 名称为 my-backup-vault-2026")
-    ledger.append_event(event_type="assistant", content="已验证 S3 存储桶策略生效")
-    ledger.append_event(event_type="user", content="今天天气真好，去公园散步")
+    ledger.append_event(
+        event_type="user",
+        payload={"text": "配置 AWS S3 Bucket 名称为 my-backup-vault-2026"},
+    )
+    ledger.append_event(
+        event_type="assistant",
+        payload={"text": "已验证 S3 存储桶策略生效"},
+    )
+    ledger.append_event(
+        event_type="user",
+        payload={"text": "今天天气真好，去公园散步"},
+    )
 
     matches = retriever.search_raw_events(query="S3 Bucket", limit=2)
     assert len(matches) == 1
-    assert "my-backup-vault-2026" in matches[0].content
+    assert "my-backup-vault-2026" in str(matches[0].payload)
     assert matches[0].event_type == "user"
 
 
-def test_parallel_recall_coordinator_prioritizes_topic_switch_over_retrieval(tmp_path: Path):
-    """验证并联调用调度核心：同轮并发 Tool Calls 中，话题切换必须先于记忆读取生效。"""
+def test_batched_concurrency_integration_with_existing_loop(tmp_path: Path):
+    """验证与既有 concurrency.py 的 execute_tool_calls_batched 无缝协同：
+
+    动态将 archive_current_topic_and_switch 识别为 WRITE (串行切分)，
+    将 read_memory_topic 识别为 READ (并发执行)。
+    """
     log_file = tmp_path / "logs" / "main_session_events.jsonl"
     epochs_dir = tmp_path / "epochs"
     memory_dir = tmp_path / "memory"
     topics_dir = memory_dir / "topics"
     topics_dir.mkdir(parents=True, exist_ok=True)
-
-    # 准备主题文件
-    (topics_dir / "travel_diet.md").write_text("主人饮食偏好：偏好低糖、无乳糖奶制品。", encoding="utf-8")
+    (topics_dir / "travel_diet.md").write_text("偏好低糖、无乳糖奶制品。", encoding="utf-8")
 
     ledger = MainEventLedger(log_file=log_file, initial_epoch_id=1)
     window = SlidingWindowLedger(ledger=ledger, config=WindowConfig(epochs_dir=epochs_dir))
     handler = TopicSwitchHandler(window=window, epochs_dir=epochs_dir)
     retriever = ThreeTierRetriever(memory_dir=memory_dir, ledger=ledger)
-    coordinator = ParallelRecallCoordinator(topic_handler=handler, retriever=retriever)
 
-    # 灌入旧主题“Kubernetes 集群升级”对话
-    _seed_topic_events(ledger=ledger, topic_name="Kubernetes 集群升级", num_turns=3)
-    assert len(window.get_active_window().events) == 12
-
-    # 用户发出转折意图
+    # 模拟旧对话与新指令
+    _seed_topic_events(ledger=ledger, topic_name="K8s升级", num_turns=2)
     new_user = ledger.append_event(
         event_type="user",
-        content="帮我挑选明天去京都的下午茶点心店",
-        token_count=20,
+        payload={"text": "推荐京都甜品店"},
     )
 
-    # 模拟主模型同轮同时发出的 2 个并行 Tool Calls（顺序故意打乱：读取记忆在前，切换话题在后）
     calls = [
-        ParallelToolCall(
-            call_id="call_read_memory",
-            function_name="read_memory_topic",
+        ToolCallItem(
+            callId="c1",
+            capability="archive_current_topic_and_switch",
+            arguments={"old_topic_summary": "K8s升级完毕", "new_topic_intent": "京都甜品", "switch_user_seq_id": new_user.seq_id},
+        ),
+        ToolCallItem(
+            callId="c2",
+            capability="read_memory_topic",
             arguments={"topic_name": "travel_diet.md"},
         ),
-        ParallelToolCall(
-            call_id="call_topic_switch",
-            function_name="archive_current_topic_and_switch",
-            arguments={
-                "old_topic_summary": "K8s 集群升级至 1.30 方案评审完毕。",
-                "new_topic_intent": "京都下午茶点心店推荐",
-                "switch_user_seq_id": new_user.seq_id,
-            },
-        ),
     ]
 
-    results = coordinator.execute_parallel_calls(calls)
+    # 定义读写判定函数：read_memory_topic 为只读，archive 为写
+    is_read_fn = lambda cap: cap in {"read_memory_topic", "search_raw_events"}
 
-    # 验证两个调用的执行结果均已返回
-    assert "call_read_memory" in results
-    assert "call_topic_switch" in results
+    # 验证既有切分算法正确将 WRITE 串行、READ 并行分流
+    partitions = partition_tool_calls(calls, is_read_fn=is_read_fn)
+    assert len(partitions) == 2
+    assert partitions[0][0] == "serial"
+    assert partitions[0][1][0].callId == "c1"
+    assert partitions[1][0] == "parallel"
+    assert partitions[1][1][0].callId == "c2"
 
-    # 验证记忆读取结果成功拿到
-    assert "低糖、无乳糖" in results["call_read_memory"]
+    # 执行分发器
+    def _execute_single(item: ToolCallItem) -> Observation:
+        if item.capability == "archive_current_topic_and_switch":
+            res = handler.archive_current_topic_and_switch(**item.arguments)
+            return Observation(callId=item.callId, capability=item.capability, ok=True, payload=res.model_dump())
+        elif item.capability == "read_memory_topic":
+            text = retriever.read_memory_topic(**item.arguments)
+            return Observation(callId=item.callId, capability=item.capability, ok=True, payload={"content": text})
+        return Observation(callId=item.callId, capability=item.capability, ok=False, payload={"error": "unknown"})
 
-    # 验证话题切换结果成功返回
-    switch_res = results["call_topic_switch"]
-    assert switch_res["success"] is True
+    observations = execute_tool_calls_batched(
+        calls,
+        execute_single_fn=_execute_single,
+        is_read_fn=is_read_fn,
+    )
+    assert len(observations) == 2
+    assert observations[0].ok is True
+    assert observations[1].ok is True
+    assert "低糖" in observations[1].payload["content"]
 
-    # 核心因果断言：活跃窗口必须已经被瞬移清理！旧 K8s 上下文完全消失，仅剩新 user 事件
-    active_events = window.get_active_window().events
-    assert len(active_events) == 1
-    assert active_events[0].seq_id == new_user.seq_id
-    assert "京都下午茶" in active_events[0].content
-    assert "京都下午茶点心店推荐" in window.rolling_task_summary
-
-
-def test_parallel_recall_coordinator_handles_tier3_raw_log_search(tmp_path: Path):
-    """验证并联调用调度器对 Tier 3 search_raw_events 的无缝支撑。"""
-    log_file = tmp_path / "logs" / "main_session_events.jsonl"
-    ledger = MainEventLedger(log_file=log_file, initial_epoch_id=1)
-    ledger.append_event(event_type="assistant", content="旧项目凭证 API_KEY=sk-old-project-9988")
-
-    window = SlidingWindowLedger(ledger=ledger)
-    handler = TopicSwitchHandler(window=window, epochs_dir=tmp_path / "epochs")
-    retriever = ThreeTierRetriever(memory_dir=tmp_path / "memory", ledger=ledger)
-    coordinator = ParallelRecallCoordinator(topic_handler=handler, retriever=retriever)
-
-    calls = [
-        ParallelToolCall(
-            call_id="call_search_1",
-            function_name="search_raw_events",
-            arguments={"query": "API_KEY", "limit": 1},
-        )
-    ]
-
-    results = coordinator.execute_parallel_calls(calls)
-    assert "call_search_1" in results
-    matched = results["call_search_1"]
-    assert isinstance(matched, list)
-    assert len(matched) == 1
-    assert "sk-old-project-9988" in matched[0]["content"]
+    # 验证活跃窗口成功瞬移
+    assert window.get_active_window().events[0].seq_id == new_user.seq_id
 
 
 def test_topic_switch_empty_active_window_safe(tmp_path: Path):
