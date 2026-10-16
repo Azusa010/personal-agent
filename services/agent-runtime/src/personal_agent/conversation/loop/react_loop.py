@@ -2,9 +2,9 @@ import json
 import logging
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Literal, Callable
+from typing import Any, Literal
 
 from pydantic import ValidationError
 

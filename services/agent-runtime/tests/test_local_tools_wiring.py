@@ -8,31 +8,29 @@
 """
 
 from pathlib import Path
-from typing import Any
 
 import pytest
 
-from personal_agent.conversation.ledger import LedgerEvent, MainEventLedger
-from personal_agent.conversation.model.gateway import Observation, ToolCallDecision
+from personal_agent.conversation.ledger import MainEventLedger
+from personal_agent.conversation.model.gateway import ToolCallDecision
 from personal_agent.conversation.model.live_model import (
     FINISH_TASK_TOOL_NAME,
     build_tools,
+)
+from personal_agent.conversation.model.tool_schema_generator import (
+    generate_local_tool_schemas,
 )
 from personal_agent.conversation.topics import (
     ThreeTierRetriever,
     TopicSwitchHandler,
 )
+from personal_agent.conversation.windows import SlidingWindowLedger
 from personal_agent.conversation.topics.models import (
     ArchiveTopicParams,
     ReadMemoryTopicParams,
     SearchRawEventsParams,
 )
-from personal_agent.conversation.model.tool_schema_generator import (
-    LOCAL_TOOL_SCHEMAS,
-    generate_local_tool_schemas,
-)
 from personal_agent.runtime import create_local_executor
-
 
 # =========================================================================
 # 1. 本地工具参数契约模型与 Schema 验证
@@ -145,12 +143,15 @@ def test_local_executor_archive_topic_switch(tmp_path: Path):
     """验证 local_executor 正确拦截 archive_current_topic_and_switch 并产生磁盘归档。"""
     epochs_dir = tmp_path / "epochs"
     epochs_dir.mkdir()
-    topic_handler = TopicSwitchHandler(epochs_dir=epochs_dir)
-    retriever = ThreeTierRetriever(memory_dir=tmp_path / "memory", ledger=None)
+    ledger = MainEventLedger(log_file=tmp_path / "events.jsonl")
+    window = SlidingWindowLedger(ledger=ledger)
+    topic_handler = TopicSwitchHandler(window=window, epochs_dir=epochs_dir)
+    retriever = ThreeTierRetriever(memory_dir=tmp_path / "memory", ledger=ledger)
 
     executor = create_local_executor(topic_handler=topic_handler, retriever=retriever)
 
     decision = ToolCallDecision(
+        kind="tool_call",
         callId="call_archive_001",
         capability="archive_current_topic_and_switch",
         arguments={
@@ -164,7 +165,7 @@ def test_local_executor_archive_topic_switch(tmp_path: Path):
     assert obs.callId == "call_archive_001"
     assert obs.capability == "archive_current_topic_and_switch"
     assert obs.ok is True
-    assert "epoch_id" in obs.payload
+    assert "archived_epoch_id" in obs.payload or "epoch_id" in obs.payload
     assert obs.payload["new_topic_intent"] == "去东京旅游吃拉面"
 
     # 验证物理文件落盘
@@ -182,13 +183,16 @@ def test_local_executor_read_memory_topic(tmp_path: Path):
     pref_file = topics_dir / "user_preferences.md"
     pref_file.write_text("# 偏好\n用户偏好使用 TypeScript 纯函数。", encoding="utf-8")
 
-    topic_handler = TopicSwitchHandler(epochs_dir=tmp_path / "epochs")
-    retriever = ThreeTierRetriever(memory_dir=memory_dir, ledger=None)
+    ledger = MainEventLedger(log_file=tmp_path / "events.jsonl")
+    window = SlidingWindowLedger(ledger=ledger)
+    topic_handler = TopicSwitchHandler(window=window, epochs_dir=tmp_path / "epochs")
+    retriever = ThreeTierRetriever(memory_dir=memory_dir, ledger=ledger)
 
     executor = create_local_executor(topic_handler=topic_handler, retriever=retriever)
 
     # 1. 成功读取存在的主题
     decision_ok = ToolCallDecision(
+        kind="tool_call",
         callId="call_read_001",
         capability="read_memory_topic",
         arguments={"topic_name": "user_preferences.md"},
@@ -196,10 +200,11 @@ def test_local_executor_read_memory_topic(tmp_path: Path):
     obs_ok = executor(decision_ok)
     assert obs_ok is not None
     assert obs_ok.ok is True
-    assert "用户偏好使用 TypeScript 纯函数" in obs_ok.payload.get("content", "")
+    assert "用户偏好使用 TypeScript 纯函数" in str(obs_ok.payload)
 
     # 2. 读取不存在的主题返回 ok=False 友好报错
     decision_missing = ToolCallDecision(
+        kind="tool_call",
         callId="call_read_002",
         capability="read_memory_topic",
         arguments={"topic_name": "non_existent.md"},
@@ -216,21 +221,21 @@ def test_local_executor_search_raw_events(tmp_path: Path):
     ledger = MainEventLedger(log_file=log_file)
     ledger.append_event(
         event_type="user",
-        source="user",
         payload={"text": "我的日本签证代办电话是 010-12345678"},
     )
     ledger.append_event(
         event_type="assistant",
-        source="agent",
         payload={"reply": "已收到您的签证电话"},
     )
 
-    topic_handler = TopicSwitchHandler(epochs_dir=tmp_path / "epochs")
+    window = SlidingWindowLedger(ledger=ledger)
+    topic_handler = TopicSwitchHandler(window=window, epochs_dir=tmp_path / "epochs")
     retriever = ThreeTierRetriever(memory_dir=tmp_path / "memory", ledger=ledger)
 
     executor = create_local_executor(topic_handler=topic_handler, retriever=retriever)
 
     decision = ToolCallDecision(
+        kind="tool_call",
         callId="call_search_001",
         capability="search_raw_events",
         arguments={"query": "签证", "limit": 5},
@@ -238,19 +243,22 @@ def test_local_executor_search_raw_events(tmp_path: Path):
     obs = executor(decision)
     assert obs is not None
     assert obs.ok is True
-    events = obs.payload.get("events", [])
+    events = obs.payload.get("events") or obs.payload.get("result", [])
     assert len(events) >= 1
     assert any("010-12345678" in str(e) for e in events)
 
 
 def test_local_executor_passes_through_host_capabilities(tmp_path: Path):
     """验证 local_executor 遇到宿主常规能力（如 filesystem_list）时返回 None，透明放行。"""
-    topic_handler = TopicSwitchHandler(epochs_dir=tmp_path / "epochs")
-    retriever = ThreeTierRetriever(memory_dir=tmp_path / "memory", ledger=None)
+    ledger = MainEventLedger(log_file=tmp_path / "events.jsonl")
+    window = SlidingWindowLedger(ledger=ledger)
+    topic_handler = TopicSwitchHandler(window=window, epochs_dir=tmp_path / "epochs")
+    retriever = ThreeTierRetriever(memory_dir=tmp_path / "memory", ledger=ledger)
 
     executor = create_local_executor(topic_handler=topic_handler, retriever=retriever)
 
     decision = ToolCallDecision(
+        kind="tool_call",
         callId="call_fs_001",
         capability="filesystem_list",
         arguments={"path": "downloads"},

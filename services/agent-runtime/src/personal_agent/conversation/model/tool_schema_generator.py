@@ -8,6 +8,11 @@ from typing import Any, get_args
 
 from pydantic import BaseModel
 
+from personal_agent.conversation.topics.models import (
+    ArchiveTopicParams,
+    ReadMemoryTopicParams,
+    SearchRawEventsParams,
+)
 from personal_agent.protocol.models import (
     A2UIRenderParams,
     CapabilityId,
@@ -62,6 +67,12 @@ TOOL_PARAM_MODELS: dict[str, type[BaseModel]] = {
     "a2ui_render": A2UIRenderParams,
 }
 
+LOCAL_TOOL_PARAM_MODELS: dict[str, type[BaseModel]] = {
+    "archive_current_topic_and_switch": ArchiveTopicParams,
+    "read_memory_topic": ReadMemoryTopicParams,
+    "search_raw_events": SearchRawEventsParams,
+}
+
 # 工具层级高阶描述说明（对齐 ACI 目标导向）
 TOOL_DESCRIPTIONS: dict[str, str] = {
     "a2ui_render": "向桌面客户端推送受信任的 A2UI 声明式组件树进行安全渲染与交互",
@@ -90,6 +101,9 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "file_read": "读取指定文件内容，支持按起始行号与结束行号分页读取，每行自带行号前缀",
     "file_write": "在工作区内写入或完全覆盖文件，自动创建父级目录",
     "file_edit": "在现有文件中进行精准单块局部修改，Old String 必须在文件中全局唯一存在",
+    "archive_current_topic_and_switch": "将当前话题归档为独立 Epoch，并切换到新话题",
+    "read_memory_topic": "读取长期记忆中指定话题的 Markdown 内容",
+    "search_raw_events": "在事件日志中按关键词检索原始事件记录",
 }
 
 # 字段级语义描述增强（提供具象样例与约束）
@@ -180,10 +194,25 @@ PROPERTY_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "searchDepth": "可选检索深度：'basic' (快速) 或 'advanced' (高精度深入)",
         "includeAnswer": "可选是否包含 Tavily AI 提取的直接答案",
     },
+    "archive_current_topic_and_switch": {
+        "old_topic_summary": "当前话题的总结内容",
+        "new_topic_intent": "新话题的意图描述",
+        "switch_user_seq_id": "可选的用户序列号，用于切换时的水印控制",
+    },
+    "read_memory_topic": {
+        "topic_summary": "要读取的长期记忆话题的摘要",
+        "memory_file_path": "长期记忆中对应话题的 Markdown 文件路径",
+    },
+    "search_raw_events": {
+        "query": "要检索的关键词或事件描述",
+        "limit": "可选返回的最优候选条数（默认 10）",
+    },
 }
 
 
-def generate_tool_schema(capability: str, description: str | None = None) -> dict[str, Any]:
+def generate_tool_schema(
+    capability: str, description: str | None = None
+) -> dict[str, Any]:
     """根据能力名称及其对应的 Pydantic 模型生成 OpenAI Function Calling 规范。"""
     model_cls = TOOL_PARAM_MODELS.get(capability)
     desc = description or TOOL_DESCRIPTIONS.get(capability, "")
@@ -218,6 +247,54 @@ def generate_tool_schema(capability: str, description: str | None = None) -> dic
             "parameters": schema,
         },
     }
+
+
+def generate_local_tool_schema(
+    capability: str, description: str | None = None
+) -> dict[str, Any]:
+    """根据本地能力名称及其对应的 Pydantic 模型生成 OpenAI Function Calling 规范。"""
+    model_cls = LOCAL_TOOL_PARAM_MODELS.get(capability)
+    desc = description or TOOL_DESCRIPTIONS.get(capability, "")
+    if model_cls is None:
+        return {
+            "type": "function",
+            "function": {
+                "name": capability,
+                "description": desc,
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+
+    schema = model_cls.model_json_schema()
+    schema.pop("title", None)
+    schema.pop("description", None)
+    schema.pop("additionalProperties", None)
+
+    prop_descs = PROPERTY_DESCRIPTIONS.get(capability, {})
+    properties = schema.get("properties", {})
+    for prop_name, prop_val in properties.items():
+        if isinstance(prop_val, dict):
+            prop_val.pop("title", None)
+            if "description" not in prop_val and prop_name in prop_descs:
+                prop_val["description"] = prop_descs[prop_name]
+
+    return {
+        "type": "function",
+        "function": {
+            "name": capability,
+            "description": desc,
+            "parameters": schema,
+        },
+    }
+
+
+def generate_local_tool_schemas() -> dict[str, dict[str, Any]]:
+    """生成协议中所有已注册本地能力的 OpenAI Tool Schema 字典。"""
+    all_local_caps = LOCAL_TOOL_PARAM_MODELS.keys()
+    return {cap: generate_local_tool_schema(cap) for cap in all_local_caps}
+
+
+LOCAL_TOOL_SCHEMAS = generate_local_tool_schemas()
 
 
 def generate_all_tool_schemas() -> dict[str, dict[str, Any]]:

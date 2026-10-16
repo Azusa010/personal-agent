@@ -1,5 +1,5 @@
-from collections.abc import Sequence
-from typing import Any, Protocol, runtime_checkable, Callable
+from collections.abc import Callable, Sequence
+from typing import Any, Protocol, runtime_checkable
 
 from personal_agent.conversation.context import ContextManager
 from personal_agent.conversation.loop.engine import AgentEngine
@@ -14,10 +14,10 @@ from personal_agent.conversation.loop.react_loop import (
 from personal_agent.conversation.model.gateway import (
     ModelGateway,
     ModelUsage,  # noqa: F401
-    UsageReporting,
+    Observation,
     ToolCallDecision,
     ToolCallItem,
-    Observation,
+    UsageReporting,
 )
 from personal_agent.conversation.sidecar import (
     RejectionCircuitBreaker,

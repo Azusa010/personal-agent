@@ -15,3 +15,14 @@ class TopicSwitchResult(BaseModel):
     archived_file_path: str
     new_topic_intent: str
     message: str
+
+class ArchiveTopicParams(BaseModel):
+    old_topic_summary: str
+    new_topic_intent: str
+
+class ReadMemoryTopicParams(BaseModel):
+    topic_name: str
+
+class SearchRawEventsParams(BaseModel):
+    query: str
+    limit: int | None = 10

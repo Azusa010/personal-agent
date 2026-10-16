@@ -5,18 +5,22 @@ import os
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from pydantic import ValidationError
 
+from personal_agent.conversation import Observation, ToolCallDecision
 from personal_agent.conversation.ledger import MainEventLedger
 from personal_agent.conversation.loop.concurrency import register_capabilities
 from personal_agent.conversation.loop.strategy import DynamicLedgerStrategy
+from personal_agent.conversation.model.gateway import ToolCallItem
 from personal_agent.conversation.sidecar import (
     RejectionCircuitBreaker,
     SidecarLlmClient,
     StreamBarrier,
     intercept_query_memories,
 )
+from personal_agent.conversation.topics import ThreeTierRetriever, TopicSwitchHandler
 from personal_agent.conversation.windows import SlidingWindowLedger, TimeGatekeeper
 from personal_agent.engine import Budget
 from personal_agent.host_channel import HostChannel
@@ -272,14 +276,30 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
         if deps.sidecar_llm_factory is not None
         else SidecarLlmClient()
     )
-    ledger_path = os.environ.get("PERSONAL_AGENT_LEDGER_PATH")
-    ledger = MainEventLedger(log_file=ledger_path) if ledger_path else None
-    sliding_window = SlidingWindowLedger(ledger=ledger) if ledger is not None else None
-    time_gatekeeper = TimeGatekeeper(sliding_window) if sliding_window is not None else None
+
+    harness_dir = Path(
+        os.environ.get("PERSONAL_AGENT_HARNESS_DIR", Path.home() / ".my_agent_harness")
+    )
+    memory_dir = harness_dir / "memory"
+    epochs_dir = harness_dir / "epochs"
+    ledger_path = os.environ.get(
+        "PERSONAL_AGENT_LEDGER_PATH",
+        str(harness_dir / "logs" / "main_session_events.jsonl"),
+    )
+
+    ledger = MainEventLedger(log_file=ledger_path)
+    sliding_window = SlidingWindowLedger(ledger=ledger)
+    time_gatekeeper = TimeGatekeeper(sliding_window)
+    topic_handler = TopicSwitchHandler(window=sliding_window, epochs_dir=epochs_dir)
+    retriever = ThreeTierRetriever(memory_dir=memory_dir, ledger=ledger)
+
+    local_executor = create_local_executor(topic_handler, retriever)
+
     extra_kwargs = {}
     if isinstance(deps.strategy, DynamicLedgerStrategy):
         extra_kwargs["sliding_window"] = sliding_window
         extra_kwargs["time_gatekeeper"] = time_gatekeeper
+        extra_kwargs["local_executor"] = local_executor
     try:
         outcome = deps.strategy.execute(
             model=deps.model_factory(),
@@ -296,7 +316,7 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
             sidecar_barrier=barrier,
             circuit_breaker=cb,
             sidecar_llm=sidecar_llm,
-            **extra_kwargs
+            **extra_kwargs,
         )
     except Exception:
         log.exception("agent.run_task 未预期异常 (id=%s)", req.id)
@@ -560,3 +580,60 @@ def run(channel: HostChannel | None = None) -> None:
         if resp is not None:
             write(resp)
     log.info("runtime stopped (stdin EOF)")
+
+
+def create_local_executor(
+    topic_handler: TopicSwitchHandler, retriever: ThreeTierRetriever
+) -> Callable[[ToolCallDecision | ToolCallItem], Observation | None]:
+    """创建一个本地执行器，直接调用 topic_handler 和 retriever 执行工具调用决策或工具调用项。"""
+
+    def local_executor(decision: ToolCallDecision | ToolCallItem) -> Observation | None:
+        cap = decision.capability
+        args = decision.arguments
+
+        if cap == "archive_current_topic_and_switch":
+            # 归档当前话题并切换到新话题
+            old_topic_summary = str(args.get("old_topic_summary"))
+            new_topic_intent = str(args.get("new_topic_intent"))
+            switch_user_seq_id = args.get("switch_user_seq_id")
+            result = topic_handler.archive_current_topic_and_switch(
+                old_topic_summary=old_topic_summary,
+                new_topic_intent=new_topic_intent,
+                switch_user_seq_id=switch_user_seq_id,
+            )
+            return Observation(
+                callId=decision.callId,
+                capability=cap,
+                ok=result.success,
+                payload=result.model_dump(exclude_none=True),
+            )
+        if cap == "read_memory_topic":
+            topic_name = str(args.get("topic_name"))
+            try:
+                result = retriever.read_memory_topic(topic_name=topic_name)
+            except FileNotFoundError as e:
+                return Observation(
+                    callId=decision.callId,
+                    capability=cap,
+                    ok=False,
+                    payload={"error": str(e)},
+                )
+            return Observation(
+                callId=decision.callId,
+                capability=cap,
+                ok=True,
+                payload={"result": result},
+            )
+        if cap == "search_raw_events":
+            query = str(args.get("query"))
+            limit = int(args.get("limit", 10))
+            result = retriever.search_raw_events(query=query, limit=limit)
+            return Observation(
+                callId=decision.callId,
+                capability=cap,
+                ok=True,
+                payload={"result": [event.model_dump() for event in result]},
+            )
+        return None
+
+    return local_executor

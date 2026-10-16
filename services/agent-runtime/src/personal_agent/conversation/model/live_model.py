@@ -138,6 +138,7 @@ TOOL_SPECS: dict[str, str] = {
 
 # 标准 OpenAI Function Calling 工具参数定义（由 Pydantic 契约模型动态推导生成，单一事实来源）
 from personal_agent.conversation.model.tool_schema_generator import (
+    LOCAL_TOOL_SCHEMAS,
     generate_all_tool_schemas,
 )
 
@@ -191,6 +192,7 @@ def build_tools(visible_capabilities: Sequence[str]) -> list[dict[str, Any]]:
     """根据可见能力列表构造 tools 参数，并注入收尾工具 finish_task。"""
     tools = [TOOL_SCHEMAS[c] for c in visible_capabilities if c in TOOL_SCHEMAS]
     tools.append(FINISH_TASK_SCHEMA)
+    tools.extend(LOCAL_TOOL_SCHEMAS.values())
     return tools
 
 
