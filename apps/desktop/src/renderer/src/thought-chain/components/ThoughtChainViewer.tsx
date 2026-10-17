@@ -5,6 +5,7 @@ import { streamStateToSteps, timelineToSteps } from '../transformer'
 import type { ThoughtChainStep, ToolStepView } from '../types'
 import { NoticeStepCard } from './NoticeStepCard'
 import { RawSpanDialog } from './RawSpanDialog'
+import { SubagentStepCard } from './SubagentStepCard'
 import { ThoughtStepCard } from './ThoughtStepCard'
 import { ToolStepCard } from './ToolStepCard'
 
@@ -58,6 +59,16 @@ export const ThoughtChainViewer: React.FC<ThoughtChainViewerProps> = ({
             )
           }
           if (step.type === 'tool') {
+            if (step.capability === 'spawn_subagent') {
+              return (
+                <SubagentStepCard
+                  key={step.id}
+                  step={step}
+                  isStreaming={isStreaming}
+                  onInspectRaw={(s) => setInspectStep(s)}
+                />
+              )
+            }
             return (
               <ToolStepCard
                 key={step.id}

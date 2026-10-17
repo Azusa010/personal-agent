@@ -25,7 +25,7 @@ export interface MessageStreamProps {
   onDecidePermission: (decision: PermissionDecision) => Promise<void>
 }
 
-/** assistant 气泡：思考步骤 -> （连线） -> 最后的正文。 */
+/** assistant 正文区：思考步骤 -> （连线） -> 自然舒展的无界正文流。 */
 function AssistantMessage({
   message,
   cachedThinking
@@ -39,28 +39,28 @@ function AssistantMessage({
   const hasTrajectory = (timeline !== null && stepsCount > 0) || Boolean(cachedThinking)
 
   return (
-    <div className="max-w-[82%] text-[13px] leading-5 space-y-1.5">
+    <div className="w-full text-[13.5px] leading-7 space-y-4">
       {/* 1. 上层：思考步骤与执行轨迹 (直接以 agent-elements 轻量行展示) */}
       {hasTrajectory && (
-        <div className="space-y-1">
+        <div className="space-y-1 mb-2">
           <ThoughtChainViewer timeline={timeline} cachedThinking={cachedThinking} />
         </div>
       )}
 
-      {/* 2. 下层：最后的正文（Agent 的话用衬线呈现，Claude 式人机对照） */}
-      <div className="font-serif pt-0.5 text-[13.5px] leading-6">
+      {/* 2. 下层：最后的正文（彻底去外框去卡片，直接在背景画布上舒展流淌） */}
+      <div className="text-[13.5px] leading-7 space-y-4 text-foreground/95">
         <MarkdownContent content={message.text} />
         {facts.length > 0 && (
-          <>
-            <p className="m-0 mt-2 text-muted-foreground">依据本地文件核对，结论如下：</p>
-            <ul className="my-2 list-disc space-y-1 pl-5">
+          <div className="pt-2">
+            <p className="m-0 text-muted-foreground text-xs">依据本地文件核对，结论如下：</p>
+            <ul className="my-2 list-disc space-y-1 pl-5 text-xs">
               {facts.map((fact, i) => (
                 <li key={i}>
                   {fact.text}
                   {fact.pageRefs.map((page) => (
                     <span
                       key={page}
-                      className="ml-1 inline-flex rounded bg-[var(--mint-tint)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--mint-deep)]"
+                      className="ml-1 inline-flex rounded bg-secondary px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
                     >
                       p.{page}
                     </span>
@@ -68,7 +68,7 @@ function AssistantMessage({
                 </li>
               ))}
             </ul>
-          </>
+          </div>
         )}
       </div>
     </div>
@@ -151,109 +151,112 @@ export function MessageStream({
       <div
         ref={containerRef}
         onScroll={handleRailScroll}
-        className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5"
+        className="min-h-0 flex-1 overflow-y-auto"
       >
-        {messagesError !== null && (
-          <p className="text-center text-[12px] text-destructive">{messagesError}</p>
-        )}
-        {messages.length === 0 && !waiting && messagesError === null && (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border-0 bg-gradient-to-br from-[var(--mint)] to-[var(--mint-deep)] text-white">
-              <Bot size={18} />
+        {/* 人体工学大道居中流式画布 */}
+        <div className="max-w-3xl mx-auto w-full px-4 md:px-6 py-6 space-y-8">
+          {messagesError !== null && (
+            <p className="text-center text-[12px] text-destructive">{messagesError}</p>
+          )}
+          {messages.length === 0 && !waiting && messagesError === null && (
+            <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-muted-foreground">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border-0 bg-gradient-to-br from-[var(--mint)] to-[var(--mint-deep)] text-white shadow-sm">
+                <Bot size={18} />
+              </div>
+              <p className="m-0 text-[13.5px]">问点什么，需要动文件的操作会先请求批准。</p>
             </div>
-            <p className="m-0 text-[13px]">问点什么，需要动文件的操作会先请求批准。</p>
-          </div>
-        )}
-        {messages.map((message) => {
-          if (message.role === 'user') {
-            return (
-              <div
-                key={message.seq}
-                id={'user-msg-' + message.seq}
-                className="flex scroll-mt-4 justify-end"
-              >
+          )}
+          {messages.map((message) => {
+            if (message.role === 'user') {
+              return (
                 <div
-                  className={cn(
-                    'max-w-[73%] rounded-2xl rounded-br-md border border-[var(--mint-line)] bg-[var(--mint-tint)] px-4 py-3 text-[13px] leading-5 text-[#1d4f49]',
-                    flashSeq === message.seq && 'msg-flash'
-                  )}
+                  key={message.seq}
+                  id={'user-msg-' + message.seq}
+                  className="flex scroll-mt-4 justify-end"
                 >
-                  {message.text}
+                  <div
+                    className={cn(
+                      'rounded-2xl bg-secondary/80 text-foreground px-4 py-2.5 max-w-[80%] text-[13.5px] leading-relaxed shadow-xs',
+                      flashSeq === message.seq && 'msg-flash'
+                    )}
+                  >
+                    {message.text}
+                  </div>
                 </div>
-              </div>
+              )
+            }
+
+            const taskId = message.taskId ?? message.timeline?.task.id ?? null
+            const cachedThinking = taskId && thinkingByTaskId ? thinkingByTaskId[taskId] : undefined
+
+            return (
+              <article key={message.seq} className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/40 bg-secondary/80 text-foreground">
+                  <Bot size={15} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 text-[11px] font-medium text-muted-foreground">
+                    {agentName}
+                  </div>
+                  <AssistantMessage message={message} cachedThinking={cachedThinking} />
+                </div>
+              </article>
             )
-          }
-
-          const taskId = message.taskId ?? message.timeline?.task.id ?? null
-          const cachedThinking = taskId && thinkingByTaskId ? thinkingByTaskId[taskId] : undefined
-
-          return (
-            <article key={message.seq} className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-foreground">
-                <Bot size={15} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="mb-1 text-[11px] font-medium text-muted-foreground">
-                  {agentName}
+          })}
+          {waiting && (
+            <>
+              <div className="flex justify-end">
+                <div className="rounded-2xl bg-secondary/80 text-foreground px-4 py-2.5 max-w-[80%] text-[13.5px] leading-relaxed shadow-xs">
+                  {pendingText}
                 </div>
-                <AssistantMessage message={message} cachedThinking={cachedThinking} />
               </div>
-            </article>
-          )
-        })}
-        {waiting && (
-          <>
-            <div className="flex justify-end">
-              <div className="max-w-[73%] rounded-2xl rounded-br-md border border-[var(--mint-line)] bg-[var(--mint-tint)] px-4 py-3 text-[13px] leading-5 text-[#1d4f49]">
-                {pendingText}
+              <article className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/40 bg-secondary/80 text-foreground">
+                  <Bot size={15} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 text-[11px] font-medium text-muted-foreground">
+                    {agentName}
+                  </div>
+                  <div className="w-full space-y-2 text-[13.5px] leading-7">
+                    {streamState &&
+                    (streamState.thinking ||
+                      (streamState.events && streamState.events.length > 0)) ? (
+                      <div className="space-y-1 mb-2">
+                        <ThoughtChainViewer liveStream={streamState} isStreaming={true} />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 py-0.5 text-xs text-muted-foreground select-none">
+                        <LoaderCircle
+                          size={12}
+                          className="animate-spin text-muted-foreground shrink-0"
+                        />
+                        <TextShimmer duration={1.2} className="text-xs font-[450]">
+                          Thinking...
+                        </TextShimmer>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            </>
+          )}
+          {/* 流内权限审批卡:决定后 App 清空 pendingPermission,卡片随之消失 */}
+          {pendingPermission !== null && (
+            <div className="flex justify-center">
+              <div className="w-full">
+                <PermissionCard
+                  key={pendingPermission.id}
+                  permission={pendingPermission}
+                  onDecide={onDecidePermission}
+                />
               </div>
             </div>
-            <article className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-foreground">
-                <Bot size={15} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="mb-1 text-[11px] font-medium text-muted-foreground">
-                  {agentName}
-                </div>
-                <div className="max-w-[82%] space-y-2 text-[13px] leading-5">
-                  {streamState &&
-                  (streamState.thinking ||
-                    (streamState.events && streamState.events.length > 0)) ? (
-                    <div className="space-y-1">
-                      <ThoughtChainViewer liveStream={streamState} isStreaming={true} />
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 py-0.5 text-xs text-muted-foreground select-none">
-                      <LoaderCircle
-                        size={12}
-                        className="animate-spin text-muted-foreground shrink-0"
-                      />
-                      <TextShimmer duration={1.2} className="text-xs font-[450]">
-                        Thinking...
-                      </TextShimmer>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </article>
-          </>
-        )}
-        {/* 流内权限审批卡:决定后 App 清空 pendingPermission,卡片随之消失 */}
-        {pendingPermission !== null && (
-          <div className="flex justify-center">
-            <div className="w-full max-w-[560px]">
-              <PermissionCard
-                key={pendingPermission.id}
-                permission={pendingPermission}
-                onDecide={onDecidePermission}
-              />
-            </div>
-          </div>
-        )}
-        {feedback !== null && (
-          <p className="text-center text-[12px] text-muted-foreground">{feedback}</p>
-        )}
+          )}
+          {feedback !== null && (
+            <p className="text-center text-[12px] text-muted-foreground">{feedback}</p>
+          )}
+        </div>
       </div>
 
       {/* 消息轨:竖排在左缘留白里,悬停拉长浮出提示,点击跳转 */}

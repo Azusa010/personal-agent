@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PersonalAgent - 子智能体 (Subagent) 前端交互设计提案</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            background: '#09090b',
+            foreground: '#fafafa',
+            muted: '#27272a',
+            'muted-foreground': '#a1a1aa',
+            card: '#121215',
+            'card-foreground': '#fafafa',
+            border: '#27272a',
+            primary: '#f43f5e',
+            accent: '#3b82f6',
+            success: '#10b981',
+            warning: '#f59e0b',
+            destructive: '#ef4444'
+          },
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Fira Code', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 0.4; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .pulse-ring {
+      animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
+</head>
+<body class="bg-background text-foreground min-h-screen p-6 font-sans antialiased selection:bg-accent/30 selection:text-accent">
+
+  <!-- 顶部导航与原型切换器 -->
+  <header class="max-w-5xl mx-auto mb-8 pb-5 border-b border-border flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <div class="flex items-center gap-2.5">
+        <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary border border-primary/20 font-bold text-sm">
+          <i class="fa-solid fa-robot"></i>
+        </span>
+        <h1 class="text-xl font-semibold tracking-tight">PersonalAgent · 子智能体交互视觉提案</h1>
+        <span class="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-blue-400 border border-blue-500/20 font-mono">v1.0 Demo</span>
+      </div>
+      <p class="text-xs text-muted-foreground mt-1">针对 Claude Code / Codex 风格子智能体在桌面端思考链与主会话中的三种可视化展现形态</p>
+    </div>
+
+    <!-- 方案选择 Tab -->
+    <div class="flex items-center gap-1.5 bg-muted/60 p-1 rounded-xl border border-border">
+      <button onclick="switchTab('option1')" id="btn-option1" class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all bg-card text-foreground shadow-sm border border-border/80">
+        <i class="fa-solid fa-layer-group mr-1.5 text-accent"></i>方案一：内联特化智能卡片 (推荐)
+      </button>
+      <button onclick="switchTab('option2')" id="btn-option2" class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all text-muted-foreground hover:text-foreground">
+        <i class="fa-solid fa-window-maximize mr-1.5 text-purple-400"></i>方案二：极简胶囊 + 侧边抽屉
+      </button>
+      <button onclick="switchTab('option3')" id="btn-option3" class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all text-muted-foreground hover:text-foreground">
+        <i class="fa-solid fa-columns mr-1.5 text-emerald-400"></i>方案三：双栏分屏看板
+      </button>
+      <button onclick="switchTab('craft-compare')" id="btn-craft-compare" class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all text-muted-foreground hover:text-foreground">
+        <i class="fa-solid fa-gem mr-1.5 text-amber-400"></i>微观工艺对比
+      </button>
+      <button onclick="switchTab('borderless')" id="btn-borderless" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-emerald-300 hover:text-emerald-200 bg-emerald-500/15 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+        <i class="fa-solid fa-wind mr-1.5 text-emerald-400"></i>🌊 整体去卡片化 · 无界流式画布 (ChatGPT 桌面真形态)
+      </button>
+    </div>
+  </header>
+
+  <!-- 主展示区 -->
+  <main class="max-w-5xl mx-auto">
+
+    <!-- 方案一：内联特化智能卡片 (Recommended) -->
+    <section id="view-option1" class="space-y-6">
+      <div class="bg-card/40 border border-border/70 rounded-2xl p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <h2 class="text-sm font-semibold tracking-tight text-foreground/90">方案一：内联一等公民智能卡片（Dedicated Inline Subagent Card）</h2>
+          </div>
+          <span class="text-xs text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">对齐 Claude Code 官方折叠体验</span>
+        </div>
+
+        <p class="text-xs text-muted-foreground mb-6 leading-relaxed">
+          在思考链（Thought Chain）中，子智能体作为<strong>一等公民卡片</strong>呈现。卡片醒目标注原型徽章（<code>explore</code> / <code>plan</code> / <code>general</code>）、目标描述、实时步数与耗时。点击可展开内部微型执行链（中间工具调用只在卡片内部隔离渲染），底部直接提取<strong>终局收敛结论（Synthesized Summary）</strong>，主会话保持极致干净。
+        </p>
+
+        <!-- 模拟思考链容器 -->
+        <div class="bg-background/90 border border-border rounded-xl p-4 space-y-4 max-w-3xl mx-auto shadow-xl">
+          
+          <!-- 上游主 Agent 普通工具 -->
+          <div class="flex items-center gap-2 text-xs text-muted-foreground py-1 px-2 rounded hover:bg-muted/30 font-mono">
+            <i class="fa-solid fa-wrench text-zinc-500 text-[10px]"></i>
+            <span class="font-medium text-zinc-300">filesystem_list</span>
+            <span class="text-zinc-500 truncate">{ "path": "services/agent-runtime" }</span>
+            <span class="ml-auto text-[10px] text-zinc-500">42ms · ok</span>
+          </div>
+
+          <!-- 子智能体卡片 1: Explore (Completed) -->
+          <div class="border border-blue-500/30 bg-blue-950/10 rounded-xl overflow-hidden shadow-sm transition-all">
+            <!-- 卡片头部 (可折叠点击) -->
+            <div onclick="toggleCollapse('explore-body', 'explore-chevron')" class="cursor-pointer p-3.5 flex items-center justify-between bg-blue-950/20 hover:bg-blue-950/30 transition-colors select-none">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-wide bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                  <i class="fa-solid fa-compass text-[10px]"></i> explore
+                </span>
+                <span class="text-xs font-medium text-foreground truncate">深入探索长程记忆检索与 SlidingWindow 截断机制</span>
+              </div>
+              <div class="flex items-center gap-3 shrink-0 text-xs">
+                <span class="text-[11px] text-zinc-400 font-mono flex items-center gap-1.5">
+                  <i class="fa-solid fa-shoe-prints text-[10px] text-blue-400"></i> 4 步
+                </span>
+                <span class="text-[11px] text-zinc-400 font-mono">1.8s</span>
+                <span class="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
+                  <i class="fa-solid fa-circle-check text-[10px]"></i> 完成
+                </span>
+                <i id="explore-chevron" class="fa-solid fa-chevron-down text-xs text-zinc-400 transition-transform duration-200"></i>
+              </div>
+            </div>
+
+            <!-- 卡片主体内容 -->
+            <div id="explore-body" class="p-4 space-y-3.5 border-t border-blue-500/20 bg-background/50">
+              <!-- 内部隔离微执行步骤 (Micro Trace Timeline) -->
+              <div>
+                <div class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center justify-between">
+                  <span>内部隔离执行链路 (Isolated Trace · 4 步)</span>
+                  <button class="text-[10px] text-blue-400 hover:underline font-mono">查看原始 JSON 日志</button>
+                </div>
+                <div class="space-y-1.5 border-l-2 border-border/80 pl-3 ml-1">
+                  <div class="text-xs flex items-center gap-2 py-0.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                    <span class="font-mono text-zinc-400">Step 1:</span>
+                    <span class="font-mono text-blue-300">file_search</span>
+                    <span class="text-muted-foreground text-[11px] truncate">query="SlidingWindowLedger"</span>
+                    <span class="text-[10px] text-zinc-500 ml-auto">命中 3 处</span>
+                  </div>
+                  <div class="text-xs flex items-center gap-2 py-0.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                    <span class="font-mono text-zinc-400">Step 2:</span>
+                    <span class="font-mono text-blue-300">file_read</span>
+                    <span class="text-muted-foreground text-[11px] truncate">path="windows/sliding_window.py" (L40-L90)</span>
+                    <span class="text-[10px] text-zinc-500 ml-auto">50 行</span>
+                  </div>
+                  <div class="text-xs flex items-center gap-2 py-0.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                    <span class="font-mono text-zinc-400">Step 3:</span>
+                    <span class="font-mono text-blue-300">file_read</span>
+                    <span class="text-muted-foreground text-[11px] truncate">path="topics/retriever.py"</span>
+                    <span class="text-[10px] text-zinc-500 ml-auto">85 行</span>
+                  </div>
+                  <div class="text-xs flex items-center gap-2 py-0.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    <span class="font-mono text-zinc-400">Step 4:</span>
+                    <span class="font-mono text-emerald-300">finish_task</span>
+                    <span class="text-muted-foreground text-[11px]">收敛提炼完成</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 终局蒸馏提炼输出 (Synthesized Summary) -->
+              <div class="bg-blue-950/20 border border-blue-500/25 rounded-lg p-3 text-xs space-y-1.5">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-blue-300">
+                  <span class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-sparkles text-blue-400"></i> 回灌主账本的精炼结论 (Synthesized Summary)
+                  </span>
+                  <button class="text-[10px] text-zinc-400 hover:text-zinc-200 transition-colors">
+                    <i class="fa-regular fa-copy mr-1"></i>复制
+                  </button>
+                </div>
+                <div class="text-zinc-200 text-xs leading-relaxed space-y-1">
+                  <p>1. <strong>滑动窗口截断</strong>：位于 <code>sliding_window.py</code> 的 <code>get_effective_events()</code>，当账本事件超标时，保留前置 System Prompt 和最近 15 条互动，自动折叠中间过程。</p>
+                  <p>2. <strong>三层记忆检索</strong>：位于 <code>retriever.py</code>，分为 <code>system_index</code>、<code>active_epoch</code> 与 <code>cold_storage</code>，由 <code>ThreeTierRetriever</code> 统一路由。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 子智能体卡片 2: Plan (Running 动态模拟) -->
+          <div class="border border-purple-500/30 bg-purple-950/10 rounded-xl overflow-hidden shadow-sm">
+            <div class="p-3.5 flex items-center justify-between bg-purple-950/20 select-none">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-wide bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                  <i class="fa-solid fa-drafting-compass text-[10px]"></i> plan
+                </span>
+                <span class="text-xs font-medium text-foreground truncate">制定 Electron 侧边栏与 Trace 抽屉重构蓝图</span>
+              </div>
+              <div class="flex items-center gap-3 shrink-0 text-xs">
+                <span class="text-[11px] text-purple-300 font-mono flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-purple-400 pulse-ring"></span> 正在推理 (第 2 步)...
+                </span>
+                <span class="text-[11px] text-zinc-400 font-mono">0.9s</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 下游主 Agent 依据子 Agent 结论继续执行 -->
+          <div class="flex items-center gap-2 text-xs text-muted-foreground py-1 px-2 rounded hover:bg-muted/30 font-mono">
+            <i class="fa-solid fa-wrench text-zinc-500 text-[10px]"></i>
+            <span class="font-medium text-zinc-300">file_write</span>
+            <span class="text-zinc-500 truncate">{ "path": "services/agent-runtime/..." }</span>
+            <span class="ml-auto text-[10px] text-zinc-500">进行中...</span>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- 方案二：极简胶囊 + 侧边抽屉 -->
+    <section id="view-option2" class="space-y-6 hidden">
+      <div class="bg-card/40 border border-border/70 rounded-2xl p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+            <h2 class="text-sm font-semibold tracking-tight text-foreground/90">方案二：极简单行胶囊 + 侧边滑出抽屉 (Compact Row + Slide-over Drawer)</h2>
+          </div>
+          <span class="text-xs text-purple-400 font-mono bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">适合超多步繁重任务</span>
+        </div>
+
+        <p class="text-xs text-muted-foreground mb-6 leading-relaxed">
+          思考链中仅保留一行极简胶囊，避免卡片垂直占用过多高度。点击胶囊即可从屏幕右侧滑出<strong>沉浸式 Trace Drawer（抽屉）</strong>，可以在抽屉内完整翻阅子智能体的每一步推理、输入参数、工具返回结果与原始 JSON。
+        </p>
+
+        <!-- 模拟主窗口与胶囊 -->
+        <div class="relative bg-background/90 border border-border rounded-xl p-4 max-w-3xl mx-auto min-h-[380px] overflow-hidden flex flex-col justify-between">
+          <div class="space-y-3">
+            <div class="text-xs text-zinc-400 font-mono">主会话思考流...</div>
+            
+            <!-- 胶囊行 (点击打开抽屉) -->
+            <div onclick="toggleDrawer(true)" class="cursor-pointer group flex items-center justify-between p-2.5 rounded-lg border border-border bg-card/80 hover:border-purple-500/40 hover:bg-purple-950/10 transition-all">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-purple-500/20 text-purple-300 font-semibold border border-purple-500/30">SUBAGENT:explore</span>
+                <span class="text-xs text-foreground font-medium truncate">探索长程记忆检索与 SlidingWindow 机制</span>
+              </div>
+              <div class="flex items-center gap-2 shrink-0 text-xs">
+                <span class="text-[11px] text-muted-foreground font-mono">4 步 · 1.8s</span>
+                <span class="text-xs text-purple-400 group-hover:translate-x-0.5 transition-transform flex items-center gap-1 font-medium">
+                  抽屉抽检 <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                </span>
+              </div>
+            </div>
+
+            <!-- 主会话紧接着引用结论 -->
+            <div class="bg-muted/30 border border-border/40 rounded p-2.5 text-xs text-zinc-300">
+              <span class="text-blue-400 font-medium font-mono">[已接入子智能体结论]</span> 根据 explore 探查结果，SlidingWindowLedger 保留前置 Prompt 与最近 15 轮事件...
+            </div>
+          </div>
+
+          <!-- 右侧滑出抽屉 (Drawer) -->
+          <div id="drawer" class="absolute top-0 right-0 bottom-0 w-80 bg-zinc-900 border-l border-border p-4 shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+            <div class="flex items-center justify-between pb-3 border-b border-border">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-purple-500/20 text-purple-300 font-bold">explore 详情</span>
+                <span class="text-xs text-muted-foreground">独立 Trace</span>
+              </div>
+              <button onclick="toggleDrawer(false)" class="text-zinc-400 hover:text-foreground text-xs p-1">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto py-3 space-y-3 text-xs">
+              <div class="p-2 rounded bg-background border border-border">
+                <div class="text-[10px] text-zinc-500 uppercase font-mono">任务目标</div>
+                <div class="text-zinc-200 mt-1 font-medium">深入探索长程记忆检索与 SlidingWindow 截断机制</div>
+              </div>
+
+              <div class="space-y-1.5">
+                <div class="text-[10px] text-zinc-500 uppercase font-mono">执行时间线</div>
+                <div class="p-2 rounded bg-background/60 border border-border space-y-1 text-[11px]">
+                  <div class="text-purple-300 font-mono">1. file_search (SlidingWindowLedger)</div>
+                  <div class="text-zinc-400 text-[10px]">耗时 220ms · 命中 3 处匹配</div>
+                </div>
+                <div class="p-2 rounded bg-background/60 border border-border space-y-1 text-[11px]">
+                  <div class="text-purple-300 font-mono">2. file_read (sliding_window.py)</div>
+                  <div class="text-zinc-400 text-[10px]">耗时 150ms · 提取有效行</div>
+                </div>
+              </div>
+
+              <div class="p-2.5 rounded bg-purple-950/20 border border-purple-500/30 text-xs">
+                <div class="text-[10px] text-purple-300 font-semibold mb-1">终局精炼输出</div>
+                <div class="text-zinc-300 text-[11px] leading-relaxed">确认滑动窗口在 sliding_window.py，三层检索在 retriever.py。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 方案三：双栏分屏看板 -->
+    <section id="view-option3" class="space-y-6 hidden">
+      <div class="bg-card/40 border border-border/70 rounded-2xl p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <h2 class="text-sm font-semibold tracking-tight text-foreground/90">方案三：双栏分屏多智能体状态看板（Split-Screen Agent Inspector）</h2>
+          </div>
+          <span class="text-xs text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">适合多子智能体并行观察</span>
+        </div>
+
+        <p class="text-xs text-muted-foreground mb-6 leading-relaxed">
+          主聊天区与子智能体状态区分屏并列展示。主窗口专注对话流，右侧面板实时陈列各个活跃或归档的子智能体运行卡片，方便一目了然比对多任务进度。
+        </p>
+
+        <!-- 双栏布局预览 -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3 max-w-4xl mx-auto border border-border rounded-xl p-3 bg-background">
+          <!-- 左侧：主对话流 (占 7 列) -->
+          <div class="md:col-span-7 border-r border-border/60 pr-3 space-y-3">
+            <div class="text-[11px] font-mono text-zinc-500 pb-2 border-b border-border/40">主会话 (Orchestrator)</div>
+            <div class="p-2.5 rounded bg-muted/40 text-xs text-zinc-300 leading-relaxed">
+              用户: 请重构记忆管道与前端抽屉联动。
+            </div>
+            <div class="p-2.5 rounded bg-card border border-border text-xs text-zinc-300 leading-relaxed">
+              主 Agent: 我已派发只读探索智能体排查上下文，请在右侧面板查看实时子任务进度。
+            </div>
+          </div>
+
+          <!-- 右侧：子智能体并行看板 (占 5 列) -->
+          <div class="md:col-span-5 space-y-2.5">
+            <div class="text-[11px] font-mono text-zinc-500 pb-2 border-b border-border/40 flex items-center justify-between">
+              <span>子智能体监控 (Subagents)</span>
+              <span class="text-[10px] text-emerald-400 font-semibold">1 活跃 · 1 完成</span>
+            </div>
+
+            <!-- 卡片 A: 完成 -->
+            <div class="p-2.5 rounded-lg border border-blue-500/30 bg-blue-950/10 text-xs space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">explore-01</span>
+                <span class="text-[10px] text-emerald-400"><i class="fa-solid fa-check"></i> 完成</span>
+              </div>
+              <div class="text-zinc-200 text-[11px] font-medium">排查 sliding_window 截断</div>
+              <div class="text-[10px] text-zinc-500">耗时 1.8s · 4 steps</div>
+            </div>
+
+            <!-- 卡片 B: 进行中 -->
+            <div class="p-2.5 rounded-lg border border-purple-500/30 bg-purple-950/10 text-xs space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">plan-02</span>
+                <span class="text-[10px] text-purple-400 pulse-ring">● 运行中 (2/5)</span>
+              </div>
+              <div class="text-zinc-200 text-[11px] font-medium">规划抽屉重构蓝图</div>
+              <div class="text-[10px] text-zinc-500">运行 0.9s · 读文件中...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 方案四：顶级质感重塑对比 (Before vs After) -->
+    <section id="view-craft-compare" class="space-y-6 hidden">
+      <div class="bg-card/40 border border-border/70 rounded-2xl p-5 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+            <h2 class="text-sm font-semibold tracking-tight text-foreground/90">质感重塑实验室：普通 shadcn 默认 vs Linear / ChatGPT 工业级精修</h2>
+          </div>
+          <span class="text-xs text-amber-400 font-mono bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">Craft Polish Pass</span>
+        </div>
+
+        <p class="text-xs text-muted-foreground mb-6 leading-relaxed">
+          相同的交互骨架与功能，右侧通过<strong>极细光轨（Hairline Alpha Borders）、顶缘内嵌高光（Inset Highlight）、紧致负字距（Negative Tracking）、双层同心托盘（Double-Bezel）、拟物弹簧阻尼微动效</strong>，彻底摆脱“低成本管理后台”的塑料感，呈现价值百万的工业级原生桌面客户端质感。
+        </p>
+
+        <!-- 左右对比栅格 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          <!-- 左侧：Before (普通模板风) -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between text-xs font-mono pb-2 border-b border-border text-zinc-400">
+              <span class="flex items-center gap-1.5 text-zinc-400">
+                <i class="fa-solid fa-ban text-red-400"></i> Before: 普通默认 shadcn
+              </span>
+              <span class="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded">实心死灰 · 粗糙描边</span>
+            </div>
+
+            <div class="p-4 rounded-lg bg-zinc-900 border border-zinc-700/80 space-y-3 text-xs">
+              <div class="flex items-center justify-between text-zinc-300">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded bg-blue-900/40 text-blue-300 border border-blue-700 text-[11px] font-normal">
+                    <i class="fa-solid fa-compass"></i> explore
+                  </span>
+                  <span class="font-normal text-zinc-200">代码探索子智能体</span>
+                </div>
+                <span class="text-zinc-500 text-[11px]">1.8s</span>
+              </div>
+
+              <div class="p-2.5 rounded bg-zinc-950 border border-zinc-800 text-zinc-400 space-y-1">
+                <div class="font-bold text-zinc-300 text-[11px]">终局结论：</div>
+                <div class="text-[11px] leading-normal text-zinc-400">
+                  SlidingWindow 截断保留前置 Prompt 与最近 15 轮事件，三层检索位于 retriever.py。
+                </div>
+              </div>
+
+              <div class="text-[10px] text-zinc-500 flex items-center justify-between pt-1 border-t border-zinc-800">
+                <span>4 步完成 · 独立 Trace</span>
+                <button class="text-blue-400 hover:underline">查看日志</button>
+              </div>
+            </div>
+
+            <div class="text-[11px] text-zinc-500 space-y-1 pl-1">
+              <div>❌ 1px 实心灰色死线 (`border-zinc-700`)，像后台表格</div>
+              <div>❌ 字符松散，系统默认字距，无视觉沉稳感</div>
+              <div>❌ 扁平单层，缺少物理厚度与切面光感</div>
+            </div>
+          </div>
+
+          <!-- 右侧：After (Linear / ChatGPT 桌面高奢精修) -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between text-xs font-mono pb-2 border-b border-border text-amber-300">
+              <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-sparkles text-amber-400"></i> After: 工业级高奢精修 (Linear/ChatGPT 级)
+              </span>
+              <span class="text-[10px] bg-amber-500/10 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/20">双层托盘 · 极细光轨 · 负字距</span>
+            </div>
+
+            <!-- Double-Bezel 双层同心托盘架构 -->
+            <div class="rounded-xl ring-1 ring-white/[0.08] bg-white/[0.02] p-1 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.7)] transition-all duration-300 hover:ring-white/[0.15]">
+              <div class="rounded-[calc(0.75rem-0.25rem)] bg-[#0d0e12]/90 border border-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] p-3.5 space-y-3 text-xs backdrop-blur-xl">
+                
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-[-0.01em] bg-blue-500/10 text-blue-400 border border-blue-400/20 shadow-[0_0_12px_rgba(59,130,246,0.15)]">
+                      <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                      explore
+                    </span>
+                    <span class="font-semibold text-zinc-100 tracking-[-0.015em] text-xs truncate">代码检索与上下文探索专家</span>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0 font-mono text-[10px] text-zinc-400">
+                    <span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">1.8s · 完成</span>
+                  </div>
+                </div>
+
+                <!-- 蒸馏卡片：半透明浮层 + Inset 微切线 -->
+                <div class="rounded-lg bg-black/40 border border-white/[0.05] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] space-y-1.5">
+                  <div class="flex items-center justify-between text-[10px] font-medium tracking-tight text-zinc-400">
+                    <span class="flex items-center gap-1.5 text-blue-300 font-mono">
+                      <i class="fa-solid fa-sparkles text-[9px] text-blue-400"></i> 终局蒸馏事实 (Synthesized Summary)
+                    </span>
+                    <button class="text-[10px] text-zinc-400 hover:text-zinc-200 transition-colors flex items-center gap-1">
+                      <i class="fa-regular fa-copy text-[9px]"></i> 复制
+                    </button>
+                  </div>
+                  <div class="text-[11px] leading-relaxed text-zinc-300 tracking-[-0.01em]">
+                    确认 <code class="text-blue-300 bg-blue-950/40 px-1 py-0.5 rounded text-[10px] font-mono border border-blue-500/20">sliding_window.py</code> 实施滑动截断；三层检索统一由 <code class="text-blue-300 bg-blue-950/40 px-1 py-0.5 rounded text-[10px] font-mono border border-blue-500/20">retriever.py</code> 路由。
+                  </div>
+                </div>
+
+                <div class="text-[10px] text-zinc-500 flex items-center justify-between pt-1 border-t border-white/[0.04] font-mono">
+                  <span class="flex items-center gap-1.5 text-zinc-400">
+                    <i class="fa-solid fa-shoe-prints text-[9px] text-blue-400"></i> 4 步物理隔离链路已归档
+                  </span>
+                  <button class="text-blue-400/90 hover:text-blue-300 transition-colors flex items-center gap-1">
+                    结构化 JSON <i class="fa-solid fa-arrow-right text-[8px]"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="text-[11px] text-amber-300/80 space-y-1 pl-1">
+              <div>✨ 顶缘 1px 极细内嵌微光 (`inset 0 1px 0 rgba(255,255,255,0.12)`)，产生金属切角厚度</div>
+              <div>✨ 负字距 (`tracking-[-0.015em]`)，排版紧实，具备工业严谨感</div>
+              <div>✨ 双层托盘架构（Double-Bezel），悬浮漫反射阴影，通透立体</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- 方案五：整体去卡片化 · 无界流式画布 (ChatGPT 桌面真形态) -->
+    <section id="view-borderless" class="space-y-6">
+      <div class="bg-[#0b0b0e] border border-white/[0.06] rounded-2xl p-6 relative overflow-hidden shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <h2 class="text-base font-semibold tracking-tight text-zinc-100">整体去卡片化 · 无界流式画布 (Borderless Conversational Canvas)</h2>
+          </div>
+          <span class="text-xs text-emerald-400 font-mono bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">ChatGPT Desktop / Claude 官方核心范式</span>
+        </div>
+
+        <p class="text-xs text-zinc-400 mb-6 leading-relaxed max-w-3xl">
+          彻底消灭“卡片综合征（Carditis）”。<strong>界面中不存在任何大框套小框的矩形卡片</strong>。整个窗口是一块纯净、流淌的连续无界画布；工具调用与子智能体降维为<strong>极简静默内联行（Whisper-light Accordion）</strong>；AI 的回复直接在整片画布上自由呼吸流淌；底部采用悬浮胶囊船坞（Floating Dock）。
+        </p>
+
+        <!-- 模拟桌面端全屏视口 (Borderless Desktop Window Mockup) -->
+        <div class="rounded-xl border border-white/[0.08] bg-[#09090b] min-h-[560px] flex flex-col relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
+          
+          <!-- 极简无框顶部标题栏 -->
+          <div class="h-10 px-4 flex items-center justify-between border-b border-white/[0.04] text-xs text-zinc-400 select-none bg-black/20">
+            <div class="flex items-center gap-2">
+              <span class="font-medium text-zinc-300">PersonalAgent</span>
+              <span class="text-zinc-600">/</span>
+              <span class="text-zinc-400">重构长程记忆管道</span>
+            </div>
+            <div class="flex items-center gap-3 text-zinc-500 text-xs">
+              <span class="hover:text-zinc-300 cursor-pointer"><i class="fa-solid fa-share-nodes"></i></span>
+              <span class="hover:text-zinc-300 cursor-pointer"><i class="fa-solid fa-sliders"></i></span>
+            </div>
+          </div>
+
+          <!-- 无界对话内容流 (无任何卡片包裹，纯粹依靠字距、行高与留白) -->
+          <div class="flex-1 overflow-y-auto p-6 md:px-12 space-y-8 max-w-3xl mx-auto w-full pb-28">
+
+            <!-- 用户消息：极简无边框柔和气泡 -->
+            <div class="flex justify-end">
+              <div class="bg-zinc-800/70 text-zinc-100 text-sm leading-relaxed px-4 py-2.5 rounded-2xl max-w-lg select-text shadow-sm tracking-[-0.01em]">
+                请排查长程记忆流水线中的 SlidingWindow 截断机制，并告诉我它是如何与 retriever 协同工作的。
+              </div>
+            </div>
+
+            <!-- Assistant 消息流：彻底去卡片化，直接在背景画布上排版 -->
+            <div class="space-y-4">
+              
+              <!-- 1. 子智能体执行行：极简静默折叠行 (完全不是卡片，就是一行呼吸的轻文字) -->
+              <div class="space-y-2">
+                <div onclick="toggleCollapse('borderless-explore-detail', 'borderless-chevron')" class="cursor-pointer inline-flex items-center gap-2 text-xs text-zinc-400 hover:text-zinc-200 select-none py-1 transition-colors group">
+                  <span class="flex items-center justify-center w-4 h-4 rounded-full bg-blue-500/10 text-blue-400">
+                    <i class="fa-solid fa-check text-[9px]"></i>
+                  </span>
+                  <span class="font-medium text-zinc-300 group-hover:text-zinc-100">已调度 explore 探索代码库</span>
+                  <span class="font-mono text-zinc-500 text-[11px]">· 4 步 · 1.8s</span>
+                  <i id="borderless-chevron" class="fa-solid fa-chevron-down text-[10px] text-zinc-600 group-hover:text-zinc-400 transition-transform duration-150"></i>
+                </div>
+
+                <!-- 展开的微小执行痕迹（无外框，仅浅浅缩进） -->
+                <div id="borderless-explore-detail" class="hidden pl-6 border-l border-white/[0.08] ml-2 space-y-2 py-1 text-xs text-zinc-400">
+                  <div class="flex items-center gap-2 font-mono text-[11px] text-zinc-400">
+                    <span class="text-zinc-500">1.</span>
+                    <span class="text-blue-300">file_search</span>
+                    <span class="text-zinc-500">query="SlidingWindowLedger" (命中 3 处)</span>
+                  </div>
+                  <div class="flex items-center gap-2 font-mono text-[11px] text-zinc-400">
+                    <span class="text-zinc-500">2.</span>
+                    <span class="text-blue-300">file_read</span>
+                    <span class="text-zinc-500">path="windows/sliding_window.py"</span>
+                  </div>
+                  <div class="flex items-center gap-2 font-mono text-[11px] text-zinc-400">
+                    <span class="text-zinc-500">3.</span>
+                    <span class="text-blue-300">file_read</span>
+                    <span class="text-zinc-500">path="topics/retriever.py"</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 2. AI 正文：直接在画布上自然流淌（纯 Markdown 排版，无任何卡片包裹） -->
+              <div class="text-sm leading-7 text-zinc-200 tracking-[-0.012em] space-y-3.5 select-text">
+                <p>
+                  已完成代码库排查。长程记忆的截断与检索流水线由两个核心模块紧密配合：
+                </p>
+
+                <h3 class="text-base font-semibold text-zinc-100 tracking-tight pt-2">
+                  1. 滑动窗口截断 (SlidingWindowLedger)
+                </h3>
+                <p class="text-zinc-300">
+                  位于 <code class="font-mono text-xs text-blue-300 bg-white/[0.05] px-1.5 py-0.5 rounded">services/agent-runtime/.../sliding_window.py</code>。当主账本事件膨胀时，它会保留最前端的系统设定以及尾部最近 15 轮真实互动，将中间发生的高频重试折叠为历史摘要，防止上下文溢出。
+                </p>
+
+                <h3 class="text-base font-semibold text-zinc-100 tracking-tight pt-2">
+                  2. 三层检索路由 (ThreeTierRetriever)
+                </h3>
+                <p class="text-zinc-300">
+                  位于 <code class="font-mono text-xs text-blue-300 bg-white/[0.05] px-1.5 py-0.5 rounded">topics/retriever.py</code>。分为全局系统索引（System Index）、活跃纪元（Active Epoch）以及深度归档（Cold Storage）。在组装上下文时优先匹配近期焦点，未命中再下钻冰冷仓储。
+                </p>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- 底部悬浮输入船坞 (Floating Dock，不贴死底部，漂浮在画布上) -->
+          <div class="absolute bottom-4 inset-x-0 flex justify-center px-4 pointer-events-none">
+            <div class="w-full max-w-2xl bg-[#141418]/90 border border-white/[0.1] rounded-2xl shadow-[0_12px_40px_-10px_rgba(0,0,0,0.9)] p-2.5 backdrop-blur-2xl pointer-events-auto flex items-center justify-between gap-3 transition-all focus-within:border-white/20 focus-within:shadow-[0_12px_40px_-5px_rgba(0,0,0,1)]">
+              <input 
+                type="text" 
+                placeholder="发送消息或指令给 PersonalAgent..." 
+                class="flex-1 bg-transparent border-0 text-sm text-zinc-200 placeholder:text-zinc-500 outline-none px-2 py-1 tracking-[-0.01em]"
+              />
+              <div class="flex items-center gap-1.5 text-zinc-400">
+                <button class="w-7 h-7 rounded-lg hover:bg-white/[0.06] flex items-center justify-center text-xs transition-colors">
+                  <i class="fa-solid fa-paperclip"></i>
+                </button>
+                <button class="w-8 h-8 rounded-xl bg-white text-black flex items-center justify-center text-xs font-semibold hover:bg-zinc-200 transition-colors shadow-sm">
+                  <i class="fa-solid fa-arrow-up"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 text-xs text-zinc-400">
+          <div class="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
+            <div class="font-semibold text-zinc-200 flex items-center gap-1.5">
+              <i class="fa-solid fa-ban text-red-400"></i> 彻底去卡片化 (Zero Cards)
+            </div>
+            <div class="text-[11px] text-zinc-500 leading-relaxed">
+              消息流没有一圈又一圈的 Card 盒子包裹，文本直接流淌在原生背景上，呼吸感极强。
+            </div>
+          </div>
+          <div class="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
+            <div class="font-semibold text-zinc-200 flex items-center gap-1.5">
+              <i class="fa-solid fa-feather text-emerald-400"></i> 静默内联折叠 (Quiet Inline)
+            </div>
+            <div class="text-[11px] text-zinc-500 leading-relaxed">
+              子智能体与工具调用降维为轻量内联文本行，平时淡雅后撤，不抢主聊视线。
+            </div>
+          </div>
+          <div class="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
+            <div class="font-semibold text-zinc-200 flex items-center gap-1.5">
+              <i class="fa-solid fa-anchor text-blue-400"></i> 悬浮输入船坞 (Floating Dock)
+            </div>
+            <div class="text-[11px] text-zinc-500 leading-relaxed">
+              输入条脱离底部贴边死板结构，悬浮漫射阴影 + 毛玻璃，与内容层优雅解耦。
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    function switchTab(tabId) {
+      document.getElementById('view-option1').classList.add('hidden');
+      document.getElementById('view-option2').classList.add('hidden');
+      document.getElementById('view-option3').classList.add('hidden');
+      document.getElementById('view-craft-compare').classList.add('hidden');
+      document.getElementById('view-borderless').classList.add('hidden');
+
+      document.getElementById('btn-option1').className = 'px-3 py-1.5 text-xs font-medium rounded-lg transition-all text-muted-foreground hover:text-foreground';
+      document.getElementById('btn-option2').className = 'px-3 py-1.5 text-xs font-medium rounded-lg transition-all text-muted-foreground hover:text-foreground';
+      document.getElementById('btn-option3').className = 'px-3 py-1.5 text-xs font-medium rounded-lg transition-all text-muted-foreground hover:text-foreground';
+      document.getElementById('btn-craft-compare').className = 'px-3 py-1.5 text-xs font-medium rounded-lg transition-all text-muted-foreground hover:text-foreground';
+      document.getElementById('btn-borderless').className = 'px-3 py-1.5 text-xs font-medium rounded-lg transition-all text-muted-foreground hover:text-foreground';
+
+      document.getElementById('view-' + tabId).classList.remove('hidden');
+      const activeBtn = document.getElementById('btn-' + tabId);
+      activeBtn.className = 'px-3 py-1.5 text-xs font-semibold rounded-lg transition-all bg-card text-emerald-400 shadow-sm border border-emerald-500/30';
+    }
+
+    // 默认展示「整体去卡片化 · 无界流式画布」
+    switchTab('borderless');
+
+    function toggleCollapse(bodyId, chevronId) {
+      const body = document.getElementById(bodyId);
+      const chevron = document.getElementById(chevronId);
+      if (body.classList.contains('hidden')) {
+        body.classList.remove('hidden');
+        chevron.classList.remove('-rotate-90');
+      } else {
+        body.classList.add('hidden');
+        chevron.classList.add('-rotate-90');
+      }
+    }
+
+    function toggleDrawer(open) {
+      const drawer = document.getElementById('drawer');
+      if (open) {
+        drawer.classList.remove('translate-x-full');
+      } else {
+        drawer.classList.add('translate-x-full');
+      }
+    }
+  </script>
+</body>
+</html>

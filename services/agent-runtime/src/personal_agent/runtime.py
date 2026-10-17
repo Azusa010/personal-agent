@@ -283,6 +283,8 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
         else SidecarLlmClient()
     )
 
+    task_model = deps.model_factory()
+
     harness_dir = Path(
         os.environ.get("PERSONAL_AGENT_HARNESS_DIR", Path.home() / ".my_agent_harness")
     )
@@ -312,7 +314,7 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
     )
     subagent_pool = SubagentPool(prototypes=prototypes, ledger=ledger)
     subagent_runner = SubagentRunner(
-        pool=subagent_pool, model=deps.model_factory(), tool_executor=tool_executor
+        pool=subagent_pool, model=task_model, tool_executor=tool_executor
     )
 
     local_executor = create_local_executor(topic_handler, retriever, subagent_runner)
@@ -326,7 +328,7 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
         extra_kwargs["local_executor"] = local_executor
     try:
         outcome = deps.strategy.execute(
-            model=deps.model_factory(),
+            model=task_model,
             channel=deps.channel,
             goal=params.goal,
             visible_capabilities=visible_capabilities,
@@ -357,9 +359,7 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
                     run_task_memory_pipeline,
                 )
 
-                run_task_memory_pipeline(
-                    harness_dir=harness_dir, model=deps.model_factory()
-                )
+                run_task_memory_pipeline(harness_dir=harness_dir, model=task_model)
         except Exception as e:  # noqa: BLE001
             log.warning("后台长程记忆流水线执行异常: %s", e)
 

@@ -11,7 +11,7 @@ export default defineConfig({
     // environment 保持 node：renderer 侧目前只测 view-model.ts，它不 import react，
     // 也不需要 DOM。真要测组件再换 jsdom，那时才值得把依赖装进来。
     environment: 'node',
-    include: ['tests/**/*.test.ts'],
+    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
