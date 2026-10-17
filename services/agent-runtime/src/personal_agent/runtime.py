@@ -21,7 +21,10 @@ from personal_agent.conversation.sidecar import (
     StreamBarrier,
     intercept_query_memories,
 )
-from personal_agent.conversation.subagent import SubagentPool, SubagentPrototype
+from personal_agent.conversation.subagent import (
+    SubagentPool,
+    create_default_prototypes,
+)
 from personal_agent.conversation.subagent.runner import SubagentRunner
 from personal_agent.conversation.topics import ThreeTierRetriever, TopicSwitchHandler
 from personal_agent.conversation.windows import SlidingWindowLedger, TimeGatekeeper
@@ -38,6 +41,7 @@ from personal_agent.protocol.models import (
     AGENT_RUN_TASK,
     AGENT_RUN_WORKFLOW,
     CapabilityDescriptor,
+    HostExecuteToolParams,
     InitializeParams,
     InitializeResult,
     KnowledgeSearchParams,
@@ -51,7 +55,6 @@ from personal_agent.protocol.models import (
     RunWorkflowParams,
     ServerInfo,
     UserMemorySearchParams,
-    HostExecuteToolParams,
 )
 from personal_agent.scripted_model import ScriptedModel, ScriptLoadError, load_script
 from personal_agent.strategy import (
@@ -304,14 +307,12 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
     time_gatekeeper = TimeGatekeeper(sliding_window)
     topic_handler = TopicSwitchHandler(window=sliding_window, epochs_dir=epochs_dir)
     retriever = ThreeTierRetriever(memory_dir=memory_dir, ledger=ledger)
-    subagent_prototype = SubagentPrototype(
-        system_prompt="",
-        base_tools=[],
-        default_traces_dir=harness_dir / "subagent_traces",
+    prototypes = create_default_prototypes(
+        default_traces_dir=harness_dir / "subagent_traces"
     )
-    subagent_pool = SubagentPool(prototype=subagent_prototype, ledger=ledger)
+    subagent_pool = SubagentPool(prototypes=prototypes, ledger=ledger)
     subagent_runner = SubagentRunner(
-        pool=subagent_pool, model=deps.model_factory(), tool_executor=tool_executor()
+        pool=subagent_pool, model=deps.model_factory(), tool_executor=tool_executor
     )
 
     local_executor = create_local_executor(topic_handler, retriever, subagent_runner)
@@ -359,7 +360,7 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
                 run_task_memory_pipeline(
                     harness_dir=harness_dir, model=deps.model_factory()
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             log.warning("后台长程记忆流水线执行异常: %s", e)
 
     return Response(jsonrpc="2.0", id=req.id, result=outcome.model_dump()).model_dump(
@@ -681,11 +682,13 @@ def create_local_executor(
                 )
             role = str(args.get("role"))
             goal = str(args.get("goal"))
+            prototype = str(args.get("prototype", "general"))
             specific_instructions = args.get("specific_instructions")
             allowed_tools = args.get("allowed_tools", [])
             result = subagent_runner.run(
                 role=role,
                 goal=goal,
+                prototype=prototype,
                 specific_instructions=specific_instructions,
                 allowed_tools=allowed_tools,
             )

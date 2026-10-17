@@ -40,7 +40,6 @@ from personal_agent.conversation.model.gateway import (
 )
 from personal_agent.conversation.model.live_model import build_tools
 from personal_agent.conversation.model.tool_schema_generator import (
-    LOCAL_TOOL_SCHEMAS,
     generate_local_tool_schemas,
 )
 from personal_agent.conversation.subagent import (
@@ -57,7 +56,6 @@ from personal_agent.conversation.topics import (
 from personal_agent.conversation.windows import SlidingWindowLedger
 from personal_agent.runtime import create_local_executor
 from personal_agent.shared import Budget, HostChannel
-
 
 # =========================================================================
 # 1. Schema 契约与感知层验证
@@ -373,6 +371,7 @@ def test_create_local_executor_intercepts_spawn_subagent(tmp_path: Path):
     mock_runner.run.assert_called_once_with(
         role="SecurityAnalyst",
         goal="Scan code dependencies",
+        prototype="general",
         specific_instructions="Focus on high CVEs",
         allowed_tools=["file_read"],
     )
@@ -475,3 +474,151 @@ def test_react_loop_subagent_dispatch_e2e(tmp_path: Path):
     assert subagent_events[0].event_type == "subagent"
     assert subagent_events[0].payload["role"] == "DeepExplorer"
     assert "Subagent explored 15 files and confirmed all safe." in subagent_events[0].payload["summary"]
+
+
+# =========================================================================
+# 4. 多原型特化母体库 (Subagent Registry & Specialized Prototypes)
+# =========================================================================
+
+
+def test_spawn_subagent_params_with_prototype():
+    """验证 SpawnSubagentParams 支持 prototype 字段，缺省默认为 'general'。"""
+    params_default = SpawnSubagentParams(
+        role="Worker",
+        goal="Do something",
+    )
+    assert params_default.prototype == "general"
+
+    params_explore = SpawnSubagentParams(
+        role="Explorer",
+        goal="Explore codebase",
+        prototype="explore",
+    )
+    assert params_explore.prototype == "explore"
+
+    # 验证 Schema 生成中包含 prototype 属性及其语义说明
+    schemas = generate_local_tool_schemas()
+    props = schemas["spawn_subagent"]["function"]["parameters"]["properties"]
+    assert "prototype" in props
+    assert "explore" in props["prototype"]["description"].lower()
+
+
+def test_subagent_pool_multi_prototypes_registration_and_selection(tmp_path: Path):
+    """验证 SubagentPool 支持多原型母体库注册与基于 prototype 参数精准点将。"""
+    traces_dir = tmp_path / "subagent_traces"
+    ledger_path = tmp_path / "ledger" / "main_ledger.jsonl"
+    main_ledger = MainEventLedger(log_file=ledger_path)
+
+    proto_explore = SubagentPrototype(
+        system_prompt="You are an Explore Subagent. Fast read-only inspection.",
+        base_tools=[{"name": "file_read"}, {"name": "file_search"}],
+        default_traces_dir=traces_dir,
+    )
+    proto_plan = SubagentPrototype(
+        system_prompt="You are a Plan Subagent. High-level architecture mapping.",
+        base_tools=[{"name": "file_read"}],
+        default_traces_dir=traces_dir,
+    )
+    proto_general = SubagentPrototype(
+        system_prompt="You are a General Subagent. Full capabilities.",
+        base_tools=[{"name": "file_read"}, {"name": "file_write"}, {"name": "terminal_execute"}],
+        default_traces_dir=traces_dir,
+    )
+
+    # 注册多母体
+    pool = SubagentPool(
+        prototype=proto_general,
+        ledger=main_ledger,
+        prototypes={
+            "explore": proto_explore,
+            "plan": proto_plan,
+            "general": proto_general,
+        },
+    )
+
+    # 1. 点将 explore 原型
+    agent_explore = pool.spawn(
+        role="CodeExplorer",
+        goal="Find all auth handlers",
+        prototype="explore",
+    )
+    assert "Explore Subagent" in agent_explore.system_prompt
+    explore_tools = [t["name"] for t in agent_explore.tools]
+    assert "file_read" in explore_tools
+    assert "file_write" not in explore_tools  # 物理封死写权限
+
+    # 2. 点将 plan 原型
+    agent_plan = pool.spawn(
+        role="Architect",
+        goal="Map architecture migration",
+        prototype="plan",
+    )
+    assert "Plan Subagent" in agent_plan.system_prompt
+
+    # 3. 点将 general 原型
+    agent_general = pool.spawn(
+        role="Implementer",
+        goal="Fix broken tests",
+        prototype="general",
+    )
+    assert "General Subagent" in agent_general.system_prompt
+    general_tools = [t["name"] for t in agent_general.tools]
+    assert "file_write" in general_tools
+
+    # 4. 容错性：传入未知原型时优雅回退到 default/general 原型
+    agent_fallback = pool.spawn(
+        role="Unknown",
+        goal="Fallback check",
+        prototype="non_existent_prototype",
+    )
+    assert "General Subagent" in agent_fallback.system_prompt
+
+
+def test_subagent_runner_dispatches_with_prototype_parameter(tmp_path: Path):
+    """验证 SubagentRunner.run 接收 prototype 参数并透传给 Pool 生成对应的特化实例。"""
+    traces_dir = tmp_path / "subagent_traces"
+    ledger_path = tmp_path / "ledger" / "main_ledger.jsonl"
+    main_ledger = MainEventLedger(log_file=ledger_path)
+
+    proto_explore = SubagentPrototype(
+        system_prompt="You are an Explore Subagent.",
+        base_tools=[{"name": "file_read"}],
+        default_traces_dir=traces_dir,
+    )
+    proto_general = SubagentPrototype(
+        system_prompt="You are a General Subagent.",
+        base_tools=[{"name": "file_read"}, {"name": "file_write"}],
+        default_traces_dir=traces_dir,
+    )
+    pool = SubagentPool(
+        prototype=proto_general,
+        ledger=main_ledger,
+        prototypes={"explore": proto_explore, "general": proto_general},
+    )
+
+    subagent_model = ScriptedSubagentModelGateway([
+        SummaryDecision(
+            kind="summary",
+            thinking="Explore done",
+            reply="Found 3 auth files",
+        )
+    ])
+    runner = SubagentRunner(
+        pool=pool,
+        model=subagent_model,
+        tool_executor=lambda name, args: {},
+    )
+
+    result = runner.run(
+        role="AuthInspector",
+        goal="Inspect tokens",
+        prototype="explore",
+    )
+
+    assert result.status == "completed"
+    assert "Found 3 auth files" in result.summary
+    # 验证生成的实例确实来自 explore 原型
+    instance = pool.get(result.run_id)
+    assert instance is not None
+    assert "Explore Subagent" in instance.system_prompt
+

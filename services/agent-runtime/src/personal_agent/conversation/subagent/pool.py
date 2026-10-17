@@ -7,15 +7,29 @@ from personal_agent.conversation.subagent.prototype import SubagentPrototype
 
 class SubagentPool:
     def __init__(
-        self, prototype: SubagentPrototype, ledger: MainEventLedger | None = None
+        self,
+        prototype: SubagentPrototype | None = None,
+        ledger: MainEventLedger | None = None,
+        prototypes: dict[str, SubagentPrototype] | None = None,
     ):
-        self.prototype = prototype
         self.active: dict[str, SubagentInstance] = {}
         self.ledger = ledger
         self.instances: dict[str, SubagentInstance] = {}
+        self.prototypes = prototypes
+        if prototype and prototypes is None:
+            self.prototypes = {"general": prototype}
+        self.default_prototype = (
+            prototype
+            or self.prototypes.get("general")
+            or self.prototypes.values().__iter__().__next__()
+        )
+        self.prototype = self.default_prototype
 
-    def spawn(self, role: str, goal: str, **kwargs) -> SubagentInstance:
-        instance = self.prototype.fork(role, goal, **kwargs)
+    def spawn(
+        self, role: str, goal: str, prototype: str = "general", **kwargs
+    ) -> SubagentInstance:
+        target_proto = self.prototypes.get(prototype) or self.default_prototype
+        instance = target_proto.fork(role, goal, **kwargs)
         instance.role = role
         instance.goal = goal
         self.active[instance.run_id] = instance

@@ -36,5 +36,6 @@ class SubagentResult(BaseModel):
 class SpawnSubagentParams(BaseModel):
     role: str
     goal: str
+    prototype: str = "general"
     specific_instructions: str | None = None
     allowed_tools: list[str] | None = None

@@ -1,4 +1,7 @@
 from personal_agent.conversation.subagent.backfeed import backfeed_to_main_ledger
+from personal_agent.conversation.subagent.catalog import (
+    create_default_prototypes,
+)
 from personal_agent.conversation.subagent.instance import SubagentInstance
 from personal_agent.conversation.subagent.isolator import TraceIsolator
 from personal_agent.conversation.subagent.models import (
@@ -20,4 +23,5 @@ __all__ = [
     "SubagentTraceEvent",
     "TraceIsolator",
     "backfeed_to_main_ledger",
+    "create_default_prototypes",
 ]
