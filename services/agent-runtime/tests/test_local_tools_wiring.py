@@ -76,6 +76,7 @@ def test_generate_local_tool_schemas_structure():
         "read_memory_topic",
         "search_raw_events",
         "spawn_subagent",
+        "todo_update",
     }
     assert set(schemas.keys()) == expected_local_tools
 

@@ -8,6 +8,7 @@ from personal_agent.conversation.status.models import (
     StatusBarState,
     TodoItem,
     TodoStatus,
+    TodoUpdateItemDto,
 )
 from personal_agent.conversation.status.providers import detect_system_environment
 from personal_agent.conversation.status.pruner import safe_prune_status_bars
@@ -71,9 +72,7 @@ class StatusBarManager:
         self._state.todos = todos
         return list(todos)
 
-    def update_todo_status(
-        self, todo_id: str, status: TodoStatus
-    ) -> TodoItem | None:
+    def update_todo_status(self, todo_id: str, status: TodoStatus) -> TodoItem | None:
         """更新指定 TODO 项的状态和更新时间戳。"""
         now_str = datetime.now(UTC).astimezone().strftime(TIMESTAMP_FORMAT)
         for todo in self._state.todos:
@@ -138,3 +137,37 @@ class StatusBarManager:
         cleaned.append({"role": "user", "content": sb_text})
         self._n_updates += 1
         return cleaned
+
+    def update_todos(
+        self, items: Sequence[TodoUpdateItemDto | TodoItem | dict[str, Any]]
+    ) -> list[TodoItem]:
+        todo_items: list[TodoItem] = []
+        for idx, item in enumerate(items, start=1):
+            if isinstance(item, TodoItem):
+                todo_items.append(item)
+                continue
+            else:
+                i = (
+                    item.model_dump()
+                    if isinstance(item, TodoUpdateItemDto)
+                    else dict(item)
+                )
+                if not i.get("id"):
+                    i["id"] = f"todo-{idx}"
+                if not i.get("timestamp"):
+                    i["timestamp"] = (
+                        datetime.now(UTC).astimezone().strftime(TIMESTAMP_FORMAT)
+                    )
+                todo_items.append(TodoItem(**i))
+
+        in_progress_todo = None
+        for item in reversed(todo_items):
+            if item.status == TodoStatus.IN_PROGRESS:
+                if in_progress_todo:
+                    item.status = TodoStatus.COMPLETED
+                    continue
+                in_progress_todo = item
+
+        self._state.todos = todo_items
+        self._n_updates += 1
+        return list(todo_items)

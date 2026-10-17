@@ -10,7 +10,6 @@ SOTA 动态任务账本 (Dynamic Task Ledger / TodoWrite) 测试套件。
 5. 遇错动态追加排错步骤（Self-Remediation Ledger）全链路闭环
 """
 
-import json
 from collections.abc import Sequence
 from typing import Any
 
@@ -28,23 +27,21 @@ from personal_agent.conversation.model.gateway import (
 )
 from personal_agent.conversation.model.live_model import build_tools
 from personal_agent.conversation.model.tool_schema_generator import (
-    LOCAL_TOOL_SCHEMAS,
     generate_local_tool_schemas,
 )
 from personal_agent.conversation.status.manager import StatusBarManager
 from personal_agent.conversation.status.models import (
-    TodoItem,
     TodoStatus,
     TodoUpdateItemDto,
     TodoUpdateParams,
 )
 from personal_agent.protocol.models import (
-    Budget,
+    HostExecuteToolParams,
+    HostExecuteToolResult,
     PlanStepDto,
     RunTaskCompleted,
 )
-from personal_agent.shared import HostChannel, HostExecuteToolParams, HostExecuteToolResult
-
+from personal_agent.shared import Budget, HostChannel
 
 # ---------------------------------------------------------------------------
 # 测试桩：Mock 通道与可控序列模型

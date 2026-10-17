@@ -219,7 +219,7 @@ def render_messages(context: ModelContext) -> list[dict[str, Any]]:
         for mem in context.userMemories:
             user_lines.append(f"- {mem}")
     user_lines.append("")
-    user_lines.append("本轮计划（按顺序执行，不跳步、不加步）：")
+    user_lines.append("本轮计划规划（可通过 todo_update 工具动态维护执行状态，按需推进、勾选或追加排错步骤）：")
     if not context.plan:
         user_lines.append("（空）")
     else:
@@ -772,7 +772,7 @@ def render_input(context: ModelContext) -> str:
         for mem in context.userMemories:
             lines.append(f"- {mem}")
     lines.append("")
-    lines.append("本轮计划（按顺序执行，不跳步、不加步）：")
+    lines.append("本轮任务规划（可通过 todo_update 工具动态维护执行状态，按需推进、勾选或追加排错步骤）：")
     if not context.plan:
         lines.append("（空）")
     for index, step in enumerate(context.plan, start=1):

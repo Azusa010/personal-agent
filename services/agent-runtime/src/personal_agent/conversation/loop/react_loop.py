@@ -737,6 +737,19 @@ class ReActLoop:
     def _execute(self, decision: ToolCallDecision | ToolCallItem) -> Observation:
         """执行一次工具调用。capability 不在协议枚举内时就地造 Observation，
         其余情况一律透传 host 的 ok 与 model_extra。"""
+        if decision.capability == "todo_update":
+            # todo_update 是内部协议，不下发给宿主
+            raw_todos = decision.arguments.get("todos", [])
+            updated = self._context.status_bar_manager.update_todos(raw_todos)
+            obs = Observation(
+                callId=decision.callId,
+                capability=decision.capability,
+                ok=True,
+                payload={"updated": [t.model_dump() for t in updated]},
+                arguments=decision.arguments,
+            )
+            return obs
+
         if self._local_executor is not None:
             obs = self._local_executor(decision)
             if obs is not None:

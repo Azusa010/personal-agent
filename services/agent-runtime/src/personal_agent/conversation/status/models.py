@@ -83,3 +83,23 @@ class StatusBarState(BaseModel):
         ),
         description="状态快照更新时间",
     )
+
+
+class TodoUpdateItemDto(BaseModel):
+    """用于更新 TODO 任务项的 DTO（数据传输对象）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str | None = Field(default=None, description="任务项唯一标识，如 todo-1")
+    content: str | None = Field(min_length=1, description="任务规划步骤的具体内容")
+    status: TodoStatus | None = Field(
+        default=TodoStatus.PENDING, description="当前步骤状态"
+    )
+
+
+class TodoUpdateParams(BaseModel):
+    """用于批量更新 TODO 任务项的参数 DTO。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    todos: list[TodoUpdateItemDto] = Field(description="待更新的 TODO 任务项列表")

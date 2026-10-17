@@ -8,6 +8,7 @@ from typing import Any, get_args
 
 from pydantic import BaseModel
 
+from personal_agent.conversation.status.models import TodoUpdateParams
 from personal_agent.conversation.subagent.models import SpawnSubagentParams
 from personal_agent.conversation.topics.models import (
     ArchiveTopicParams,
@@ -73,6 +74,7 @@ LOCAL_TOOL_PARAM_MODELS: dict[str, type[BaseModel]] = {
     "read_memory_topic": ReadMemoryTopicParams,
     "search_raw_events": SearchRawEventsParams,
     "spawn_subagent": SpawnSubagentParams,
+    "todo_update": TodoUpdateParams,
 }
 
 LOCAL_TOOL_DESCRIPTIONS: dict[str, str] = {
@@ -80,6 +82,7 @@ LOCAL_TOOL_DESCRIPTIONS: dict[str, str] = {
     "read_memory_topic": "读取长期记忆中指定话题的 Markdown 内容",
     "search_raw_events": "在事件日志中按关键词检索原始事件记录",
     "spawn_subagent": "创建并启动一个子 Agent，执行指定角色与目标的任务",
+    "todo_update": "用于维护任务规划账本状态，支持完成勾选与动态追加排错步骤、全局至多一项处于进行中状态",
 }
 
 # 工具层级高阶描述说明（对齐 ACI 目标导向）
@@ -219,6 +222,15 @@ PROPERTY_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "prototype": "可选的子 Agent 原型类型，包括 'explore'（只读高速探索，专长查代码搜文件）、'plan'（只读架构方案生成）、'general'（全能工程开发修复，默认）",
         "specific_instructions": "可选的具体执行指令",
         "allowed_tools": "可选的允许使用的工具列表",
+    },
+    "todo_update": {
+        "todos": [
+            {
+                "id": "任务项唯一标识, 如 todo-1",
+                "content": "任务规划步骤的具体内容",
+                "status": "当前步骤状态, 可选值：PENDING, IN_PROGRESS, COMPLETED,CANCELLED",
+            }
+        ]
     },
 }
 

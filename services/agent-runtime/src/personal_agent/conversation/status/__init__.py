@@ -6,6 +6,8 @@ from personal_agent.conversation.status.models import (
     SystemEnvironment,
     TodoItem,
     TodoStatus,
+    TodoUpdateItemDto,
+    TodoUpdateParams,
     ToolCounterState,
 )
 from personal_agent.conversation.status.providers import (
@@ -57,6 +59,8 @@ __all__ = [
     "TodoItem",
     "TodoPlanProvider",
     "TodoStatus",
+    "TodoUpdateItemDto",
+    "TodoUpdateParams",
     "ToolCallTracker",
     "ToolCounterState",
     "ToolStatsProvider",
@@ -65,5 +69,5 @@ __all__ = [
     "format_timestamp",
     "is_status_bar_message",
     "prefix_with_timestamp",
-    "safe_prune_status_bars",
+    "safe_prune_status_bars"
 ]
