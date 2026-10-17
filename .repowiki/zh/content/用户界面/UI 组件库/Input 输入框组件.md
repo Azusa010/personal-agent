@@ -73,14 +73,14 @@ G --> D
 - [apps/desktop/src/renderer/src/components/ui/label.tsx:1-19](file://apps/desktop/src/renderer/src/components/ui/label.tsx#L1-L19)
 - [apps/desktop/src/renderer/src/components/ui/alert.tsx:1-60](file://apps/desktop/src/renderer/src/components/ui/alert.tsx#L1-L60)
 - [apps/desktop/src/renderer/src/lib/utils.ts:1-7](file://apps/desktop/src/renderer/src/lib/utils.ts#L1-L7)
-- [apps/desktop/src/renderer/src/assets/app.css:1-136](file://apps/desktop/src/renderer/src/assets/app.css#L1-L136)
+- [apps/desktop/src/renderer/src/assets/app.css:1-327](file://apps/desktop/src/renderer/src/assets/app.css#L1-L327)
 - [apps/desktop/components.json:1-22](file://apps/desktop/components.json#L1-L22)
-- [apps/desktop/src/renderer/src/components/Composer.tsx:1-142](file://apps/desktop/src/renderer/src/components/Composer.tsx#L1-L142)
+- [apps/desktop/src/renderer/src/components/Composer.tsx:1-96](file://apps/desktop/src/renderer/src/components/Composer.tsx#L1-L96)
 
 章节来源
 - [apps/desktop/src/renderer/src/components/ui/input.tsx:1-21](file://apps/desktop/src/renderer/src/components/ui/input.tsx#L1-L21)
 - [apps/desktop/src/renderer/src/lib/utils.ts:1-7](file://apps/desktop/src/renderer/src/lib/utils.ts#L1-L7)
-- [apps/desktop/src/renderer/src/assets/app.css:1-136](file://apps/desktop/src/renderer/src/assets/app.css#L1-L136)
+- [apps/desktop/src/renderer/src/assets/app.css:1-327](file://apps/desktop/src/renderer/src/assets/app.css#L1-L327)
 - [apps/desktop/components.json:1-22](file://apps/desktop/components.json#L1-L22)
 
 ## 核心组件
@@ -116,7 +116,7 @@ Note over I,P : "受控组件模式：父组件持有唯一真实来源"
 
 图表来源
 - [apps/desktop/src/renderer/src/components/ui/input.tsx:1-21](file://apps/desktop/src/renderer/src/components/ui/input.tsx#L1-L21)
-- [apps/desktop/src/renderer/src/components/Composer.tsx:1-142](file://apps/desktop/src/renderer/src/components/Composer.tsx#L1-L142)
+- [apps/desktop/src/renderer/src/components/Composer.tsx:1-96](file://apps/desktop/src/renderer/src/components/Composer.tsx#L1-L96)
 
 ## 详细组件分析
 
@@ -179,7 +179,7 @@ BindProps --> End(["完成渲染"])
 - 虽然 Composer 内部使用的是 textarea，但其受控模式与键盘事件处理可直接迁移至 Input 组件。
 
 章节来源
-- [apps/desktop/src/renderer/src/components/Composer.tsx:1-142](file://apps/desktop/src/renderer/src/components/Composer.tsx#L1-L142)
+- [apps/desktop/src/renderer/src/components/Composer.tsx:1-96](file://apps/desktop/src/renderer/src/components/Composer.tsx#L1-L96)
 
 ## 依赖关系分析
 - 组件依赖：
@@ -213,13 +213,13 @@ D -.-> M
 - [apps/desktop/src/renderer/src/components/ui/label.tsx:1-19](file://apps/desktop/src/renderer/src/components/ui/label.tsx#L1-L19)
 - [apps/desktop/src/renderer/src/components/ui/alert.tsx:1-60](file://apps/desktop/src/renderer/src/components/ui/alert.tsx#L1-L60)
 - [apps/desktop/src/renderer/src/lib/utils.ts:1-7](file://apps/desktop/src/renderer/src/lib/utils.ts#L1-L7)
-- [apps/desktop/src/renderer/src/assets/app.css:1-136](file://apps/desktop/src/renderer/src/assets/app.css#L1-L136)
+- [apps/desktop/src/renderer/src/assets/app.css:1-327](file://apps/desktop/src/renderer/src/assets/app.css#L1-L327)
 - [apps/desktop/components.json:1-22](file://apps/desktop/components.json#L1-L22)
 
 章节来源
 - [apps/desktop/components.json:1-22](file://apps/desktop/components.json#L1-L22)
 - [apps/desktop/src/renderer/src/lib/utils.ts:1-7](file://apps/desktop/src/renderer/src/lib/utils.ts#L1-L7)
-- [apps/desktop/src/renderer/src/assets/app.css:1-136](file://apps/desktop/src/renderer/src/assets/app.css#L1-L136)
+- [apps/desktop/src/renderer/src/assets/app.css:1-327](file://apps/desktop/src/renderer/src/assets/app.css#L1-L327)
 
 ## 性能考量
 - 受控组件：建议在父组件中对高频输入进行节流或防抖，减少不必要的重渲染。
@@ -246,8 +246,8 @@ D -.-> M
 章节来源
 - [apps/desktop/src/renderer/src/components/ui/input.tsx:1-21](file://apps/desktop/src/renderer/src/components/ui/input.tsx#L1-L21)
 - [apps/desktop/src/renderer/src/components/ui/alert.tsx:1-60](file://apps/desktop/src/renderer/src/components/ui/alert.tsx#L1-L60)
-- [apps/desktop/src/renderer/src/components/Composer.tsx:1-142](file://apps/desktop/src/renderer/src/components/Composer.tsx#L1-L142)
-- [apps/desktop/src/renderer/src/assets/app.css:1-136](file://apps/desktop/src/renderer/src/assets/app.css#L1-L136)
+- [apps/desktop/src/renderer/src/components/Composer.tsx:1-96](file://apps/desktop/src/renderer/src/components/Composer.tsx#L1-L96)
+- [apps/desktop/src/renderer/src/assets/app.css:1-327](file://apps/desktop/src/renderer/src/assets/app.css#L1-L327)
 
 ## 结论
 Input 输入框组件以最小封装提供稳定的样式、可访问性与状态管理能力，配合 Textarea、Label、Alert 等基础组件，能够覆盖大多数表单输入场景。通过受控组件模式与 CSS 变量主题化，开发者可以便捷地实现复杂表单逻辑与一致的视觉体验。建议在实际项目中结合业务需求，补充输入验证、格式化与国际化等能力。
@@ -283,7 +283,7 @@ Input 输入框组件以最小封装提供稳定的样式、可访问性与状�
 - 双向绑定：在简单场景中可使用 useState 直接绑定 value 与 onChange。
 
 章节来源
-- [apps/desktop/src/renderer/src/components/Composer.tsx:1-142](file://apps/desktop/src/renderer/src/components/Composer.tsx#L1-L142)
+- [apps/desktop/src/renderer/src/components/Composer.tsx:1-96](file://apps/desktop/src/renderer/src/components/Composer.tsx#L1-L96)
 - [apps/desktop/src/renderer/src/components/ui/input.tsx:1-21](file://apps/desktop/src/renderer/src/components/ui/input.tsx#L1-L21)
 
 ### 样式定制与响应式适配
@@ -293,7 +293,7 @@ Input 输入框组件以最小封装提供稳定的样式、可访问性与状�
 - 类名覆盖：通过 className 传入自定义类名，优先于默认样式。
 
 章节来源
-- [apps/desktop/src/renderer/src/assets/app.css:1-136](file://apps/desktop/src/renderer/src/assets/app.css#L1-L136)
+- [apps/desktop/src/renderer/src/assets/app.css:1-327](file://apps/desktop/src/renderer/src/assets/app.css#L1-L327)
 - [apps/desktop/src/renderer/src/components/ui/input.tsx:1-21](file://apps/desktop/src/renderer/src/components/ui/input.tsx#L1-L21)
 
 ### 可访问性与键盘交互优化
@@ -308,4 +308,4 @@ Input 输入框组件以最小封装提供稳定的样式、可访问性与状�
 章节来源
 - [apps/desktop/src/renderer/src/components/ui/label.tsx:1-19](file://apps/desktop/src/renderer/src/components/ui/label.tsx#L1-L19)
 - [apps/desktop/src/renderer/src/components/ui/input.tsx:1-21](file://apps/desktop/src/renderer/src/components/ui/input.tsx#L1-L21)
-- [apps/desktop/src/renderer/src/components/Composer.tsx:1-142](file://apps/desktop/src/renderer/src/components/Composer.tsx#L1-L142)
+- [apps/desktop/src/renderer/src/components/Composer.tsx:1-96](file://apps/desktop/src/renderer/src/components/Composer.tsx#L1-L96)

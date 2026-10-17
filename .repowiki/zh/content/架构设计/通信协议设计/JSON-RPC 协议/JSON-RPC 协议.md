@@ -7,7 +7,7 @@
 - [agent.ts](file://packages/protocol/schemas/agent.ts)
 - [models.py](file://services/agent-runtime/src/personal_agent/protocol/models.py)
 - [runtime.py](file://services/agent-runtime/src/personal_agent/runtime.py)
-- [host_channel.py](file://services/agent-runtime/src/personal_agent/host_channel.py)
+- [host_channel.py](file://services/agent-runtime/src/personal_agent/shared/host_channel.py)
 - [python-supervisor.ts](file://apps/desktop/src/main/runtime/python-supervisor.ts)
 - [initialize.request.json](file://packages/protocol/fixtures/initialize.request.json)
 - [agent-run-task.request.json](file://packages/protocol/fixtures/agent-run-task.request.json)
@@ -47,15 +47,15 @@ A --> D["能力处理器<br/>hostHandler(由主进程注入)"]
 ```
 
 图表来源
-- [python-supervisor.ts:96-133](file://apps/desktop/src/main/runtime/python-supervisor.ts#L96-L133)
-- [runtime.py:187-256](file://services/agent-runtime/src/personal_agent/runtime.py#L187-L256)
-- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
+- [python-supervisor.ts:98-135](file://apps/desktop/src/main/runtime/python-supervisor.ts#L98-L135)
+- [runtime.py:491-618](file://services/agent-runtime/src/personal_agent/runtime.py#L491-L618)
+- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L36-L91)
 
 章节来源
 - [envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
-- [models.py:1-368](file://services/agent-runtime/src/personal_agent/protocol/models.py#L1-L368)
-- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [python-supervisor.ts:135-207](file://apps/desktop/src/main/runtime/python-supervisor.ts#L135-L207)
+- [models.py:1-856](file://services/agent-runtime/src/personal_agent/protocol/models.py#L1-L856)
+- [runtime.py:137-368](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L368)
+- [python-supervisor.ts:137-209](file://apps/desktop/src/main/runtime/python-supervisor.ts#L137-L209)
 
 ## 核心组件
 - 消息信封：jsonrpc、id、method、params；响应包含 result 或 error（二者互斥）。
@@ -66,9 +66,9 @@ A --> D["能力处理器<br/>hostHandler(由主进程注入)"]
 
 章节来源
 - [envelope.ts:5-40](file://packages/protocol/schemas/envelope.ts#L5-L40)
-- [agent.ts:4-138](file://packages/protocol/schemas/agent.ts#L4-L138)
-- [host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
-- [models.py:64-368](file://services/agent-runtime/src/personal_agent/protocol/models.py#L64-L368)
+- [agent.ts:4-195](file://packages/protocol/schemas/agent.ts#L4-L195)
+- [host.ts:3-118](file://packages/protocol/schemas/host.ts#L3-L118)
+- [models.py:80-856](file://services/agent-runtime/src/personal_agent/protocol/models.py#L80-L856)
 
 ## 架构总览
 主进程通过子进程方式启动 Python 运行时，双方以“行帧”JSON-RPC 通信。握手阶段由主进程发送 system.initialize，携带协议版本与能力清单；Python 返回 InitializeResult 确认协议版本与服务器信息。随后主进程可调用 agent.make_plan 生成计划，再调用 agent.run_task 触发任务执行。任务执行过程中，Python 可能通过 host.execute_tool 反向请求主进程执行宿主能力（如文件系统操作、PDF 提取等），主进程将结果回传给 Python。最终，agent.run_task 返回包含 facts 与 events 的最终结果。
@@ -91,9 +91,9 @@ P-->>M : "agent.run_task 最终结果(facts, events)"
 ```
 
 图表来源
-- [python-supervisor.ts:135-207](file://apps/desktop/src/main/runtime/python-supervisor.ts#L135-L207)
-- [runtime.py:109-184](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L184)
-- [host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
+- [python-supervisor.ts:137-209](file://apps/desktop/src/main/runtime/python-supervisor.ts#L137-L209)
+- [runtime.py:192-368](file://services/agent-runtime/src/personal_agent/runtime.py#L192-L368)
+- [host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L45-L85)
 
 ## 详细组件分析
 
@@ -107,25 +107,25 @@ P-->>M : "agent.run_task 最终结果(facts, events)"
 章节来源
 - [envelope.ts:5-40](file://packages/protocol/schemas/envelope.ts#L5-L40)
 - [models.py:14-38](file://services/agent-runtime/src/personal_agent/protocol/models.py#L14-L38)
-- [runtime.py:109-125](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L125)
+- [runtime.py:192-209](file://services/agent-runtime/src/personal_agent/runtime.py#L192-L209)
 
 ### 系统方法
 - system.initialize：主进程向 Python 发送初始化参数（协议版本、能力清单、客户端信息），Python 返回 InitializeResult（协议版本、服务器信息）。
 - system.ping：健康检查，返回空结果。
 
 章节来源
-- [initialize.request.json:1-22](file://packages/protocol/fixtures/initialize.request.json#L1-L22)
-- [runtime.py:77-125](file://services/agent-runtime/src/personal_agent/runtime.py#L77-L125)
-- [models.py:64-162](file://services/agent-runtime/src/personal_agent/protocol/models.py#L64-L162)
+- [initialize.request.json:1-23](file://packages/protocol/fixtures/initialize.request.json#L1-L23)
+- [runtime.py:149-209](file://services/agent-runtime/src/personal_agent/runtime.py#L149-L209)
+- [models.py:80-230](file://services/agent-runtime/src/personal_agent/protocol/models.py#L80-L230)
 
 ### Agent 方法
 - agent.make_plan：根据目标 goal 与可见能力清单生成步骤计划。返回 MakePlanResult（steps 至少一项）。
 - agent.run_task：触发任务执行。返回 RunTaskResult，包含 status（completed/failed）、facts（摘要事实）、events（执行事件）。
 
 章节来源
-- [agent.ts:4-138](file://packages/protocol/schemas/agent.ts#L4-L138)
-- [runtime.py:128-184](file://services/agent-runtime/src/personal_agent/runtime.py#L128-L184)
-- [models.py:264-320](file://services/agent-runtime/src/personal_agent/protocol/models.py#L264-L320)
+- [agent.ts:4-195](file://packages/protocol/schemas/agent.ts#L4-L195)
+- [runtime.py:212-368](file://services/agent-runtime/src/personal_agent/runtime.py#L212-L368)
+- [models.py:738-790](file://services/agent-runtime/src/personal_agent/protocol/models.py#L738-L790)
 
 ### 宿主能力调用（host.execute_tool）
 - 方向：Python → 主进程。
@@ -134,10 +134,10 @@ P-->>M : "agent.run_task 最终结果(facts, events)"
 - 主进程通过注入的 hostHandler 执行具体能力（如 filesystem.list、document.extract_pdf 等）。
 
 章节来源
-- [host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
-- [host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
-- [python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
-- [models.py:75-126](file://services/agent-runtime/src/personal_agent/protocol/models.py#L75-L126)
+- [host.ts:3-118](file://packages/protocol/schemas/host.ts#L3-L118)
+- [host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L45-L85)
+- [python-supervisor.ts:282-338](file://apps/desktop/src/main/runtime/python-supervisor.ts#L282-L338)
+- [models.py:91-158](file://services/agent-runtime/src/personal_agent/protocol/models.py#L91-L158)
 
 ### 流式响应与事件
 - agent.run_task 的返回结果包含 events 数组，每个事件包含 type、payload、occurredAt（ISO 时间戳）。
@@ -145,9 +145,9 @@ P-->>M : "agent.run_task 最终结果(facts, events)"
 - 事件作为最终结果的一部分一次性返回，并非逐条推送；如需实时展示，可在上层消费时按 occurredAt 排序渲染。
 
 章节来源
-- [agent.ts:68-98](file://packages/protocol/schemas/agent.ts#L68-L98)
-- [agent-run-task.completed.response.json:1-35](file://packages/protocol/fixtures/agent-run-task.completed.response.json#L1-L35)
-- [models.py:264-295](file://services/agent-runtime/src/personal_agent/protocol/models.py#L264-L295)
+- [agent.ts:87-121](file://packages/protocol/schemas/agent.ts#L87-L121)
+- [agent-run-task.completed.response.json:1-37](file://packages/protocol/fixtures/agent-run-task.completed.response.json#L1-L37)
+- [models.py:738-772](file://services/agent-runtime/src/personal_agent/protocol/models.py#L738-L772)
 
 ### 错误处理
 - 请求不合法：返回 error.code="PROTOCOL_INVALID_REQUEST" 或 "PROTOCOL_INVALID_JSON"。
@@ -160,11 +160,11 @@ P-->>M : "agent.run_task 最终结果(facts, events)"
 - 子进程崩溃：主进程拒绝后续请求并上报 runtime.crashed 事件。
 
 章节来源
-- [runtime.py:65-93](file://services/agent-runtime/src/personal_agent/runtime.py#L65-L93)
-- [runtime.py:158-184](file://services/agent-runtime/src/personal_agent/runtime.py#L158-L184)
-- [python-supervisor.ts:163-207](file://apps/desktop/src/main/runtime/python-supervisor.ts#L163-L207)
-- [python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
-- [python-supervisor.ts:339-352](file://apps/desktop/src/main/runtime/python-supervisor.ts#L339-L352)
+- [runtime.py:133-176](file://services/agent-runtime/src/personal_agent/runtime.py#L133-L176)
+- [runtime.py:252-368](file://services/agent-runtime/src/personal_agent/runtime.py#L252-L368)
+- [python-supervisor.ts:165-209](file://apps/desktop/src/main/runtime/python-supervisor.ts#L165-L209)
+- [python-supervisor.ts:282-338](file://apps/desktop/src/main/runtime/python-supervisor.ts#L282-L338)
+- [python-supervisor.ts:356-369](file://apps/desktop/src/main/runtime/python-supervisor.ts#L356-L369)
 
 ## 依赖关系分析
 - TypeScript 协议层（Zod）与 Python 协议层（Pydantic）保持字段一致，确保两端校验行为对齐。
@@ -215,12 +215,12 @@ HostExecuteToolResponse --> HostExecuteToolResult : "包含"
 
 图表来源
 - [models.py:8-38](file://services/agent-runtime/src/personal_agent/protocol/models.py#L8-L38)
-- [models.py:75-126](file://services/agent-runtime/src/personal_agent/protocol/models.py#L75-L126)
+- [models.py:91-158](file://services/agent-runtime/src/personal_agent/protocol/models.py#L91-L158)
 
 章节来源
-- [models.py:1-368](file://services/agent-runtime/src/personal_agent/protocol/models.py#L1-L368)
-- [python-supervisor.ts:66-133](file://apps/desktop/src/main/runtime/python-supervisor.ts#L66-L133)
-- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
+- [models.py:1-856](file://services/agent-runtime/src/personal_agent/protocol/models.py#L1-L856)
+- [python-supervisor.ts:68-135](file://apps/desktop/src/main/runtime/python-supervisor.ts#L68-L135)
+- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L36-L91)
 
 ## 性能与可靠性
 - 传输效率：行帧 JSON 结构简单，易于流式处理；避免大对象频繁序列化开销。
@@ -241,9 +241,9 @@ HostExecuteToolResponse --> HostExecuteToolResult : "包含"
 - 子进程崩溃：监听 runtime.crashed 事件，重启子进程并重试。
 
 章节来源
-- [runtime.py:109-184](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L184)
-- [python-supervisor.ts:135-207](file://apps/desktop/src/main/runtime/python-supervisor.ts#L135-L207)
-- [python-supervisor.ts:339-352](file://apps/desktop/src/main/runtime/python-supervisor.ts#L339-L352)
+- [runtime.py:192-368](file://services/agent-runtime/src/personal_agent/runtime.py#L192-L368)
+- [python-supervisor.ts:137-209](file://apps/desktop/src/main/runtime/python-supervisor.ts#L137-L209)
+- [python-supervisor.ts:356-369](file://apps/desktop/src/main/runtime/python-supervisor.ts#L356-L369)
 
 ## 结论
 本协议以 JSON-RPC 2.0 为基础，通过行帧传输实现主进程与 Python 运行时的可靠通信。协议明确了消息信封、方法集合、错误码与版本管理，支持宿主能力反向调用与任务执行事件。实现上，两端均提供严格的校验与完善的错误处理，确保稳定性与可维护性。建议在实际使用中遵循本规范，结合超时、重试与监控策略，构建健壮的自动化代理系统。
@@ -251,10 +251,10 @@ HostExecuteToolResponse --> HostExecuteToolResult : "包含"
 [本节为总结，无需特定文件引用]
 
 ## 附录：消息格式示例
-- 初始化请求：参见 [initialize.request.json:1-22](file://packages/protocol/fixtures/initialize.request.json#L1-L22)。
-- 任务执行请求：参见 [agent-run-task.request.json:1-10](file://packages/protocol/fixtures/agent-run-task.request.json#L1-L10)。
+- 初始化请求：参见 [initialize.request.json:1-23](file://packages/protocol/fixtures/initialize.request.json#L1-L23)。
+- 任务执行请求：参见 [agent-run-task.request.json:1-17](file://packages/protocol/fixtures/agent-run-task.request.json#L1-L17)。
 - 宿主能力调用请求：参见 [host-execute-tool.request.json:1-13](file://packages/protocol/fixtures/host-execute-tool.request.json#L1-L13)。
-- 任务完成响应：参见 [agent-run-task.completed.response.json:1-35](file://packages/protocol/fixtures/agent-run-task.completed.response.json#L1-L35)。
+- 任务完成响应：参见 [agent-run-task.completed.response.json:1-37](file://packages/protocol/fixtures/agent-run-task.completed.response.json#L1-L37)。
 - 宿主能力调用响应：参见 [host-execute-tool.response.json:1-18](file://packages/protocol/fixtures/host-execute-tool.response.json#L1-L18)。
 
 章节来源

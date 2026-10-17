@@ -17,12 +17,12 @@
 - [0004-create-permissions.ts](file://apps/desktop/src/main/product-state/migrations/0004-create-permissions.ts)
 - [0006-create-tool-executions.ts](file://apps/desktop/src/main/product-state/migrations/0006-create-tool-executions.ts)
 - [0007-create-reminders.ts](file://apps/desktop/src/main/product-state/migrations/0007-create-reminders.ts)
-- [task-repository.test.ts](file://apps/desktop/src/main/product-state/task-repository.test.ts)
-- [plan-repository.test.ts](file://apps/desktop/src/main/product-state/plan-repository.test.ts)
-- [event-repository.test.ts](file://apps/desktop/src/main/product-state/event-repository.test.ts)
-- [permission-repository.test.ts](file://apps/desktop/src/main/product-state/permission-repository.test.ts)
-- [tool-execution-repository.test.ts](file://apps/desktop/src/main/product-state/tool-execution-repository.test.ts)
-- [reminder-repository.test.ts](file://apps/desktop/src/main/product-state/reminder-repository.test.ts)
+- [task-repository.test.ts](file://apps/desktop/tests/main/product-state/task-repository.test.ts)
+- [plan-repository.test.ts](file://apps/desktop/tests/main/product-state/plan-repository.test.ts)
+- [event-repository.test.ts](file://apps/desktop/tests/main/product-state/event-repository.test.ts)
+- [permission-repository.test.ts](file://apps/desktop/tests/main/product-state/permission-repository.test.ts)
+- [tool-execution-repository.test.ts](file://apps/desktop/tests/main/product-state/tool-execution-repository.test.ts)
+- [reminder-repository.test.ts](file://apps/desktop/tests/main/product-state/reminder-repository.test.ts)
 </cite>
 
 ## 目录
@@ -82,19 +82,19 @@ RMR -.-> DOMAIN
 
 图表来源
 - [database.ts:17-93](file://apps/desktop/src/main/product-state/database.ts#L17-L93)
-- [migrations/index.ts:13-22](file://apps/desktop/src/main/product-state/migrations/index.ts#L13-L22)
+- [migrations/index.ts:15-26](file://apps/desktop/src/main/product-state/migrations/index.ts#L15-L26)
 - [task-repository.ts:60-102](file://apps/desktop/src/main/product-state/task-repository.ts#L60-L102)
 - [plan-repository.ts:9-85](file://apps/desktop/src/main/product-state/plan-repository.ts#L9-L85)
 - [event-repository.ts:9-67](file://apps/desktop/src/main/product-state/event-repository.ts#L9-L67)
 - [permission-repository.ts:24-134](file://apps/desktop/src/main/product-state/permission-repository.ts#L24-L134)
 - [tool-execution-repository.ts:124-166](file://apps/desktop/src/main/product-state/tool-execution-repository.ts#L124-L166)
 - [reminder-repository.ts:123-170](file://apps/desktop/src/main/product-state/reminder-repository.ts#L123-L170)
-- [domain.ts:13-158](file://apps/desktop/src/shared/domain.ts#L13-L158)
+- [domain.ts:18-163](file://apps/desktop/src/shared/domain.ts#L18-L163)
 
 章节来源
 - [database.ts:17-93](file://apps/desktop/src/main/product-state/database.ts#L17-L93)
-- [migrations/index.ts:13-22](file://apps/desktop/src/main/product-state/migrations/index.ts#L13-L22)
-- [domain.ts:13-158](file://apps/desktop/src/shared/domain.ts#L13-L158)
+- [migrations/index.ts:15-26](file://apps/desktop/src/main/product-state/migrations/index.ts#L15-L26)
+- [domain.ts:18-163](file://apps/desktop/src/shared/domain.ts#L18-L163)
 
 ## 核心组件
 - 数据库连接与迁移
@@ -120,7 +120,7 @@ RMR -.-> DOMAIN
 - [permission-repository.ts:24-134](file://apps/desktop/src/main/product-state/permission-repository.ts#L24-L134)
 - [tool-execution-repository.ts:1-166](file://apps/desktop/src/main/product-state/tool-execution-repository.ts#L1-L166)
 - [reminder-repository.ts:1-170](file://apps/desktop/src/main/product-state/reminder-repository.ts#L1-L170)
-- [domain.ts:13-158](file://apps/desktop/src/shared/domain.ts#L13-L158)
+- [domain.ts:18-163](file://apps/desktop/src/shared/domain.ts#L18-L163)
 
 ## 架构总览
 仓储层通过 SQL 语句与 better-sqlite3 交互，将数据库行对象映射为领域记录。迁移系统保证表结构与约束随版本演进。业务侧通过仓储接口进行数据访问，屏蔽底层 SQL 细节。
@@ -179,7 +179,7 @@ Update --> End(["完成"])
 
 章节来源
 - [task-repository.ts:9-102](file://apps/desktop/src/main/product-state/task-repository.ts#L9-L102)
-- [task-repository.test.ts:36-198](file://apps/desktop/src/main/product-state/task-repository.test.ts#L36-L198)
+- [task-repository.test.ts:36-198](file://apps/desktop/tests/main/product-state/task-repository.test.ts#L36-L198)
 
 ### 计划仓储（PlanRepository）
 - 接口职责
@@ -212,7 +212,7 @@ PlanRepo-->>Caller : 返回包含 version 的完整记录
 
 章节来源
 - [plan-repository.ts:9-85](file://apps/desktop/src/main/product-state/plan-repository.ts#L9-L85)
-- [plan-repository.test.ts:36-130](file://apps/desktop/src/main/product-state/plan-repository.test.ts#L36-L130)
+- [plan-repository.test.ts:36-130](file://apps/desktop/tests/main/product-state/plan-repository.test.ts#L36-L130)
 - [0002-create-plans.ts:3-12](file://apps/desktop/src/main/product-state/migrations/0002-create-plans.ts#L3-L12)
 
 ### 事件仓储（EventRepository）
@@ -247,7 +247,7 @@ EventRepo-->>Caller : 领域事件列表
 
 章节来源
 - [event-repository.ts:9-67](file://apps/desktop/src/main/product-state/event-repository.ts#L9-L67)
-- [event-repository.test.ts:35-132](file://apps/desktop/src/main/product-state/event-repository.test.ts#L35-L132)
+- [event-repository.test.ts:35-132](file://apps/desktop/tests/main/product-state/event-repository.test.ts#L35-L132)
 - [0003-create-execution-events.ts:3-38](file://apps/desktop/src/main/product-state/migrations/0003-create-execution-events.ts#L3-L38)
 
 ### 权限仓储（PermissionRepository）
@@ -289,7 +289,7 @@ PermissionRepository <|.. SqlitePermissionRepository
 
 章节来源
 - [permission-repository.ts:24-134](file://apps/desktop/src/main/product-state/permission-repository.ts#L24-L134)
-- [permission-repository.test.ts:50-241](file://apps/desktop/src/main/product-state/permission-repository.test.ts#L50-L241)
+- [permission-repository.test.ts:50-241](file://apps/desktop/tests/main/product-state/permission-repository.test.ts#L50-L241)
 - [0004-create-permissions.ts:5-38](file://apps/desktop/src/main/product-state/migrations/0004-create-permissions.ts#L5-L38)
 
 ### 工具执行仓储（ToolExecutionRepository）
@@ -321,9 +321,9 @@ succeeded --> [*] : 终态(命中即跳过)
 
 章节来源
 - [tool-execution-repository.ts:13-166](file://apps/desktop/src/main/product-state/tool-execution-repository.ts#L13-L166)
-- [tool-execution-repository.test.ts:96-247](file://apps/desktop/src/main/product-state/tool-execution-repository.test.ts#L96-L247)
+- [tool-execution-repository.test.ts:96-247](file://apps/desktop/tests/main/product-state/tool-execution-repository.test.ts#L96-L247)
 - [0006-create-tool-executions.ts:3-31](file://apps/desktop/src/main/product-state/migrations/0006-create-tool-executions.ts#L3-L31)
-- [domain.ts:96-102](file://apps/desktop/src/shared/domain.ts#L96-L102)
+- [domain.ts:101-107](file://apps/desktop/src/shared/domain.ts#L101-L107)
 
 ### 提醒仓储（ReminderRepository）
 - 接口职责
@@ -360,11 +360,11 @@ fired --> [*] : 永不再发
 
 章节来源
 - [reminder-repository.ts:13-180](file://apps/desktop/src/main/product-state/reminder-repository.ts#L13-L180)
-- [reminder-repository.test.ts:100-295](file://apps/desktop/src/main/product-state/reminder-repository.test.ts#L100-L295)
+- [reminder-repository.test.ts:100-295](file://apps/desktop/tests/main/product-state/reminder-repository.test.ts#L100-L295)
 - [recover-reminders.ts:26-77](file://apps/desktop/src/main/scheduler/recover-reminders.ts#L26-L77)
 - [recover-reminders.ts:139-209](file://apps/desktop/src/main/scheduler/recover-reminders.ts#L139-L209)
 - [0007-create-reminders.ts:3-34](file://apps/desktop/src/main/product-state/migrations/0007-create-reminders.ts#L3-L34)
-- [domain.ts:104-136](file://apps/desktop/src/shared/domain.ts#L104-L136)
+- [domain.ts:109-141](file://apps/desktop/src/shared/domain.ts#L109-L141)
 
 ## 依赖关系分析
 - 仓储对数据库连接的依赖
@@ -393,14 +393,14 @@ MIG["migrations/index.ts"] --> DB
 ```
 
 图表来源
-- [domain.ts:13-158](file://apps/desktop/src/shared/domain.ts#L13-L158)
+- [domain.ts:18-163](file://apps/desktop/src/shared/domain.ts#L18-L163)
 - [database.ts:17-93](file://apps/desktop/src/main/product-state/database.ts#L17-L93)
-- [migrations/index.ts:13-22](file://apps/desktop/src/main/product-state/migrations/index.ts#L13-L22)
+- [migrations/index.ts:15-26](file://apps/desktop/src/main/product-state/migrations/index.ts#L15-L26)
 
 章节来源
 - [database.ts:17-93](file://apps/desktop/src/main/product-state/database.ts#L17-L93)
-- [migrations/index.ts:13-22](file://apps/desktop/src/main/product-state/migrations/index.ts#L13-L22)
-- [domain.ts:13-158](file://apps/desktop/src/shared/domain.ts#L13-L158)
+- [migrations/index.ts:15-26](file://apps/desktop/src/main/product-state/migrations/index.ts#L15-L26)
+- [domain.ts:18-163](file://apps/desktop/src/shared/domain.ts#L18-L163)
 
 ## 性能考虑
 - WAL 模式：提升并发写性能与崩溃恢复能力
@@ -419,39 +419,39 @@ MIG["migrations/index.ts"] --> DB
 - 任务状态非法转换
   - 现象：updateStatus 抛出 IllegalTaskTransition
   - 排查：检查 ALLOWED_TRANSITIONS 与当前状态
-  - 参考用例：[task-repository.test.ts:53-74](file://apps/desktop/src/main/product-state/task-repository.test.ts#L53-L74)
+  - 参考用例：[task-repository.test.ts:53-74](file://apps/desktop/tests/main/product-state/task-repository.test.ts#L53-L74)
 - 计划版本冲突
   - 现象：UNIQUE constraint failed
   - 排查：确认 NEXT_VERSION_SQL 与 task_id 过滤
-  - 参考用例：[plan-repository.test.ts:51-73](file://apps/desktop/src/main/product-state/plan-repository.test.ts#L51-L73)
+  - 参考用例：[plan-repository.test.ts:51-73](file://apps/desktop/tests/main/product-state/plan-repository.test.ts#L51-L73)
 - 事件负载非法 JSON
   - 现象：listByTask 抛出“不是合法 JSON”并携带 seq
   - 排查：定位对应 seq 的事件记录
-  - 参考用例：[event-repository.test.ts:121-130](file://apps/desktop/src/main/product-state/event-repository.test.ts#L121-L130)
+  - 参考用例：[event-repository.test.ts:121-130](file://apps/desktop/tests/main/product-state/event-repository.test.ts#L121-L130)
 - 权限重复决定
   - 现象：decide 抛出 PermissionAlreadyDecided
   - 排查：确认当前 status 与目标 decision 是否一致
-  - 参考用例：[permission-repository.test.ts:191-215](file://apps/desktop/src/main/product-state/permission-repository.test.ts#L191-L215)
+  - 参考用例：[permission-repository.test.ts:191-215](file://apps/desktop/tests/main/product-state/permission-repository.test.ts#L191-L215)
 - 执行记录非法状态转换
   - 现象：transition 抛出 IllegalToolExecutionTransition（如 succeeded→attempting）
   - 排查：对照 ALLOWED_TRANSITIONS 转换表；succeeded 是终态，命中即跳过不会再执行
-  - 参考用例：[tool-execution-repository.test.ts:202-238](file://apps/desktop/src/main/product-state/tool-execution-repository.test.ts#L202-L238)
+  - 参考用例：[tool-execution-repository.test.ts:202-238](file://apps/desktop/tests/main/product-state/tool-execution-repository.test.ts#L202-L238)
 - Reminder 重复创建 / 非法转换
   - 现象：insert 抛出 ReminderAlreadyExists，或 transition 抛出 IllegalReminderTransition（如 scheduled→fired 跳级、fired→任意状态）
   - 排查：确认该 Task 是否已有 Reminder（task_id UNIQUE）；触发必须经过 firing，failed 只能显式重试进 firing
-  - 参考用例：[reminder-repository.test.ts:154-240](file://apps/desktop/src/main/product-state/reminder-repository.test.ts#L154-L240)
+  - 参考用例：[reminder-repository.test.ts:154-240](file://apps/desktop/tests/main/product-state/reminder-repository.test.ts#L154-L240)
 - 事务失败不回滚
   - 现象：部分写入生效
   - 排查：确保多步写在同一 db.transaction 内
-  - 参考用例：[event-repository.test.ts:95-119](file://apps/desktop/src/main/product-state/event-repository.test.ts#L95-L119)
+  - 参考用例：[event-repository.test.ts:95-119](file://apps/desktop/tests/main/product-state/event-repository.test.ts#L95-L119)
 
 章节来源
-- [task-repository.test.ts:53-74](file://apps/desktop/src/main/product-state/task-repository.test.ts#L53-L74)
-- [plan-repository.test.ts:51-73](file://apps/desktop/src/main/product-state/plan-repository.test.ts#L51-L73)
-- [event-repository.test.ts:95-130](file://apps/desktop/src/main/product-state/event-repository.test.ts#L95-L130)
-- [permission-repository.test.ts:170-194](file://apps/desktop/src/main/product-state/permission-repository.test.ts#L170-L194)
-- [tool-execution-repository.test.ts:202-238](file://apps/desktop/src/main/product-state/tool-execution-repository.test.ts#L202-L238)
-- [reminder-repository.test.ts:154-240](file://apps/desktop/src/main/product-state/reminder-repository.test.ts#L154-L240)
+- [task-repository.test.ts:53-74](file://apps/desktop/tests/main/product-state/task-repository.test.ts#L53-L74)
+- [plan-repository.test.ts:51-73](file://apps/desktop/tests/main/product-state/plan-repository.test.ts#L51-L73)
+- [event-repository.test.ts:95-130](file://apps/desktop/tests/main/product-state/event-repository.test.ts#L95-L130)
+- [permission-repository.test.ts:170-194](file://apps/desktop/tests/main/product-state/permission-repository.test.ts#L170-L194)
+- [tool-execution-repository.test.ts:202-238](file://apps/desktop/tests/main/product-state/tool-execution-repository.test.ts#L202-L238)
+- [reminder-repository.test.ts:154-240](file://apps/desktop/tests/main/product-state/reminder-repository.test.ts#L154-L240)
 
 ## 结论
 该数据访问层通过清晰的 Repository 抽象、严格的迁移与约束、以及稳健的错误处理，实现了高内聚、低耦合的任务、计划、事件、权限、工具执行记录与 Reminder 存储。仓储层专注于数据映射与一致性保障，上层业务无需关心 SQL 细节。结合 WAL、索引与事务，系统在正确性与性能之间取得良好平衡。
@@ -480,10 +480,10 @@ MIG["migrations/index.ts"] --> DB
 
 章节来源
 - [database.ts:17-93](file://apps/desktop/src/main/product-state/database.ts#L17-L93)
-- [migrations/index.ts:13-22](file://apps/desktop/src/main/product-state/migrations/index.ts#L13-L22)
-- [task-repository.test.ts:19-24](file://apps/desktop/src/main/product-state/task-repository.test.ts#L19-L24)
-- [plan-repository.test.ts:15-27](file://apps/desktop/src/main/product-state/plan-repository.test.ts#L15-L27)
-- [event-repository.test.ts:13-22](file://apps/desktop/src/main/product-state/event-repository.test.ts#L13-L22)
-- [permission-repository.test.ts:18-30](file://apps/desktop/src/main/product-state/permission-repository.test.ts#L18-L30)
-- [tool-execution-repository.test.ts:16-40](file://apps/desktop/src/main/product-state/tool-execution-repository.test.ts#L16-L40)
-- [reminder-repository.test.ts:17-41](file://apps/desktop/src/main/product-state/reminder-repository.test.ts#L17-L41)
+- [migrations/index.ts:15-26](file://apps/desktop/src/main/product-state/migrations/index.ts#L15-L26)
+- [task-repository.test.ts:19-24](file://apps/desktop/tests/main/product-state/task-repository.test.ts#L19-L24)
+- [plan-repository.test.ts:15-27](file://apps/desktop/tests/main/product-state/plan-repository.test.ts#L15-L27)
+- [event-repository.test.ts:13-22](file://apps/desktop/tests/main/product-state/event-repository.test.ts#L13-L22)
+- [permission-repository.test.ts:18-30](file://apps/desktop/tests/main/product-state/permission-repository.test.ts#L18-L30)
+- [tool-execution-repository.test.ts:16-40](file://apps/desktop/tests/main/product-state/tool-execution-repository.test.ts#L16-L40)
+- [reminder-repository.test.ts:17-41](file://apps/desktop/tests/main/product-state/reminder-repository.test.ts#L17-L41)

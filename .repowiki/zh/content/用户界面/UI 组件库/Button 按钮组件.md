@@ -5,7 +5,7 @@
 - [button.tsx](file://apps/desktop/src/renderer/src/components/ui/button.tsx)
 - [utils.ts](file://apps/desktop/src/renderer/src/lib/utils.ts)
 - [DiagnosticsDialog.tsx](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx)
-- [PermissionDialog.tsx](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx)
+- [PermissionCard.tsx](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx)
 - [dialog.tsx](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx)
 - [components.json](file://apps/desktop/components.json)
 </cite>
@@ -35,7 +35,7 @@ A["Button 组件<br/>apps/desktop/src/renderer/src/components/ui/button.tsx"]
 B["工具函数 cn<br/>apps/desktop/src/renderer/src/lib/utils.ts"]
 C["对话框组件<br/>apps/desktop/src/renderer/src/components/ui/dialog.tsx"]
 D["诊断对话框<br/>apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx"]
-E["权限对话框<br/>apps/desktop/src/renderer/src/components/PermissionDialog.tsx"]
+E["权限对话框<br/>apps/desktop/src/renderer/src/components/PermissionCard.tsx"]
 end
 A --> B
 C --> A
@@ -48,7 +48,7 @@ E --> A
 - [utils.ts:1-7](file://apps/desktop/src/renderer/src/lib/utils.ts#L1-L7)
 - [dialog.tsx:100-105](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx#L100-L105)
 - [DiagnosticsDialog.tsx:50-60](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx#L50-L60)
-- [PermissionDialog.tsx:115-135](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L115-L135)
+- [PermissionCard.tsx:115-135](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L115-L135)
 
 章节来源
 - [button.tsx:1-62](file://apps/desktop/src/renderer/src/components/ui/button.tsx#L1-L62)
@@ -154,7 +154,7 @@ R-->>U : 可访问性原生行为(键盘/焦点/禁用)
 章节来源
 - [dialog.tsx:100-105](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx#L100-L105)
 - [DiagnosticsDialog.tsx:50-60](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx#L50-L60)
-- [PermissionDialog.tsx:115-135](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L115-L135)
+- [PermissionCard.tsx:115-135](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L115-L135)
 
 ## 依赖关系分析
 - 内部依赖
@@ -220,7 +220,7 @@ Button 组件通过 CVA 实现了清晰可扩展的变体与尺寸体系，结�
 - 次要变体 + 小尺寸：在诊断对话框中用于触发扫描操作
   - 参考路径：[DiagnosticsDialog.tsx:50-60](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx#L50-L60)
 - 轮廓变体：在权限对话框中用于拒绝操作
-  - 参考路径：[PermissionDialog.tsx:115-135](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L115-L135)
+  - 参考路径：[PermissionCard.tsx:115-135](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L115-L135)
 - 轮廓变体：在通用对话框中用于关闭
   - 参考路径：[dialog.tsx:100-105](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx#L100-L105)
 
@@ -233,6 +233,6 @@ Button 组件通过 CVA 实现了清晰可扩展的变体与尺寸体系，结�
 
 章节来源
 - [DiagnosticsDialog.tsx:50-60](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx#L50-L60)
-- [PermissionDialog.tsx:115-135](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L115-L135)
+- [PermissionCard.tsx:115-135](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L115-L135)
 - [dialog.tsx:100-105](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx#L100-L105)
 - [components.json:1-22](file://apps/desktop/components.json#L1-L22)

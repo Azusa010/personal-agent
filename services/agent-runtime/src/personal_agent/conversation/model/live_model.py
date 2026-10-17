@@ -259,6 +259,13 @@ def render_messages(context: ModelContext) -> list[dict[str, Any]]:
         )
     if context.statusBar:
         messages.append({"role": "user", "content": context.statusBar})
+
+    if context.systemReminders:
+        REMINDER_HEADER = "<system-reminder>"
+        REMINDER_FOOTER = "</system-reminder>"
+        for reminder in context.systemReminders:
+            messages.append({"role": "user", "content": f"{REMINDER_HEADER}{reminder}{REMINDER_FOOTER}"})
+
     return messages
 
 

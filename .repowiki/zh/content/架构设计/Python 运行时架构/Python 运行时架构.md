@@ -3,13 +3,13 @@
 <cite>
 **本文引用的文件**
 - [runtime.py](file://services/agent-runtime/src/personal_agent/runtime.py)
-- [engine.py](file://services/agent-runtime/src/personal_agent/engine.py)
-- [model_gateway.py](file://services/agent-runtime/src/personal_agent/model_gateway.py)
-- [host_channel.py](file://services/agent-runtime/src/personal_agent/host_channel.py)
-- [context.py](file://services/agent-runtime/src/personal_agent/context.py)
-- [scripted_model.py](file://services/agent-runtime/src/personal_agent/scripted_model.py)
+- [engine.py](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py)
+- [model_gateway.py](file://services/agent-runtime/src/personal_agent/conversation/model/gateway.py)
+- [host_channel.py](file://services/agent-runtime/src/personal_agent/shared/host_channel.py)
+- [context.py](file://services/agent-runtime/src/personal_agent/conversation/context/manager.py)
+- [scripted_model.py](file://services/agent-runtime/src/personal_agent/testing/mock_model.py)
 - [planning.py](file://services/agent-runtime/src/personal_agent/planning.py)
-- [summary.py](file://services/agent-runtime/src/personal_agent/summary.py)
+- [summary.py](file://services/agent-runtime/src/personal_agent/conversation/verification/summary.py)
 - [__main__.py](file://services/agent-runtime/src/personal_agent/__main__.py)
 - [host.ts](file://packages/protocol/schemas/host.ts)
 - [test_runtime.py](file://services/agent-runtime/tests/test_runtime.py)
@@ -66,16 +66,16 @@ F --> K["摘要验证<br/>summary.verify_summary()"]
 
 图表来源
 - [__main__.py:1-5](file://services/agent-runtime/src/personal_agent/__main__.py#L1-L5)
-- [runtime.py:238-257](file://services/agent-runtime/src/personal_agent/runtime.py#L238-L257)
-- [runtime.py:69-93](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L93)
-- [engine.py:91-244](file://services/agent-runtime/src/personal_agent/engine.py#L91-L244)
-- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
-- [context.py:45-79](file://services/agent-runtime/src/personal_agent/context.py#L45-L79)
-- [summary.py:55-85](file://services/agent-runtime/src/personal_agent/summary.py#L55-L85)
+- [runtime.py:591-704](file://services/agent-runtime/src/personal_agent/runtime.py#L591-L704)
+- [runtime.py:137-176](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L176)
+- [engine.py:91-244](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L91-L244)
+- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L36-L91)
+- [context.py:45-79](file://services/agent-runtime/src/personal_agent/conversation/context/manager.py#L45-L79)
+- [summary.py:55-85](file://services/agent-runtime/src/personal_agent/conversation/verification/summary.py#L55-L85)
 
 章节来源
 - [__main__.py:1-5](file://services/agent-runtime/src/personal_agent/__main__.py#L1-L5)
-- [runtime.py:238-257](file://services/agent-runtime/src/personal_agent/runtime.py#L238-L257)
+- [runtime.py:591-704](file://services/agent-runtime/src/personal_agent/runtime.py#L591-L704)
 
 ## 核心组件
 - 运行时（Runtime）
@@ -97,13 +97,13 @@ F --> K["摘要验证<br/>summary.verify_summary()"]
   - 校验模型给出的事实是否包含有效页码引用，且可追溯到实际提取页面
 
 章节来源
-- [runtime.py:49-93](file://services/agent-runtime/src/personal_agent/runtime.py#L49-L93)
-- [engine.py:82-244](file://services/agent-runtime/src/personal_agent/engine.py#L82-L244)
-- [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L100)
-- [host_channel.py:18-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L18-L91)
-- [context.py:45-79](file://services/agent-runtime/src/personal_agent/context.py#L45-L79)
-- [planning.py:54-77](file://services/agent-runtime/src/personal_agent/planning.py#L54-L77)
-- [summary.py:30-85](file://services/agent-runtime/src/personal_agent/summary.py#L30-L85)
+- [runtime.py:103-176](file://services/agent-runtime/src/personal_agent/runtime.py#L103-L176)
+- [engine.py:82-244](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L82-L244)
+- [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/conversation/model/gateway.py#L6-L100)
+- [host_channel.py:18-91](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L18-L91)
+- [context.py:45-79](file://services/agent-runtime/src/personal_agent/conversation/context/manager.py#L45-L79)
+- [planning.py:60-84](file://services/agent-runtime/src/personal_agent/planning.py#L60-L84)
+- [summary.py:30-85](file://services/agent-runtime/src/personal_agent/conversation/verification/summary.py#L30-L85)
 
 ## 架构总览
 下图展示 Python 运行时与宿主（TS）之间的 JSON-RPC 交互、Agent 循环与模型适配器的协作关系。
@@ -139,10 +139,10 @@ RT-->>Main : "Response envelope"
 ```
 
 图表来源
-- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [engine.py:104-177](file://services/agent-runtime/src/personal_agent/engine.py#L104-L177)
-- [host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
-- [host.ts:28-67](file://packages/protocol/schemas/host.ts#L28-L67)
+- [runtime.py:137-368](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L368)
+- [engine.py:104-177](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L104-L177)
+- [host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L45-L85)
+- [host.ts:70-109](file://packages/protocol/schemas/host.ts#L70-L109)
 
 ## 详细组件分析
 
@@ -171,13 +171,13 @@ Dispatch --> Unknown["返回 METHOD_NOT_FOUND"]
 ```
 
 图表来源
-- [runtime.py:96-106](file://services/agent-runtime/src/personal_agent/runtime.py#L96-L106)
-- [runtime.py:69-93](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L93)
-- [runtime.py:109-184](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L184)
+- [runtime.py:179-189](file://services/agent-runtime/src/personal_agent/runtime.py#L179-L189)
+- [runtime.py:137-176](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L176)
+- [runtime.py:192-368](file://services/agent-runtime/src/personal_agent/runtime.py#L192-L368)
 
 章节来源
-- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [runtime.py:187-257](file://services/agent-runtime/src/personal_agent/runtime.py#L187-L257)
+- [runtime.py:137-368](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L368)
+- [runtime.py:491-704](file://services/agent-runtime/src/personal_agent/runtime.py#L491-L704)
 
 ### Agent 引擎（AgentEngine）—— 主循环与预算控制
 - 预算维度：步骤数与工具调用次数两维上限，任一达到即触发预算耗尽事件并失败
@@ -215,11 +215,11 @@ AgentEngine --> Observation : "产出/消费"
 ```
 
 图表来源
-- [engine.py:82-244](file://services/agent-runtime/src/personal_agent/engine.py#L82-L244)
+- [engine.py:82-244](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L82-L244)
 
 章节来源
-- [engine.py:82-244](file://services/agent-runtime/src/personal_agent/engine.py#L82-L244)
-- [test_engine.py:138-184](file://services/agent-runtime/tests/test_engine.py#L138-L184)
+- [engine.py:82-244](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L82-L244)
+- [test_engine.py:138-187](file://services/agent-runtime/tests/test_engine.py#L138-L187)
 
 ### 模型网关与脚本化模型（ModelGateway & ScriptedModel）
 - 模型抽象：ModelGateway.decide(context) 返回 ToolCallDecision 或 SummaryDecision
@@ -242,13 +242,13 @@ Note over SM : "游标++，用尽抛 ScriptExhausted"
 ```
 
 图表来源
-- [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/scripted_model.py#L18-L57)
-- [runtime.py:208-235](file://services/agent-runtime/src/personal_agent/runtime.py#L208-L235)
+- [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/testing/mock_model.py#L18-L57)
+- [runtime.py:512-539](file://services/agent-runtime/src/personal_agent/runtime.py#L512-L539)
 
 章节来源
-- [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L100)
-- [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/scripted_model.py#L18-L57)
-- [runtime.py:208-235](file://services/agent-runtime/src/personal_agent/runtime.py#L208-L235)
+- [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/conversation/model/gateway.py#L6-L100)
+- [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/testing/mock_model.py#L18-L57)
+- [runtime.py:512-539](file://services/agent-runtime/src/personal_agent/runtime.py#L512-L539)
 
 ### Host 通道（HostChannel）—— 工具执行与响应路由
 - 请求格式：构造 HostExecuteToolRequest（jsonrpc 2.0），写入 stdout
@@ -277,11 +277,11 @@ end
 ```
 
 图表来源
-- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
-- [host.ts:28-67](file://packages/protocol/schemas/host.ts#L28-L67)
+- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L36-L91)
+- [host.ts:70-109](file://packages/protocol/schemas/host.ts#L70-L109)
 
 章节来源
-- [host_channel.py:18-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L18-L91)
+- [host_channel.py:18-91](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L18-L91)
 
 ### 上下文与摘要验证（ContextManager & Summary）
 - 上下文构建：ContextManager.build 将原始观察中的字符串按白名单键截断，生成 ModelContext
@@ -300,12 +300,12 @@ E --> |否| OK["通过验证，返回 Facts"]
 ```
 
 图表来源
-- [context.py:45-79](file://services/agent-runtime/src/personal_agent/context.py#L45-L79)
-- [summary.py:30-85](file://services/agent-runtime/src/personal_agent/summary.py#L30-L85)
+- [context.py:45-79](file://services/agent-runtime/src/personal_agent/conversation/context/manager.py#L45-L79)
+- [summary.py:30-85](file://services/agent-runtime/src/personal_agent/conversation/verification/summary.py#L30-L85)
 
 章节来源
-- [context.py:45-79](file://services/agent-runtime/src/personal_agent/context.py#L45-L79)
-- [summary.py:30-85](file://services/agent-runtime/src/personal_agent/summary.py#L30-L85)
+- [context.py:45-79](file://services/agent-runtime/src/personal_agent/conversation/context/manager.py#L45-L79)
+- [summary.py:30-85](file://services/agent-runtime/src/personal_agent/conversation/verification/summary.py#L30-L85)
 
 ### 计划生成（Planning）
 - 输入：目标文本与可见能力清单
@@ -313,7 +313,7 @@ E --> |否| OK["通过验证，返回 Facts"]
 - 输出：三步计划（列出 PDF、提取页面、生成摘要）
 
 章节来源
-- [planning.py:54-77](file://services/agent-runtime/src/personal_agent/planning.py#L54-L77)
+- [planning.py:60-84](file://services/agent-runtime/src/personal_agent/planning.py#L60-L84)
 
 ## 依赖关系分析
 - 运行时依赖
@@ -342,16 +342,16 @@ HC --> HS["host.ts (zod schemas)"]
 ```
 
 图表来源
-- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [engine.py:91-244](file://services/agent-runtime/src/personal_agent/engine.py#L91-L244)
-- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
-- [host.ts:28-67](file://packages/protocol/schemas/host.ts#L28-L67)
+- [runtime.py:137-368](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L368)
+- [engine.py:91-244](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L91-L244)
+- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L36-L91)
+- [host.ts:70-109](file://packages/protocol/schemas/host.ts#L70-L109)
 
 章节来源
-- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [engine.py:91-244](file://services/agent-runtime/src/personal_agent/engine.py#L91-L244)
-- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
-- [host.ts:28-67](file://packages/protocol/schemas/host.ts#L28-L67)
+- [runtime.py:137-368](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L368)
+- [engine.py:91-244](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L91-L244)
+- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L36-L91)
+- [host.ts:70-109](file://packages/protocol/schemas/host.ts#L70-L109)
 
 ## 性能与并发特性
 - 单进程串行 I/O：主循环逐行处理请求，避免竞态；每个任务独立 Engine/Context，天然隔离
@@ -381,12 +381,12 @@ HC --> HS["host.ts (zod schemas)"]
   - 在测试中替换 Channel 与 Model，定位问题层次
 
 章节来源
-- [runtime.py:65-93](file://services/agent-runtime/src/personal_agent/runtime.py#L65-L93)
-- [runtime.py:109-184](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L184)
-- [engine.py:174-244](file://services/agent-runtime/src/personal_agent/engine.py#L174-L244)
-- [host_channel.py:18-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L18-L91)
-- [test_runtime.py:181-687](file://services/agent-runtime/tests/test_runtime.py#L181-L687)
-- [test_engine.py:138-734](file://services/agent-runtime/tests/test_engine.py#L138-L734)
+- [runtime.py:133-176](file://services/agent-runtime/src/personal_agent/runtime.py#L133-L176)
+- [runtime.py:192-368](file://services/agent-runtime/src/personal_agent/runtime.py#L192-L368)
+- [engine.py:174-244](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L174-L244)
+- [host_channel.py:18-91](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L18-L91)
+- [test_runtime.py:206-1013](file://services/agent-runtime/tests/test_runtime.py#L206-L1013)
+- [test_engine.py:138-794](file://services/agent-runtime/tests/test_engine.py#L138-L794)
 
 ## 结论
 该 Python 运行时以简洁的 JSON-RPC 行式 I/O 为核心，结合明确的组件边界与严格的契约校验，实现了稳定的 Agent 执行环境。通过预算控制、上下文截断与摘要验证，保障了任务的可控性与结果的可追溯性。模型适配器以工厂模式解耦，便于未来接入真实模型。HostChannel 将工具执行委托给宿主，保持 Python 侧专注编排与治理。整体架构清晰、可测试性强，适合持续演进。
@@ -404,6 +404,6 @@ HC --> HS["host.ts (zod schemas)"]
   - 请求/响应：严格遵循 jsonrpc 2.0 信封，result 与 error 互斥
 
 章节来源
-- [engine.py:46-74](file://services/agent-runtime/src/personal_agent/engine.py#L46-L74)
-- [host.ts:7-14](file://packages/protocol/schemas/host.ts#L7-L14)
-- [host.ts:40-67](file://packages/protocol/schemas/host.ts#L40-L67)
+- [engine.py:46-74](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L46-L74)
+- [host.ts:7-31](file://packages/protocol/schemas/host.ts#L7-L31)
+- [host.ts:82-109](file://packages/protocol/schemas/host.ts#L82-L109)

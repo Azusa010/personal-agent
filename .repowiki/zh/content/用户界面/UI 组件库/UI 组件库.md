@@ -15,7 +15,7 @@
 - [apps/desktop/src/renderer/src/assets/app.css](file://apps/desktop/src/renderer/src/assets/app.css)
 - [apps/desktop/components.json](file://apps/desktop/components.json)
 - [apps/desktop/src/renderer/src/components/IndexDialog.tsx](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx)
-- [apps/desktop/src/renderer/src/view-model.test.ts](file://apps/desktop/src/renderer/src/view-model.test.ts)
+- [apps/desktop/tests/renderer/src/view-model.test.ts](file://apps/desktop/tests/renderer/src/view-model.test.ts)
 </cite>
 
 ## 目录
@@ -52,12 +52,12 @@ end
 图表来源
 - [apps/desktop/src/renderer/src/components/IndexDialog.tsx:1-78](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx#L1-L78)
 - [apps/desktop/src/renderer/src/components/ui/dialog.tsx:1-145](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx#L1-L145)
-- [apps/desktop/src/renderer/src/assets/app.css:1-136](file://apps/desktop/src/renderer/src/assets/app.css#L1-L136)
+- [apps/desktop/src/renderer/src/assets/app.css:1-327](file://apps/desktop/src/renderer/src/assets/app.css#L1-L327)
 - [apps/desktop/src/renderer/src/lib/utils.ts:1-7](file://apps/desktop/src/renderer/src/lib/utils.ts#L1-L7)
 
 章节来源
 - [apps/desktop/components.json:1-22](file://apps/desktop/components.json#L1-L22)
-- [apps/desktop/src/renderer/src/assets/app.css:1-136](file://apps/desktop/src/renderer/src/assets/app.css#L1-L136)
+- [apps/desktop/src/renderer/src/assets/app.css:1-327](file://apps/desktop/src/renderer/src/assets/app.css#L1-L327)
 
 ## 核心组件
 - Button：支持多 variant/size、asChild 透传、焦点与禁用态、图标尺寸适配。
@@ -282,7 +282,7 @@ Biz --> TW
 - [apps/desktop/src/renderer/src/components/ui/table.tsx:1-92](file://apps/desktop/src/renderer/src/components/ui/table.tsx#L1-L92)
 - [apps/desktop/src/renderer/src/components/IndexDialog.tsx:1-78](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx#L1-L78)
 - [apps/desktop/src/renderer/src/lib/utils.ts:1-7](file://apps/desktop/src/renderer/src/lib/utils.ts#L1-L7)
-- [apps/desktop/src/renderer/src/assets/app.css:1-136](file://apps/desktop/src/renderer/src/assets/app.css#L1-L136)
+- [apps/desktop/src/renderer/src/assets/app.css:1-327](file://apps/desktop/src/renderer/src/assets/app.css#L1-L327)
 
 章节来源
 - [apps/desktop/src/renderer/src/components/IndexDialog.tsx:1-78](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx#L1-L78)
@@ -310,7 +310,7 @@ Biz --> TW
   - 可维护性：组件拆分细粒度，职责单一，易于替换与扩展。
 
 章节来源
-- [apps/desktop/src/renderer/src/view-model.test.ts:1-683](file://apps/desktop/src/renderer/src/view-model.test.ts#L1-L683)
+- [apps/desktop/tests/renderer/src/view-model.test.ts:1-683](file://apps/desktop/tests/renderer/src/view-model.test.ts#L1-L683)
 
 ## 主题与样式定制
 - 主题变量
@@ -324,7 +324,7 @@ Biz --> TW
   - 通过 className 覆盖局部样式；必要时扩展 cva 变体。
 
 章节来源
-- [apps/desktop/src/renderer/src/assets/app.css:1-136](file://apps/desktop/src/renderer/src/assets/app.css#L1-L136)
+- [apps/desktop/src/renderer/src/assets/app.css:1-327](file://apps/desktop/src/renderer/src/assets/app.css#L1-L327)
 - [apps/desktop/src/renderer/src/components/ui/button.tsx:6-36](file://apps/desktop/src/renderer/src/components/ui/button.tsx#L6-L36)
 - [apps/desktop/src/renderer/src/components/ui/badge.tsx:6-25](file://apps/desktop/src/renderer/src/components/ui/badge.tsx#L6-L25)
 - [apps/desktop/src/renderer/src/components/ui/alert.tsx:5-19](file://apps/desktop/src/renderer/src/components/ui/alert.tsx#L5-L19)
@@ -360,10 +360,10 @@ Biz --> TW
   - 通过单元测试验证数据格式化与摘要生成的正确性。
 
 章节来源
-- [apps/desktop/src/renderer/src/assets/app.css:1-136](file://apps/desktop/src/renderer/src/assets/app.css#L1-L136)
+- [apps/desktop/src/renderer/src/assets/app.css:1-327](file://apps/desktop/src/renderer/src/assets/app.css#L1-L327)
 - [apps/desktop/src/renderer/src/components/ui/dialog.tsx:10-131](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx#L10-L131)
 - [apps/desktop/src/renderer/src/components/ui/table.tsx:6-92](file://apps/desktop/src/renderer/src/components/ui/table.tsx#L6-L92)
-- [apps/desktop/src/renderer/src/view-model.test.ts:1-683](file://apps/desktop/src/renderer/src/view-model.test.ts#L1-L683)
+- [apps/desktop/tests/renderer/src/view-model.test.ts:1-683](file://apps/desktop/tests/renderer/src/view-model.test.ts#L1-L683)
 
 ## 结论
 本 UI 组件库以 Radix 为核心交互能力，结合 Tailwind 与 CSS 变量实现高度一致的主题与样式体系。组件设计遵循可访问性、可组合性与可扩展性原则，通过严格的类型与测试保障质量。建议在实际项目中优先使用这些基础组件进行组合，必要时通过 cva 与 CSS 变量进行主题与样式定制，以保持整体一致性与可维护性。

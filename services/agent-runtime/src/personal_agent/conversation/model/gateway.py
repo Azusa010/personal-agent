@@ -35,6 +35,9 @@ class ModelContext(BaseModel):
     statusBar: str | None = None
     userMemories: list[str] = Field(default_factory=list)
     systemPrompt: str | None = None
+    systemReminders: list[str] = Field(
+        default_factory=list, description="带外系统转向提醒列表"
+    )
 
 
 class ToolCallItem(BaseModel):

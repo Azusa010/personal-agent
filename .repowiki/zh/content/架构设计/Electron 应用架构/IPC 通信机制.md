@@ -67,15 +67,15 @@ M --> HE
 ```
 
 图表来源
-- [apps/desktop/src/preload/index.ts:1-61](file://apps/desktop/src/preload/index.ts#L1-L61)
-- [apps/desktop/src/main/index.ts:147-337](file://apps/desktop/src/main/index.ts#L147-L337)
-- [apps/desktop/src/main/permission/permission-broker.ts:100-258](file://apps/desktop/src/main/permission/permission-broker.ts#L100-L258)
-- [apps/desktop/src/main/runtime/runtime-host.ts:92-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L92-L214)
-- [apps/desktop/src/main/capabilities/host-executor.ts:62-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L62-L117)
+- [apps/desktop/src/preload/index.ts:1-121](file://apps/desktop/src/preload/index.ts#L1-L121)
+- [apps/desktop/src/main/index.ts:294-582](file://apps/desktop/src/main/index.ts#L294-L582)
+- [apps/desktop/src/main/permission/permission-broker.ts:93-266](file://apps/desktop/src/main/permission/permission-broker.ts#L93-L266)
+- [apps/desktop/src/main/runtime/runtime-host.ts:98-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L98-L222)
+- [apps/desktop/src/main/capabilities/host-executor.ts:63-132](file://apps/desktop/src/main/capabilities/host-executor.ts#L63-L132)
 
 章节来源
-- [apps/desktop/src/preload/index.ts:1-61](file://apps/desktop/src/preload/index.ts#L1-L61)
-- [apps/desktop/src/main/index.ts:1-386](file://apps/desktop/src/main/index.ts#L1-L386)
+- [apps/desktop/src/preload/index.ts:1-121](file://apps/desktop/src/preload/index.ts#L1-L121)
+- [apps/desktop/src/main/index.ts:1-883](file://apps/desktop/src/main/index.ts#L1-L883)
 
 ## 核心组件
 - 预加载桥接：将 IPC 通道封装为安全的 window.personalAgent.* 方法，仅暴露必要接口；唯一的主→渲染推送通道用于权限通知。
@@ -85,11 +85,11 @@ M --> HE
 - 能力执行器：对 UI 与 Agent 两条路径分别做安全校验与能力路由，确保最小权限。
 
 章节来源
-- [apps/desktop/src/preload/index.ts:1-61](file://apps/desktop/src/preload/index.ts#L1-L61)
-- [apps/desktop/src/main/index.ts:147-337](file://apps/desktop/src/main/index.ts#L147-L337)
-- [apps/desktop/src/main/permission/permission-broker.ts:100-258](file://apps/desktop/src/main/permission/permission-broker.ts#L100-L258)
-- [apps/desktop/src/main/runtime/runtime-host.ts:92-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L92-L214)
-- [apps/desktop/src/main/capabilities/host-executor.ts:62-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L62-L117)
+- [apps/desktop/src/preload/index.ts:1-121](file://apps/desktop/src/preload/index.ts#L1-L121)
+- [apps/desktop/src/main/index.ts:294-582](file://apps/desktop/src/main/index.ts#L294-L582)
+- [apps/desktop/src/main/permission/permission-broker.ts:93-266](file://apps/desktop/src/main/permission/permission-broker.ts#L93-L266)
+- [apps/desktop/src/main/runtime/runtime-host.ts:98-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L98-L222)
+- [apps/desktop/src/main/capabilities/host-executor.ts:63-132](file://apps/desktop/src/main/capabilities/host-executor.ts#L63-L132)
 
 ## 架构总览
 IPC 通信采用“请求-响应 + 事件推送”的组合模式：
@@ -118,10 +118,10 @@ MP->>UI : send("personal-agent : permission-notice", notice)
 ```
 
 图表来源
-- [apps/desktop/src/main/index.ts:268-310](file://apps/desktop/src/main/index.ts#L268-L310)
-- [apps/desktop/src/main/runtime/runtime-host.ts:205-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L205-L214)
-- [apps/desktop/src/main/permission/permission-broker.ts:133-181](file://apps/desktop/src/main/permission/permission-broker.ts#L133-L181)
-- [apps/desktop/src/main/capabilities/host-executor.ts:79-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L79-L117)
+- [apps/desktop/src/main/index.ts:429-481](file://apps/desktop/src/main/index.ts#L429-L481)
+- [apps/desktop/src/main/runtime/runtime-host.ts:213-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L213-L222)
+- [apps/desktop/src/main/permission/permission-broker.ts:126-174](file://apps/desktop/src/main/permission/permission-broker.ts#L126-L174)
+- [apps/desktop/src/main/capabilities/host-executor.ts:82-132](file://apps/desktop/src/main/capabilities/host-executor.ts#L82-L132)
 
 ## 详细组件分析
 
@@ -131,7 +131,7 @@ MP->>UI : send("personal-agent : permission-notice", notice)
 - 唯一的事件推送通道 personal-agent:permission-notice 通过 on 订阅，并提供返回函数以移除监听。
 
 章节来源
-- [apps/desktop/src/preload/index.ts:1-61](file://apps/desktop/src/preload/index.ts#L1-L61)
+- [apps/desktop/src/preload/index.ts:1-121](file://apps/desktop/src/preload/index.ts#L1-L121)
 
 ### 主进程：handle 模式与通道注册
 - 集中注册多个 handle 通道：runtime-status、list-pdfs、indexed-pdfs、list-tasks、run-task、get-timeline、permission-respond、list-permissions。
@@ -139,7 +139,7 @@ MP->>UI : send("personal-agent : permission-notice", notice)
 - 权限通知通过 broadcastPermissionNotice 向所有窗口发送事件。
 
 章节来源
-- [apps/desktop/src/main/index.ts:147-337](file://apps/desktop/src/main/index.ts#L147-L337)
+- [apps/desktop/src/main/index.ts:294-582](file://apps/desktop/src/main/index.ts#L294-L582)
 
 ### 权限代理：请求-响应与事件推送的结合
 - request：创建 PermissionRecord，写入数据库与事件表，设置过期定时器，挂起等待用户决策。
@@ -168,8 +168,8 @@ Resolve --> End(["返回 ok:true + permission"])
 - [apps/desktop/src/main/permission/permission-broker.ts:183-234](file://apps/desktop/src/main/permission/permission-broker.ts#L183-L234)
 
 章节来源
-- [apps/desktop/src/main/permission/permission-broker.ts:100-258](file://apps/desktop/src/main/permission/permission-broker.ts#L100-L258)
-- [apps/desktop/src/main/permission/permission-ipc.ts:44-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L83)
+- [apps/desktop/src/main/permission/permission-broker.ts:93-266](file://apps/desktop/src/main/permission/permission-broker.ts#L93-L266)
+- [apps/desktop/src/main/permission/permission-ipc.ts:45-89](file://apps/desktop/src/main/permission/permission-ipc.ts#L45-L89)
 
 ### 运行时宿主：异步调用、错误与超时
 - startRuntime：启动 Python 子进程，初始化后标记 ready，失败则标记 crashed。
@@ -178,7 +178,7 @@ Resolve --> End(["返回 ok:true + permission"])
 - 错误码映射：将子进程错误 envelope 中的 code 原样透传，未知码收敛为 CRASHED，避免 UI 收到不可识别字符串。
 
 章节来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:92-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L92-L214)
+- [apps/desktop/src/main/runtime/runtime-host.ts:98-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L98-L222)
 - [apps/desktop/src/main/tasks/run-task.ts:25-37](file://apps/desktop/src/main/tasks/run-task.ts#L25-L37)
 
 ### 能力执行器：安全边界与通道入口
@@ -187,7 +187,7 @@ Resolve --> End(["返回 ok:true + permission"])
 - executeCapability：UI 路径，走 ui origin，不要求计划对齐，但同样经过注册、Scope、风险、契约、路径五关照。
 
 章节来源
-- [apps/desktop/src/main/capabilities/host-executor.ts:62-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L62-L117)
+- [apps/desktop/src/main/capabilities/host-executor.ts:63-132](file://apps/desktop/src/main/capabilities/host-executor.ts#L63-L132)
 
 ### 任务运行流程：从请求到结果
 - 入参校验：RunTaskParams.safeParse 确保 goal 合法。
@@ -221,7 +221,7 @@ end
 
 图表来源
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
-- [apps/desktop/src/main/runtime/runtime-host.ts:205-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L205-L214)
+- [apps/desktop/src/main/runtime/runtime-host.ts:213-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L213-L222)
 
 章节来源
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
@@ -247,19 +247,19 @@ Tasks --> HostExec
 ```
 
 图表来源
-- [apps/desktop/src/preload/index.ts:1-61](file://apps/desktop/src/preload/index.ts#L1-L61)
-- [apps/desktop/src/main/index.ts:147-337](file://apps/desktop/src/main/index.ts#L147-L337)
-- [apps/desktop/src/main/permission/permission-broker.ts:100-258](file://apps/desktop/src/main/permission/permission-broker.ts#L100-L258)
-- [apps/desktop/src/main/runtime/runtime-host.ts:92-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L92-L214)
-- [apps/desktop/src/main/capabilities/host-executor.ts:62-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L62-L117)
+- [apps/desktop/src/preload/index.ts:1-121](file://apps/desktop/src/preload/index.ts#L1-L121)
+- [apps/desktop/src/main/index.ts:294-582](file://apps/desktop/src/main/index.ts#L294-L582)
+- [apps/desktop/src/main/permission/permission-broker.ts:93-266](file://apps/desktop/src/main/permission/permission-broker.ts#L93-L266)
+- [apps/desktop/src/main/runtime/runtime-host.ts:98-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L98-L222)
+- [apps/desktop/src/main/capabilities/host-executor.ts:63-132](file://apps/desktop/src/main/capabilities/host-executor.ts#L63-L132)
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 
 章节来源
-- [apps/desktop/src/preload/index.ts:1-61](file://apps/desktop/src/preload/index.ts#L1-L61)
-- [apps/desktop/src/main/index.ts:147-337](file://apps/desktop/src/main/index.ts#L147-L337)
-- [apps/desktop/src/main/permission/permission-broker.ts:100-258](file://apps/desktop/src/main/permission/permission-broker.ts#L100-L258)
-- [apps/desktop/src/main/runtime/runtime-host.ts:92-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L92-L214)
-- [apps/desktop/src/main/capabilities/host-executor.ts:62-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L62-L117)
+- [apps/desktop/src/preload/index.ts:1-121](file://apps/desktop/src/preload/index.ts#L1-L121)
+- [apps/desktop/src/main/index.ts:294-582](file://apps/desktop/src/main/index.ts#L294-L582)
+- [apps/desktop/src/main/permission/permission-broker.ts:93-266](file://apps/desktop/src/main/permission/permission-broker.ts#L93-L266)
+- [apps/desktop/src/main/runtime/runtime-host.ts:98-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L98-L222)
+- [apps/desktop/src/main/capabilities/host-executor.ts:63-132](file://apps/desktop/src/main/capabilities/host-executor.ts#L63-L132)
 - [apps/desktop/src/main/tasks/run-task.ts:105-341](file://apps/desktop/src/main/tasks/run-task.ts#L105-L341)
 
 ## 性能与超时
@@ -273,7 +273,7 @@ Tasks --> HostExec
 章节来源
 - [apps/desktop/src/main/runtime/timeouts.ts:1-17](file://apps/desktop/src/main/runtime/timeouts.ts#L1-L17)
 - [apps/desktop/src/main/tasks/run-task.ts:20-23](file://apps/desktop/src/main/tasks/run-task.ts#L20-L23)
-- [apps/desktop/src/main/index.ts:353-377](file://apps/desktop/src/main/index.ts#L353-L377)
+- [apps/desktop/src/main/index.ts:598-874](file://apps/desktop/src/main/index.ts#L598-L874)
 
 ## 故障排查指南
 - 常见错误码与含义：
@@ -291,7 +291,7 @@ Tasks --> HostExec
 章节来源
 - [apps/desktop/src/main/runtime/error-code.ts:1-18](file://apps/desktop/src/main/runtime/error-code.ts#L1-L18)
 - [apps/desktop/src/main/permission/permission-ipc.ts:17-36](file://apps/desktop/src/main/permission/permission-ipc.ts#L17-L36)
-- [apps/desktop/src/main/tasks/run-task.ts:59-84](file://apps/desktop/src/main/tasks/run-task.ts#L59-L84)
+- [apps/desktop/src/main/tasks/run-task.ts:66-89](file://apps/desktop/src/main/tasks/run-task.ts#L66-L89)
 
 ## 结论
 本项目采用清晰的分层与职责划分，结合 handle 模式与 channel 模式，实现了稳定可靠的 IPC 通信：
@@ -311,8 +311,8 @@ Tasks --> HostExec
   - 事件推送：main → renderer，使用 send，renderer 通过 on 订阅。
 
 章节来源
-- [apps/desktop/src/preload/index.ts:15-55](file://apps/desktop/src/preload/index.ts#L15-L55)
-- [apps/desktop/src/main/index.ts:45-68](file://apps/desktop/src/main/index.ts#L45-L68)
+- [apps/desktop/src/preload/index.ts:21-115](file://apps/desktop/src/preload/index.ts#L21-L115)
+- [apps/desktop/src/main/index.ts:78-121](file://apps/desktop/src/main/index.ts#L78-L121)
 
 ### 错误码与结果结构
 - 统一结果结构：{ ok: true/false; ... } | { ok: false; code: IpcErrorCode; message: string }
@@ -325,7 +325,7 @@ Tasks --> HostExec
   - 参数非法统一映射为 PROTOCOL_INVALID_REQUEST。
 
 章节来源
-- [apps/desktop/src/shared/ipc-contract.ts:32-103](file://apps/desktop/src/shared/ipc-contract.ts#L32-L103)
+- [apps/desktop/src/shared/ipc-contract.ts:47-282](file://apps/desktop/src/shared/ipc-contract.ts#L47-L282)
 - [apps/desktop/src/main/runtime/error-code.ts:1-18](file://apps/desktop/src/main/runtime/error-code.ts#L1-L18)
 - [apps/desktop/src/main/tasks/run-task.ts:25-37](file://apps/desktop/src/main/tasks/run-task.ts#L25-L37)
 - [apps/desktop/src/main/permission/permission-ipc.ts:17-36](file://apps/desktop/src/main/permission/permission-ipc.ts#L17-L36)
@@ -339,9 +339,9 @@ Tasks --> HostExec
 - 事件载荷：ExecutionEventRecord.payload 为 unknown，读方按 type 窄化展示。
 
 章节来源
-- [apps/desktop/src/shared/domain.ts:1-158](file://apps/desktop/src/shared/domain.ts#L1-L158)
+- [apps/desktop/src/shared/domain.ts:6-163](file://apps/desktop/src/shared/domain.ts#L6-L163)
 - [apps/desktop/src/main/tasks/run-task.ts:105-162](file://apps/desktop/src/main/tasks/run-task.ts#L105-L162)
-- [apps/desktop/src/main/permission/permission-broker.ts:283-327](file://apps/desktop/src/main/permission/permission-broker.ts#L283-L327)
+- [apps/desktop/src/main/permission/permission-broker.ts:291-335](file://apps/desktop/src/main/permission/permission-broker.ts#L291-L335)
 
 ### 渲染侧视图与展示
 - 结果描述：describeRunOutcome 将 RunTaskIpcResult 转换为 success/failed/error 三态文案。
@@ -349,6 +349,6 @@ Tasks --> HostExec
 - 时间格式化：formatOccurredAt 与 formatRemaining 提供稳健的时间展示与剩余时间计算。
 
 章节来源
-- [apps/desktop/src/renderer/src/view-model.ts:27-53](file://apps/desktop/src/renderer/src/view-model.ts#L27-L53)
-- [apps/desktop/src/renderer/src/view-model.ts:61-90](file://apps/desktop/src/renderer/src/view-model.ts#L61-L90)
-- [apps/desktop/src/renderer/src/view-model.ts:94-115](file://apps/desktop/src/renderer/src/view-model.ts#L94-L115)
+- [apps/desktop/src/renderer/src/view-model.ts:29-55](file://apps/desktop/src/renderer/src/view-model.ts#L29-L55)
+- [apps/desktop/src/renderer/src/view-model.ts:63-94](file://apps/desktop/src/renderer/src/view-model.ts#L63-L94)
+- [apps/desktop/src/renderer/src/view-model.ts:98-119](file://apps/desktop/src/renderer/src/view-model.ts#L98-L119)

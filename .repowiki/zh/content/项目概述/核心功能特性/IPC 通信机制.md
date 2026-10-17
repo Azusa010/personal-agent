@@ -10,7 +10,7 @@
 - [packages/protocol/schemas/host.ts](file://packages/protocol/schemas/host.ts)
 - [packages/protocol/schemas/filesystem.ts](file://packages/protocol/schemas/filesystem.ts)
 - [packages/protocol/schemas/errors.ts](file://packages/protocol/schemas/errors.ts)
-- [services/agent-runtime/src/personal_agent/host_channel.py](file://services/agent-runtime/src/personal_agent/host_channel.py)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py](file://services/agent-runtime/src/personal_agent/shared/host_channel.py)
 - [services/agent-runtime/src/personal_agent/protocol/models.py](file://services/agent-runtime/src/personal_agent/protocol/models.py)
 - [apps/desktop/src/main/capabilities/host-executor.ts](file://apps/desktop/src/main/capabilities/host-executor.ts)
 - [apps/desktop/src/main/tasks/run-task.ts](file://apps/desktop/src/main/tasks/run-task.ts)
@@ -71,14 +71,14 @@ PY --> MODELS
 
 图表来源
 - [apps/desktop/src/main/index.ts:70-104](file://apps/desktop/src/main/index.ts#L70-L104)
-- [apps/desktop/src/preload/index.ts:12-56](file://apps/desktop/src/preload/index.ts#L12-L56)
+- [apps/desktop/src/preload/index.ts:18-116](file://apps/desktop/src/preload/index.ts#L18-L116)
 - [apps/desktop/src/main/capabilities/host-executor.ts:54-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L54-L117)
 - [apps/desktop/src/main/tasks/run-task.ts:105-162](file://apps/desktop/src/main/tasks/run-task.ts#L105-L162)
-- [services/agent-runtime/src/personal_agent/host_channel.py:36-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L85)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py:36-85](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L36-L85)
 
 章节来源
 - [apps/desktop/src/main/index.ts:70-104](file://apps/desktop/src/main/index.ts#L70-L104)
-- [apps/desktop/src/preload/index.ts:12-56](file://apps/desktop/src/preload/index.ts#L12-L56)
+- [apps/desktop/src/preload/index.ts:18-116](file://apps/desktop/src/preload/index.ts#L18-L116)
 
 ## 核心组件
 - 预加载脚本：通过 contextBridge 仅暴露最小必要 API，屏蔽底层 ipcRenderer 细节，提供强类型调用入口。
@@ -89,11 +89,11 @@ PY --> MODELS
 - 协议与 Schema：TS 侧用 Zod 定义 JSON-RPC envelope 与各领域模型；Python 侧用 Pydantic 严格校验，两端一致。
 
 章节来源
-- [apps/desktop/src/preload/index.ts:12-56](file://apps/desktop/src/preload/index.ts#L12-L56)
-- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
+- [apps/desktop/src/preload/index.ts:18-116](file://apps/desktop/src/preload/index.ts#L18-L116)
+- [apps/desktop/src/main/index.ts:295-582](file://apps/desktop/src/main/index.ts#L295-L582)
 - [apps/desktop/src/main/capabilities/host-executor.ts:54-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L54-L117)
 - [apps/desktop/src/main/tasks/run-task.ts:105-162](file://apps/desktop/src/main/tasks/run-task.ts#L105-L162)
-- [apps/desktop/src/main/permission/permission-ipc.ts:43-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L43-L83)
+- [apps/desktop/src/main/permission/permission-ipc.ts:44-89](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L89)
 - [packages/protocol/schemas/envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
 - [services/agent-runtime/src/personal_agent/protocol/models.py:8-38](file://services/agent-runtime/src/personal_agent/protocol/models.py#L8-L38)
 
@@ -124,7 +124,7 @@ PL-->>UI : 返回结果
 - [apps/desktop/src/preload/index.ts:27-29](file://apps/desktop/src/preload/index.ts#L27-L29)
 - [apps/desktop/src/main/index.ts:268-291](file://apps/desktop/src/main/index.ts#L268-L291)
 - [apps/desktop/src/main/tasks/run-task.ts:105-162](file://apps/desktop/src/main/tasks/run-task.ts#L105-L162)
-- [services/agent-runtime/src/personal_agent/protocol/models.py:264-320](file://services/agent-runtime/src/personal_agent/protocol/models.py#L264-L320)
+- [services/agent-runtime/src/personal_agent/protocol/models.py:738-790](file://services/agent-runtime/src/personal_agent/protocol/models.py#L738-L790)
 
 ## 详细组件分析
 
@@ -143,10 +143,10 @@ Invoke --> End(["完成"])
 ```
 
 图表来源
-- [apps/desktop/src/preload/index.ts:12-56](file://apps/desktop/src/preload/index.ts#L12-L56)
+- [apps/desktop/src/preload/index.ts:18-116](file://apps/desktop/src/preload/index.ts#L18-L116)
 
 章节来源
-- [apps/desktop/src/preload/index.ts:12-56](file://apps/desktop/src/preload/index.ts#L12-L56)
+- [apps/desktop/src/preload/index.ts:18-116](file://apps/desktop/src/preload/index.ts#L18-L116)
 
 ### 主进程 IPC 处理器：路由与错误归一化
 - 注册多个 invoke 通道：runtime-status、list-pdfs、indexed-pdfs、list-tasks、run-task、get-timeline、permission-respond、list-permissions。
@@ -170,12 +170,12 @@ I --> J
 ```
 
 图表来源
-- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
+- [apps/desktop/src/main/index.ts:295-582](file://apps/desktop/src/main/index.ts#L295-L582)
 - [apps/desktop/src/main/tasks/run-task.ts:29-37](file://apps/desktop/src/main/tasks/run-task.ts#L29-L37)
 - [apps/desktop/src/main/permission/permission-ipc.ts:25-32](file://apps/desktop/src/main/permission/permission-ipc.ts#L25-L32)
 
 章节来源
-- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
+- [apps/desktop/src/main/index.ts:295-582](file://apps/desktop/src/main/index.ts#L295-L582)
 - [apps/desktop/src/main/tasks/run-task.ts:29-37](file://apps/desktop/src/main/tasks/run-task.ts#L29-L37)
 - [apps/desktop/src/main/permission/permission-ipc.ts:25-32](file://apps/desktop/src/main/permission/permission-ipc.ts#L25-L32)
 
@@ -256,13 +256,13 @@ MP-->>PL : PermissionRespondResult
 ```
 
 图表来源
-- [apps/desktop/src/preload/index.ts:33-55](file://apps/desktop/src/preload/index.ts#L33-L55)
-- [apps/desktop/src/main/index.ts:59-68](file://apps/desktop/src/main/index.ts#L59-L68)
-- [apps/desktop/src/main/permission/permission-ipc.ts:43-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L43-L83)
+- [apps/desktop/src/preload/index.ts:57-115](file://apps/desktop/src/preload/index.ts#L57-L115)
+- [apps/desktop/src/main/index.ts:103-121](file://apps/desktop/src/main/index.ts#L103-L121)
+- [apps/desktop/src/main/permission/permission-ipc.ts:44-89](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L89)
 
 章节来源
-- [apps/desktop/src/main/permission/permission-ipc.ts:43-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L43-L83)
-- [apps/desktop/src/main/index.ts:59-68](file://apps/desktop/src/main/index.ts#L59-L68)
+- [apps/desktop/src/main/permission/permission-ipc.ts:44-89](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L89)
+- [apps/desktop/src/main/index.ts:103-121](file://apps/desktop/src/main/index.ts#L103-L121)
 
 ### JSON-RPC 协议实现（TS ↔ Python）
 - 信封模型：jsonrpc 固定为 "2.0"，method 遵循命名规范，id 非空；Response 必须且只能有 result 或 error 之一。
@@ -283,12 +283,12 @@ E --> |否| R["返回 result"]
 ```
 
 图表来源
-- [services/agent-runtime/src/personal_agent/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L45-L85)
 - [services/agent-runtime/src/personal_agent/protocol/models.py:8-38](file://services/agent-runtime/src/personal_agent/protocol/models.py#L8-L38)
 - [packages/protocol/schemas/envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
 
 章节来源
-- [services/agent-runtime/src/personal_agent/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L45-L85)
 - [services/agent-runtime/src/personal_agent/protocol/models.py:8-38](file://services/agent-runtime/src/personal_agent/protocol/models.py#L8-L38)
 - [packages/protocol/schemas/envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
 
@@ -300,8 +300,8 @@ E --> |否| R["返回 result"]
 
 章节来源
 - [packages/protocol/schemas/envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
-- [packages/protocol/schemas/host.ts:1-76](file://packages/protocol/schemas/host.ts#L1-L76)
-- [packages/protocol/schemas/filesystem.ts:1-37](file://packages/protocol/schemas/filesystem.ts#L1-L37)
+- [packages/protocol/schemas/host.ts:1-118](file://packages/protocol/schemas/host.ts#L1-L118)
+- [packages/protocol/schemas/filesystem.ts:1-52](file://packages/protocol/schemas/filesystem.ts#L1-L52)
 - [packages/protocol/schemas/errors.ts:1-30](file://packages/protocol/schemas/errors.ts#L1-L30)
 - [services/agent-runtime/src/personal_agent/protocol/models.py:8-38](file://services/agent-runtime/src/personal_agent/protocol/models.py#L8-L38)
 
@@ -311,8 +311,8 @@ E --> |否| R["返回 result"]
 - 跨进程调用：渲染进程调用 preload 暴露的方法，内部通过 ipcRenderer.invoke 与主进程通信；主→渲染推送通过 ipcRenderer.on 订阅。
 
 章节来源
-- [apps/desktop/src/preload/index.ts:14-55](file://apps/desktop/src/preload/index.ts#L14-L55)
-- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
+- [apps/desktop/src/preload/index.ts:20-115](file://apps/desktop/src/preload/index.ts#L20-L115)
+- [apps/desktop/src/main/index.ts:295-582](file://apps/desktop/src/main/index.ts#L295-L582)
 
 ## 依赖关系分析
 - 耦合与内聚：主进程集中注册 IPC 处理器，职责清晰；能力网关与任务编排解耦，通过依赖注入（RunTaskDeps）提高可测试性。
@@ -334,22 +334,22 @@ PY["host_channel.py"] --> MODELS["protocol/models.py"]
 ```
 
 图表来源
-- [apps/desktop/src/preload/index.ts:1-56](file://apps/desktop/src/preload/index.ts#L1-L56)
-- [apps/desktop/src/main/index.ts:1-42](file://apps/desktop/src/main/index.ts#L1-L42)
-- [apps/desktop/src/main/capabilities/host-executor.ts:1-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L117)
-- [apps/desktop/src/main/tasks/run-task.ts:1-57](file://apps/desktop/src/main/tasks/run-task.ts#L1-L57)
+- [apps/desktop/src/preload/index.ts:1-116](file://apps/desktop/src/preload/index.ts#L1-L116)
+- [apps/desktop/src/main/index.ts:1-75](file://apps/desktop/src/main/index.ts#L1-L75)
+- [apps/desktop/src/main/capabilities/host-executor.ts:1-132](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L132)
+- [apps/desktop/src/main/tasks/run-task.ts:2-64](file://apps/desktop/src/main/tasks/run-task.ts#L2-L64)
 - [apps/desktop/src/main/permission/permission-ipc.ts:1-15](file://apps/desktop/src/main/permission/permission-ipc.ts#L1-L15)
-- [services/agent-runtime/src/personal_agent/host_channel.py:1-14](file://services/agent-runtime/src/personal_agent/host_channel.py#L1-L14)
-- [services/agent-runtime/src/personal_agent/protocol/models.py:1-38](file://services/agent-runtime/src/personal_agent/protocol/models.py#L1-L38)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py:1-14](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L1-L14)
+- [services/agent-runtime/src/personal_agent/protocol/models.py:1-43](file://services/agent-runtime/src/personal_agent/protocol/models.py#L1-L43)
 
 章节来源
-- [apps/desktop/src/preload/index.ts:1-56](file://apps/desktop/src/preload/index.ts#L1-L56)
-- [apps/desktop/src/main/index.ts:1-42](file://apps/desktop/src/main/index.ts#L1-L42)
-- [apps/desktop/src/main/capabilities/host-executor.ts:1-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L117)
-- [apps/desktop/src/main/tasks/run-task.ts:1-57](file://apps/desktop/src/main/tasks/run-task.ts#L1-L57)
+- [apps/desktop/src/preload/index.ts:1-116](file://apps/desktop/src/preload/index.ts#L1-L116)
+- [apps/desktop/src/main/index.ts:1-75](file://apps/desktop/src/main/index.ts#L1-L75)
+- [apps/desktop/src/main/capabilities/host-executor.ts:1-132](file://apps/desktop/src/main/capabilities/host-executor.ts#L1-L132)
+- [apps/desktop/src/main/tasks/run-task.ts:2-64](file://apps/desktop/src/main/tasks/run-task.ts#L2-L64)
 - [apps/desktop/src/main/permission/permission-ipc.ts:1-15](file://apps/desktop/src/main/permission/permission-ipc.ts#L1-L15)
-- [services/agent-runtime/src/personal_agent/host_channel.py:1-14](file://services/agent-runtime/src/personal_agent/host_channel.py#L1-L14)
-- [services/agent-runtime/src/personal_agent/protocol/models.py:1-38](file://services/agent-runtime/src/personal_agent/protocol/models.py#L1-L38)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py:1-14](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L1-L14)
+- [services/agent-runtime/src/personal_agent/protocol/models.py:1-43](file://services/agent-runtime/src/personal_agent/protocol/models.py#L1-L43)
 
 ## 性能考虑
 - 超时控制：make_plan 使用较短超时（10s），避免阻塞 UI；run_task 使用独立超时，防止长时间占用。
@@ -378,7 +378,7 @@ PY["host_channel.py"] --> MODELS["protocol/models.py"]
 - [packages/protocol/schemas/errors.ts:1-30](file://packages/protocol/schemas/errors.ts#L1-L30)
 - [apps/desktop/src/main/runtime/error-code.ts:1-18](file://apps/desktop/src/main/runtime/error-code.ts#L1-L18)
 - [apps/desktop/src/main/permission/permission-ipc.ts:25-32](file://apps/desktop/src/main/permission/permission-ipc.ts#L25-L32)
-- [services/agent-runtime/src/personal_agent/host_channel.py:66-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L66-L85)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py:66-85](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L66-L85)
 
 ## 结论
 本项目通过严格的 Schema 校验、清晰的 IPC 路由、安全的预加载层与健壮的 JSON-RPC 实现，构建了稳定可靠的跨进程通信体系。主进程集中治理权限与任务生命周期，Python 运行时专注执行能力，双方通过契约化协议协同工作。结合超时控制、单槽执行与资源回收策略，系统在安全性、可维护性与性能方面达到良好平衡。

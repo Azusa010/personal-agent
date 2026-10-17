@@ -3,18 +3,18 @@
 <cite>
 **本文引用的文件**
 - [runtime.py](file://services/agent-runtime/src/personal_agent/runtime.py)
-- [engine.py](file://services/agent-runtime/src/personal_agent/engine.py)
-- [model_gateway.py](file://services/agent-runtime/src/personal_agent/model_gateway.py)
-- [scripted_model.py](file://services/agent-runtime/src/personal_agent/scripted_model.py)
+- [engine.py](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py)
+- [model_gateway.py](file://services/agent-runtime/src/personal_agent/conversation/model/gateway.py)
+- [scripted_model.py](file://services/agent-runtime/src/personal_agent/testing/mock_model.py)
 - [planning.py](file://services/agent-runtime/src/personal_agent/planning.py)
-- [context.py](file://services/agent-runtime/src/personal_agent/context.py)
-- [host_channel.py](file://services/agent-runtime/src/personal_agent/host_channel.py)
+- [context.py](file://services/agent-runtime/src/personal_agent/conversation/context/manager.py)
+- [host_channel.py](file://services/agent-runtime/src/personal_agent/shared/host_channel.py)
 - [__init__.py](file://services/agent-runtime/src/personal_agent/__init__.py)
 - [__main__.py](file://services/agent-runtime/src/personal_agent/__main__.py)
 - [host.ts](file://packages/protocol/schemas/host.ts)
 - [executor.ts](file://apps/desktop/src/main/capabilities/executor.ts)
-- [filesystem-list.ts](file://apps/desktop/src/main/capabilities/filesystem-list.ts)
-- [document-extract-pdf.ts](file://apps/desktop/src/main/capabilities/document-extract-pdf.ts)
+- [filesystem-list.ts](file://apps/desktop/src/main/capabilities/plugins/filesystem.ts)
+- [document-extract-pdf.ts](file://apps/desktop/src/main/capabilities/plugins/document.ts)
 - [test_engine.py](file://services/agent-runtime/tests/test_engine.py)
 </cite>
 
@@ -81,16 +81,16 @@ PR --- EX
 ```
 
 **图表来源**
-- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [engine.py:91-244](file://services/agent-runtime/src/personal_agent/engine.py#L91-L244)
-- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
-- [executor.ts:73-143](file://apps/desktop/src/main/capabilities/executor.ts#L73-L143)
-- [host.ts:1-76](file://packages/protocol/schemas/host.ts#L1-L76)
+- [runtime.py:137-368](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L368)
+- [engine.py:91-244](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L91-L244)
+- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L36-L91)
+- [executor.ts:64-112](file://apps/desktop/src/main/capabilities/executor.ts#L64-L112)
+- [host.ts:1-118](file://packages/protocol/schemas/host.ts#L1-L118)
 
 **章节来源**
-- [runtime.py:1-257](file://services/agent-runtime/src/personal_agent/runtime.py#L1-L257)
-- [engine.py:1-244](file://services/agent-runtime/src/personal_agent/engine.py#L1-L244)
-- [host.ts:1-76](file://packages/protocol/schemas/host.ts#L1-L76)
+- [runtime.py:2-704](file://services/agent-runtime/src/personal_agent/runtime.py#L2-L704)
+- [engine.py:1-244](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L1-L244)
+- [host.ts:1-118](file://packages/protocol/schemas/host.ts#L1-L118)
 
 ## 核心组件
 - 运行时调度器（runtime.py）
@@ -114,13 +114,13 @@ PR --- EX
   - 文件系统列出 PDF、PDF 文本提取等能力的具体副作用。
 
 **章节来源**
-- [runtime.py:49-184](file://services/agent-runtime/src/personal_agent/runtime.py#L49-L184)
-- [engine.py:82-244](file://services/agent-runtime/src/personal_agent/engine.py#L82-L244)
-- [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L100)
-- [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/scripted_model.py#L18-L57)
-- [context.py:45-79](file://services/agent-runtime/src/personal_agent/context.py#L45-L79)
-- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
-- [executor.ts:73-325](file://apps/desktop/src/main/capabilities/executor.ts#L73-L325)
+- [runtime.py:103-368](file://services/agent-runtime/src/personal_agent/runtime.py#L103-L368)
+- [engine.py:82-244](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L82-L244)
+- [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/conversation/model/gateway.py#L6-L100)
+- [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/testing/mock_model.py#L18-L57)
+- [context.py:45-79](file://services/agent-runtime/src/personal_agent/conversation/context/manager.py#L45-L79)
+- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L36-L91)
+- [executor.ts:64-128](file://apps/desktop/src/main/capabilities/executor.ts#L64-L128)
 
 ## 架构总览
 运行时采用“进程内主循环 + 子进程/通道协作”的架构：
@@ -161,10 +161,10 @@ end
 ```
 
 **图表来源**
-- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [engine.py:104-244](file://services/agent-runtime/src/personal_agent/engine.py#L104-L244)
-- [host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
-- [executor.ts:73-143](file://apps/desktop/src/main/capabilities/executor.ts#L73-L143)
+- [runtime.py:137-368](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L368)
+- [engine.py:104-244](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L104-L244)
+- [host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L45-L85)
+- [executor.ts:64-112](file://apps/desktop/src/main/capabilities/executor.ts#L64-L112)
 
 ## 详细组件分析
 
@@ -193,10 +193,10 @@ Resp --> End(["写出响应"])
 ```
 
 **图表来源**
-- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
+- [runtime.py:137-368](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L368)
 
 **章节来源**
-- [runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
+- [runtime.py:137-368](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L368)
 
 ### Agent 引擎（engine.py）
 - 预算控制：两维上限（步数、工具调用），任一达到上限即触发预算耗尽事件并失败。
@@ -221,11 +221,11 @@ Loop --> B
 ```
 
 **图表来源**
-- [engine.py:104-244](file://services/agent-runtime/src/personal_agent/engine.py#L104-L244)
+- [engine.py:104-244](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L104-L244)
 
 **章节来源**
-- [engine.py:82-244](file://services/agent-runtime/src/personal_agent/engine.py#L82-L244)
-- [test_engine.py:186-734](file://services/agent-runtime/tests/test_engine.py#L186-L734)
+- [engine.py:82-244](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L82-L244)
+- [test_engine.py:189-794](file://services/agent-runtime/tests/test_engine.py#L189-L794)
 
 ### 模型网关与脚本化模型（model_gateway.py + scripted_model.py）
 - 协议抽象：ModelGateway 仅暴露 decide(context) 接口；Decision 联合类型区分 tool_call 与 summary。
@@ -273,12 +273,12 @@ ModelDecision <|-- SummaryDecision
 ```
 
 **图表来源**
-- [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L100)
-- [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/scripted_model.py#L18-L57)
+- [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/conversation/model/gateway.py#L6-L100)
+- [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/testing/mock_model.py#L18-L57)
 
 **章节来源**
-- [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/model_gateway.py#L6-L100)
-- [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/scripted_model.py#L18-L57)
+- [model_gateway.py:6-100](file://services/agent-runtime/src/personal_agent/conversation/model/gateway.py#L6-L100)
+- [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/testing/mock_model.py#L18-L57)
 
 ### 上下文管理（context.py）
 - 观察记录：保存原始 Observation，不修改内容。
@@ -286,7 +286,7 @@ ModelDecision <|-- SummaryDecision
 - 字符限制：默认单字符串上限，避免静默丢弃早期重要信息。
 
 **章节来源**
-- [context.py:27-79](file://services/agent-runtime/src/personal_agent/context.py#L27-L79)
+- [context.py:27-79](file://services/agent-runtime/src/personal_agent/conversation/context/manager.py#L27-L79)
 
 ### 主机通道（host_channel.py）
 - 请求发送：为每次调用生成唯一 RPC id，写入 HostExecuteToolRequest。
@@ -294,7 +294,7 @@ ModelDecision <|-- SummaryDecision
 - 错误转换：协议错误或 error 字段存在时抛出 HostRequestFailed；stdin EOF 抛出 HostChannelClosed。
 
 **章节来源**
-- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L91)
+- [host_channel.py:36-91](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L36-L91)
 
 ### TS 能力执行器（executor.ts + 工具实现）
 - 策略评估：基于 Scope、权限、风险等规则决定是否允许执行。
@@ -304,9 +304,9 @@ ModelDecision <|-- SummaryDecision
   - document-extract-pdf：读取 PDF 字节流，提取每页文本，处理空/损坏/加密等错误。
 
 **章节来源**
-- [executor.ts:73-325](file://apps/desktop/src/main/capabilities/executor.ts#L73-L325)
-- [filesystem-list.ts:6-32](file://apps/desktop/src/main/capabilities/filesystem-list.ts#L6-L32)
-- [document-extract-pdf.ts:31-69](file://apps/desktop/src/main/capabilities/document-extract-pdf.ts#L31-L69)
+- [executor.ts:64-128](file://apps/desktop/src/main/capabilities/executor.ts#L64-L128)
+- [filesystem.ts:48-77](file://apps/desktop/src/main/capabilities/plugins/filesystem.ts#L48-L77)
+- [document.ts:52-95](file://apps/desktop/src/main/capabilities/plugins/document.ts#L52-L95)
 
 ## 依赖关系分析
 - 运行时依赖：
@@ -332,15 +332,15 @@ EN --> CTX["context.py"]
 
 **图表来源**
 - [runtime.py:10-29](file://services/agent-runtime/src/personal_agent/runtime.py#L10-L29)
-- [engine.py:16-42](file://services/agent-runtime/src/personal_agent/engine.py#L16-L42)
-- [host_channel.py:8-13](file://services/agent-runtime/src/personal_agent/host_channel.py#L8-L13)
-- [host.ts:1-76](file://packages/protocol/schemas/host.ts#L1-L76)
+- [engine.py:16-42](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L16-L42)
+- [host_channel.py:8-13](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L8-L13)
+- [host.ts:1-118](file://packages/protocol/schemas/host.ts#L1-L118)
 
 **章节来源**
 - [runtime.py:10-29](file://services/agent-runtime/src/personal_agent/runtime.py#L10-L29)
-- [engine.py:16-42](file://services/agent-runtime/src/personal_agent/engine.py#L16-L42)
-- [host_channel.py:8-13](file://services/agent-runtime/src/personal_agent/host_channel.py#L8-L13)
-- [host.ts:1-76](file://packages/protocol/schemas/host.ts#L1-L76)
+- [engine.py:16-42](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L16-L42)
+- [host_channel.py:8-13](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L8-L13)
+- [host.ts:1-118](file://packages/protocol/schemas/host.ts#L1-L118)
 
 ## 性能考虑
 - 预算控制：默认最大步数与工具调用次数，避免无限循环与资源耗尽。
@@ -369,11 +369,11 @@ EN --> CTX["context.py"]
   - 排查：查看 TS 侧错误码与日志，确认权限与路径。
 
 **章节来源**
-- [runtime.py:158-184](file://services/agent-runtime/src/personal_agent/runtime.py#L158-L184)
-- [planning.py:54-77](file://services/agent-runtime/src/personal_agent/planning.py#L54-L77)
-- [engine.py:216-244](file://services/agent-runtime/src/personal_agent/engine.py#L216-L244)
-- [host_channel.py:18-34](file://services/agent-runtime/src/personal_agent/host_channel.py#L18-L34)
-- [executor.ts:121-172](file://apps/desktop/src/main/capabilities/executor.ts#L121-L172)
+- [runtime.py:252-368](file://services/agent-runtime/src/personal_agent/runtime.py#L252-L368)
+- [planning.py:60-84](file://services/agent-runtime/src/personal_agent/planning.py#L60-L84)
+- [engine.py:216-244](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L216-L244)
+- [host_channel.py:18-34](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L18-L34)
+- [executor.ts:117-128](file://apps/desktop/src/main/capabilities/executor.ts#L117-L128)
 
 ## 结论
 该 AI 运行时通过清晰的模块划分与严格的协议约束，实现了稳定可控的 Agent 循环。模型网关抽象使得脚本化与真实模型可无缝替换；工具系统通过 TS 侧能力注册与策略评估，确保安全与可扩展。预算控制与事件流为可观测性与调优提供了基础。
@@ -389,14 +389,14 @@ EN --> CTX["context.py"]
   2. 在 resolve_model_factory 中返回新模型的工厂函数。
   3. 保持 decide(context) 返回 ToolCallDecision 或 SummaryDecision。
 - 参考路径：
-  - 模型接口定义：[model_gateway.py:80-100](file://services/agent-runtime/src/personal_agent/model_gateway.py#L80-L100)
-  - 脚本化模型实现：[scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/scripted_model.py#L18-L57)
+  - 模型接口定义：[model_gateway.py:80-100](file://services/agent-runtime/src/personal_agent/conversation/model/gateway.py#L80-L100)
+  - 脚本化模型实现：[scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/testing/mock_model.py#L18-L57)
   - 运行时工厂解析：[runtime.py:208-235](file://services/agent-runtime/src/personal_agent/runtime.py#L208-L235)
 
 **章节来源**
-- [model_gateway.py:53-59](file://services/agent-runtime/src/personal_agent/model_gateway.py#L53-L59)
-- [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/scripted_model.py#L18-L57)
-- [runtime.py:206-223](file://services/agent-runtime/src/personal_agent/runtime.py#L206-L223)
+- [model_gateway.py:53-59](file://services/agent-runtime/src/personal_agent/conversation/model/gateway.py#L53-L59)
+- [scripted_model.py:18-57](file://services/agent-runtime/src/personal_agent/testing/mock_model.py#L18-L57)
+- [runtime.py:510-527](file://services/agent-runtime/src/personal_agent/runtime.py#L510-L527)
 
 ### 添加新的文件系统操作或外部 API 调用
 - 目标：在 TS 侧新增能力并在 Python 侧被识别与执行。
@@ -406,16 +406,16 @@ EN --> CTX["context.py"]
   3. 在 planning.py 的计划中引入该能力（如需）。
   4. 在 runtime 初始化时下发该能力描述，使模型可见。
 - 参考路径：
-  - 能力枚举：[host.ts:7-16](file://packages/protocol/schemas/host.ts#L7-L16)
-  - 能力执行器路由：[executor.ts:121-143](file://apps/desktop/src/main/capabilities/executor.ts#L121-L143)
+  - 能力枚举：[host.ts:7-54](file://packages/protocol/schemas/host.ts#L7-L54)
+  - 能力执行器路由：[executor.ts:117-128](file://apps/desktop/src/main/capabilities/executor.ts#L117-L128)
   - 计划生成：[planning.py:54-77](file://services/agent-runtime/src/personal_agent/planning.py#L54-L77)
   - 能力下发：[runtime.py:109-125](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L125)
 
 **章节来源**
 - [host.ts:7-16](file://packages/protocol/schemas/host.ts#L7-L16)
-- [executor.ts:121-143](file://apps/desktop/src/main/capabilities/executor.ts#L121-L143)
-- [planning.py:25-45](file://services/agent-runtime/src/personal_agent/planning.py#L25-L45)
-- [runtime.py:107-123](file://services/agent-runtime/src/personal_agent/runtime.py#L107-L123)
+- [executor.ts:117-128](file://apps/desktop/src/main/capabilities/executor.ts#L117-L128)
+- [planning.py:31-51](file://services/agent-runtime/src/personal_agent/planning.py#L31-L51)
+- [runtime.py:190-207](file://services/agent-runtime/src/personal_agent/runtime.py#L190-L207)
 
 ### 错误处理与重试机制
 - 错误分类：
@@ -428,13 +428,13 @@ EN --> CTX["context.py"]
   - 业务失败（ok:false）应交由模型决策切换策略，而非盲目重试。
 - 参考路径：
   - 错误构建与分发：[runtime.py:65-93](file://services/agent-runtime/src/personal_agent/runtime.py#L65-L93)
-  - 通道异常：[host_channel.py:18-34](file://services/agent-runtime/src/personal_agent/host_channel.py#L18-L34)
-  - 引擎失败路径：[engine.py:168-172](file://services/agent-runtime/src/personal_agent/engine.py#L168-L172)
+  - 通道异常：[host_channel.py:18-34](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L18-L34)
+  - 引擎失败路径：[engine.py:168-172](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L168-L172)
 
 **章节来源**
-- [runtime.py:63-91](file://services/agent-runtime/src/personal_agent/runtime.py#L63-L91)
-- [host_channel.py:18-34](file://services/agent-runtime/src/personal_agent/host_channel.py#L18-L34)
-- [engine.py:154-158](file://services/agent-runtime/src/personal_agent/engine.py#L154-L158)
+- [runtime.py:131-174](file://services/agent-runtime/src/personal_agent/runtime.py#L131-L174)
+- [host_channel.py:18-34](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L18-L34)
+- [engine.py:154-158](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L154-L158)
 
 ### 任务执行的完整生命周期
 - 阶段概览：
@@ -444,10 +444,10 @@ EN --> CTX["context.py"]
   4. 完成：返回 completed/failed 及事件序列。
 - 参考路径：
   - 初始化与计划：[runtime.py:109-155](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L155)
-  - 任务执行循环：[engine.py:98-238](file://services/agent-runtime/src/personal_agent/engine.py#L98-L238)
+  - 任务执行循环：[engine.py:98-238](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L98-L238)
   - 事件类型与顺序：[test_engine.py:339-349](file://services/agent-runtime/tests/test_engine.py#L339-L349)
 
 **章节来源**
-- [runtime.py:107-153](file://services/agent-runtime/src/personal_agent/runtime.py#L107-L153)
-- [engine.py:95-201](file://services/agent-runtime/src/personal_agent/engine.py#L95-L201)
-- [test_engine.py:335-345](file://services/agent-runtime/tests/test_engine.py#L335-L345)
+- [runtime.py:190-247](file://services/agent-runtime/src/personal_agent/runtime.py#L190-L247)
+- [engine.py:95-201](file://services/agent-runtime/src/personal_agent/conversation/loop/engine.py#L95-L201)
+- [test_engine.py:354-364](file://services/agent-runtime/tests/test_engine.py#L354-L364)

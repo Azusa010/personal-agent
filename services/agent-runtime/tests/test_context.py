@@ -109,7 +109,19 @@ def test_truncatable_keys_is_opt_in():
     # 白名单而不是黑名单：新增 capability 的字段默认不截断
     #（顶多上下文偏长），而不是默认截断（标识符被啃坏，任务静默失败）。
     # 加新成员要有意识地改这一行。
-    assert TRUNCATABLE_KEYS == frozenset({"text", "reason"})
+    assert TRUNCATABLE_KEYS == frozenset(
+        {
+            "text",
+            "reason",
+            "content",
+            "stdout",
+            "stderr",
+            "output",
+            "summary",
+            "snippet",
+            "answer",
+        }
+    )
 
 
 def test_truncate_leaves_non_string_scalars_alone():

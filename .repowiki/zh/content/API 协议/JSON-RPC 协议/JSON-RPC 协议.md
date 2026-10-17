@@ -8,7 +8,7 @@
 - [packages/protocol/schemas/errors.ts](file://packages/protocol/schemas/errors.ts)
 - [services/agent-runtime/src/personal_agent/protocol/models.py](file://services/agent-runtime/src/personal_agent/protocol/models.py)
 - [services/agent-runtime/src/personal_agent/runtime.py](file://services/agent-runtime/src/personal_agent/runtime.py)
-- [services/agent-runtime/src/personal_agent/host_channel.py](file://services/agent-runtime/src/personal_agent/host_channel.py)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py](file://services/agent-runtime/src/personal_agent/shared/host_channel.py)
 - [apps/desktop/src/main/runtime/python-supervisor.ts](file://apps/desktop/src/main/runtime/python-supervisor.ts)
 - [apps/desktop/src/main/capabilities/registry.ts](file://apps/desktop/src/main/capabilities/registry.ts)
 - [apps/desktop/src/main/runtime/error-code.ts](file://apps/desktop/src/main/runtime/error-code.ts)
@@ -68,20 +68,20 @@ SCHEMA_TS --- FIXTURES
 ```
 
 **图表来源**
-- [apps/desktop/src/main/runtime/python-supervisor.ts:110-363](file://apps/desktop/src/main/runtime/python-supervisor.ts#L110-L363)
-- [services/agent-runtime/src/personal_agent/runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [services/agent-runtime/src/personal_agent/host_channel.py:36-90](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L90)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:112-380](file://apps/desktop/src/main/runtime/python-supervisor.ts#L112-L380)
+- [services/agent-runtime/src/personal_agent/runtime.py:137-368](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L368)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py:36-90](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L36-L90)
 - [packages/protocol/schemas/envelope.ts:5-40](file://packages/protocol/schemas/envelope.ts#L5-L40)
-- [packages/protocol/schemas/host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
-- [packages/protocol/schemas/agent.ts:4-138](file://packages/protocol/schemas/agent.ts#L4-L138)
-- [apps/desktop/src/main/capabilities/registry.ts:9-55](file://apps/desktop/src/main/capabilities/registry.ts#L9-L55)
+- [packages/protocol/schemas/host.ts:3-118](file://packages/protocol/schemas/host.ts#L3-L118)
+- [packages/protocol/schemas/agent.ts:4-195](file://packages/protocol/schemas/agent.ts#L4-L195)
+- [apps/desktop/src/main/capabilities/registry.ts:11-159](file://apps/desktop/src/main/capabilities/registry.ts#L11-L159)
 
 **章节来源**
 - [packages/protocol/schemas/envelope.ts:5-40](file://packages/protocol/schemas/envelope.ts#L5-L40)
-- [packages/protocol/schemas/host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
-- [packages/protocol/schemas/agent.ts:4-138](file://packages/protocol/schemas/agent.ts#L4-L138)
-- [services/agent-runtime/src/personal_agent/runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:110-363](file://apps/desktop/src/main/runtime/python-supervisor.ts#L110-L363)
+- [packages/protocol/schemas/host.ts:3-118](file://packages/protocol/schemas/host.ts#L3-L118)
+- [packages/protocol/schemas/agent.ts:4-195](file://packages/protocol/schemas/agent.ts#L4-L195)
+- [services/agent-runtime/src/personal_agent/runtime.py:137-368](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L368)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:112-380](file://apps/desktop/src/main/runtime/python-supervisor.ts#L112-L380)
 
 ## 核心组件
 - 消息信封：统一的 JSON-RPC 2.0 请求/响应/通知结构，强制 result 与 error 互斥。
@@ -92,10 +92,10 @@ SCHEMA_TS --- FIXTURES
 
 **章节来源**
 - [packages/protocol/schemas/envelope.ts:5-40](file://packages/protocol/schemas/envelope.ts#L5-L40)
-- [packages/protocol/schemas/host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
-- [packages/protocol/schemas/agent.ts:4-138](file://packages/protocol/schemas/agent.ts#L4-L138)
-- [services/agent-runtime/src/personal_agent/runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:110-363](file://apps/desktop/src/main/runtime/python-supervisor.ts#L110-L363)
+- [packages/protocol/schemas/host.ts:3-118](file://packages/protocol/schemas/host.ts#L3-L118)
+- [packages/protocol/schemas/agent.ts:4-195](file://packages/protocol/schemas/agent.ts#L4-L195)
+- [services/agent-runtime/src/personal_agent/runtime.py:137-368](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L368)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:112-380](file://apps/desktop/src/main/runtime/python-supervisor.ts#L112-L380)
 - [packages/protocol/schemas/errors.ts:1-30](file://packages/protocol/schemas/errors.ts#L1-L30)
 - [apps/desktop/src/main/runtime/error-code.ts:1-18](file://apps/desktop/src/main/runtime/error-code.ts#L1-L18)
 
@@ -130,10 +130,10 @@ PY-->>PS : 返回 RunTaskResult(completed/failed)
 ```
 
 **图表来源**
-- [apps/desktop/src/main/runtime/python-supervisor.ts:136-160](file://apps/desktop/src/main/runtime/python-supervisor.ts#L136-L160)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
-- [services/agent-runtime/src/personal_agent/runtime.py:109-184](file://services/agent-runtime/src/personal_agent/runtime.py#L109-L184)
-- [services/agent-runtime/src/personal_agent/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:138-162](file://apps/desktop/src/main/runtime/python-supervisor.ts#L138-L162)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:282-338](file://apps/desktop/src/main/runtime/python-supervisor.ts#L282-L338)
+- [services/agent-runtime/src/personal_agent/runtime.py:192-368](file://services/agent-runtime/src/personal_agent/runtime.py#L192-L368)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L45-L85)
 
 ## 详细组件分析
 
@@ -195,14 +195,14 @@ Ok -- 是 --> Success["返回 ok=true 的结果"]
 ```
 
 **图表来源**
-- [packages/protocol/schemas/host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
-- [services/agent-runtime/src/personal_agent/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
+- [packages/protocol/schemas/host.ts:3-118](file://packages/protocol/schemas/host.ts#L3-L118)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:282-338](file://apps/desktop/src/main/runtime/python-supervisor.ts#L282-L338)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L45-L85)
 
 **章节来源**
-- [packages/protocol/schemas/host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
-- [services/agent-runtime/src/personal_agent/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
+- [packages/protocol/schemas/host.ts:3-118](file://packages/protocol/schemas/host.ts#L3-L118)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:282-338](file://apps/desktop/src/main/runtime/python-supervisor.ts#L282-L338)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L45-L85)
 
 ### Agent 方法：make_plan 与 run_task
 - make_plan：根据目标 goal 与可见能力列表生成步骤计划，至少一步；步骤可省略 capability（表示无需工具）。
@@ -223,14 +223,14 @@ PY-->>TS : RunTaskResult{status, facts/events 或 reason/events}
 ```
 
 **图表来源**
-- [packages/protocol/schemas/agent.ts:7-138](file://packages/protocol/schemas/agent.ts#L7-L138)
-- [services/agent-runtime/src/personal_agent/protocol/models.py:264-368](file://services/agent-runtime/src/personal_agent/protocol/models.py#L264-L368)
-- [services/agent-runtime/src/personal_agent/runtime.py:128-184](file://services/agent-runtime/src/personal_agent/runtime.py#L128-L184)
+- [packages/protocol/schemas/agent.ts:21-195](file://packages/protocol/schemas/agent.ts#L21-L195)
+- [services/agent-runtime/src/personal_agent/protocol/models.py:738-856](file://services/agent-runtime/src/personal_agent/protocol/models.py#L738-L856)
+- [services/agent-runtime/src/personal_agent/runtime.py:212-368](file://services/agent-runtime/src/personal_agent/runtime.py#L212-L368)
 
 **章节来源**
-- [packages/protocol/schemas/agent.ts:7-138](file://packages/protocol/schemas/agent.ts#L7-L138)
-- [services/agent-runtime/src/personal_agent/protocol/models.py:264-368](file://services/agent-runtime/src/personal_agent/protocol/models.py#L264-L368)
-- [services/agent-runtime/src/personal_agent/runtime.py:128-184](file://services/agent-runtime/src/personal_agent/runtime.py#L128-L184)
+- [packages/protocol/schemas/agent.ts:21-195](file://packages/protocol/schemas/agent.ts#L21-L195)
+- [services/agent-runtime/src/personal_agent/protocol/models.py:738-856](file://services/agent-runtime/src/personal_agent/protocol/models.py#L738-L856)
+- [services/agent-runtime/src/personal_agent/runtime.py:212-368](file://services/agent-runtime/src/personal_agent/runtime.py#L212-L368)
 
 ### 主机能力：文件系统与 PDF 处理
 - 文件系统：list（只读）、create_dir（写）、move（写），参数通过 arguments 传递，结果按能力定义返回。
@@ -238,11 +238,11 @@ PY-->>TS : RunTaskResult{status, facts/events 或 reason/events}
 - 能力清单由主进程注册并在 initialize 时下发给 Python 运行时，用于计划与权限判定。
 
 **章节来源**
-- [packages/protocol/schemas/host.ts:3-76](file://packages/protocol/schemas/host.ts#L3-L76)
+- [packages/protocol/schemas/host.ts:3-118](file://packages/protocol/schemas/host.ts#L3-L118)
 - [packages/protocol/fixtures/host-filesystem-list.request.json:1-13](file://packages/protocol/fixtures/host-filesystem-list.request.json#L1-L13)
 - [packages/protocol/fixtures/host-filesystem-list.response.json:1-22](file://packages/protocol/fixtures/host-filesystem-list.response.json#L1-L22)
 - [packages/protocol/fixtures/host-execute-tool.request.json:1-13](file://packages/protocol/fixtures/host-execute-tool.request.json#L1-L13)
-- [apps/desktop/src/main/capabilities/registry.ts:9-55](file://apps/desktop/src/main/capabilities/registry.ts#L9-L55)
+- [apps/desktop/src/main/capabilities/registry.ts:11-159](file://apps/desktop/src/main/capabilities/registry.ts#L11-L159)
 
 ### 错误码体系与异常处理
 - 协议级错误：PROTOCOL_INVALID_JSON、PROTOCOL_INVALID_REQUEST、METHOD_NOT_FOUND、NOT_IMPLEMENTED、HOST_TIMEOUT、HOST_HANDLER_FAILED 等（ERROR_CODE 枚举当前共 28 个）。
@@ -253,9 +253,9 @@ PY-->>TS : RunTaskResult{status, facts/events 或 reason/events}
 **章节来源**
 - [packages/protocol/schemas/errors.ts:1-30](file://packages/protocol/schemas/errors.ts#L1-L30)
 - [apps/desktop/src/main/runtime/error-code.ts:1-18](file://apps/desktop/src/main/runtime/error-code.ts#L1-L18)
-- [services/agent-runtime/src/personal_agent/host_channel.py:18-34](file://services/agent-runtime/src/personal_agent/host_channel.py#L18-L34)
-- [services/agent-runtime/src/personal_agent/host_channel.py:74-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L74-L85)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py:18-34](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L18-L34)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py:74-85](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L74-L85)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:282-338](file://apps/desktop/src/main/runtime/python-supervisor.ts#L282-L338)
 
 ### 协议测试方法
 - 使用 fixtures 中的合法/非法样例，结合 Zod/Pydantic 模型进行双向校验，确保契约不漂移。
@@ -263,8 +263,8 @@ PY-->>TS : RunTaskResult{status, facts/events 或 reason/events}
 - 针对 host.execute_tool 的请求/响应、能力失败场景进行断言。
 
 **章节来源**
-- [packages/protocol/tests/envelope.test.ts:68-328](file://packages/protocol/tests/envelope.test.ts#L68-L328)
-- [packages/protocol/tests/envelope.test.ts:330-655](file://packages/protocol/tests/envelope.test.ts#L330-L655)
+- [packages/protocol/tests/envelope.test.ts:121-726](file://packages/protocol/tests/envelope.test.ts#L121-L726)
+- [packages/protocol/tests/envelope.test.ts:728-1239](file://packages/protocol/tests/envelope.test.ts#L728-L1239)
 
 ## 依赖关系分析
 - 主进程依赖 PythonSupervisor 管理子进程、请求路由与反向 RPC；能力注册表提供能力清单。
@@ -281,16 +281,16 @@ HC --> PS
 ```
 
 **图表来源**
-- [apps/desktop/src/main/capabilities/registry.ts:9-55](file://apps/desktop/src/main/capabilities/registry.ts#L9-L55)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:110-363](file://apps/desktop/src/main/runtime/python-supervisor.ts#L110-L363)
-- [services/agent-runtime/src/personal_agent/runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [services/agent-runtime/src/personal_agent/host_channel.py:36-90](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L90)
+- [apps/desktop/src/main/capabilities/registry.ts:11-159](file://apps/desktop/src/main/capabilities/registry.ts#L11-L159)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:112-380](file://apps/desktop/src/main/runtime/python-supervisor.ts#L112-L380)
+- [services/agent-runtime/src/personal_agent/runtime.py:137-368](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L368)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py:36-90](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L36-L90)
 
 **章节来源**
-- [apps/desktop/src/main/capabilities/registry.ts:9-55](file://apps/desktop/src/main/capabilities/registry.ts#L9-L55)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:110-363](file://apps/desktop/src/main/runtime/python-supervisor.ts#L110-L363)
-- [services/agent-runtime/src/personal_agent/runtime.py:69-184](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L184)
-- [services/agent-runtime/src/personal_agent/host_channel.py:36-90](file://services/agent-runtime/src/personal_agent/host_channel.py#L36-L90)
+- [apps/desktop/src/main/capabilities/registry.ts:11-159](file://apps/desktop/src/main/capabilities/registry.ts#L11-L159)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:112-380](file://apps/desktop/src/main/runtime/python-supervisor.ts#L112-L380)
+- [services/agent-runtime/src/personal_agent/runtime.py:137-368](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L368)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py:36-90](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L36-L90)
 
 ## 性能考虑
 - 超时与取消：主进程对所有请求设置默认超时，支持 AbortSignal 取消；host.execute_tool 单独超时控制，避免阻塞任务执行。
@@ -309,11 +309,11 @@ HC --> PS
 - 协议校验失败：对照 envelope/host/agent schema 与 fixtures，定位字段缺失或类型不符。
 
 **章节来源**
-- [apps/desktop/src/main/runtime/python-supervisor.ts:136-160](file://apps/desktop/src/main/runtime/python-supervisor.ts#L136-L160)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:163-207](file://apps/desktop/src/main/runtime/python-supervisor.ts#L163-L207)
-- [apps/desktop/src/main/runtime/python-supervisor.ts:265-321](file://apps/desktop/src/main/runtime/python-supervisor.ts#L265-L321)
-- [services/agent-runtime/src/personal_agent/runtime.py:69-93](file://services/agent-runtime/src/personal_agent/runtime.py#L69-L93)
-- [services/agent-runtime/src/personal_agent/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/host_channel.py#L45-L85)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:138-162](file://apps/desktop/src/main/runtime/python-supervisor.ts#L138-L162)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:165-209](file://apps/desktop/src/main/runtime/python-supervisor.ts#L165-L209)
+- [apps/desktop/src/main/runtime/python-supervisor.ts:282-338](file://apps/desktop/src/main/runtime/python-supervisor.ts#L282-L338)
+- [services/agent-runtime/src/personal_agent/runtime.py:137-176](file://services/agent-runtime/src/personal_agent/runtime.py#L137-L176)
+- [services/agent-runtime/src/personal_agent/shared/host_channel.py:45-85](file://services/agent-runtime/src/personal_agent/shared/host_channel.py#L45-L85)
 
 ## 结论
 该 JSON-RPC 协议通过严格的类型契约与完善的错误码体系，实现了主进程与 Python 运行时的可靠通信。主机能力以统一入口暴露，便于扩展与维护；计划与执行分离，使任务流程可控、可观测。配合全面的测试与性能策略，可在生产环境中稳定运行。
@@ -340,12 +340,12 @@ HC --> PS
   - 计划响应：[agent-make-plan.response.json:1-20](file://packages/protocol/fixtures/agent-make-plan.response.json#L1-L20)
 
 **章节来源**
-- [packages/protocol/fixtures/initialize.request.json:1-22](file://packages/protocol/fixtures/initialize.request.json#L1-L22)
+- [packages/protocol/fixtures/initialize.request.json:1-23](file://packages/protocol/fixtures/initialize.request.json#L1-L23)
 - [packages/protocol/fixtures/initialize.response.json:1-5](file://packages/protocol/fixtures/initialize.response.json#L1-L5)
 - [packages/protocol/fixtures/ping.request.json:1-6](file://packages/protocol/fixtures/ping.request.json#L1-L6)
 - [packages/protocol/fixtures/ping.response.json:1-5](file://packages/protocol/fixtures/ping.response.json#L1-L5)
 - [packages/protocol/fixtures/host-filesystem-list.request.json:1-13](file://packages/protocol/fixtures/host-filesystem-list.request.json#L1-L13)
 - [packages/protocol/fixtures/host-filesystem-list.response.json:1-22](file://packages/protocol/fixtures/host-filesystem-list.response.json#L1-L22)
 - [packages/protocol/fixtures/host-execute-tool.request.json:1-13](file://packages/protocol/fixtures/host-execute-tool.request.json#L1-L13)
-- [packages/protocol/fixtures/agent-run-task.request.json:1-10](file://packages/protocol/fixtures/agent-run-task.request.json#L1-L10)
+- [packages/protocol/fixtures/agent-run-task.request.json:1-17](file://packages/protocol/fixtures/agent-run-task.request.json#L1-L17)
 - [packages/protocol/fixtures/agent-make-plan.response.json:1-20](file://packages/protocol/fixtures/agent-make-plan.response.json#L1-L20)

@@ -14,7 +14,7 @@
 - [apps/desktop/src/main/runtime/error-code.ts](file://apps/desktop/src/main/runtime/error-code.ts)
 - [apps/desktop/src/main/permission/permission-ipc.ts](file://apps/desktop/src/main/permission/permission-ipc.ts)
 - [apps/desktop/src/renderer/src/view-model.ts](file://apps/desktop/src/renderer/src/view-model.ts)
-- [apps/desktop/src/renderer/src/components/PermissionDialog.tsx](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx)
+- [apps/desktop/src/renderer/src/components/PermissionCard.tsx](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx)
 </cite>
 
 ## 目录
@@ -43,7 +43,7 @@
 graph TB
 subgraph "渲染进程"
 RVM["view-model.ts"]
-PD["PermissionDialog.tsx"]
+PD["PermissionCard.tsx"]
 end
 subgraph "预加载层"
 PL["preload/index.ts"]
@@ -73,18 +73,18 @@ PD -.-> CONTRACT
 
 图表来源
 - [apps/desktop/src/main/index.ts:70-103](file://apps/desktop/src/main/index.ts#L70-L103)
-- [apps/desktop/src/preload/index.ts:12-56](file://apps/desktop/src/preload/index.ts#L12-L56)
+- [apps/desktop/src/preload/index.ts:18-116](file://apps/desktop/src/preload/index.ts#L18-L116)
 - [apps/desktop/src/main/capabilities/host-executor.ts:54-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L54-L117)
-- [apps/desktop/src/main/runtime/runtime-host.ts:92-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L92-L214)
-- [apps/desktop/src/main/permission/permission-ipc.ts:43-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L43-L83)
+- [apps/desktop/src/main/runtime/runtime-host.ts:98-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L98-L222)
+- [apps/desktop/src/main/permission/permission-ipc.ts:44-89](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L89)
 - [packages/protocol/schemas/envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
-- [packages/protocol/schemas/host.ts:1-76](file://packages/protocol/schemas/host.ts#L1-L76)
-- [apps/desktop/src/shared/ipc-contract.ts:25-103](file://apps/desktop/src/shared/ipc-contract.ts#L25-L103)
-- [apps/desktop/src/shared/domain.ts:52-95](file://apps/desktop/src/shared/domain.ts#L52-L95)
+- [packages/protocol/schemas/host.ts:1-118](file://packages/protocol/schemas/host.ts#L1-L118)
+- [apps/desktop/src/shared/ipc-contract.ts:40-282](file://apps/desktop/src/shared/ipc-contract.ts#L40-L282)
+- [apps/desktop/src/shared/domain.ts:57-100](file://apps/desktop/src/shared/domain.ts#L57-L100)
 
 章节来源
 - [apps/desktop/src/main/index.ts:70-103](file://apps/desktop/src/main/index.ts#L70-L103)
-- [apps/desktop/src/preload/index.ts:12-56](file://apps/desktop/src/preload/index.ts#L12-L56)
+- [apps/desktop/src/preload/index.ts:18-116](file://apps/desktop/src/preload/index.ts#L18-L116)
 
 ## 核心组件
 - 主进程 IPC 注册器：集中注册所有 ipcMain.handle 处理器，完成参数校验、能力执行、数据库读写、权限决策与状态查询。
@@ -95,15 +95,15 @@ PD -.-> CONTRACT
 - 协议与类型：JSON-RPC 信封、能力 ID、错误码、IPC 返回体与领域模型。
 
 章节来源
-- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
-- [apps/desktop/src/preload/index.ts:12-56](file://apps/desktop/src/preload/index.ts#L12-L56)
+- [apps/desktop/src/main/index.ts:295-582](file://apps/desktop/src/main/index.ts#L295-L582)
+- [apps/desktop/src/preload/index.ts:18-116](file://apps/desktop/src/preload/index.ts#L18-L116)
 - [apps/desktop/src/main/capabilities/host-executor.ts:54-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L54-L117)
-- [apps/desktop/src/main/runtime/runtime-host.ts:92-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L92-L214)
-- [apps/desktop/src/main/permission/permission-ipc.ts:43-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L43-L83)
+- [apps/desktop/src/main/runtime/runtime-host.ts:98-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L98-L222)
+- [apps/desktop/src/main/permission/permission-ipc.ts:44-89](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L89)
 - [packages/protocol/schemas/envelope.ts:1-41](file://packages/protocol/schemas/envelope.ts#L1-L41)
-- [packages/protocol/schemas/host.ts:1-76](file://packages/protocol/schemas/host.ts#L1-L76)
-- [apps/desktop/src/shared/ipc-contract.ts:25-103](file://apps/desktop/src/shared/ipc-contract.ts#L25-L103)
-- [apps/desktop/src/shared/domain.ts:52-95](file://apps/desktop/src/shared/domain.ts#L52-L95)
+- [packages/protocol/schemas/host.ts:1-118](file://packages/protocol/schemas/host.ts#L1-L118)
+- [apps/desktop/src/shared/ipc-contract.ts:40-282](file://apps/desktop/src/shared/ipc-contract.ts#L40-L282)
+- [apps/desktop/src/shared/domain.ts:57-100](file://apps/desktop/src/shared/domain.ts#L57-L100)
 
 ## 架构总览
 IPC 采用“请求-响应”与“推送通知”两种模式：
@@ -129,10 +129,10 @@ Note over M,R : 另有 main→renderer 的通知通道用于权限事件
 ```
 
 图表来源
-- [apps/desktop/src/preload/index.ts:14-56](file://apps/desktop/src/preload/index.ts#L14-L56)
-- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
-- [apps/desktop/src/main/capabilities/host-executor.ts:79-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L79-L117)
-- [apps/desktop/src/main/runtime/runtime-host.ts:205-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L205-L214)
+- [apps/desktop/src/preload/index.ts:20-116](file://apps/desktop/src/preload/index.ts#L20-L116)
+- [apps/desktop/src/main/index.ts:295-582](file://apps/desktop/src/main/index.ts#L295-L582)
+- [apps/desktop/src/main/capabilities/host-executor.ts:82-132](file://apps/desktop/src/main/capabilities/host-executor.ts#L82-L132)
+- [apps/desktop/src/main/runtime/runtime-host.ts:213-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L213-L222)
 
 ## 详细组件分析
 
@@ -153,12 +153,12 @@ SafeAPI --> End(["渲染进程只能调用授权接口"])
 ```
 
 图表来源
-- [apps/desktop/src/main/index.ts:80-85](file://apps/desktop/src/main/index.ts#L80-L85)
-- [apps/desktop/src/preload/index.ts:12-56](file://apps/desktop/src/preload/index.ts#L12-L56)
+- [apps/desktop/src/main/index.ts:154-163](file://apps/desktop/src/main/index.ts#L154-L163)
+- [apps/desktop/src/preload/index.ts:18-116](file://apps/desktop/src/preload/index.ts#L18-L116)
 
 章节来源
-- [apps/desktop/src/main/index.ts:80-85](file://apps/desktop/src/main/index.ts#L80-L85)
-- [apps/desktop/src/preload/index.ts:12-56](file://apps/desktop/src/preload/index.ts#L12-L56)
+- [apps/desktop/src/main/index.ts:154-163](file://apps/desktop/src/main/index.ts#L154-L163)
+- [apps/desktop/src/preload/index.ts:18-116](file://apps/desktop/src/preload/index.ts#L18-L116)
 
 ### 能力执行与通道注册
 - 主进程在应用启动时注册多个 ipcMain.handle，形成稳定的 IPC 通道集合。
@@ -188,11 +188,11 @@ PermissionIPC --> RuntimeHost : "间接影响任务/事件"
 
 图表来源
 - [apps/desktop/src/main/capabilities/host-executor.ts:54-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L54-L117)
-- [apps/desktop/src/main/permission/permission-ipc.ts:43-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L43-L83)
-- [apps/desktop/src/main/runtime/runtime-host.ts:92-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L92-L214)
+- [apps/desktop/src/main/permission/permission-ipc.ts:44-89](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L89)
+- [apps/desktop/src/main/runtime/runtime-host.ts:98-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L98-L222)
 
 章节来源
-- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
+- [apps/desktop/src/main/index.ts:295-582](file://apps/desktop/src/main/index.ts#L295-L582)
 - [apps/desktop/src/main/capabilities/host-executor.ts:54-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L54-L117)
 
 ### 权限通道与通知
@@ -223,16 +223,16 @@ P-->>R : Promise 解析
 ```
 
 图表来源
-- [apps/desktop/src/main/index.ts:45-68](file://apps/desktop/src/main/index.ts#L45-L68)
-- [apps/desktop/src/main/index.ts:312-337](file://apps/desktop/src/main/index.ts#L312-L337)
-- [apps/desktop/src/preload/index.ts:33-55](file://apps/desktop/src/preload/index.ts#L33-L55)
-- [apps/desktop/src/main/permission/permission-ipc.ts:43-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L43-L83)
+- [apps/desktop/src/main/index.ts:78-121](file://apps/desktop/src/main/index.ts#L78-L121)
+- [apps/desktop/src/main/index.ts:557-582](file://apps/desktop/src/main/index.ts#L557-L582)
+- [apps/desktop/src/preload/index.ts:57-115](file://apps/desktop/src/preload/index.ts#L57-L115)
+- [apps/desktop/src/main/permission/permission-ipc.ts:44-89](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L89)
 
 章节来源
-- [apps/desktop/src/main/index.ts:45-68](file://apps/desktop/src/main/index.ts#L45-L68)
-- [apps/desktop/src/main/index.ts:312-337](file://apps/desktop/src/main/index.ts#L312-L337)
-- [apps/desktop/src/preload/index.ts:33-55](file://apps/desktop/src/preload/index.ts#L33-L55)
-- [apps/desktop/src/main/permission/permission-ipc.ts:43-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L43-L83)
+- [apps/desktop/src/main/index.ts:78-121](file://apps/desktop/src/main/index.ts#L78-L121)
+- [apps/desktop/src/main/index.ts:557-582](file://apps/desktop/src/main/index.ts#L557-L582)
+- [apps/desktop/src/preload/index.ts:57-115](file://apps/desktop/src/preload/index.ts#L57-L115)
+- [apps/desktop/src/main/permission/permission-ipc.ts:44-89](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L89)
 
 ### 运行时与 Python 子进程
 - 主进程启动 Python 子进程，建立握手，维护状态 starting/ready/crashed/stopped。
@@ -253,11 +253,11 @@ H -- 是 --> J["转发到 Python 并等待结果/超时"]
 ```
 
 图表来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:136-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L136-L214)
+- [apps/desktop/src/main/runtime/runtime-host.ts:142-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L142-L222)
 - [apps/desktop/src/main/runtime/error-code.ts:1-18](file://apps/desktop/src/main/runtime/error-code.ts#L1-L18)
 
 章节来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:136-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L136-L214)
+- [apps/desktop/src/main/runtime/runtime-host.ts:142-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L142-L222)
 - [apps/desktop/src/main/runtime/error-code.ts:1-18](file://apps/desktop/src/main/runtime/error-code.ts#L1-L18)
 
 ### 渲染进程调用示例
@@ -269,8 +269,8 @@ H -- 是 --> J["转发到 Python 并等待结果/超时"]
 - 订阅通知：const remove = personalAgent.onPermissionNotice(listener); 后续调用 remove() 取消订阅。
 
 章节来源
-- [apps/desktop/src/preload/index.ts:14-56](file://apps/desktop/src/preload/index.ts#L14-L56)
-- [apps/desktop/src/renderer/src/components/PermissionDialog.tsx:52-59](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L52-L59)
+- [apps/desktop/src/preload/index.ts:20-116](file://apps/desktop/src/preload/index.ts#L20-L116)
+- [apps/desktop/src/renderer/src/components/PermissionCard.tsx:52-59](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L52-L59)
 
 ## 依赖关系分析
 - 主进程依赖能力执行器与运行时宿主，二者共同构成对外暴露的 API 后端。
@@ -288,30 +288,30 @@ RH --> EC["error-code.ts"]
 PI --> EC
 MI -.-> CT["shared/ipc-contract.ts"]
 RVM["renderer/view-model.ts"] -.-> CT
-PD["renderer/PermissionDialog.tsx"] -.-> CT
+PD["renderer/PermissionCard.tsx"] -.-> CT
 ```
 
 图表来源
-- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
+- [apps/desktop/src/main/index.ts:295-582](file://apps/desktop/src/main/index.ts#L295-L582)
 - [apps/desktop/src/main/capabilities/host-executor.ts:54-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L54-L117)
-- [apps/desktop/src/main/runtime/runtime-host.ts:92-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L92-L214)
-- [apps/desktop/src/main/permission/permission-ipc.ts:43-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L43-L83)
-- [packages/protocol/schemas/host.ts:1-76](file://packages/protocol/schemas/host.ts#L1-L76)
+- [apps/desktop/src/main/runtime/runtime-host.ts:98-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L98-L222)
+- [apps/desktop/src/main/permission/permission-ipc.ts:44-89](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L89)
+- [packages/protocol/schemas/host.ts:1-118](file://packages/protocol/schemas/host.ts#L1-L118)
 - [apps/desktop/src/main/runtime/error-code.ts:1-18](file://apps/desktop/src/main/runtime/error-code.ts#L1-L18)
-- [apps/desktop/src/shared/ipc-contract.ts:25-103](file://apps/desktop/src/shared/ipc-contract.ts#L25-L103)
-- [apps/desktop/src/renderer/src/view-model.ts:27-53](file://apps/desktop/src/renderer/src/view-model.ts#L27-L53)
-- [apps/desktop/src/renderer/src/components/PermissionDialog.tsx:52-59](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L52-L59)
+- [apps/desktop/src/shared/ipc-contract.ts:40-282](file://apps/desktop/src/shared/ipc-contract.ts#L40-L282)
+- [apps/desktop/src/renderer/src/view-model.ts:29-55](file://apps/desktop/src/renderer/src/view-model.ts#L29-L55)
+- [apps/desktop/src/renderer/src/components/PermissionCard.tsx:52-59](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L52-L59)
 
 章节来源
-- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
+- [apps/desktop/src/main/index.ts:295-582](file://apps/desktop/src/main/index.ts#L295-L582)
 - [apps/desktop/src/main/capabilities/host-executor.ts:54-117](file://apps/desktop/src/main/capabilities/host-executor.ts#L54-L117)
-- [apps/desktop/src/main/runtime/runtime-host.ts:92-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L92-L214)
-- [apps/desktop/src/main/permission/permission-ipc.ts:43-83](file://apps/desktop/src/main/permission/permission-ipc.ts#L43-L83)
-- [packages/protocol/schemas/host.ts:1-76](file://packages/protocol/schemas/host.ts#L1-L76)
+- [apps/desktop/src/main/runtime/runtime-host.ts:98-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L98-L222)
+- [apps/desktop/src/main/permission/permission-ipc.ts:44-89](file://apps/desktop/src/main/permission/permission-ipc.ts#L44-L89)
+- [packages/protocol/schemas/host.ts:1-118](file://packages/protocol/schemas/host.ts#L1-L118)
 - [apps/desktop/src/main/runtime/error-code.ts:1-18](file://apps/desktop/src/main/runtime/error-code.ts#L1-L18)
-- [apps/desktop/src/shared/ipc-contract.ts:25-103](file://apps/desktop/src/shared/ipc-contract.ts#L25-L103)
-- [apps/desktop/src/renderer/src/view-model.ts:27-53](file://apps/desktop/src/renderer/src/view-model.ts#L27-L53)
-- [apps/desktop/src/renderer/src/components/PermissionDialog.tsx:52-59](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L52-L59)
+- [apps/desktop/src/shared/ipc-contract.ts:40-282](file://apps/desktop/src/shared/ipc-contract.ts#L40-L282)
+- [apps/desktop/src/renderer/src/view-model.ts:29-55](file://apps/desktop/src/renderer/src/view-model.ts#L29-L55)
+- [apps/desktop/src/renderer/src/components/PermissionCard.tsx:52-59](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L52-L59)
 
 ## 性能与超时
 - 请求-响应模式：所有渲染进程发起的调用均通过 ipcRenderer.invoke 走 Promise 语义，适合一次性 RPC。
@@ -322,9 +322,9 @@ PD["renderer/PermissionDialog.tsx"] -.-> CT
 - 资源清理：onPermissionNotice 返回取消函数，应在组件卸载时调用以避免内存泄漏。
 
 章节来源
-- [apps/desktop/src/main/runtime/runtime-host.ts:205-214](file://apps/desktop/src/main/runtime/runtime-host.ts#L205-L214)
-- [apps/desktop/src/preload/index.ts:45-55](file://apps/desktop/src/preload/index.ts#L45-L55)
-- [apps/desktop/src/renderer/src/components/PermissionDialog.tsx:41-59](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L41-L59)
+- [apps/desktop/src/main/runtime/runtime-host.ts:213-222](file://apps/desktop/src/main/runtime/runtime-host.ts#L213-L222)
+- [apps/desktop/src/preload/index.ts:69-115](file://apps/desktop/src/preload/index.ts#L69-L115)
+- [apps/desktop/src/renderer/src/components/PermissionCard.tsx:41-59](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L41-L59)
 
 ## 故障排查指南
 - 常见错误码分类：
@@ -340,7 +340,7 @@ PD["renderer/PermissionDialog.tsx"] -.-> CT
 章节来源
 - [packages/protocol/schemas/errors.ts:1-30](file://packages/protocol/schemas/errors.ts#L1-L30)
 - [apps/desktop/src/main/runtime/error-code.ts:1-18](file://apps/desktop/src/main/runtime/error-code.ts#L1-L18)
-- [apps/desktop/src/main/runtime/runtime-host.ts:161-180](file://apps/desktop/src/main/runtime/runtime-host.ts#L161-L180)
+- [apps/desktop/src/main/runtime/runtime-host.ts:167-188](file://apps/desktop/src/main/runtime/runtime-host.ts#L167-L188)
 - [apps/desktop/src/main/permission/permission-ipc.ts:17-32](file://apps/desktop/src/main/permission/permission-ipc.ts#L17-L32)
 
 ## 结论
@@ -394,7 +394,7 @@ PD["renderer/PermissionDialog.tsx"] -.-> CT
   - 用途：当有权限请求或权限决议时，主进程主动推送至渲染进程
 
 章节来源
-- [apps/desktop/src/main/index.ts:148-337](file://apps/desktop/src/main/index.ts#L148-L337)
-- [apps/desktop/src/preload/index.ts:14-56](file://apps/desktop/src/preload/index.ts#L14-L56)
-- [apps/desktop/src/shared/ipc-contract.ts:25-103](file://apps/desktop/src/shared/ipc-contract.ts#L25-L103)
-- [apps/desktop/src/shared/domain.ts:52-95](file://apps/desktop/src/shared/domain.ts#L52-L95)
+- [apps/desktop/src/main/index.ts:295-582](file://apps/desktop/src/main/index.ts#L295-L582)
+- [apps/desktop/src/preload/index.ts:20-116](file://apps/desktop/src/preload/index.ts#L20-L116)
+- [apps/desktop/src/shared/ipc-contract.ts:40-282](file://apps/desktop/src/shared/ipc-contract.ts#L40-L282)
+- [apps/desktop/src/shared/domain.ts:57-100](file://apps/desktop/src/shared/domain.ts#L57-L100)

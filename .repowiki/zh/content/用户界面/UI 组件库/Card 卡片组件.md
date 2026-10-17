@@ -46,13 +46,13 @@ end
 
 图表来源
 - [apps/desktop/src/renderer/src/components/ui/card.tsx:1-74](file://apps/desktop/src/renderer/src/components/ui/card.tsx#L1-L74)
-- [apps/desktop/src/renderer/src/assets/app.css:1-136](file://apps/desktop/src/renderer/src/assets/app.css#L1-L136)
+- [apps/desktop/src/renderer/src/assets/app.css:1-327](file://apps/desktop/src/renderer/src/assets/app.css#L1-L327)
 - [apps/desktop/src/renderer/src/lib/utils.ts:1-7](file://apps/desktop/src/renderer/src/lib/utils.ts#L1-L7)
 - [apps/desktop/components.json:1-22](file://apps/desktop/components.json#L1-L22)
 
 章节来源
 - [apps/desktop/src/renderer/src/components/ui/card.tsx:1-74](file://apps/desktop/src/renderer/src/components/ui/card.tsx#L1-L74)
-- [apps/desktop/src/renderer/src/assets/app.css:1-136](file://apps/desktop/src/renderer/src/assets/app.css#L1-L136)
+- [apps/desktop/src/renderer/src/assets/app.css:1-327](file://apps/desktop/src/renderer/src/assets/app.css#L1-L327)
 - [apps/desktop/src/renderer/src/lib/utils.ts:1-7](file://apps/desktop/src/renderer/src/lib/utils.ts#L1-L7)
 - [apps/desktop/components.json:1-22](file://apps/desktop/components.json#L1-L22)
 
@@ -164,11 +164,11 @@ Dark[".dark 类激活"] --> Theme
 ```
 
 图表来源
-- [apps/desktop/src/renderer/src/assets/app.css:9-116](file://apps/desktop/src/renderer/src/assets/app.css#L9-L116)
+- [apps/desktop/src/renderer/src/assets/app.css:14-263](file://apps/desktop/src/renderer/src/assets/app.css#L14-L263)
 - [apps/desktop/src/renderer/src/components/ui/card.tsx:8-10](file://apps/desktop/src/renderer/src/components/ui/card.tsx#L8-L10)
 
 章节来源
-- [apps/desktop/src/renderer/src/assets/app.css:9-116](file://apps/desktop/src/renderer/src/assets/app.css#L9-L116)
+- [apps/desktop/src/renderer/src/assets/app.css:14-263](file://apps/desktop/src/renderer/src/assets/app.css#L14-L263)
 - [apps/desktop/src/renderer/src/components/ui/card.tsx:8-10](file://apps/desktop/src/renderer/src/components/ui/card.tsx#L8-L10)
 
 ### 阴影、边框、圆角的配置方法
@@ -178,7 +178,7 @@ Dark[".dark 类激活"] --> Theme
 
 章节来源
 - [apps/desktop/src/renderer/src/components/ui/card.tsx:8-10](file://apps/desktop/src/renderer/src/components/ui/card.tsx#L8-L10)
-- [apps/desktop/src/renderer/src/assets/app.css:45-49](file://apps/desktop/src/renderer/src/assets/app.css#L45-L49)
+- [apps/desktop/src/renderer/src/assets/app.css:53-57](file://apps/desktop/src/renderer/src/assets/app.css#L53-L57)
 
 ### 响应式设计与移动端适配
 - 头部网格在检测到 CardAction 时自动切换为两列，保证操作区始终靠右且不被挤压。
@@ -204,13 +204,13 @@ CFG["components.json"] --> CSS
 图表来源
 - [apps/desktop/src/renderer/src/components/ui/card.tsx:1-2](file://apps/desktop/src/renderer/src/components/ui/card.tsx#L1-L2)
 - [apps/desktop/src/renderer/src/lib/utils.ts:1-7](file://apps/desktop/src/renderer/src/lib/utils.ts#L1-L7)
-- [apps/desktop/src/renderer/src/assets/app.css:1-136](file://apps/desktop/src/renderer/src/assets/app.css#L1-L136)
+- [apps/desktop/src/renderer/src/assets/app.css:1-327](file://apps/desktop/src/renderer/src/assets/app.css#L1-L327)
 - [apps/desktop/components.json:1-22](file://apps/desktop/components.json#L1-L22)
 
 章节来源
 - [apps/desktop/src/renderer/src/components/ui/card.tsx:1-2](file://apps/desktop/src/renderer/src/components/ui/card.tsx#L1-L2)
 - [apps/desktop/src/renderer/src/lib/utils.ts:1-7](file://apps/desktop/src/renderer/src/lib/utils.ts#L1-L7)
-- [apps/desktop/src/renderer/src/assets/app.css:1-136](file://apps/desktop/src/renderer/src/assets/app.css#L1-L136)
+- [apps/desktop/src/renderer/src/assets/app.css:1-327](file://apps/desktop/src/renderer/src/assets/app.css#L1-L327)
 - [apps/desktop/components.json:1-22](file://apps/desktop/components.json#L1-L22)
 
 ## 性能与可访问性
@@ -229,7 +229,7 @@ CFG["components.json"] --> CSS
 章节来源
 - [apps/desktop/src/renderer/src/components/ui/card.tsx:8-10](file://apps/desktop/src/renderer/src/components/ui/card.tsx#L8-L10)
 - [apps/desktop/src/renderer/src/components/ui/card.tsx:21-23](file://apps/desktop/src/renderer/src/components/ui/card.tsx#L21-L23)
-- [apps/desktop/src/renderer/src/assets/app.css:54-116](file://apps/desktop/src/renderer/src/assets/app.css#L54-L116)
+- [apps/desktop/src/renderer/src/assets/app.css:65-263](file://apps/desktop/src/renderer/src/assets/app.css#L65-L263)
 - [apps/desktop/src/renderer/src/lib/utils.ts:4-6](file://apps/desktop/src/renderer/src/lib/utils.ts#L4-L6)
 
 ## 结论

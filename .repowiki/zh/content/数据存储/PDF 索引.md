@@ -2,9 +2,9 @@
 
 <cite>
 **本文引用的文件**
-- [apps/desktop/src/main/capabilities/document-extract-pdf.ts](file://apps/desktop/src/main/capabilities/document-extract-pdf.ts)
+- [apps/desktop/src/main/capabilities/plugins/document.ts](file://apps/desktop/src/main/capabilities/plugins/document.ts)
 - [apps/desktop/src/main/capabilities/executor.ts](file://apps/desktop/src/main/capabilities/executor.ts)
-- [apps/desktop/src/main/capabilities/filesystem-list.ts](file://apps/desktop/src/main/capabilities/filesystem-list.ts)
+- [apps/desktop/src/main/capabilities/plugins/filesystem.ts](file://apps/desktop/src/main/capabilities/plugins/filesystem.ts)
 - [apps/desktop/src/main/capabilities/registry.ts](file://apps/desktop/src/main/capabilities/registry.ts)
 - [apps/desktop/src/main/db/database.ts](file://apps/desktop/src/main/db/database.ts)
 - [apps/desktop/src/main/db/pdf-repository.ts](file://apps/desktop/src/main/db/pdf-repository.ts)
@@ -61,22 +61,22 @@ Extract --> DB
 - [apps/desktop/src/main/index.ts](file://apps/desktop/src/main/index.ts)
 - [apps/desktop/src/preload/index.ts](file://apps/desktop/src/preload/index.ts)
 - [apps/desktop/src/main/capabilities/executor.ts](file://apps/desktop/src/main/capabilities/executor.ts)
-- [apps/desktop/src/main/capabilities/filesystem-list.ts](file://apps/desktop/src/main/capabilities/filesystem-list.ts)
-- [apps/desktop/src/main/capabilities/document-extract-pdf.ts](file://apps/desktop/src/main/capabilities/document-extract-pdf.ts)
+- [apps/desktop/src/main/capabilities/plugins/filesystem.ts](file://apps/desktop/src/main/capabilities/plugins/filesystem.ts)
+- [apps/desktop/src/main/capabilities/plugins/document.ts](file://apps/desktop/src/main/capabilities/plugins/document.ts)
 - [apps/desktop/src/main/db/pdf-repository.ts](file://apps/desktop/src/main/db/pdf-repository.ts)
 - [apps/desktop/src/main/db/database.ts](file://apps/desktop/src/main/db/database.ts)
 
 **章节来源**
-- [apps/desktop/src/main/capabilities/registry.ts:9-40](file://apps/desktop/src/main/capabilities/registry.ts#L9-L40)
-- [apps/desktop/src/main/capabilities/executor.ts:121-143](file://apps/desktop/src/main/capabilities/executor.ts#L121-L143)
-- [apps/desktop/src/main/capabilities/filesystem-list.ts:6-31](file://apps/desktop/src/main/capabilities/filesystem-list.ts#L6-L31)
-- [apps/desktop/src/main/capabilities/document-extract-pdf.ts:31-68](file://apps/desktop/src/main/capabilities/document-extract-pdf.ts#L31-L68)
+- [apps/desktop/src/main/capabilities/registry.ts:11-136](file://apps/desktop/src/main/capabilities/registry.ts#L11-L136)
+- [apps/desktop/src/main/capabilities/executor.ts:117-128](file://apps/desktop/src/main/capabilities/executor.ts#L117-L128)
+- [apps/desktop/src/main/capabilities/filesystem.ts:48-77](file://apps/desktop/src/main/capabilities/plugins/filesystem.ts#L48-L77)
+- [apps/desktop/src/main/capabilities/document.ts:52-95](file://apps/desktop/src/main/capabilities/plugins/document.ts#L52-L95)
 - [apps/desktop/src/main/db/database.ts:15-40](file://apps/desktop/src/main/db/database.ts#L15-L40)
 - [apps/desktop/src/main/db/pdf-repository.ts:15-66](file://apps/desktop/src/main/db/pdf-repository.ts#L15-L66)
-- [packages/protocol/schemas/document.ts:5-31](file://packages/protocol/schemas/document.ts#L5-L31)
-- [apps/desktop/src/shared/ipc-contract.ts:38-52](file://apps/desktop/src/shared/ipc-contract.ts#L38-L52)
-- [apps/desktop/src/preload/index.ts:21-22](file://apps/desktop/src/preload/index.ts#L21-L22)
-- [apps/desktop/src/main/index.ts:235-235](file://apps/desktop/src/main/index.ts#L235-L235)
+- [packages/protocol/schemas/document.ts:4-72](file://packages/protocol/schemas/document.ts#L4-L72)
+- [apps/desktop/src/shared/ipc-contract.ts:53-67](file://apps/desktop/src/shared/ipc-contract.ts#L53-L67)
+- [apps/desktop/src/preload/index.ts:27-28](file://apps/desktop/src/preload/index.ts#L27-L28)
+- [apps/desktop/src/main/index.ts:396-396](file://apps/desktop/src/main/index.ts#L396-L396)
 
 ## 核心组件
 - PDF 扫描器：按授权根目录列出 .pdf 文件，收集名称、绝对路径、修改时间、大小等元数据，并按修改时间倒序返回。
@@ -86,12 +86,12 @@ Extract --> DB
 - 协议与 IPC：定义 PDF 提取参数、结果类型与 IPC 通道，供渲染进程调用。
 
 **章节来源**
-- [apps/desktop/src/main/capabilities/filesystem-list.ts:6-31](file://apps/desktop/src/main/capabilities/filesystem-list.ts#L6-L31)
-- [apps/desktop/src/main/capabilities/document-extract-pdf.ts:31-68](file://apps/desktop/src/main/capabilities/document-extract-pdf.ts#L31-L68)
-- [apps/desktop/src/main/capabilities/executor.ts:157-172](file://apps/desktop/src/main/capabilities/executor.ts#L157-L172)
+- [apps/desktop/src/main/capabilities/filesystem.ts:48-77](file://apps/desktop/src/main/capabilities/plugins/filesystem.ts#L48-L77)
+- [apps/desktop/src/main/capabilities/document.ts:52-95](file://apps/desktop/src/main/capabilities/plugins/document.ts#L52-L95)
+- [apps/desktop/src/main/capabilities/executor.ts:117-128](file://apps/desktop/src/main/capabilities/executor.ts#L117-L128)
 - [apps/desktop/src/main/db/pdf-repository.ts:32-66](file://apps/desktop/src/main/db/pdf-repository.ts#L32-L66)
-- [packages/protocol/schemas/document.ts:5-31](file://packages/protocol/schemas/document.ts#L5-L31)
-- [apps/desktop/src/shared/ipc-contract.ts:38-52](file://apps/desktop/src/shared/ipc-contract.ts#L38-L52)
+- [packages/protocol/schemas/document.ts:4-72](file://packages/protocol/schemas/document.ts#L4-L72)
+- [apps/desktop/src/shared/ipc-contract.ts:53-67](file://apps/desktop/src/shared/ipc-contract.ts#L53-L67)
 
 ## 架构总览
 PDF 索引由“扫描—解析—持久化—查询”四阶段组成，能力执行器作为入口，协调文件系统、解析器与数据库。
@@ -122,11 +122,11 @@ Repo-->>Exec : 完成
 ```
 
 **图表来源**
-- [apps/desktop/src/main/index.ts:235-235](file://apps/desktop/src/main/index.ts#L235-L235)
-- [apps/desktop/src/preload/index.ts:21-22](file://apps/desktop/src/preload/index.ts#L21-L22)
-- [apps/desktop/src/main/capabilities/executor.ts:73-113](file://apps/desktop/src/main/capabilities/executor.ts#L73-L113)
-- [apps/desktop/src/main/capabilities/filesystem-list.ts:6-31](file://apps/desktop/src/main/capabilities/filesystem-list.ts#L6-L31)
-- [apps/desktop/src/main/capabilities/document-extract-pdf.ts:31-68](file://apps/desktop/src/main/capabilities/document-extract-pdf.ts#L31-L68)
+- [apps/desktop/src/main/index.ts:396-396](file://apps/desktop/src/main/index.ts#L396-L396)
+- [apps/desktop/src/preload/index.ts:27-28](file://apps/desktop/src/preload/index.ts#L27-L28)
+- [apps/desktop/src/main/capabilities/executor.ts:64-112](file://apps/desktop/src/main/capabilities/executor.ts#L64-L112)
+- [apps/desktop/src/main/capabilities/filesystem.ts:48-77](file://apps/desktop/src/main/capabilities/plugins/filesystem.ts#L48-L77)
+- [apps/desktop/src/main/capabilities/document.ts:52-95](file://apps/desktop/src/main/capabilities/plugins/document.ts#L52-L95)
 - [apps/desktop/src/main/db/pdf-repository.ts:32-66](file://apps/desktop/src/main/db/pdf-repository.ts#L32-L66)
 
 ## 详细组件分析
@@ -151,10 +151,10 @@ Next --> ForEach
 ```
 
 **图表来源**
-- [apps/desktop/src/main/capabilities/filesystem-list.ts:6-31](file://apps/desktop/src/main/capabilities/filesystem-list.ts#L6-L31)
+- [apps/desktop/src/main/capabilities/filesystem.ts:48-77](file://apps/desktop/src/main/capabilities/plugins/filesystem.ts#L48-L77)
 
 **章节来源**
-- [apps/desktop/src/main/capabilities/filesystem-list.ts:6-31](file://apps/desktop/src/main/capabilities/filesystem-list.ts#L6-L31)
+- [apps/desktop/src/main/capabilities/filesystem.ts:48-77](file://apps/desktop/src/main/capabilities/plugins/filesystem.ts#L48-L77)
 
 ### PDF 解析与内容提取
 - 输入：Uint8Array（原始 PDF 字节）。
@@ -190,10 +190,10 @@ FailNoText --> End
 ```
 
 **图表来源**
-- [apps/desktop/src/main/capabilities/document-extract-pdf.ts:31-68](file://apps/desktop/src/main/capabilities/document-extract-pdf.ts#L31-L68)
+- [apps/desktop/src/main/capabilities/document.ts:52-95](file://apps/desktop/src/main/capabilities/plugins/document.ts#L52-L95)
 
 **章节来源**
-- [apps/desktop/src/main/capabilities/document-extract-pdf.ts:31-68](file://apps/desktop/src/main/capabilities/document-extract-pdf.ts#L31-L68)
+- [apps/desktop/src/main/capabilities/document.ts:52-95](file://apps/desktop/src/main/capabilities/plugins/document.ts#L52-L95)
 
 ### 能力执行与错误封装
 - 入口：createExecutor 根据 scope 与 retriever 生成执行函数。
@@ -218,12 +218,12 @@ R-->>C : CapabilityOutcome(统一错误码)
 ```
 
 **图表来源**
-- [apps/desktop/src/main/capabilities/executor.ts:73-113](file://apps/desktop/src/main/capabilities/executor.ts#L73-L113)
-- [apps/desktop/src/main/capabilities/executor.ts:121-143](file://apps/desktop/src/main/capabilities/executor.ts#L121-L143)
-- [apps/desktop/src/main/capabilities/executor.ts:157-172](file://apps/desktop/src/main/capabilities/executor.ts#L157-L172)
+- [apps/desktop/src/main/capabilities/executor.ts:64-112](file://apps/desktop/src/main/capabilities/executor.ts#L64-L112)
+- [apps/desktop/src/main/capabilities/executor.ts:117-128](file://apps/desktop/src/main/capabilities/executor.ts#L117-L128)
+- [apps/desktop/src/main/capabilities/executor.ts:117-128](file://apps/desktop/src/main/capabilities/executor.ts#L117-L128)
 
 **章节来源**
-- [apps/desktop/src/main/capabilities/executor.ts:73-325](file://apps/desktop/src/main/capabilities/executor.ts#L73-L325)
+- [apps/desktop/src/main/capabilities/executor.ts:64-128](file://apps/desktop/src/main/capabilities/executor.ts#L64-L128)
 
 ### 元数据管理与持久化
 - 表结构：pdf_files(absolute_path PK, root_id, name, modified_at, size_bytes, first_seen_at, last_seen_at)。
@@ -260,10 +260,10 @@ PdfRepository --> Database : "使用"
 - 主进程：监听 personal-agent:indexed-pdfs 事件并返回结果。
 
 **章节来源**
-- [packages/protocol/schemas/document.ts:5-31](file://packages/protocol/schemas/document.ts#L5-L31)
-- [apps/desktop/src/shared/ipc-contract.ts:38-52](file://apps/desktop/src/shared/ipc-contract.ts#L38-L52)
-- [apps/desktop/src/preload/index.ts:21-22](file://apps/desktop/src/preload/index.ts#L21-L22)
-- [apps/desktop/src/main/index.ts:235-235](file://apps/desktop/src/main/index.ts#L235-L235)
+- [packages/protocol/schemas/document.ts:4-72](file://packages/protocol/schemas/document.ts#L4-L72)
+- [apps/desktop/src/shared/ipc-contract.ts:53-67](file://apps/desktop/src/shared/ipc-contract.ts#L53-L67)
+- [apps/desktop/src/preload/index.ts:27-28](file://apps/desktop/src/preload/index.ts#L27-L28)
+- [apps/desktop/src/main/index.ts:396-396](file://apps/desktop/src/main/index.ts#L396-L396)
 
 ## 依赖关系分析
 - 能力注册：registry.ts 声明 document.extract_pdf 能力。
@@ -284,19 +284,19 @@ IPC["preload/index.ts & main/index.ts"] --> Executor
 ```
 
 **图表来源**
-- [apps/desktop/src/main/capabilities/registry.ts:9-40](file://apps/desktop/src/main/capabilities/registry.ts#L9-L40)
-- [apps/desktop/src/main/capabilities/executor.ts:73-143](file://apps/desktop/src/main/capabilities/executor.ts#L73-L143)
-- [apps/desktop/src/main/capabilities/filesystem-list.ts:6-31](file://apps/desktop/src/main/capabilities/filesystem-list.ts#L6-L31)
-- [apps/desktop/src/main/capabilities/document-extract-pdf.ts:31-68](file://apps/desktop/src/main/capabilities/document-extract-pdf.ts#L31-L68)
+- [apps/desktop/src/main/capabilities/registry.ts:11-136](file://apps/desktop/src/main/capabilities/registry.ts#L11-L136)
+- [apps/desktop/src/main/capabilities/executor.ts:64-112](file://apps/desktop/src/main/capabilities/executor.ts#L64-L112)
+- [apps/desktop/src/main/capabilities/filesystem.ts:48-77](file://apps/desktop/src/main/capabilities/plugins/filesystem.ts#L48-L77)
+- [apps/desktop/src/main/capabilities/document.ts:52-95](file://apps/desktop/src/main/capabilities/plugins/document.ts#L52-L95)
 - [apps/desktop/src/main/db/pdf-repository.ts:32-66](file://apps/desktop/src/main/db/pdf-repository.ts#L32-L66)
 - [apps/desktop/src/main/db/database.ts:15-40](file://apps/desktop/src/main/db/database.ts#L15-L40)
-- [packages/protocol/schemas/document.ts:5-31](file://packages/protocol/schemas/document.ts#L5-L31)
-- [apps/desktop/src/preload/index.ts:21-22](file://apps/desktop/src/preload/index.ts#L21-L22)
-- [apps/desktop/src/main/index.ts:235-235](file://apps/desktop/src/main/index.ts#L235-L235)
+- [packages/protocol/schemas/document.ts:4-72](file://packages/protocol/schemas/document.ts#L4-L72)
+- [apps/desktop/src/preload/index.ts:27-28](file://apps/desktop/src/preload/index.ts#L27-L28)
+- [apps/desktop/src/main/index.ts:396-396](file://apps/desktop/src/main/index.ts#L396-L396)
 
 **章节来源**
-- [apps/desktop/src/main/capabilities/registry.ts:9-40](file://apps/desktop/src/main/capabilities/registry.ts#L9-L40)
-- [apps/desktop/src/main/capabilities/executor.ts:73-325](file://apps/desktop/src/main/capabilities/executor.ts#L73-L325)
+- [apps/desktop/src/main/capabilities/registry.ts:11-136](file://apps/desktop/src/main/capabilities/registry.ts#L11-L136)
+- [apps/desktop/src/main/capabilities/executor.ts:64-128](file://apps/desktop/src/main/capabilities/executor.ts#L64-L128)
 
 ## 性能与内存优化
 - 解析阶段
@@ -333,9 +333,9 @@ IPC["preload/index.ts & main/index.ts"] --> Executor
   - 使用测试夹具（buildPdf/buildEncryptedPdf/buildCorruptPdf/buildBlankPdf）复现边界情况。
 
 **章节来源**
-- [apps/desktop/src/main/capabilities/document-extract-pdf.ts:31-68](file://apps/desktop/src/main/capabilities/document-extract-pdf.ts#L31-L68)
-- [apps/desktop/src/main/capabilities/executor.ts:157-172](file://apps/desktop/src/main/capabilities/executor.ts#L157-L172)
-- [apps/desktop/src/main/capabilities/pdf-fixtures.ts:1-59](file://apps/desktop/src/main/capabilities/pdf-fixtures.ts#L1-L59)
+- [apps/desktop/src/main/capabilities/document.ts:52-95](file://apps/desktop/src/main/capabilities/plugins/document.ts#L52-L95)
+- [apps/desktop/src/main/capabilities/executor.ts:117-128](file://apps/desktop/src/main/capabilities/executor.ts#L117-L128)
+- [apps/desktop/src/main/capabilities/pdf-fixtures.ts:1-60](file://apps/desktop/src/main/capabilities/pdf-fixtures.ts#L1-L60)
 
 ## 结论
 本项目实现了可靠的 PDF 扫描、解析与元数据索引能力，具备完善的错误分类与资源释放机制。当前索引聚焦于元数据（文件名、路径、修改时间、大小等），全文检索尚未内置。若需全文搜索，可在现有元数据基础上引入外部搜索引擎（如 Elasticsearch、Meilisearch 或本地向量库），将每页文本与元数据联合索引，以实现高效检索。

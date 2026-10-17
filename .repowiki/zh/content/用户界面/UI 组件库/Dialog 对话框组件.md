@@ -5,7 +5,7 @@
 - [dialog.tsx](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx)
 - [DiagnosticsDialog.tsx](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx)
 - [IndexDialog.tsx](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx)
-- [PermissionDialog.tsx](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx)
+- [PermissionCard.tsx](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx)
 - [button.tsx](file://apps/desktop/src/renderer/src/components/ui/button.tsx)
 - [table.tsx](file://apps/desktop/src/renderer/src/components/ui/table.tsx)
 - [separator.tsx](file://apps/desktop/src/renderer/src/components/ui/separator.tsx)
@@ -62,7 +62,7 @@ PD --> B
 - [dialog.tsx:10-144](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx#L10-L144)
 - [DiagnosticsDialog.tsx:185-203](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx#L185-L203)
 - [IndexDialog.tsx:65-77](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx#L65-L77)
-- [PermissionDialog.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L136-L164)
+- [PermissionCard.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L136-L164)
 - [button.tsx:38-61](file://apps/desktop/src/renderer/src/components/ui/button.tsx#L38-L61)
 - [table.tsx:6-91](file://apps/desktop/src/renderer/src/components/ui/table.tsx#L6-L91)
 - [separator.tsx:5-25](file://apps/desktop/src/renderer/src/components/ui/separator.tsx#L5-L25)
@@ -71,7 +71,7 @@ PD --> B
 - [dialog.tsx:10-144](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx#L10-L144)
 - [DiagnosticsDialog.tsx:185-203](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx#L185-L203)
 - [IndexDialog.tsx:65-77](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx#L65-L77)
-- [PermissionDialog.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L136-L164)
+- [PermissionCard.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L136-L164)
 - [button.tsx:38-61](file://apps/desktop/src/renderer/src/components/ui/button.tsx#L38-L61)
 - [table.tsx:6-91](file://apps/desktop/src/renderer/src/components/ui/table.tsx#L6-L91)
 - [separator.tsx:5-25](file://apps/desktop/src/renderer/src/components/ui/separator.tsx#L5-L25)
@@ -87,7 +87,7 @@ PD --> B
 - [dialog.tsx:10-144](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx#L10-L144)
 - [DiagnosticsDialog.tsx:14-203](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx#L14-L203)
 - [IndexDialog.tsx:7-77](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx#L7-L77)
-- [PermissionDialog.tsx:15-164](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L15-L164)
+- [PermissionCard.tsx:15-164](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L15-L164)
 
 ## 架构总览
 对话框由应用层集中管理开合状态，通过受控模式传递给各业务对话框；业务对话框内部按需发起 IPC 获取数据，并在打开时挂载子树以触发副作用（如读取数据），关闭时卸载以清理资源。
@@ -228,13 +228,13 @@ Note over PD,A : 若失败或过期，保持面板可见以便用户理解原因
 ```
 
 图表来源
-- [PermissionDialog.tsx:30-134](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L30-L134)
-- [PermissionDialog.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L136-L164)
+- [PermissionCard.tsx:30-134](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L30-L134)
+- [PermissionCard.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L136-L164)
 - [App.tsx:117-156](file://apps/desktop/src/renderer/src/App.tsx#L117-L156)
 
 章节来源
-- [PermissionDialog.tsx:30-134](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L30-L134)
-- [PermissionDialog.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L136-L164)
+- [PermissionCard.tsx:30-134](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L30-L134)
+- [PermissionCard.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L136-L164)
 - [App.tsx:117-156](file://apps/desktop/src/renderer/src/App.tsx#L117-L156)
 
 ## 依赖关系分析
@@ -261,7 +261,7 @@ App["App"] --> Biz
 - [separator.tsx:5-25](file://apps/desktop/src/renderer/src/components/ui/separator.tsx#L5-L25)
 - [DiagnosticsDialog.tsx:185-203](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx#L185-L203)
 - [IndexDialog.tsx:65-77](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx#L65-L77)
-- [PermissionDialog.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L136-L164)
+- [PermissionCard.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L136-L164)
 - [App.tsx:288-299](file://apps/desktop/src/renderer/src/App.tsx#L288-L299)
 
 章节来源
@@ -271,7 +271,7 @@ App["App"] --> Biz
 - [separator.tsx:5-25](file://apps/desktop/src/renderer/src/components/ui/separator.tsx#L5-L25)
 - [DiagnosticsDialog.tsx:185-203](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx#L185-L203)
 - [IndexDialog.tsx:65-77](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx#L65-L77)
-- [PermissionDialog.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L136-L164)
+- [PermissionCard.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L136-L164)
 - [App.tsx:288-299](file://apps/desktop/src/renderer/src/App.tsx#L288-L299)
 
 ## 性能与可访问性
@@ -287,8 +287,8 @@ App["App"] --> Biz
 章节来源
 - [DiagnosticsDialog.tsx:22-35](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx#L22-L35)
 - [IndexDialog.tsx:16-24](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx#L16-L24)
-- [PermissionDialog.tsx:41-44](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L41-L44)
-- [PermissionDialog.tsx:141-148](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L141-L148)
+- [PermissionCard.tsx:41-44](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L41-L44)
+- [PermissionCard.tsx:141-148](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L141-L148)
 - [dialog.tsx:62-70](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx#L62-L70)
 
 ## 故障排查指南
@@ -303,7 +303,7 @@ App["App"] --> Biz
   - 确认 data-slot 未被覆盖导致样式失效
 
 章节来源
-- [PermissionDialog.tsx:141-148](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L141-L148)
+- [PermissionCard.tsx:141-148](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L141-L148)
 - [DiagnosticsDialog.tsx:27-45](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx#L27-L45)
 - [IndexDialog.tsx:16-24](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx#L16-L24)
 - [dialog.tsx:50-73](file://apps/desktop/src/renderer/src/components/ui/dialog.tsx#L50-L73)
@@ -328,7 +328,7 @@ App["App"] --> Biz
 - [App.tsx:288-299](file://apps/desktop/src/renderer/src/App.tsx#L288-L299)
 - [IndexDialog.tsx:65-77](file://apps/desktop/src/renderer/src/components/IndexDialog.tsx#L65-L77)
 - [DiagnosticsDialog.tsx:185-203](file://apps/desktop/src/renderer/src/components/DiagnosticsDialog.tsx#L185-L203)
-- [PermissionDialog.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionDialog.tsx#L136-L164)
+- [PermissionCard.tsx:136-164](file://apps/desktop/src/renderer/src/components/PermissionCard.tsx#L136-L164)
 
 ### 样式定制与主题适配
 - 全局样式

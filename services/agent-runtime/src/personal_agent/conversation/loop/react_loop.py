@@ -201,7 +201,9 @@ class ReActLoop:
             )
             sys.stderr.flush()
             try:
-                decision = self._decide_with_recovery(goal, visible_capabilities)
+                decision = self._decide_with_recovery(
+                    goal, visible_capabilities, steps_used
+                )
             except DeathSpiralError as e:
                 return self._fail(
                     events, str(e), steps_used, tool_calls_used, fault_source=e
@@ -671,13 +673,13 @@ class ReActLoop:
         )
 
     def _decide_with_recovery(
-        self, goal: str, visible_capabilities: Sequence[str]
+        self, goal: str, visible_capabilities: Sequence[str], steps_used: int = 0
     ) -> ModelDecision:
         attempt = 1
         attempted_actions: list[str] = []
         while True:
             try:
-                decision = self._decide(goal, visible_capabilities)
+                decision = self._decide(goal, visible_capabilities, steps_used)
                 self._path_breaker.record_success("silent_retry")
                 return decision
             except (ModelCallFailed, StreamStalledError) as e:
@@ -796,8 +798,28 @@ class ReActLoop:
             arguments=decision.arguments,
         )
 
-    def _decide(self, goal: str, visible_capabilities: Sequence[str]) -> ModelDecision:
-        context = self._context.build(goal, visible_capabilities)
+    def _decide(
+        self, goal: str, visible_capabilities: Sequence[str], steps_used: int = 0
+    ) -> ModelDecision:
+        current_step = steps_used + 1
+        percent = (
+            float(current_step) / self._budget.maxSteps
+            if self._budget.maxSteps > 0
+            else 0.0
+        )
+        reminder: list[str] = []
+        if percent >= 0.85:
+            remaining = max(0, self._budget.maxSteps - current_step)
+            reminder.append(
+                f"步数预算即将耗尽(已使用 {percent:.0%})，剩余 {remaining} 步，立即收敛回复真实状态。"
+            )
+        elif 0.70 <= percent < 0.85:
+            reminder.append(
+                f"步数预算已消耗 70% 以上 (当前已使用 {percent:.0%})，请注意聚焦核心目标并精简调用。"
+            )
+        context = self._context.build(
+            goal, visible_capabilities, system_reminders=reminder
+        )
         if self._watchdog is not None:
             self._watchdog.feed()
         if self._stream is None:

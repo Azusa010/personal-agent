@@ -16,6 +16,10 @@ export interface A2UIRendererProps {
   onAction?: (actionId: string, formData: Record<string, unknown>) => void
   initialValues?: Record<string, unknown>
   readOnly?: boolean
+  /** 标题由外层容器（内嵌卡片头）承担时置 true，避免重复一遍 */
+  hideTitle?: boolean
+  /** 去掉自带的描边与内边距，交给外层容器做卡片 */
+  bare?: boolean
   className?: string
 }
 

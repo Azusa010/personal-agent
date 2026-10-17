@@ -48,7 +48,19 @@ TRUNCATION_MARKER = "…[truncated]"
 # 只有这里的 key 所对应的字符串会被截。
 # 白名单而不是黑名单：新增 capability 的字段默认不截断（顶多上下文偏长），
 # 而不是默认截断（code / name / absolutePath 这类标识符被啃坏，任务静默失败）。
-TRUNCATABLE_KEYS = frozenset({"text", "reason"})
+TRUNCATABLE_KEYS = frozenset(
+    {
+        "text",
+        "reason",
+        "content",
+        "stdout",
+        "stderr",
+        "output",
+        "summary",
+        "snippet",
+        "answer",
+    }
+)
 
 
 def _walk(value: Any, limit: int, key: str | None) -> Any:
@@ -244,13 +256,21 @@ class ContextManager:
             )
 
     def build(
-        self, taskGoal: str, visibleCapabilities: Sequence[str], summarizer_fn=None,
-            current_timestamp: float | None = None
+        self,
+        taskGoal: str,
+        visibleCapabilities: Sequence[str],
+        summarizer_fn=None,
+        current_timestamp: float | None = None,
+        system_reminders: Sequence[str] = (),
     ) -> ModelContext:
         if self._sliding_window:
             if self._time_gatekeeper:
-                self._time_gatekeeper.check_and_handle_timeout(current_timestamp=current_timestamp)
-                self._time_gatekeeper.record_interaction(timestamp=current_timestamp or time.time())
+                self._time_gatekeeper.check_and_handle_timeout(
+                    current_timestamp=current_timestamp
+                )
+                self._time_gatekeeper.record_interaction(
+                    timestamp=current_timestamp or time.time()
+                )
             self._sliding_window.compact_if_needed(summarizer_fn=summarizer_fn)
             snap = self._sliding_window.get_active_window()
             if snap.rolling_task_summary:
@@ -401,4 +421,5 @@ class ContextManager:
             statusBar=sb_text if sb_text else None,
             userMemories=list(self._user_memories),
             systemPrompt=rendered_system_prompt,
+            systemReminders=list(system_reminders)
         )
