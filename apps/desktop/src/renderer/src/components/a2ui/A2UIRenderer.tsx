@@ -13,6 +13,8 @@ export function A2UIRenderer({
   onAction,
   initialValues,
   readOnly = false,
+  hideTitle = false,
+  bare = false,
   className = ''
 }: A2UIRendererProps): React.JSX.Element {
   const defaultValues = useMemo(() => {
@@ -45,9 +47,13 @@ export function A2UIRenderer({
 
   return (
     <div
-      className={`space-y-4 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm ${className}`}
+      className={
+        bare
+          ? `space-y-3 text-card-foreground ${className}`
+          : `space-y-4 rounded-[12px] border border-border bg-card p-4 text-card-foreground ${className}`
+      }
     >
-      {document.title && (
+      {document.title && !hideTitle && (
         <div className="border-b border-border pb-3">
           <h2 className="text-base font-semibold tracking-tight text-foreground">
             {document.title}

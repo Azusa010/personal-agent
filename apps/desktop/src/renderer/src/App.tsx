@@ -1,6 +1,6 @@
 import { WelcomeView } from './components/WelcomeView'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Edit2, Ellipsis } from 'lucide-react'
+import { ChevronDown, Ellipsis, Share2 } from 'lucide-react'
 import type {
   MessageView,
   PermissionDecision,
@@ -11,20 +11,20 @@ import type {
   A2UIRenderNotice,
   BotView
 } from '../../shared/ipc-contract'
-import { A2UIDialog } from './components/a2ui'
+import { A2UIInlineCard } from './components/a2ui'
 import { BotDialog } from './components/BotDialog'
 import { Composer } from './components/Composer'
 import { DiagnosticsDialog } from './components/DiagnosticsDialog'
 import { IndexDialog } from './components/IndexDialog'
 import { MessageStream } from './components/MessageStream'
-import { SettingsDialog } from './components/SettingsDialog'
-import { Sidebar } from './components/Sidebar'
+import { PermissionCard } from './components/PermissionCard'
+import { SettingsPage } from './components/SettingsPage'
+import { Sidebar, type AppView } from './components/Sidebar'
 import { TitleBar } from './components/TitleBar'
 import { WorkflowCenter } from './components/WorkflowCenter'
 import {
   applyStreamNotice,
   createInitialStreamState,
-  formatOccurredAt,
   type LiveStreamState,
   timelineToMarkdown
 } from './view-model'
@@ -57,7 +57,7 @@ function App(): React.JSX.Element {
     }
   })
 
-  const [activeView, setActiveView] = useState<'chat' | 'workflows'>('chat')
+  const [activeView, setActiveView] = useState<AppView>('chat')
   const [activeBotId, setActiveBotId] = useState<string | null>(null)
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<MessageView[]>([])
@@ -70,7 +70,6 @@ function App(): React.JSX.Element {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [indexOpen, setIndexOpen] = useState(false)
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const [botDialogOpen, setBotDialogOpen] = useState(false)
   const [editingBot, setEditingBot] = useState<BotView | null>(null)
 
@@ -320,6 +319,9 @@ function App(): React.JSX.Element {
   }
 
   const selected = conversations.find((c) => c.id === selectedConversationId) ?? null
+  // 新对话：消息轨道空着时，hero 与输入区合成一列居中，而不是 hero 浮在中间、输入框吊在底部
+  const showWelcome =
+    messages.length === 0 && !pendingText && messagesError === null && pendingPermission === null
   // 诊断面板与导出都跟着「最近一次执行」走：一段会话可能有多轮任务。
   const lastTaskId = [...messages].reverse().find((m) => m.taskId !== null)?.taskId ?? null
 
@@ -327,75 +329,83 @@ function App(): React.JSX.Element {
     <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-foreground">
       <TitleBar />
       <div className="flex min-h-0 flex-1">
-        <Sidebar
-          conversations={conversations}
-          selectedConversationId={selectedConversationId}
-          runtimeStatus={runtimeStatus}
-          indexedCount={indexedCount}
-          activeView={activeView}
-          bots={bots}
-          activeBotId={activeBot?.id ?? null}
-          onSelectView={setActiveView}
-          onSelectConversation={handleSelectConversation}
-          onSelectBot={handleSelectBot}
-          onCreateBot={handleCreateBot}
-          onEditBot={handleEditBot}
-          onNewChat={handleNewChat}
-          onOpenIndex={() => setIndexOpen(true)}
-          onOpenDiagnostics={() => setDiagnosticsOpen(true)}
-          onSettings={() => setSettingsOpen(true)}
-        />
+        {activeView !== 'settings' && (
+          <Sidebar
+            conversations={conversations}
+            selectedConversationId={selectedConversationId}
+            runtimeStatus={runtimeStatus}
+            indexedCount={indexedCount}
+            activeView={activeView}
+            bots={bots}
+            activeBotId={activeBot?.id ?? null}
+            onSelectView={setActiveView}
+            onSelectConversation={handleSelectConversation}
+            onSelectBot={handleSelectBot}
+            onCreateBot={handleCreateBot}
+            onEditBot={handleEditBot}
+            onNewChat={handleNewChat}
+            onOpenIndex={() => setIndexOpen(true)}
+            onOpenDiagnostics={() => setDiagnosticsOpen(true)}
+            onSettings={() => setActiveView('settings')}
+          />
+        )}
 
-        {activeView === 'chat' ? (
-          <section className="flex min-w-0 flex-1 flex-col">
-            <header className="flex h-[70px] shrink-0 items-center justify-between border-b border-border px-6">
-              <div className="flex items-center gap-3 min-w-0">
+        {activeView === 'settings' ? (
+          <SettingsPage
+            onBack={() => setActiveView('chat')}
+            onSaved={() => {
+              setStatusPollKey((key) => key + 1)
+              void queryClient.invalidateQueries({ queryKey: ['agentProfile'] })
+            }}
+          />
+        ) : activeView === 'chat' ? (
+          <section className="relative flex min-w-0 flex-1 flex-col">
+            <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
+              <div className="flex min-w-0 items-center gap-2.5">
                 {activeBot && (
-                  <div
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-secondary text-xl shadow-xs cursor-pointer hover:border-primary/50 transition-colors"
+                  <button
+                    type="button"
                     title="点击编辑智能体人设"
                     onClick={() => handleEditBot(activeBot)}
+                    className="flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-border pl-1 pr-2 transition-colors hover:bg-secondary"
                   >
-                    {activeBot.avatar || '🤖'}
-                  </div>
+                    <span className="grid size-5 place-items-center rounded-full bg-foreground text-[10px] leading-none text-background">
+                      {activeBot.avatar || '🤖'}
+                    </span>
+                    <span className="max-w-[132px] truncate text-[12.5px] font-medium">
+                      {activeBot.name}
+                    </span>
+                    <ChevronDown size={12} className="text-muted-foreground" />
+                  </button>
                 )}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h2 className="m-0 truncate text-[15px] font-semibold">
-                      {selected === null
-                        ? activeBot
-                          ? `与 ${activeBot.name} 的对话`
-                          : '新对话'
-                        : selected.title}
-                    </h2>
-                    {activeBot && (
-                      <button
-                        type="button"
-                        title="编辑伴侣人设"
-                        onClick={() => handleEditBot(activeBot)}
-                        className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-                      >
-                        <Edit2 size={13} />
-                      </button>
-                    )}
-                  </div>
-                  <p className="m-0 mt-0.5 truncate text-[11px] text-muted-foreground">
-                    {activeBot?.description
-                      ? activeBot.description
-                      : selected === null
-                        ? '本地优先的个人助理'
-                        : `最近活动 ${formatOccurredAt(selected.updatedAt)}`}
-                  </p>
-                </div>
+                <span className="h-3.5 w-px shrink-0 bg-border" />
+                <span className="truncate text-[12.5px] text-muted-foreground">
+                  {selected === null
+                    ? messages.length === 0
+                      ? '新对话'
+                      : activeBot?.name || '会话'
+                    : selected.title}
+                </span>
               </div>
-              <button
-                type="button"
-                aria-label="更多操作"
-                onClick={() => showFeedback('更多会话操作暂未实现。')}
-                className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
-              >
-                <Ellipsis size={18} />
-              </button>
+              <div className="flex shrink-0 items-center gap-0.5">
+                <button
+                  type="button"
+                  aria-label="导出本轮记录"
+                  title="复制本轮记录为 Markdown"
+                  onClick={() => void handleExport()}
+                  className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  <Share2 size={15} />
+                </button>
+                <button
+                  type="button"
+                  aria-label="更多操作"
+                  onClick={() => showFeedback('更多会话操作暂未实现。')}
+                  className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  <Ellipsis size={17} />
+                </button>
+              </div>
             </header>
 
             <div className="relative flex min-h-0 flex-1 flex-col">
@@ -407,39 +417,65 @@ function App(): React.JSX.Element {
                 streamState={streamState}
                 agentName={activeBot ? activeBot.name : agentProfile?.name}
                 thinkingByTaskId={thinkingByTaskId}
-                pendingPermission={pendingPermission}
-                onDecidePermission={handleDecide}
+                inlineForm={
+                  activeA2UIRender !== null ? (
+                    <A2UIInlineCard
+                      render={activeA2UIRender}
+                      onSubmit={handleA2UISubmit}
+                      onClose={() => setActiveA2UIRender(null)}
+                    />
+                  ) : null
+                }
               />
 
-              {messages.length === 0 &&
-                !pendingText &&
-                messagesError === null &&
-                pendingPermission === null && (
-                  <div className="absolute inset-0 z-10 flex flex-col justify-end bg-background">
-                    <WelcomeView
-                      activeBot={activeBot}
-                      onAction={(text) => void handleSend(text)}
-                      onEditBot={handleEditBot}
-                    />
-                    {feedback !== null && (
-                      <p className="pb-3 text-center text-[12px] text-muted-foreground">
-                        {feedback}
-                      </p>
-                    )}
-                  </div>
-                )}
+              {showWelcome && (
+                <div className="absolute inset-0 z-10 flex flex-col bg-background">
+                  <WelcomeView
+                    activeBot={activeBot}
+                    onAction={(text) => void handleSend(text)}
+                    onEditBot={handleEditBot}
+                    composer={
+                      <Composer
+                        variant="inline"
+                        running={running}
+                        inputRef={inputRef}
+                        activeBot={activeBot}
+                        onSend={(text) => void handleSend(text)}
+                        onScan={() => void handleScan()}
+                        onOpenIndex={() => setIndexOpen(true)}
+                        onOpenDiagnostics={() => setDiagnosticsOpen(true)}
+                        onExport={() => void handleExport()}
+                      />
+                    }
+                  />
+                  {feedback !== null && (
+                    <p className="pb-3 text-center text-[12px] text-muted-foreground">{feedback}</p>
+                  )}
+                </div>
+              )}
             </div>
 
-            <Composer
-              running={running}
-              inputRef={inputRef}
-              activeBot={activeBot}
-              onSend={(text) => void handleSend(text)}
-              onScan={() => void handleScan()}
-              onOpenIndex={() => setIndexOpen(true)}
-              onOpenDiagnostics={() => setDiagnosticsOpen(true)}
-              onExport={() => void handleExport()}
-            />
+            {/* 审批：自输入区上拉的非模态面板，对话仍可读可滚动 */}
+            {pendingPermission !== null && (
+              <PermissionCard
+                key={pendingPermission.id}
+                permission={pendingPermission}
+                onDecide={handleDecide}
+              />
+            )}
+
+            {!showWelcome && (
+              <Composer
+                running={running}
+                inputRef={inputRef}
+                activeBot={activeBot}
+                onSend={(text) => void handleSend(text)}
+                onScan={() => void handleScan()}
+                onOpenIndex={() => setIndexOpen(true)}
+                onOpenDiagnostics={() => setDiagnosticsOpen(true)}
+                onExport={() => void handleExport()}
+              />
+            )}
           </section>
         ) : (
           <WorkflowCenter onCompleted={() => void loadIndexedCount()} />
@@ -452,24 +488,11 @@ function App(): React.JSX.Element {
         onOpenChange={setDiagnosticsOpen}
         taskId={lastTaskId}
       />
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        onSaved={() => {
-          setStatusPollKey((key) => key + 1)
-          void queryClient.invalidateQueries({ queryKey: ['agentProfile'] })
-        }}
-      />
       <BotDialog
         open={botDialogOpen}
         onOpenChange={setBotDialogOpen}
         bot={editingBot}
         onSaved={handleBotSaved}
-      />
-      <A2UIDialog
-        render={activeA2UIRender}
-        onSubmit={handleA2UISubmit}
-        onClose={() => setActiveA2UIRender(null)}
       />
     </div>
   )

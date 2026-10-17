@@ -16,13 +16,17 @@ import {
 import type { PermissionDecision, PermissionRecord } from '../../../shared/ipc-contract'
 import { describeReminderPreview, formatOccurredAt } from '../view-model'
 import { Button } from './ui/button'
-import { Card, CardContent } from './ui/card'
 import { cn } from '@renderer/lib/utils'
 
 export interface PermissionCardProps {
   /** 非空时卡片出现在会话流内;决定后由 App 清空状态、卡片随之消失 */
   permission: PermissionRecord
   onDecide: (decision: PermissionDecision) => Promise<void>
+}
+
+function baseName(path: string): string {
+  const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path
+  return name.length > 24 ? `${name.slice(0, 23)}…` : name
 }
 
 function Row({
@@ -35,8 +39,13 @@ function Row({
   className?: string
 }): React.JSX.Element {
   return (
-    <div className={cn('grid grid-cols-[76px_minmax(0,1fr)] gap-3 text-[12px]', className)}>
-      <span className="text-muted-foreground font-medium shrink-0 pt-0.5">{label}</span>
+    <div
+      className={cn(
+        'grid grid-cols-[52px_minmax(0,1fr)] items-start gap-2.5 border-t border-[#f5f5f6] py-[7px] text-[12.5px]',
+        className
+      )}
+    >
+      <span className="shrink-0 pt-[3px] text-[11px] text-[#a8a8b0]">{label}</span>
       <div className="min-w-0">{children}</div>
     </div>
   )
@@ -339,172 +348,200 @@ export function PermissionCard({ permission, onDecide }: PermissionCardProps): R
   const preview = describeReminderPreview(permission)
   const ringDeg = windowClosed ? 0 : Math.round((remainingSec / totalSec) * 360)
 
+  const fileCount = permission.sourcePaths.length
+  const firstFile = fileCount > 0 ? baseName(permission.sourcePaths[0]) : null
+  const title =
+    preview !== null
+      ? '允许创建这个提醒？'
+      : permission.capability === 'filesystem_move'
+        ? fileCount > 1
+          ? `允许移动 ${fileCount} 个文件？`
+          : '允许移动这个文件？'
+        : permission.capability === 'terminal_execute'
+          ? '允许执行这条命令？'
+          : permission.capability === 'file_write' && firstFile !== null
+            ? `允许写入 ${firstFile}？`
+            : permission.capability === 'file_edit' && firstFile !== null
+              ? `允许修改 ${firstFile}？`
+              : `允许${meta.label}？`
+
   return (
-    <Card className="gap-0 overflow-hidden rounded-2xl border-[var(--amber-line)] py-0 shadow-[0_1px_2px_rgba(94,80,53,0.06),0_6px_20px_rgba(161,98,7,0.12)]">
-      {/* 琥珀警示带:标题 + 能力徽章 + 环形倒计时 */}
-      <div className="flex items-center gap-2.5 border-b border-[var(--amber-line)] bg-[var(--amber-tint)] px-4 py-2.5">
-        <AlertTriangle size={16} className="shrink-0 text-[var(--amber-strong)]" />
-        <span className="font-serif shrink-0 text-[13.5px] font-bold text-[var(--amber-strong)]">
-          需要你批准
-        </span>
-        <span
-          className={cn(
-            'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium',
-            meta.badgeClass
-          )}
-        >
-          <Icon size={12} />
-          <span>{meta.label}</span>
-        </span>
-        <div
-          className={cn(
-            'relative ml-auto grid size-9 shrink-0 place-items-center rounded-full',
-            isUrgent && 'animate-pulse'
-          )}
-          style={{
-            background: `conic-gradient(${
-              windowClosed ? 'var(--destructive)' : isUrgent ? 'var(--amber-strong)' : 'var(--mint)'
-            } ${ringDeg}deg, var(--border) 0)`
-          }}
-        >
-          <div className="absolute inset-[3px] rounded-full bg-card" />
-          <span className="relative font-mono text-[10px] font-bold">
-            {windowClosed ? '0' : remainingSec}
-          </span>
-        </div>
-      </div>
+    <>
+      {/* 面板上方的一层短渐变：让对话在面板边缘淡出，而不是被硬切一刀 */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-24 bg-gradient-to-t from-background via-background/70 to-transparent" />
 
-      {/* 内容区 */}
-      <CardContent className="space-y-3 px-4 pt-3 pb-3.5">
-        <p className="m-0 text-[12px] text-muted-foreground">{meta.description}</p>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center px-6">
+        <div className="pointer-events-auto w-full max-w-[760px] overflow-hidden rounded-t-[16px] border border-b-0 border-[#e4e4e7] bg-[linear-gradient(180deg,#fff9ea_0,rgba(255,249,234,0)_104px),linear-gradient(#fff,#fff)] shadow-[0_-1px_2px_rgba(9,9,11,0.04),0_-24px_56px_-30px_rgba(9,9,11,0.34)]">
+          <div className="grid h-3.5 place-items-center">
+            <span className="block h-[3px] w-[30px] rounded-full bg-[#dcdce0]" />
+          </div>
 
-        {preview === null ? (
-          <>
-            {permission.sourcePaths.length > 0 && (
-              <Row label="影响文件">
-                <div className="space-y-1">
-                  <span className="text-foreground">{permission.sourcePaths.length} 个文件</span>
-                  <ul className="m-0 list-none space-y-1 p-0">
-                    {permission.sourcePaths.map((path) => (
-                      <li
-                        key={path}
-                        className="font-mono rounded border border-border/40 bg-[var(--paper-warm)] px-2 py-0.5 text-[11px] break-all text-foreground/90"
-                      >
-                        {path}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+          {/* 标题：琥珀图标 + 一句问句 + 倒计时 */}
+          <div className="flex items-start gap-2.5 px-[18px] pb-2.5">
+            <div className="grid size-[30px] shrink-0 place-items-center rounded-[9px] border border-[var(--amber-line)] bg-[var(--amber-tint)] text-[var(--amber-strong)]">
+              <Icon size={15} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[15px] font-semibold leading-[1.3] tracking-[-0.018em] text-foreground">
+                {title}
+              </div>
+              <div className="mt-[3px] text-[11.5px] text-muted-foreground">
+                发起于 {formatOccurredAt(permission.requestedAt)} · 确认后才会执行
+              </div>
+            </div>
+            <div
+              className={cn(
+                'grid size-[34px] shrink-0 place-items-center rounded-full',
+                isUrgent && !windowClosed && 'animate-pulse'
+              )}
+              style={{
+                background: `conic-gradient(${
+                  windowClosed ? 'var(--destructive)' : isUrgent ? 'var(--amber-strong)' : '#d97706'
+                } ${ringDeg}deg, #fde68a 0)`
+              }}
+              title="批准窗口剩余时间"
+            >
+              <div className="grid size-[26px] place-items-center rounded-full bg-background font-mono text-[9.5px] font-semibold text-[#92400e]">
+                {windowClosed ? '0' : remainingSec}
+              </div>
+            </div>
+          </div>
+
+          {/* 内容：影响范围 / 目标位置 / 执行说明 / 指纹 */}
+          <div className="max-h-[42vh] overflow-y-auto px-[18px]">
+            {preview === null ? (
+              <>
+                {fileCount > 0 && (
+                  <Row label="影响范围">
+                    <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+                      {permission.sourcePaths.slice(0, 3).map((path) => (
+                        <span
+                          key={path}
+                          className="inline-flex items-center gap-1 rounded-[5px] border border-border bg-[#fafafa] px-1.5 py-[2px] font-mono text-[10px] text-[#52525b]"
+                          title={path}
+                        >
+                          <FileText size={9} className="shrink-0 text-muted-foreground" />
+                          {baseName(path)}
+                        </span>
+                      ))}
+                      {fileCount > 3 && (
+                        <span className="text-[11px] text-muted-foreground">
+                          另有 {fileCount - 3} 个
+                        </span>
+                      )}
+                    </div>
+                  </Row>
+                )}
+
+                {permission.targetPath !== null && (
+                  <Row label="目标位置">
+                    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                      <span className="inline-flex items-center gap-1 rounded-[5px] border border-[var(--mint-line)] bg-[var(--mint-tint)] px-1.5 py-[2px] font-mono text-[10px] break-all text-[#065f46]">
+                        <ArrowRight size={9} className="shrink-0" />
+                        {permission.targetPath}
+                      </span>
+                    </div>
+                  </Row>
+                )}
+
+                <Row label="执行说明">
+                  <span className="text-[12px] leading-[1.6] text-[#52525b]">
+                    {meta.description}
+                  </span>
+                </Row>
+              </>
+            ) : (
+              <>
+                <Row label="提醒时间">
+                  <span className="text-[12.5px] font-medium text-foreground">
+                    {formatOccurredAt(preview.remindAt)}
+                  </span>
+                </Row>
+
+                {preview.message !== null && (
+                  <Row label="提醒内容">
+                    <span className="inline-block rounded-[5px] border border-border bg-[#fafafa] px-2 py-[3px] text-[12px] text-foreground">
+                      {preview.message}
+                    </span>
+                  </Row>
+                )}
+              </>
+            )}
+
+            {(permission.capability === 'file_write' ||
+              permission.capability === 'file_edit' ||
+              permission.capability === 'terminal_execute' ||
+              permission.capability === 'scheduler_create') && (
+              <Row label="参数">
+                <SmartArgumentsPreview
+                  capability={permission.capability}
+                  argsCanonical={permission.argsCanonical}
+                />
               </Row>
             )}
 
-            {permission.targetPath !== null && (
-              <Row label="目标位置">
-                <div className="font-mono flex items-center gap-1.5 rounded-md border border-[var(--mint-line)] bg-[var(--mint-tint)] px-2.5 py-1.5 text-[11px] break-all text-[#1d4f49]">
-                  <ArrowRight size={12} className="shrink-0 text-[var(--mint-deep)]" />
-                  <span>{permission.targetPath}</span>
-                </div>
-              </Row>
-            )}
-          </>
-        ) : (
-          <>
-            <Row label="提醒时间">
-              <span className="font-medium text-foreground">
-                {formatOccurredAt(preview.remindAt)}
-              </span>
-            </Row>
+            <div className="flex items-center gap-1.5 border-t border-[#f5f5f6] py-1.5 font-mono text-[9.5px] text-[#b8b8bf]">
+              <ShieldAlert size={10} />
+              参数指纹 {permission.argsHash.slice(0, 12)}…<span className="text-[#dcdce0]">·</span>
+              {windowClosed ? '窗口已关闭，不会执行' : `${remainingSec} 秒后自动拒绝`}
+            </div>
+          </div>
 
-            {preview.message !== null && (
-              <Row label="提醒内容">
-                <span className="inline-block rounded border border-border/40 bg-[var(--paper-warm)] px-2 py-1 text-foreground">
-                  {preview.message}
+          {/* 操作区 */}
+          <div className="flex items-center justify-between gap-3.5 border-t border-[#f5f5f6] px-[18px] pb-[15px] pt-2.5">
+            <div className="flex items-center gap-1.5 text-[10.5px] text-[#b3b3b8]">
+              {windowClosed ? (
+                <span className="flex items-center gap-1 font-medium text-destructive">
+                  <AlertTriangle size={12} />
+                  批准窗口已关闭
                 </span>
-              </Row>
-            )}
-          </>
-        )}
+              ) : (
+                <span className="hidden items-center gap-1 sm:flex">
+                  按{' '}
+                  <kbd className="rounded border border-border px-1 py-[1px] font-mono text-[9.5px] text-[#71717a]">
+                    Enter
+                  </kbd>{' '}
+                  批准 ·{' '}
+                  <kbd className="rounded border border-border px-1 py-[1px] font-mono text-[9.5px] text-[#71717a]">
+                    Esc
+                  </kbd>{' '}
+                  拒绝
+                </span>
+              )}
+            </div>
 
-        {/* 智能参数与代码预览 */}
-        <SmartArgumentsPreview
-          capability={permission.capability}
-          argsCanonical={permission.argsCanonical}
-        />
-
-        {/* 审计元数据 */}
-        <div className="space-y-1.5 rounded-lg border border-border/50 bg-[var(--paper-warm)] p-3 text-[11px] text-muted-foreground">
-          <div className="flex items-center justify-between">
-            <span>参数校验指纹</span>
-            <span className="font-mono text-foreground">{permission.argsHash.slice(0, 12)}</span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-action="deny"
+                disabled={disabled}
+                onClick={() => void decide('denied')}
+                className="min-w-16"
+              >
+                <X size={13} className="mr-1 text-muted-foreground" />
+                拒绝
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={disabled}
+                onClick={() => void decide('approved')}
+                className={cn(
+                  'min-w-[104px] font-medium',
+                  permission.capability === 'terminal_execute'
+                    ? 'bg-[#be123c] text-white hover:bg-[#9f1239]'
+                    : 'bg-foreground text-background hover:bg-foreground/90'
+                )}
+              >
+                <Check size={13} className="mr-1" />
+                {submitting ? '提交中…' : '批准并继续'}
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center justify-between">
-            <span>请求发起时刻</span>
-            <span>{formatOccurredAt(permission.requestedAt)}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>截止失效时刻</span>
-            <span>
-              {Number.isNaN(expiresMs)
-                ? permission.expiresAt
-                : formatOccurredAt(permission.expiresAt)}
-            </span>
-          </div>
-        </div>
-      </CardContent>
-
-      {/* 吸底操作区 */}
-      <div className="flex flex-row items-center justify-between gap-3 border-t border-border/60 bg-[var(--paper-warm)] px-4 py-3">
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          {windowClosed ? (
-            <span className="flex items-center gap-1 font-medium text-destructive">
-              <AlertTriangle size={13} />
-              批准窗口已关闭，此操作不会被执行
-            </span>
-          ) : (
-            <span className="hidden items-center gap-1 sm:flex">
-              快捷键:{' '}
-              <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-                Enter
-              </kbd>{' '}
-              批准 ·{' '}
-              <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-                Esc
-              </kbd>{' '}
-              拒绝
-            </span>
-          )}
-        </div>
-
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            data-action="deny"
-            disabled={disabled}
-            onClick={() => void decide('denied')}
-            className="min-w-16"
-          >
-            <X size={14} className="mr-1 text-muted-foreground" />
-            拒绝
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            disabled={disabled}
-            onClick={() => void decide('approved')}
-            className={cn(
-              'min-w-20 font-medium shadow-xs',
-              permission.capability === 'terminal_execute'
-                ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                : 'bg-primary text-primary-foreground shadow-[0_4px_14px_rgba(15,157,143,0.35)] hover:bg-primary/90'
-            )}
-          >
-            <Check size={14} className="mr-1" />
-            {submitting ? '提交中…' : '批准执行'}
-          </Button>
         </div>
       </div>
-    </Card>
+    </>
   )
 }

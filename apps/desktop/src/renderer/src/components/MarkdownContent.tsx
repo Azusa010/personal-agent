@@ -86,7 +86,7 @@ export function MarkdownContent({
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary underline underline-offset-2 hover:opacity-80 transition-opacity font-medium"
+                className="font-medium text-[#4f46e5] underline underline-offset-2 transition-opacity hover:opacity-80"
               >
                 {children}
               </a>

@@ -1,21 +1,15 @@
 import React, { useRef } from 'react'
 import gsap from 'gsap'
 import { useGSAP } from '@gsap/react'
-import {
-  Code,
-  FileSearch,
-  MessageSquare,
-  Sparkles,
-  Columns2,
-  Bug,
-  Edit2
-} from 'lucide-react'
+import { Code, FileSearch, MessageSquare, Sparkles, Columns2, Bug, Edit2 } from 'lucide-react'
 import type { BotView } from '../../../shared/ipc-contract'
 
 export interface WelcomeViewProps {
   activeBot?: BotView | null
   onAction: (text: string) => void
   onEditBot?: (bot: BotView) => void
+  /** 新对话态把输入区收进同一列，hero 与输入框是一个整体 */
+  composer?: React.ReactNode
 }
 
 interface SuggestionItem {
@@ -142,7 +136,8 @@ function getSuggestionsForBot(bot?: BotView | null): SuggestionItem[] {
 export function WelcomeView({
   activeBot,
   onAction,
-  onEditBot
+  onEditBot,
+  composer
 }: WelcomeViewProps): React.JSX.Element {
   const container = useRef<HTMLDivElement>(null)
 
@@ -216,27 +211,30 @@ export function WelcomeView({
 
   const suggestions = getSuggestionsForBot(activeBot)
 
-  const greetingTitle = activeBot ? `你好，我是 ${activeBot.name}` : 'How can I help you today?'
+  const greetingTitle = activeBot ? `你好，我是 ${activeBot.name}` : '今天想做点什么？'
   const greetingSubtitle = activeBot
     ? activeBot.description || activeBot.persona.slice(0, 100) || '你的专属智能体伴侣'
-    : 'Your local, private AI agent is ready.'
+    : '本地运行，文件不出这台机器。写入类操作会先请你批准。'
 
   return (
     <div
       ref={container}
       className="relative flex min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-background px-6 py-6 text-foreground"
     >
-      {/* Centered Hero Greeting */}
-      <div className="hero-greeting mb-8 max-w-2xl text-center">
-        {activeBot && (
-          <div className="mb-4 inline-flex items-center gap-2">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-secondary text-3xl shadow-xs">
+      <div className="hero-greeting mb-7 max-w-[560px] text-center">
+        <div className="mb-4 inline-flex items-center gap-2">
+          {activeBot ? (
+            <span className="grid size-[46px] place-items-center rounded-[14px] border border-border bg-secondary text-2xl">
               {activeBot.avatar || '🤖'}
             </span>
-          </div>
-        )}
+          ) : (
+            <span className="grid size-[46px] place-items-center rounded-[14px] bg-foreground text-background shadow-[0_12px_28px_-12px_rgba(9,9,11,0.45)]">
+              <Sparkles size={20} strokeWidth={2} />
+            </span>
+          )}
+        </div>
         <div className="flex items-center justify-center gap-2">
-          <h1 className="mb-2 text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+          <h1 className="m-0 text-[28px] font-semibold leading-tight tracking-[-0.03em]">
             {greetingTitle}
           </h1>
           {activeBot && onEditBot && (
@@ -244,32 +242,37 @@ export function WelcomeView({
               type="button"
               title="修改人设"
               onClick={() => onEditBot(activeBot)}
-              className="mb-2 rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
-              <Edit2 size={16} />
+              <Edit2 size={15} />
             </button>
           )}
         </div>
-        <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+        <p className="mx-auto mb-0 mt-1.5 max-w-[480px] text-[13.5px] leading-[1.7] text-muted-foreground">
           {greetingSubtitle}
         </p>
       </div>
 
-      {/* Suggestion Chips Grid */}
-      <div className="grid w-full max-w-2xl grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="grid w-full max-w-[760px] grid-cols-1 gap-2.5 sm:grid-cols-2">
         {suggestions.map((item, idx) => (
           <button
             key={idx}
-            className="suggestion-chip flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left transition-colors duration-200 hover:bg-secondary"
+            className="suggestion-chip flex items-start gap-2.5 rounded-[12px] border border-border bg-background p-3 text-left transition-colors duration-150 hover:border-[#dedee2] hover:bg-[#fcfcfc]"
             onMouseMove={handleMagnetic}
             onMouseLeave={handleMouseLeave}
             onClick={() => onAction(item.prompt)}
           >
-            <div className="flex-shrink-0 text-muted-foreground">{item.icon}</div>
-            <span className="text-sm font-medium text-card-foreground">{item.text}</span>
+            <span className="grid size-[27px] shrink-0 place-items-center rounded-[8px] bg-secondary text-[#52525b]">
+              {React.cloneElement(item.icon, { size: 15 })}
+            </span>
+            <span className="pt-[3px] text-[12.5px] font-medium leading-[1.4] text-foreground">
+              {item.text}
+            </span>
           </button>
         ))}
       </div>
+
+      {composer !== undefined && <div className="mt-3 w-full max-w-[760px]">{composer}</div>}
     </div>
   )
 }

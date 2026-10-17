@@ -1,10 +1,5 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
-/* Claude 式书卷衬线:拉丁 Source Serif 4 + 中文思源宋体(npm 自托管,CSP 无需放行外域) */
-@import '@fontsource/source-serif-4/600.css';
-@import '@fontsource/source-serif-4/700.css';
-@import '@fontsource/noto-serif-sc/600.css';
-@import '@fontsource/noto-serif-sc/700.css';
 
 /* shadcn 的组件用 dark: 前缀写暗色分支，这个变体让 dark: 等于「.dark 祖先之下」。
    不加这一行，dark: 会退回成 @media (prefers-color-scheme: dark)，
@@ -13,10 +8,13 @@
 
 @theme inline {
   --font-sans:
-    Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei',
+    'Helvetica Neue', sans-serif;
+  /* 衬线在旧稿里承担标题，新稿不用；保留变量名指向同一套无衬线，
+     免得遗留的 font-serif 处掉回系统宋体。 */
   --font-serif:
-    'Source Serif 4', 'Noto Serif SC', 'Songti SC', 'STSong', 'SimSun', Georgia, 'Times New Roman',
-    serif;
+    Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei',
+    sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
 
   --color-background: var(--background);
@@ -56,190 +54,97 @@
   --radius-xl: calc(var(--radius) * 1.4);
 }
 
-/* 亮色这一套用不上（index.html 把 dark 钉在 <html> 上），
-   但 token 必须两套都齐：shadcn 的组件类里凡是没带 dark: 前缀的分支走的就是这里，
-   少定义一个变量就会渲染成 Tailwind 的默认灰，而不是「看不见」。 */
-/* ── 温暖纸感主题(docs/design/ui-mockup.html 定稿)──
-   index.html 把 class="dark" 钉在 <html> 上,shadcn 的 dark: 变体因此永远生效;
-   所以两套 token 必须取同一组纸感值——改色只改这里,组件层零改动。 */
+/* ── 中性灰阶 + 单一强调色 ──
+   shadcn 的默认语言：白底、1px 发丝描边、无重阴影。
+   主操作走近黑（#18181b），靛蓝只用于「进行中」与页码依据，琥珀只出现在「需要你批准」。
+   index.html 把 class="dark" 钉在 <html> 上，所以 .dark 与 :root 取同一组值，
+   将来要做真暗色，只需在这里另立 .dark 一套、并解除钉死。 */
 :root {
   --radius: 0.75rem;
 
-  --background: #f6f3ec; /* 纸白 */
-  --foreground: #3a372f; /* 暖墨 */
-  --card: #fffdf8; /* 暖白卡片 */
-  --card-foreground: #3a372f;
-  --popover: #fffdf8;
-  --popover-foreground: #3a372f;
-  /* 主操作走薄荷青绿:发送、批准、选中态、进行中动画——一个界面只有一个第一眼 */
-  --primary: #0f9d8f;
-  --primary-foreground: #ffffff;
-  --secondary: #efe9dd; /* 深纸(侧栏、次级面) */
-  --secondary-foreground: #3a372f;
-  --muted: #efe9dd;
-  --muted-foreground: #6e675a;
-  --accent: #e4f3f0; /* hover 薄荷浅底 */
-  --accent-foreground: #0b7e73;
-  --destructive: #bf4a42;
+  --background: #ffffff;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f6f6f7;
+  --accent-foreground: #18181b;
+  --destructive: #be123c;
   --destructive-foreground: #ffffff;
-  --border: #e4ddcf; /* 暖边线 */
-  --input: #d3c9b6;
-  --ring: #0f9d8f;
 
-  /* 设计实验室带入的扩展令牌(超出 shadcn 语义集的部分) */
-  --paper-warm: #faf7f1;
-  --mint: #0f9d8f;
-  --mint-deep: #0b7e73;
-  --mint-tint: #e4f3f0;
-  --mint-line: #bfe0d9;
-  --amber-strong: #8a5106;
-  --amber-tint: #fdf3e2;
-  --amber-line: #eed9ae;
+  --border: #ededed;
+  --input: #e4e4e7;
+  --ring: #a1a1aa;
 
-  --success: #2f6b4f;
-  --success-foreground: #f2fbf6;
-  --warning: #a16207;
-  --warning-foreground: #fdf8ee;
-  --info: #3a5a8c;
-  --info-foreground: #f2f6fc;
+  /* 三个语义色：成功、待批准、可点击的依据 */
+  --success: #059669;
+  --success-foreground: #f0fdf4;
+  --warning: #b45309;
+  --warning-foreground: #fffbeb;
+  --info: #4f46e5;
+  --info-foreground: #eef2ff;
+
+  /* 旧设计语言的别名：组件里已有大量 var(--mint*) / var(--amber*) / var(--paper-warm)，
+     这里统一映射到新色板，避免逐处改色时漏掉。新代码请直接用语义 token。 */
+  --paper-warm: #fafafa;
+  --mint: #4f46e5;
+  --mint-deep: #4338ca;
+  --mint-tint: #eef2ff;
+  --mint-line: #e0e7ff;
+  --amber-strong: #b45309;
+  --amber-tint: #fffbeb;
+  --amber-line: #fde68a;
 }
 
-/* 与 :root 同值:dark: 变体取到的也是这套纸感值(原因见上注释)。
-   将来要做真暗色,再在此处另立一套深色 token 并解除 index.html 的钉死。 */
 .dark {
   --radius: 0.75rem;
 
-  --background: #f6f3ec;
-  --foreground: #3a372f;
-  --card: #fffdf8;
-  --card-foreground: #3a372f;
-  --popover: #fffdf8;
-  --popover-foreground: #3a372f;
-  --primary: #0f9d8f;
-  --primary-foreground: #ffffff;
-  --secondary: #efe9dd;
-  --secondary-foreground: #3a372f;
-  --muted: #efe9dd;
-  --muted-foreground: #6e675a;
-  --accent: #e4f3f0;
-  --accent-foreground: #0b7e73;
-  --destructive: #bf4a42;
-  --destructive-foreground: #ffffff;
-  --border: #e4ddcf;
-  --input: #d3c9b6;
-  --ring: #0f9d8f;
-
-  --paper-warm: #faf7f1;
-  --mint: #0f9d8f;
-  --mint-deep: #0b7e73;
-  --mint-tint: #e4f3f0;
-  --mint-line: #bfe0d9;
-  --amber-strong: #8a5106;
-  --amber-tint: #fdf3e2;
-  --amber-line: #eed9ae;
-
-  --success: #2f6b4f;
-  --success-foreground: #f2fbf6;
-  --warning: #a16207;
-  --warning-foreground: #fdf8ee;
-  --info: #3a5a8c;
-  --info-foreground: #f2f6fc;
-}
-
-/* ── 主题系统 (Theme System) ──
-   默认: 经典青绿纸感 (Classic Mint Paper · 原生默认保留不变)
-   可选项: 象牙暖书纸 (paper-warm)、熟宣暗炭纸 (paper-dark)
-*/
-
-[data-theme='paper-warm'],
-[data-theme='paper-warm'].dark,
-[data-theme='paper-warm'] .dark,
-html[data-theme='paper-warm'] {
-  --radius: 0.75rem;
-
-  --background: #f7f6f2; /* 象牙暖纸 */
-  --foreground: #2d2a26; /* 松烟暖墨 */
-  --card: #ffffff; /* 暖白卡片 */
-  --card-foreground: #2d2a26;
+  --background: #ffffff;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
   --popover: #ffffff;
-  --popover-foreground: #2d2a26;
-  /* 暖印赤陶/朱砂红: 沉稳典雅的书卷印泥色 */
-  --primary: #c45535;
-  --primary-foreground: #ffffff;
-  --secondary: #ede9e0; /* 沉香深纸(侧栏与次级面) */
-  --secondary-foreground: #2d2a26;
-  --muted: #ede9e0;
-  --muted-foreground: #736d63;
-  --accent: #f5ebe6; /* hover 浅赤陶底 */
-  --accent-foreground: #a63f22;
-  --destructive: #bf4a42;
+  --popover-foreground: #09090b;
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f6f6f7;
+  --accent-foreground: #18181b;
+  --destructive: #be123c;
   --destructive-foreground: #ffffff;
-  --border: #e2ddd3; /* 象牙暖灰边框 */
-  --input: #d0c9bd;
-  --ring: #c45535;
+  --border: #ededed;
+  --input: #e4e4e7;
+  --ring: #a1a1aa;
 
-  --paper-warm: #fcfbf8;
-  --mint: #c45535;
-  --mint-deep: #a63f22;
-  --mint-tint: #f5ebe6;
-  --mint-line: #e8d2c8;
-  --amber-strong: #8a5106;
-  --amber-tint: #fdf3e2;
-  --amber-line: #eed9ae;
+  --success: #059669;
+  --success-foreground: #f0fdf4;
+  --warning: #b45309;
+  --warning-foreground: #fffbeb;
+  --info: #4f46e5;
+  --info-foreground: #eef2ff;
 
-  --success: #2f6b4f;
-  --success-foreground: #f2fbf6;
-  --warning: #a16207;
-  --warning-foreground: #fdf8ee;
-  --info: #3a5a8c;
-  --info-foreground: #f2f6fc;
+  --paper-warm: #fafafa;
+  --mint: #4f46e5;
+  --mint-deep: #4338ca;
+  --mint-tint: #eef2ff;
+  --mint-line: #e0e7ff;
+  --amber-strong: #b45309;
+  --amber-tint: #fffbeb;
+  --amber-line: #fde68a;
 }
 
-[data-theme='paper-dark'],
-[data-theme='paper-dark'].dark,
-[data-theme='paper-dark'] .dark,
-html[data-theme='paper-dark'] {
-  --radius: 0.75rem;
-
-  --background: #171614; /* 熟宣暗炭纸底 */
-  --foreground: #e6e2dc; /* 宣纸素白 */
-  --card: #1f1e1a; /* 暗炭浮层卡片 */
-  --card-foreground: #e6e2dc;
-  --popover: #1f1e1a;
-  --popover-foreground: #e6e2dc;
-  /* 柔珊瑚赤陶: 暗色下柔和不刺眼的朱印 */
-  --primary: #da7756;
-  --primary-foreground: #171614;
-  --secondary: #252420; /* 炭灰侧栏与深层 */
-  --secondary-foreground: #e6e2dc;
-  --muted: #252420;
-  --muted-foreground: #9a9488;
-  --accent: #2e2621; /* hover 炭焦暖底 */
-  --accent-foreground: #ea9477;
-  --destructive: #d45b53;
-  --destructive-foreground: #ffffff;
-  --border: #33312b; /* 炭墨边框 */
-  --input: #423f37;
-  --ring: #da7756;
-
-  --paper-warm: #1f1e1a;
-  --mint: #da7756;
-  --mint-deep: #ea9477;
-  --mint-tint: #2e2621;
-  --mint-line: #524741;
-  --amber-strong: #d97706;
-  --amber-tint: #3b2811;
-  --amber-line: #6b4c1b;
-
-  --success: #388e63;
-  --success-foreground: #0e2b1c;
-  --warning: #d97706;
-  --warning-foreground: #2d1b06;
-  --info: #4a7ab5;
-  --info-foreground: #0d1e33;
-}
-
-/* 细滚动条 · 暖纸调(透明轨道 + 暖沙圆头;不设 scrollbar-width,避免被标准属性接管) */
+/* 细滚动条 · 中性(透明轨道 + 浅灰圆头) */
 ::-webkit-scrollbar {
   width: 7px;
   height: 7px;
@@ -284,10 +189,10 @@ html[data-theme='paper-dark'] {
 /* 消息轨跳转:落点 User 气泡高亮一闪 */
 @keyframes msg-flash {
   0% {
-    box-shadow: 0 0 0 3px rgba(15, 157, 143, 0.45);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.4);
   }
   100% {
-    box-shadow: 0 0 0 3px rgba(15, 157, 143, 0);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0);
   }
 }
 .msg-flash {

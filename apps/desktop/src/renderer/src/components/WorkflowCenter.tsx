@@ -176,36 +176,37 @@ export function WorkflowCenter({ onCompleted }: WorkflowCenterProps): React.JSX.
 
   return (
     <section className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-background">
-      <header className="flex h-[70px] shrink-0 items-center justify-between border-b border-border px-8">
-        <div>
-          <h2 className="flex items-center gap-2 text-[16px] font-semibold">
-            <Zap size={18} className="text-primary" />
-            工作流中心 (Workflow Center)
+      <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <h2 className="m-0 flex items-center gap-1.5 text-[13px] font-semibold">
+            <Zap size={14} className="text-muted-foreground" />
+            工作流
           </h2>
-          <p className="mt-0.5 text-[12px] text-muted-foreground">
-            确定性执行 · 零 Token 消耗 · 高可靠业务自动化 · 独立于对话环境
-          </p>
+          <span className="truncate text-[11.5px] text-muted-foreground">
+            确定性执行，不消耗 Token，独立于对话
+          </span>
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-4xl space-y-6 p-8">
+      <div className="mx-auto w-full max-w-[900px] space-y-5 px-6 py-6">
         {/* 工作流主卡片 */}
         <Card className="border-border bg-card shadow-xs">
           <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <FolderCheck size={22} />
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border border-border bg-secondary text-foreground">
+                  <FolderCheck size={17} />
                 </div>
-                <div>
-                  <CardTitle className="text-[16px]">PDF 自动归档整理 (Golden Path)</CardTitle>
-                  <CardDescription className="mt-1 text-[13px]">
-                    全自动扫描 Downloads 目录中的 PDF，提取核心要点、自动分类移入 Reading
-                    目录并设定阅读提醒。
+                <div className="min-w-0">
+                  <CardTitle className="text-[14.5px] tracking-[-0.01em]">
+                    PDF 自动归档整理
+                  </CardTitle>
+                  <CardDescription className="mt-1 text-[12px] leading-[1.6]">
+                    扫描 Downloads 里的 PDF，提取要点后按目录归档，并设定阅读提醒。
                   </CardDescription>
                 </div>
               </div>
-              <div className="flex gap-1.5">
+              <div className="flex shrink-0 gap-1.5">
                 <Badge variant="secondary">确定性路线</Badge>
                 <Badge variant="secondary">零 Token</Badge>
                 <Badge variant="outline">高可靠</Badge>
@@ -216,7 +217,7 @@ export function WorkflowCenter({ onCompleted }: WorkflowCenterProps): React.JSX.
           <CardContent className="space-y-6 pt-2">
             {/* 静态步骤时间线 */}
             <div className="space-y-3">
-              <div className="text-[13px] font-medium text-foreground">执行步骤流水线：</div>
+              <div className="text-[12px] font-medium text-foreground">执行步骤</div>
               <div className="grid gap-2.5 sm:grid-cols-1">
                 {GOLDEN_PATH_STEPS.map((step, idx) => {
                   const status = stepStatuses[idx]
