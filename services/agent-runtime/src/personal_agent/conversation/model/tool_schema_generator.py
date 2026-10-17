@@ -8,6 +8,7 @@ from typing import Any, get_args
 
 from pydantic import BaseModel
 
+from personal_agent.conversation.subagent.models import SpawnSubagentParams
 from personal_agent.conversation.topics.models import (
     ArchiveTopicParams,
     ReadMemoryTopicParams,
@@ -71,12 +72,14 @@ LOCAL_TOOL_PARAM_MODELS: dict[str, type[BaseModel]] = {
     "archive_current_topic_and_switch": ArchiveTopicParams,
     "read_memory_topic": ReadMemoryTopicParams,
     "search_raw_events": SearchRawEventsParams,
+    "spawn_subagent": SpawnSubagentParams
 }
 
 LOCAL_TOOL_DESCRIPTIONS: dict[str, str] = {
     "archive_current_topic_and_switch": "将当前话题归档为独立 Epoch，并切换到新话题",
     "read_memory_topic": "读取长期记忆中指定话题的 Markdown 内容",
     "search_raw_events": "在事件日志中按关键词检索原始事件记录",
+    "spawn_subagent": "创建并启动一个子 Agent，执行指定角色与目标的任务",
 }
 
 # 工具层级高阶描述说明（对齐 ACI 目标导向）
@@ -209,6 +212,12 @@ PROPERTY_DESCRIPTIONS: dict[str, dict[str, str]] = {
     "search_raw_events": {
         "query": "要检索的关键词或事件描述",
         "limit": "可选返回的最优候选条数（默认 10）",
+    },
+    "spawn_subagent": {
+        "role": "子 Agent 的角色描述",
+        "goal": "子 Agent 的目标任务",
+        "specific_instructions": "可选的具体执行指令",
+        "allowed_tools": "可选的允许使用的工具列表",
     },
 }
 

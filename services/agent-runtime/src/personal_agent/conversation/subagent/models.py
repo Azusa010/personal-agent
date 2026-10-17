@@ -32,3 +32,9 @@ class SubagentResult(BaseModel):
     artifacts: list[str] = Field(default_factory=list)
     error: str | None = None
     duration_ms: int = 0
+
+class SpawnSubagentParams(BaseModel):
+    role: str
+    goal: str
+    specific_instructions: str | None = None
+    allowed_tools: list[str] | None = None

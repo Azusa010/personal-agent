@@ -52,6 +52,11 @@ from personal_agent.conversation.model.json_parser import (
     parse_tool_call_arguments,
     safe_parse_model_json,
 )
+from personal_agent.conversation.model.tool_schema_generator import (
+    LOCAL_TOOL_DESCRIPTIONS,
+    LOCAL_TOOL_SCHEMAS,
+    generate_all_tool_schemas,
+)
 from personal_agent.shared import emit_thinking_chunks
 
 log = logging.getLogger("personal_agent")
@@ -104,7 +109,7 @@ TOOL_SPECS: dict[str, str] = {
         '写入或更新 Viking 维基条目的 L2 全文 (*.md)。参数 {"uri": "<viking:// URI>", "content": "<Markdown文本>"}'
     ),
     "code_interpreter": (
-        '在隔离沙盒内运行 Python 代码，用于复杂数据计算、代码推理与自适应热修。'
+        "在隔离沙盒内运行 Python 代码，用于复杂数据计算、代码推理与自适应热修。"
         '参数 {"code": "<Python代码>", "timeoutMs": <可选超时毫秒数>, "saveArtifacts": <可选布尔>}'
     ),
     "file_search": (
@@ -131,16 +136,12 @@ TOOL_SPECS: dict[str, str] = {
         '在现有文件中进行精准单块局部修改，Old String 必须全局唯一。参数 {"path": "<文件相对路径>", "oldString": "<待替换文本>", "newString": "<替换后文本>"}'
     ),
     "a2ui_render": (
-        '向桌面客户端推送受信任的 A2UI 声明式组件树进行安全渲染与交互。'
+        "向桌面客户端推送受信任的 A2UI 声明式组件树进行安全渲染与交互。"
         '参数 {"title": "<可选标题>", "components": [<组件列表>], "actions": [<动作列表>]}'
-    ),
+    )
 }
 
 # 标准 OpenAI Function Calling 工具参数定义（由 Pydantic 契约模型动态推导生成，单一事实来源）
-from personal_agent.conversation.model.tool_schema_generator import (
-    LOCAL_TOOL_SCHEMAS,
-    generate_all_tool_schemas,
-)
 
 TOOL_SCHEMAS: dict[str, dict[str, Any]] = generate_all_tool_schemas()
 
@@ -391,7 +392,9 @@ class LiveModel:
             caps = [t.capability for t in decision.calls]
             sys.stderr.write(f"[LIVE_MODEL] 决策: 批量调用工具 {caps}\n")
         elif isinstance(decision, SummaryDecision):
-            sys.stderr.write(f"[LIVE_MODEL] 决策: 任务完成 (facts: {len(decision.facts)})\n")
+            sys.stderr.write(
+                f"[LIVE_MODEL] 决策: 任务完成 (facts: {len(decision.facts)})\n"
+            )
         else:
             sys.stderr.write(f"[LIVE_MODEL] 决策: {type(decision).__name__}\n")
         sys.stderr.flush()
@@ -651,7 +654,6 @@ class LiveModel:
                     )
             raise ModelCallFailed(_format_validation_error(e, raw, text)) from e
 
-
     def _parse_chat_completions(
         self, response: Any, context: ModelContext | None = None
     ) -> ModelDecision:
@@ -733,7 +735,9 @@ class LiveModel:
                 if isinstance(raw, dict) and "kind" in raw:
                     return DECISION_ADAPTER.validate_python(raw)
             except ValidationError as val_err:
-                raise ModelCallFailed(_format_validation_error(val_err, raw, text)) from val_err
+                raise ModelCallFailed(
+                    _format_validation_error(val_err, raw, text)
+                ) from val_err
             except Exception:  # noqa: BLE001, S110
                 pass
             if should_heal_to_code_interpreter(context):
@@ -786,6 +790,7 @@ def render_input(context: ModelContext) -> str:
         lines.append("本轮可用能力：")
         for c in visible:
             lines.append(f"- {c}: {TOOL_SPECS[c]}")
+        lines.append(f"{LOCAL_TOOL_DESCRIPTIONS}")
         lines.append("</available_capabilities>")
     lines.extend(["", "已发生的工具调用："])
     if not context.observations:
@@ -810,7 +815,10 @@ def _as_int(value: Any) -> int:
 def _describe(e: Exception) -> str:
     return f"{type(e).__name__}: {e}"
 
-def _format_validation_error(e: ValidationError, raw: Any, raw_text: str, model_name: str = "ModelDecision") -> str:
+
+def _format_validation_error(
+    e: ValidationError, raw: Any, raw_text: str, model_name: str = "ModelDecision"
+) -> str:
     truncated_text = raw_text[:200] + ("..." if len(raw_text) > 200 else "")
     errors = []
     for err in e.errors():
@@ -821,11 +829,12 @@ def _format_validation_error(e: ValidationError, raw: Any, raw_text: str, model_
     raw_json = ""
     try:
         import json
+
         raw_json = json.dumps(raw, ensure_ascii=False)
     except Exception:  # noqa: BLE001
         raw_json = str(raw)
     truncated_json = raw_json[:200] + ("..." if len(raw_json) > 200 else "")
-    
+
     return (
         f"模型输出不符合 {model_name} 契约\n"
         f"校验失败原因：\n- {reasons}\n\n"

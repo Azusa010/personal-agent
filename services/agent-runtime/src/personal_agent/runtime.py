@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import sys
+import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -20,6 +21,8 @@ from personal_agent.conversation.sidecar import (
     StreamBarrier,
     intercept_query_memories,
 )
+from personal_agent.conversation.subagent import SubagentPool, SubagentPrototype
+from personal_agent.conversation.subagent.runner import SubagentRunner
 from personal_agent.conversation.topics import ThreeTierRetriever, TopicSwitchHandler
 from personal_agent.conversation.windows import SlidingWindowLedger, TimeGatekeeper
 from personal_agent.engine import Budget
@@ -48,6 +51,7 @@ from personal_agent.protocol.models import (
     RunWorkflowParams,
     ServerInfo,
     UserMemorySearchParams,
+    HostExecuteToolParams,
 )
 from personal_agent.scripted_model import ScriptedModel, ScriptLoadError, load_script
 from personal_agent.strategy import (
@@ -286,13 +290,31 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
         str(harness_dir / "logs" / "main_session_events.jsonl"),
     )
 
+    def tool_executor(
+        capability: str,
+        arguments: dict,
+    ) -> Observation | None:
+        param = HostExecuteToolParams(
+            capability=capability, arguments=arguments, callId=uuid.uuid4().hex
+        )
+        return deps.channel.call_host(params=param)
+
     ledger = MainEventLedger(log_file=ledger_path)
     sliding_window = SlidingWindowLedger(ledger=ledger)
     time_gatekeeper = TimeGatekeeper(sliding_window)
     topic_handler = TopicSwitchHandler(window=sliding_window, epochs_dir=epochs_dir)
     retriever = ThreeTierRetriever(memory_dir=memory_dir, ledger=ledger)
+    subagent_prototype = SubagentPrototype(
+        system_prompt="",
+        base_tools=[],
+        default_traces_dir=harness_dir / "subagent_traces",
+    )
+    subagent_pool = SubagentPool(prototype=subagent_prototype, ledger=ledger)
+    subagent_runner = SubagentRunner(
+        pool=subagent_pool, model=deps.model_factory(), tool_executor=tool_executor()
+    )
 
-    local_executor = create_local_executor(topic_handler, retriever)
+    local_executor = create_local_executor(topic_handler, retriever, subagent_runner)
     sys_index = retriever.get_system_index()
     memories = [sys_index] if sys_index else []
 
@@ -596,7 +618,9 @@ def run(channel: HostChannel | None = None) -> None:
 
 
 def create_local_executor(
-    topic_handler: TopicSwitchHandler, retriever: ThreeTierRetriever
+    topic_handler: TopicSwitchHandler,
+    retriever: ThreeTierRetriever,
+    subagent_runner: SubagentRunner | None = None,
 ) -> Callable[[ToolCallDecision | ToolCallItem], Observation | None]:
     """创建一个本地执行器，直接调用 topic_handler 和 retriever 执行工具调用决策或工具调用项。"""
 
@@ -646,6 +670,30 @@ def create_local_executor(
                 capability=cap,
                 ok=True,
                 payload={"result": [event.model_dump() for event in result]},
+            )
+        if cap == "spawn_subagent":
+            if subagent_runner is None:
+                return Observation(
+                    callId=decision.callId,
+                    capability=cap,
+                    ok=False,
+                    payload={"error": "Subagent runner not available"},
+                )
+            role = str(args.get("role"))
+            goal = str(args.get("goal"))
+            specific_instructions = args.get("specific_instructions")
+            allowed_tools = args.get("allowed_tools", [])
+            result = subagent_runner.run(
+                role=role,
+                goal=goal,
+                specific_instructions=specific_instructions,
+                allowed_tools=allowed_tools,
+            )
+            return Observation(
+                callId=decision.callId,
+                capability=cap,
+                ok=result.status == "completed",
+                payload=result.model_dump(exclude_none=True),
             )
         return None
 
