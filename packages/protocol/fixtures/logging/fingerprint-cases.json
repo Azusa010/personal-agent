@@ -1,0 +1,96 @@
+{
+  "description": "指纹 = sha1_hex(`${source}|${event}|${code ?? '-'}|${normalizeMessage(message)}|${topFrame(stack) ?? '-'}`)。算法见 docs/ERROR_LOG_SYSTEM_SPEC.md §6，TS 与 Python 必须逐条算出相同 hex。",
+  "algorithm": "sha1_hex(source + '|' + event + '|' + (code ?? '-') + '|' + normalizeMessage(message) + '|' + (topFrame(stack) ?? '-'))",
+  "cases": [
+    {
+      "name": "retry-count-variant-a",
+      "note": "数字归一后应与 variant-b 同指纹",
+      "input": {
+        "source": "main",
+        "event": "tool.call.failed",
+        "code": "HOST_HANDLER_FAILED",
+        "message": "tool call failed after 3 retries",
+        "stack": "Error: boom\n    at runTool (C:\\app\\dist\\executor.js:42:11)\n    at main (C:\\app\\dist\\index.js:9:1)"
+      },
+      "normalizedMessage": "tool call failed after <n> retries",
+      "topFrame": "runTool@executor.js",
+      "expected": "5547fcd84f52e0b0391ba871f039167be3253785"
+    },
+    {
+      "name": "retry-count-variant-b",
+      "note": "仅行号与重试次数不同，指纹必须与 variant-a 相同",
+      "input": {
+        "source": "main",
+        "event": "tool.call.failed",
+        "code": "HOST_HANDLER_FAILED",
+        "message": "tool call failed after 7 retries",
+        "stack": "Error: boom\n    at runTool (C:\\app\\dist\\executor.js:77:3)\n    at main (C:\\app\\dist\\index.js:9:1)"
+      },
+      "normalizedMessage": "tool call failed after <n> retries",
+      "topFrame": "runTool@executor.js",
+      "expected": "5547fcd84f52e0b0391ba871f039167be3253785"
+    },
+    {
+      "name": "uuid-a",
+      "note": "UUID 归一后应与 uuid-b 同指纹",
+      "input": {
+        "source": "python",
+        "event": "task.aborted",
+        "message": "task 3f2504e0-4f89-11d3-9a0c-0305e82c3301 aborted"
+      },
+      "normalizedMessage": "task <uuid> aborted",
+      "topFrame": null,
+      "expected": "b05850ca4ce12fd4e79d3ff4d66809ef138d4a6e"
+    },
+    {
+      "name": "uuid-b",
+      "note": "仅 UUID 不同，指纹必须与 uuid-a 相同",
+      "input": {
+        "source": "python",
+        "event": "task.aborted",
+        "message": "task 9c1f2b34-1111-2222-3333-444455556666 aborted"
+      },
+      "normalizedMessage": "task <uuid> aborted",
+      "topFrame": null,
+      "expected": "b05850ca4ce12fd4e79d3ff4d66809ef138d4a6e"
+    },
+    {
+      "name": "different-event",
+      "note": "event 不同必须分裂成两组",
+      "input": {
+        "source": "main",
+        "event": "db.query.failed",
+        "code": "RUNTIME_DB_FAILED",
+        "message": "select failed"
+      },
+      "normalizedMessage": "select failed",
+      "topFrame": null,
+      "expected": "23ea620b4624062f5e31d5a406c175e2fe5cc04a"
+    },
+    {
+      "name": "no-code-no-stack",
+      "note": "code 与 stack 缺省时用 '-' 占位",
+      "input": {
+        "source": "renderer",
+        "event": "ui.render.failed",
+        "message": "Cannot read properties of undefined"
+      },
+      "normalizedMessage": "Cannot read properties of undefined",
+      "topFrame": null,
+      "expected": "d946dd5387c1661d44f230cc98428f4662a7183d"
+    },
+    {
+      "name": "bare-frame",
+      "note": "无函数名的裸帧取 @basename",
+      "input": {
+        "source": "main",
+        "event": "process.uncaught_exception",
+        "message": "boom",
+        "stack": "Error: boom\n    at C:\\app\\dist\\worker.js:88:15"
+      },
+      "normalizedMessage": "boom",
+      "topFrame": "@worker.js",
+      "expected": "e704b615d42f93e5450880ee4abc0d6bd24d5fda"
+    }
+  ]
+}

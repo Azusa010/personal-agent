@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "8f14e45f-ceea-467f-a8d1-9a3b0b6f0c11",
+  "ts": "2026-10-19T13:29:33.123Z",
+  "level": "error",
+  "source": "main",
+  "event": "tool.call.failed",
+  "code": "HOST_HANDLER_FAILED",
+  "message": "tool call failed after 3 retries",
+  "stack": "Error: boom\n    at runTool (C:\\app\\dist\\executor.js:42:11)\n    at main (C:\\app\\dist\\index.js:9:1)",
+  "fingerprint": "5547fcd84f52e0b0391ba871f039167be3253785",
+  "sessionId": "session-2026-10-19-001",
+  "taskId": "task-42",
+  "traceId": "trace-7",
+  "durationMs": 1830,
+  "context": {
+    "capability": "terminal_execute",
+    "attempt": 3,
+    "nested": { "ok": false, "reason": "timeout" }
+  }
+}

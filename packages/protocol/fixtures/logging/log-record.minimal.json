@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "2c1b7a90-1f2e-4c3d-8a9b-0e1f2a3b4c5d",
+  "ts": "2026-10-19T13:30:00.000Z",
+  "level": "info",
+  "source": "renderer",
+  "event": "app.started",
+  "message": "窗口已就绪",
+  "fingerprint": "d946dd5387c1661d44f230cc98428f4662a7183d",
+  "sessionId": "session-2026-10-19-001"
+}

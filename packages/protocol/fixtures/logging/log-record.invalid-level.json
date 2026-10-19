@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "bad-level-001",
+  "ts": "2026-10-19T13:30:00.000Z",
+  "level": "warning",
+  "source": "main",
+  "event": "app.started",
+  "message": "使用 warning 而非 warn 必须被拒绝",
+  "fingerprint": "d946dd5387c1661d44f230cc98428f4662a7183d",
+  "sessionId": "session-2026-10-19-001"
+}

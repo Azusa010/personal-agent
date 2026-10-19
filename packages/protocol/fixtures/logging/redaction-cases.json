@@ -1,0 +1,72 @@
+{
+  "description": "TS redactText 与 Python redact_text 必须逐条产出相同结果。顺序即契约，见 docs/ERROR_LOG_SYSTEM_SPEC.md §7。",
+  "rules": [
+    "1 key-value (api_key/access_token/refresh_token/token/password/passwd/secret/authorization，可吞 Bearer|Basic|Token 前缀)",
+    "2 bearer",
+    "3 platform-key (sk-/pk-)",
+    "4 email",
+    "5 phone",
+    "6 windows-user-dir",
+    "7 posix-home"
+  ],
+  "cases": [
+    {
+      "name": "case-1",
+      "note": "规则1必须吞掉 Bearer 前缀，否则 token 泄漏",
+      "input": "Authorization: Bearer abc123def456ghi789",
+      "expected": "Authorization: ***"
+    },
+    {
+      "name": "case-2",
+      "input": "api_key=sk-abcdefghijklmnopqrstuvwx",
+      "expected": "api_key=***"
+    },
+    {
+      "name": "case-3",
+      "input": "请求用户 m3171470760@gmail.com 失败",
+      "expected": "请求用户 <email> 失败"
+    },
+    {
+      "name": "case-4",
+      "input": "openai key sk-proj-1234567890abcdefghijklmn",
+      "expected": "openai key sk-***"
+    },
+    {
+      "name": "case-5",
+      "input": "path C:\\Users\\Azusama\\Documents\\a.pdf 不可读",
+      "expected": "path C:\\Users\\<user>\\Documents\\a.pdf 不可读"
+    },
+    {
+      "name": "case-6",
+      "input": "path /home/alice/project/x.txt 不可读",
+      "expected": "path /home/<user>/project/x.txt 不可读"
+    },
+    {
+      "name": "case-7",
+      "input": "password: 'hunter2secret'",
+      "expected": "password: ***"
+    },
+    {
+      "name": "case-8",
+      "input": "手机号 13812345678 验证失败",
+      "expected": "手机号 <phone> 验证失败"
+    },
+    {
+      "name": "case-9",
+      "input": "token=ghp_1234567890abcdefghij",
+      "expected": "token=***"
+    },
+    {
+      "name": "case-10",
+      "note": "查询串里的 key 也要脱敏",
+      "input": "https://api.x.com/v1?api_key=sk-abcdefghijklmnopqrstuvwx&q=1 返回 500",
+      "expected": "https://api.x.com/v1?api_key=*** 返回 500"
+    },
+    {
+      "name": "case-11",
+      "note": "不含敏感信息必须原样保留",
+      "input": "没有任何敏感信息的普通错误 host=localhost port=5432",
+      "expected": "没有任何敏感信息的普通错误 host=localhost port=5432"
+    }
+  ]
+}
