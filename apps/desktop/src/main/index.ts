@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, nativeTheme } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import {
@@ -19,6 +19,8 @@ import {
 } from '@personal-agent/protocol'
 import { RUNTIME_ERROR_CODE } from './runtime/error-code'
 import type {
+  AppearanceView,
+  GetAppearanceResult,
   GetModelSettingsResult,
   IpcErrorCode,
   ListPdfsResult,
@@ -27,6 +29,7 @@ import type {
   PermissionListResult,
   PermissionNotice,
   PermissionRespondResult,
+  SetAppearanceResult,
   SetModelSettingsResult,
   TimelineIpcResult,
   ConversationSummary,
@@ -90,6 +93,15 @@ import { sendMessage, SendMessageInput } from './tasks/send-message'
 import { onAgentStream } from './runtime/stream-fanout'
 import { AGENT_PROFILE_FILE_NAME, createAgentProfileStore } from './settings/agent-profile'
 import { getAgentProfileView, setAgentProfile } from './settings/agent-profile-ipc'
+import { APPEARANCE_FILE_NAME, createAppearanceStore } from './settings/appearance'
+import { applySystemAppearance, getAppearanceView, setThemePreference } from './theme/theme-ipc'
+import {
+  THEME_ARGV_PREFIX,
+  TITLE_BAR_OVERLAYS,
+  WINDOW_BACKGROUNDS,
+  toAppearanceView,
+  type EffectiveTheme
+} from '../shared/theme'
 import { initVikingStore, resolveVikingStoreRoot } from './viking/viking-store'
 import { SqliteBotRepository } from './product-state/bot-repository'
 import { createBotHandler, getBotHandler, listBotsHandler, updateBotHandler } from './tasks/bot-ipc'
@@ -127,6 +139,12 @@ const AGENT_STREAM_CHANNEL = 'personal-agent:agent-stream'
 const AGENT_PROFILE_GET_CHANNEL = 'personal-agent:get-agent-profile'
 const AGENT_PROFILE_SET_CHANNEL = 'personal-agent:set-agent-profile'
 
+// 外观（主题）：get/set 由 renderer 发起，changed 是 main 主动推的
+// （用户在设置页切换，或 system 偏好下操作系统换了主题）。
+const APPEARANCE_GET_CHANNEL = 'personal-agent:get-appearance'
+const APPEARANCE_SET_CHANNEL = 'personal-agent:set-appearance'
+const APPEARANCE_CHANGED_CHANNEL = 'personal-agent:appearance-changed'
+
 const A2UI_RENDER_NOTICE_CHANNEL = 'personal-agent:a2ui-render-notice'
 const A2UI_FORM_SUBMIT_CHANNEL = 'personal-agent:a2ui-form-submit'
 
@@ -159,11 +177,47 @@ function broadcastA2UIRender(notice: A2UIRenderNotice): void {
   }
 }
 
-function createWindow(): void {
+function broadcastAppearance(appearance: AppearanceView): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send(APPEARANCE_CHANGED_CHANNEL, appearance)
+    }
+  }
+}
+
+// 系统窗控钮与窗口底色跟着主题走：这两个是 OS 绘制的部分，CSS 管不到。
+// 单个窗口失败只影响观感，不让它冒泡打断切换流程。
+function applyThemeToWindows(theme: EffectiveTheme): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed()) continue
+    try {
+      win.setBackgroundColor(WINDOW_BACKGROUNDS[theme])
+      if (process.platform === 'win32') {
+        win.setTitleBarOverlay({ ...TITLE_BAR_OVERLAYS[theme], height: 40 })
+      }
+    } catch (err) {
+      console.warn('[main] 应用窗口主题失败:', err)
+    }
+  }
+}
+
+/** 应用并广播：窗口层（底色 + 窗控钮）与渲染层（class + token）必须同帧对齐。 */
+function applyAppearance(appearance: AppearanceView): void {
+  // themeSource 只影响原生控件（对话框、滚动条、系统菜单）与 prefers-color-scheme；
+  // 渲染层的配色由 .dark class 决定。两处取值同源，不会互相打脸。
+  nativeTheme.themeSource = appearance.preference
+  applyThemeToWindows(appearance.effective)
+  broadcastAppearance(appearance)
+}
+
+function createWindow(theme: EffectiveTheme): void {
   // Create the browser window.
-  // 隐藏原生标题栏:窗口顶栏由渲染层自绘(纸感顶栏 + 拖拽区)。
+  // 隐藏原生标题栏:窗口顶栏由渲染层自绘。
   // Windows 上启用 titleBarOverlay,系统窗控钮(最小化/最大化/关闭)仍由 OS 绘制,
-  // 配色与纸感主题一致,且保留 Win11 悬停贴靠布局;macOS 的红绿灯随 hidden 自动保留。
+  // 配色必须与当前主题一致,且保留 Win11 悬停贴靠布局;macOS 的红绿灯随 hidden 自动保留。
+  //
+  // backgroundColor 与首帧主题同值：窗口先于 renderer 首帧显示，底色不同会白闪一下。
+  // additionalArguments 把主题带进 preload（CSP 禁内联脚本，首帧没法从 HTML 注入）。
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 900,
@@ -172,15 +226,17 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     titleBarStyle: 'hidden',
+    backgroundColor: WINDOW_BACKGROUNDS[theme],
     ...(process.platform === 'win32'
-      ? { titleBarOverlay: { color: '#efe9dd', symbolColor: '#6e675a', height: 40 } }
+      ? { titleBarOverlay: { ...TITLE_BAR_OVERLAYS[theme], height: 40 } }
       : {}),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: PRELOAD_PATH,
       sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      additionalArguments: [`${THEME_ARGV_PREFIX}${theme}`]
     }
   })
 
@@ -272,6 +328,16 @@ app.whenReady().then(() => {
   const agentProfileStore = createAgentProfileStore({
     filePath: join(app.getPath('userData'), AGENT_PROFILE_FILE_NAME)
   })
+
+  const appearanceStore = createAppearanceStore({
+    filePath: join(app.getPath('userData'), APPEARANCE_FILE_NAME)
+  })
+
+  const themeDeps = {
+    store: appearanceStore,
+    systemPrefersDark: () => nativeTheme.shouldUseDarkColors,
+    apply: applyAppearance
+  }
 
   function runTaskDeps(store: SqliteDatabase): RunTaskDeps {
     return {
@@ -736,6 +802,14 @@ app.whenReady().then(() => {
     setAgentProfile(input, { store: agentProfileStore })
   )
 
+  ipcMain.handle(APPEARANCE_GET_CHANNEL, (): GetAppearanceResult => getAppearanceView(themeDeps))
+  ipcMain.handle(APPEARANCE_SET_CHANNEL, (_e, input: unknown): SetAppearanceResult =>
+    setThemePreference(input, themeDeps)
+  )
+
+  // 系统主题变化：只有 preference=system 时才跟随；手动模式不动。
+  nativeTheme.on('updated', () => applySystemAppearance(themeDeps))
+
   onAgentStream(broadcastAgentStream)
   onA2UIRender(broadcastA2UIRender)
 
@@ -947,40 +1021,26 @@ app.whenReady().then(() => {
     }
   )
 
-  const THEME_TITLEBAR_OVERLAYS: Record<string, { color: string; symbolColor: string }> = {
-    classic: { color: '#efe9dd', symbolColor: '#6e675a' },
-    'paper-warm': { color: '#ede9e0', symbolColor: '#736d63' },
-    'paper-dark': { color: '#252420', symbolColor: '#e6e2dc' }
-  }
+  // 首帧主题：落盘偏好 + 系统偏好合成一次，窗口创建、窗控钮、preload 参数共用这一个值。
+  // nativeTheme.themeSource 设成同一值，让原生对话框与系统控件也跟随（class 策略只管 CSS）。
+  const initialAppearance = toAppearanceView(
+    appearanceStore.load(),
+    nativeTheme.shouldUseDarkColors
+  )
+  nativeTheme.themeSource = initialAppearance.preference
 
-  ipcMain.handle('personal-agent:set-title-bar-theme', (_e, theme: unknown) => {
-    if (process.platform !== 'win32') return { ok: true }
-    const themeKey = typeof theme === 'string' ? theme : 'classic'
-    const overlay = THEME_TITLEBAR_OVERLAYS[themeKey] ?? THEME_TITLEBAR_OVERLAYS.classic
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) {
-        try {
-          win.setTitleBarOverlay({
-            color: overlay.color,
-            symbolColor: overlay.symbolColor,
-            height: 40
-          })
-        } catch (err) {
-          console.warn('[main] setTitleBarOverlay update failed:', err)
-        }
-      }
-    }
-    return { ok: true }
-  })
-
-  createWindow()
+  createWindow(initialAppearance.effective)
 
   void startRuntime()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) {
+      // 重新建窗口时按「当下」的偏好算，不能沿用启动时快照。
+      const current = toAppearanceView(appearanceStore.load(), nativeTheme.shouldUseDarkColors)
+      createWindow(current.effective)
+    }
   })
 })
 

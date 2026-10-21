@@ -48,6 +48,11 @@
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
 
+  /* 代码块底色与遮罩：这两处在明暗两套里不是简单反相，
+     所以单独立 token，而不是靠 bg-black/5 这类半透明硬混。 */
+  --color-code-bg: var(--code-bg);
+  --color-overlay: var(--overlay);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -55,11 +60,17 @@
 }
 
 /* ── 中性灰阶 + 单一强调色 ──
-   shadcn 的默认语言：白底、1px 发丝描边、无重阴影。
-   主操作走近黑（#18181b），靛蓝只用于「进行中」与页码依据，琥珀只出现在「需要你批准」。
-   index.html 把 class="dark" 钉在 <html> 上，所以 .dark 与 :root 取同一组值，
-   将来要做真暗色，只需在这里另立 .dark 一套、并解除钉死。 */
+   shadcn 的默认语言：1px 发丝描边、无重阴影。
+   主操作走近黑（浅色）/ 近白（深色），靛蓝只用于「进行中」与页码依据，
+   琥珀只出现在「需要你批准」。
+
+   主题切换靠 <html> 上的 .dark class（Tailwind 的 dark 变体也是按 class 走的），
+   实际写入方是 renderer 的 applyThemeToRoot；主进程负责算出生效值并下发。
+   color-scheme 必须与 token 同步：只改 class 不管它，滚动条、checkbox、
+   文本选区这些原生部件在深色下仍然是亮的。 */
 :root {
+  color-scheme: light;
+
   --radius: 0.75rem;
 
   --background: #ffffff;
@@ -92,6 +103,9 @@
   --info: #4f46e5;
   --info-foreground: #eef2ff;
 
+  --code-bg: #f6f6f7;
+  --overlay: rgba(9, 9, 11, 0.5);
+
   /* 旧设计语言的别名：组件里已有大量 var(--mint*) / var(--amber*) / var(--paper-warm)，
      这里统一映射到新色板，避免逐处改色时漏掉。新代码请直接用语义 token。 */
   --paper-warm: #fafafa;
@@ -104,44 +118,54 @@
   --amber-line: #fde68a;
 }
 
+/* 深色不是浅色的简单反相：底色下沉到近黑，前景提回近白，
+   强调色与语义色全部提亮一档（深底上原色会糊成一团），
+   语义底色的前景随底色反相，保证按钮文字仍然达标。 */
 .dark {
+  color-scheme: dark;
+
   --radius: 0.75rem;
 
-  --background: #ffffff;
-  --foreground: #09090b;
-  --card: #ffffff;
-  --card-foreground: #09090b;
-  --popover: #ffffff;
-  --popover-foreground: #09090b;
-  --primary: #18181b;
-  --primary-foreground: #fafafa;
-  --secondary: #f4f4f5;
-  --secondary-foreground: #18181b;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --accent: #f6f6f7;
-  --accent-foreground: #18181b;
-  --destructive: #be123c;
-  --destructive-foreground: #ffffff;
-  --border: #ededed;
-  --input: #e4e4e7;
-  --ring: #a1a1aa;
+  --background: #0b0b0d;
+  --foreground: #ededef;
+  --card: #141416;
+  --card-foreground: #ededef;
+  --popover: #141416;
+  --popover-foreground: #ededef;
 
-  --success: #059669;
-  --success-foreground: #f0fdf4;
-  --warning: #b45309;
-  --warning-foreground: #fffbeb;
-  --info: #4f46e5;
-  --info-foreground: #eef2ff;
+  --primary: #fafafa;
+  --primary-foreground: #18181b;
+  --secondary: #1c1c20;
+  --secondary-foreground: #ededef;
+  --muted: #1c1c20;
+  --muted-foreground: #a1a1aa;
+  --accent: #232327;
+  --accent-foreground: #ededef;
+  --destructive: #fb7185;
+  --destructive-foreground: #2a0710;
 
-  --paper-warm: #fafafa;
-  --mint: #4f46e5;
-  --mint-deep: #4338ca;
-  --mint-tint: #eef2ff;
-  --mint-line: #e0e7ff;
-  --amber-strong: #b45309;
-  --amber-tint: #fffbeb;
-  --amber-line: #fde68a;
+  --border: #26262a;
+  --input: #33333a;
+  --ring: #6b6b74;
+
+  --success: #34d399;
+  --success-foreground: #052e21;
+  --warning: #fbbf24;
+  --warning-foreground: #2b1a00;
+  --info: #818cf8;
+  --info-foreground: #120e2e;
+
+  --code-bg: #131316;
+  --overlay: rgba(0, 0, 0, 0.72);
+
+  --paper-warm: #141416;
+  --mint: #818cf8;
+  --mint-deep: #a5b4fc;
+  --mint-tint: #1e1b3a;
+  --mint-line: #312e63;
+  --amber-strong: #fbbf24;
+  --amber-tint: #2a1f08;
+  --amber-line: #5c4410;
 }
 
 /* 细滚动条 · 中性(透明轨道 + 浅灰圆头) */

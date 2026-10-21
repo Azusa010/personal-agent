@@ -40,19 +40,19 @@ function AssistantMessage({
         <MarkdownContent content={message.text} />
 
         {facts.length > 0 && (
-          <div className="border-t border-dashed border-[#e8e8ea] pt-2.5">
+          <div className="border-t border-dashed border-border pt-2.5">
             <p className="m-0 mb-1.5 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
               <span className="inline-block size-[3px] rounded-full bg-muted-foreground/60" />
               以下结论来自本地文件，可逐条核对
             </p>
-            <ul className="m-0 list-none space-y-1 p-0 text-[12.5px] text-[#52525b]">
+            <ul className="m-0 list-none space-y-1 p-0 text-[12.5px] text-muted-foreground">
               {facts.map((fact, index) => (
                 <li key={index} className="flex flex-wrap items-baseline gap-1.5">
                   <span>{fact.text}</span>
                   {fact.pageRefs.map((page) => (
                     <span
                       key={page}
-                      className="inline-flex rounded border border-[#e0e7ff] bg-[#eef2ff] px-1 py-[0.5px] font-mono text-[10px] text-[#4338ca]"
+                      className="inline-flex rounded border border-info/25 bg-info/10 px-1 py-[0.5px] font-mono text-[10px] text-info"
                     >
                       p.{page}
                     </span>
@@ -176,7 +176,7 @@ export function MessageStream({
                   >
                     <div
                       className={cn(
-                        'max-w-[80%] rounded-[16px] bg-[#f4f4f5] px-4 py-2.5 text-[13.5px] leading-relaxed text-foreground',
+                        'max-w-[80%] rounded-[16px] bg-muted px-4 py-2.5 text-[13.5px] leading-relaxed text-foreground',
                         flashSeq === message.seq && 'msg-flash'
                       )}
                     >
@@ -195,7 +195,7 @@ export function MessageStream({
                   <AssistantAvatar />
                   <div className="min-w-0 flex-1">
                     <div className="mb-1 flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
-                      <span className="font-medium text-[#3f3f46]">{agentName}</span>
+                      <span className="font-medium text-foreground">{agentName}</span>
                     </div>
                     <AssistantMessage message={message} cachedThinking={cachedThinking} />
                   </div>
@@ -206,21 +206,26 @@ export function MessageStream({
             {waiting && (
               <>
                 <div className="flex justify-end">
-                  <div className="max-w-[80%] rounded-[16px] bg-[#f4f4f5] px-4 py-2.5 text-[13.5px] leading-relaxed text-foreground">
+                  <div className="max-w-[80%] rounded-[16px] bg-muted px-4 py-2.5 text-[13.5px] leading-relaxed text-foreground">
                     {pendingText}
                   </div>
                 </div>
                 <article className="flex items-start gap-3">
                   <AssistantAvatar />
                   <div className="min-w-0 flex-1">
-                    <div className="mb-1 text-[11.5px] font-medium text-[#3f3f46]">{agentName}</div>
+                    <div className="mb-1 text-[11.5px] font-medium text-foreground">
+                      {agentName}
+                    </div>
                     {streamState &&
                     (streamState.thinking ||
                       (streamState.events && streamState.events.length > 0)) ? (
                       <ThoughtChainViewer liveStream={streamState} isStreaming />
                     ) : (
                       <div className="flex select-none items-center gap-1.5 py-0.5">
-                        <LoaderCircle size={12} className="shrink-0 animate-spin text-[#a1a1aa]" />
+                        <LoaderCircle
+                          size={12}
+                          className="shrink-0 animate-spin text-muted-foreground"
+                        />
                         <TextShimmer duration={1.2} className="text-[12.5px] font-[450]">
                           正在理解你的请求…
                         </TextShimmer>
@@ -255,7 +260,7 @@ export function MessageStream({
               onClick={() => jumpToMessage(seq)}
               className={cn(
                 'h-[2px] w-2.5 rounded-full transition-all duration-150 hover:w-4',
-                railActive === seq ? 'bg-[#4f46e5]' : 'bg-muted-foreground/25 hover:bg-[#4338ca]'
+                railActive === seq ? 'bg-info' : 'bg-muted-foreground/25 hover:bg-info'
               )}
             />
           ))}

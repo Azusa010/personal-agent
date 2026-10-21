@@ -12,10 +12,10 @@ const ICONS = {
 } as const
 
 const ICON_TONE: Record<FlowLine['status'], string> = {
-  success: 'text-[#c9c9ce]',
-  running: 'text-[#4f46e5]',
-  pending: 'text-[#b45309]',
-  failed: 'text-[#be123c]'
+  success: 'text-muted-foreground/50',
+  running: 'text-info',
+  pending: 'text-warning',
+  failed: 'text-destructive'
 }
 
 export interface StepFlowProps {
@@ -45,9 +45,9 @@ export function StepFlow({ lines, className }: StepFlowProps): React.JSX.Element
             title={clickable ? '查看这一步的原始参数' : undefined}
             onClick={clickable ? () => setInspect(line) : undefined}
             className={cn(
-              'flex items-start gap-2.5 text-[13.5px] leading-[1.78] text-[#27272a]',
+              'flex items-start gap-2.5 text-[13.5px] leading-[1.78] text-foreground/90',
               line.status === 'running' &&
-                '-mx-2 rounded-[7px] bg-linear-to-r from-[#eef2ff]/80 to-transparent px-2',
+                '-mx-2 rounded-[7px] bg-linear-to-r from-info/10 to-transparent px-2',
               clickable && 'cursor-pointer'
             )}
           >
@@ -58,11 +58,11 @@ export function StepFlow({ lines, className }: StepFlowProps): React.JSX.Element
                 className={line.status === 'running' ? 'animate-spin' : undefined}
               />
             </span>
-            <span className={cn('min-w-0', line.status === 'failed' && 'text-[#3f3f46]')}>
+            <span className={cn('min-w-0', line.status === 'failed' && 'text-foreground')}>
               {line.text}
             </span>
             {line.cap !== undefined && (
-              <code className="ml-auto shrink-0 self-center pl-2.5 font-mono text-[9.5px] leading-none text-[#d4d4da]">
+              <code className="ml-auto shrink-0 self-center pl-2.5 font-mono text-[9.5px] leading-none text-muted-foreground/50">
                 {line.cap}
               </code>
             )}

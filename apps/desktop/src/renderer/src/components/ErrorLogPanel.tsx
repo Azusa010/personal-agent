@@ -12,11 +12,11 @@ const RANGES = [
 ] as const
 
 const LEVEL_STYLES: Record<string, string> = {
-  fatal: 'bg-[#fdeaea] text-[#a61b1b]',
-  error: 'bg-[#fdeceb] text-[#b42318]',
-  warn: 'bg-[#fdf3e3] text-[#8a5300]',
-  info: 'bg-[#e8f0fb] text-[#1c4f9c]',
-  debug: 'bg-[#f0f0f0] text-[#5c5c5c]'
+  fatal: 'bg-destructive/15 text-destructive',
+  error: 'bg-destructive/10 text-destructive',
+  warn: 'bg-warning/15 text-warning',
+  info: 'bg-info/10 text-info',
+  debug: 'bg-muted text-muted-foreground'
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -117,7 +117,7 @@ export function ErrorLogPanel(): React.JSX.Element {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-[2px] rounded-[8px] bg-[#f2f2f2] p-[2px]">
+        <div className="flex items-center gap-[2px] rounded-[8px] bg-muted p-[2px]">
           {RANGES.map((range) => (
             <button
               key={range.days}
@@ -126,7 +126,7 @@ export function ErrorLogPanel(): React.JSX.Element {
               className={cn(
                 'rounded-[6px] px-2.5 py-1 text-[12px] transition-colors',
                 days === range.days
-                  ? 'bg-white font-medium text-foreground shadow-sm'
+                  ? 'bg-background font-medium text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -156,7 +156,7 @@ export function ErrorLogPanel(): React.JSX.Element {
       </div>
 
       {notice !== null && (
-        <div className="rounded-[8px] border border-border bg-[#fafafa] px-3 py-2 text-[11.5px] text-muted-foreground">
+        <div className="rounded-[8px] border border-border bg-muted/40 px-3 py-2 text-[11.5px] text-muted-foreground">
           {notice}
         </div>
       )}
@@ -185,7 +185,7 @@ export function ErrorLogPanel(): React.JSX.Element {
               <button
                 type="button"
                 onClick={() => setExpanded(isOpen ? null : group.fingerprint)}
-                className="flex w-full items-start gap-2 bg-background px-3 py-2.5 text-left transition-colors hover:bg-[#fafafa]"
+                className="flex w-full items-start gap-2 bg-background px-3 py-2.5 text-left transition-colors hover:bg-muted/60"
               >
                 <span className="mt-[2px] text-muted-foreground">
                   {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -211,13 +211,13 @@ export function ErrorLogPanel(): React.JSX.Element {
                     <span>{formatTime(group.lastTs)}</span>
                   </span>
                 </span>
-                <span className="shrink-0 rounded-full bg-[#f2f2f2] px-2 py-[1px] text-[10.5px] text-foreground">
+                <span className="shrink-0 rounded-full bg-muted px-2 py-[1px] text-[10.5px] text-foreground">
                   {group.count}
                 </span>
               </button>
 
               {isOpen && (
-                <div className="space-y-2 border-t border-border bg-[#fcfcfc] px-3 py-2.5">
+                <div className="space-y-2 border-t border-border bg-card px-3 py-2.5">
                   <div className="text-[10.5px] text-muted-foreground">
                     指纹 <span className="font-mono">{group.fingerprint.slice(0, 12)}</span> · 首次{' '}
                     {formatTime(group.firstTs)} · 最近 {formatTime(group.lastTs)}
@@ -225,7 +225,7 @@ export function ErrorLogPanel(): React.JSX.Element {
                   {details.map((record) => (
                     <div
                       key={record.id}
-                      className="rounded-[8px] border border-border bg-white p-2"
+                      className="rounded-[8px] border border-border bg-background p-2"
                     >
                       <div className="flex items-center justify-between text-[10.5px] text-muted-foreground">
                         <span>{formatTime(record.ts)}</span>
@@ -240,12 +240,12 @@ export function ErrorLogPanel(): React.JSX.Element {
                         </div>
                       )}
                       {record.stack !== undefined && (
-                        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-[6px] bg-[#f6f6f6] p-1.5 text-[10.5px] leading-[1.5] text-[#444]">
+                        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-[6px] bg-code-bg p-1.5 text-[10.5px] leading-[1.5] text-muted-foreground">
                           {record.stack}
                         </pre>
                       )}
                       {record.context !== undefined && (
-                        <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-[6px] bg-[#f6f6f6] p-1.5 text-[10.5px] leading-[1.5] text-[#444]">
+                        <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-[6px] bg-code-bg p-1.5 text-[10.5px] leading-[1.5] text-muted-foreground">
                           {JSON.stringify(record.context, null, 2)}
                         </pre>
                       )}

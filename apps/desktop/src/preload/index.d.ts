@@ -1,5 +1,6 @@
 import type {
   RuntimeStatus,
+  GetAppearanceResult,
   GetModelSettingsResult,
   ListPdfsResult,
   ListTasksResult,
@@ -9,6 +10,8 @@ import type {
   PermissionNotice,
   PermissionRespondResult,
   RunTaskIpcResult,
+  SetAppearanceInput,
+  SetAppearanceResult,
   SetModelSettingsInput,
   SetModelSettingsResult,
   TimelineIpcResult,
@@ -40,6 +43,7 @@ import type {
   LogsGroupParams,
   LogsReportInput
 } from '../shared/ipc-contract'
+import type { AppearanceView, EffectiveTheme } from '../shared/theme'
 
 export type {
   RuntimeStatus,
@@ -116,8 +120,14 @@ export type PersonalAgentApi = {
   submitA2UIForm(params: A2UIFormSubmitParams): Promise<A2UIFormSubmitIpcResult>
   /** 订阅 main 推来的 A2UI 渲染事件 */
   onA2UIRender(listener: (notice: A2UIRenderNotice) => void): () => void
-  /** 同步窗口自绘顶栏系统窗控(最小化/最大化/关闭)主题配色 */
-  setTitleBarTheme(theme: string): Promise<{ ok: boolean }>
+  /** 首帧主题：主进程通过 additionalArguments 注入，同步可用，供 renderer 在首帧前落 class */
+  initialTheme: EffectiveTheme
+  /** 读外观偏好（preference）与当前生效值（effective） */
+  getAppearance(): Promise<GetAppearanceResult>
+  /** 保存外观偏好并立即生效（不重启 runtime） */
+  setAppearance(input: SetAppearanceInput): Promise<SetAppearanceResult>
+  /** 订阅 main 推来的外观变化（用户切换或系统主题变化） */
+  onAppearanceChanged(listener: (appearance: AppearanceView) => void): () => void
   /** 扁平记录列表，按 ts 倒序，默认 100 条 */
   listLogs(params?: LogsListParams): Promise<ListLogsIpcResult>
   /** 按 fingerprint 归组，默认只出 error 及以上、近 7 天 */

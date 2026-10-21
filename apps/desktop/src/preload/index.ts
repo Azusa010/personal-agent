@@ -4,9 +4,11 @@ import type {
   A2UIFormSubmitParams,
   A2UIRenderNotice,
   AgentStreamNotice,
+  AppearanceView,
   PermissionDecision,
   PermissionNotice,
   SetAgentProfileInput,
+  SetAppearanceInput,
   SetModelSettingsInput,
   CreateBotInput,
   UpdateBotInput,
@@ -14,6 +16,7 @@ import type {
   LogsListParams,
   LogsReportInput
 } from '../shared/ipc-contract'
+import { parseThemeArgv } from '../shared/theme'
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -117,8 +120,23 @@ if (process.contextIsolated) {
           ipcRenderer.removeListener('personal-agent:a2ui-render-notice', wrapped)
         }
       },
-      setTitleBarTheme: (theme: string) => {
-        return ipcRenderer.invoke('personal-agent:set-title-bar-theme', theme)
+      // 首帧主题：主进程用 additionalArguments 注入，同步可取。
+      // 走 IPC 是异步的，等它回来时首屏已经按错误主题画完了。
+      initialTheme: parseThemeArgv(process.argv) ?? 'light',
+      getAppearance: () => {
+        return ipcRenderer.invoke('personal-agent:get-appearance')
+      },
+      setAppearance: (input: SetAppearanceInput) => {
+        return ipcRenderer.invoke('personal-agent:set-appearance', input)
+      },
+      onAppearanceChanged: (listener: (appearance: AppearanceView) => void) => {
+        const wrapped = (_event: IpcRendererEvent, appearance: AppearanceView): void => {
+          listener(appearance)
+        }
+        ipcRenderer.on('personal-agent:appearance-changed', wrapped)
+        return () => {
+          ipcRenderer.removeListener('personal-agent:appearance-changed', wrapped)
+        }
       },
       listLogs: (params?: LogsListParams) => {
         return ipcRenderer.invoke('personal-agent:logs:list', params)

@@ -56,7 +56,7 @@ export function PersonalAgentLogo({
       />
       {/* 中心智核 Spark */}
       <circle cx="61" cy="53" r="6" fill="var(--mint, #0f9d8f)" />
-      <path d="M61 47 Q61 53 67 53 Q61 53 61 59 Q61 53 55 53 Q61 53 61 47 Z" fill="#ffffff" />
+      <path d="M61 47 Q61 53 67 53 Q61 53 61 59 Q61 53 55 53 Q61 53 61 47 Z" fill="var(--card)" />
     </svg>
   )
 }

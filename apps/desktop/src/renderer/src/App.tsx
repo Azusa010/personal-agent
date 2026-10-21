@@ -28,6 +28,7 @@ import {
   type LiveStreamState,
   timelineToMarkdown
 } from './view-model'
+import { applyThemeToRoot } from './lib/theme'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 function App(): React.JSX.Element {
@@ -171,6 +172,15 @@ function App(): React.JSX.Element {
   useEffect(() => {
     const unsubscribe = window.personalAgent.onA2UIRender((notice) => {
       setActiveA2UIRender(notice)
+    })
+    return unsubscribe
+  }, [])
+
+  // 主题的唯一驱动方是主进程：用户切换与「跟随系统」时的 OS 变化都从这里下发。
+  // renderer 只负责把 effective 值落到 <html>，不自己算、也不自己存。
+  useEffect(() => {
+    const unsubscribe = window.personalAgent.onAppearanceChanged((appearance) => {
+      applyThemeToRoot(document.documentElement, appearance.effective)
     })
     return unsubscribe
   }, [])

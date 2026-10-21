@@ -9,16 +9,21 @@ import {
   FileWarning,
   Globe,
   KeyRound,
+  Monitor,
+  Moon,
+  Palette,
   Save,
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  Sun
 } from 'lucide-react'
 import type {
   AgentProfileView,
   ModelSettingsView,
   SetAgentProfileInput,
   SetModelSettingsInput,
-  SetModelSettingsResult
+  SetModelSettingsResult,
+  ThemePreference
 } from '../../../shared/ipc-contract'
 import { cn } from '@renderer/lib/utils'
 import { Button } from './ui/button'
@@ -28,6 +33,7 @@ import { Label } from './ui/label'
 import { Textarea } from './ui/textarea'
 
 type SettingsTab =
+  | 'appearance'
   | 'profile'
   | 'model'
   | 'sidecar'
@@ -47,6 +53,13 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  {
+    id: 'appearance',
+    group: '助手',
+    label: '外观主题',
+    description: '浅色 / 深色 / 跟随系统',
+    icon: Palette
+  },
   {
     id: 'profile',
     group: '助手',
@@ -112,6 +125,19 @@ const NAV_ITEMS: NavItem[] = [
   }
 ]
 
+interface ThemeOption {
+  value: ThemePreference
+  label: string
+  hint: string
+  icon: typeof Sun
+}
+
+const THEME_OPTIONS: ThemeOption[] = [
+  { value: 'light', label: '浅色', hint: '白底深字', icon: Sun },
+  { value: 'dark', label: '深色', hint: '近黑底浅字', icon: Moon },
+  { value: 'system', label: '跟随系统', hint: '随操作系统切换', icon: Monitor }
+]
+
 function SettingsBody({
   onSaved,
   onBack
@@ -124,6 +150,10 @@ function SettingsBody({
   const [modelView, setModelView] = useState<ModelSettingsView | null>(null)
   const [profileView, setProfileView] = useState<AgentProfileView | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+
+  // 外观：偏好由主进程持久化，切换立即生效，不参与底部「保存设置」那条提交链。
+  const [themePreference, setThemePreference] = useState<ThemePreference>('system')
+  const [themeSaving, setThemeSaving] = useState(false)
 
   // 模型配置
   const [model, setModel] = useState('')
@@ -264,6 +294,49 @@ function SettingsBody({
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void window.personalAgent
+      .getAppearance()
+      .then((result) => {
+        if (cancelled) return
+        if (result.ok) setThemePreference(result.appearance.preference)
+        else setFailure(`[${result.code}] ${result.message}`)
+      })
+      .catch((err) => {
+        if (!cancelled)
+          setFailure(`读取外观设置失败：${err instanceof Error ? err.message : String(err)}`)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  /** 主题是「点了就生效」的即时开关：失败必须把选中态退回去，否则面板会撒谎。 */
+  const handleThemeChange = async (preference: ThemePreference): Promise<void> => {
+    if (preference === themePreference || themeSaving) return
+    const previous = themePreference
+    setThemePreference(preference)
+    setThemeSaving(true)
+    setFailure(null)
+    setMessage(null)
+    try {
+      const result = await window.personalAgent.setAppearance({ preference })
+      if (!result.ok) {
+        setThemePreference(previous)
+        setFailure(`[${result.code}] ${result.message}`)
+        return
+      }
+      setThemePreference(result.appearance.preference)
+      setMessage('外观已更新，立即生效。')
+    } catch (err) {
+      setThemePreference(previous)
+      setFailure(`外观保存失败：${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setThemeSaving(false)
+    }
+  }
 
   const describeApplied = (applied: 'restarted' | 'on-next-restart'): string =>
     applied === 'restarted'
@@ -431,14 +504,14 @@ function SettingsBody({
   return (
     <div className="flex h-full w-full overflow-hidden">
       {/* 左侧 Sidebar 选项框 */}
-      <aside className="flex w-[260px] shrink-0 select-none flex-col border-r border-border bg-[#f9f9f9] px-2 pb-2 pt-1">
+      <aside className="flex w-[260px] shrink-0 select-none flex-col border-r border-border bg-muted/40 px-2 pb-2 pt-1">
         <div className="flex h-11 items-center gap-1.5 px-1">
           <button
             type="button"
             onClick={onBack}
             title="返回对话"
             aria-label="返回对话"
-            className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-[#efefef] hover:text-foreground"
+            className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <ArrowLeft size={16} />
           </button>
@@ -463,8 +536,8 @@ function SettingsBody({
                     className={cn(
                       'flex h-[33px] w-full items-center gap-2.5 rounded-[8px] px-2 text-left text-[13px] transition-colors',
                       isActive
-                        ? 'bg-[#e8e8e8] font-medium text-foreground'
-                        : 'text-foreground/80 hover:bg-[#efefef] hover:text-foreground'
+                        ? 'bg-secondary font-medium text-foreground'
+                        : 'text-foreground/80 hover:bg-muted hover:text-foreground'
                     )}
                   >
                     <Icon
@@ -502,7 +575,47 @@ function SettingsBody({
         {/* 内容滚动区 */}
         <div className="flex-1 overflow-y-auto px-8 py-5 text-[13px]">
           <div className="mx-auto w-full max-w-[700px]">
-            {activeTab === 'logs' ? (
+            {activeTab === 'appearance' ? (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label>界面主题</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {THEME_OPTIONS.map((option) => {
+                      const Icon = option.icon
+                      const isActive = themePreference === option.value
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          disabled={themeSaving}
+                          aria-pressed={isActive}
+                          onClick={() => void handleThemeChange(option.value)}
+                          className={cn(
+                            'flex cursor-pointer flex-col items-start gap-1.5 rounded-lg border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                            isActive
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:bg-muted'
+                          )}
+                        >
+                          <Icon
+                            size={16}
+                            className={isActive ? 'text-foreground' : 'text-muted-foreground'}
+                          />
+                          <span className="text-[13px] font-medium text-foreground">
+                            {option.label}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground">{option.hint}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="m-0 text-[11px] leading-relaxed text-muted-foreground">
+                    深色主题会同时切换窗口底色与系统窗控钮配色。选择「跟随系统」后，操作系统切换
+                    明暗时界面立即跟随，无需重启。
+                  </p>
+                </div>
+              </div>
+            ) : activeTab === 'logs' ? (
               <ErrorLogPanel />
             ) : loadError !== null ? (
               <div className="flex h-full items-center justify-center text-[12px] text-destructive">
@@ -547,7 +660,7 @@ function SettingsBody({
                     id="profile-reasoning"
                     checked={reasoningSummary}
                     onChange={(e) => setReasoningSummary(e.target.checked)}
-                    className="h-4 w-4 rounded border-[#c9c9ce] accent-[#18181b]"
+                    className="h-4 w-4 rounded border-input accent-foreground"
                   />
                   <Label htmlFor="profile-reasoning" className="cursor-pointer font-normal">
                     <span className="flex items-center gap-1.5">
@@ -1097,6 +1210,8 @@ function SettingsBody({
               <span className="text-destructive">{failure}</span>
             ) : message !== null ? (
               <span className="text-muted-foreground">{message}</span>
+            ) : activeTab === 'appearance' ? (
+              <span className="text-muted-foreground">外观修改即时生效，无需保存。</span>
             ) : null}
           </div>
           {activeTab === 'model' && modelView?.apiKeySet && (
@@ -1176,10 +1291,12 @@ function SettingsBody({
               清除数据库密码
             </Button>
           )}
-          <Button type="button" size="sm" disabled={saving} onClick={handleSave}>
-            <Save size={13} />
-            {saving ? '保存中…' : '保存设置'}
-          </Button>
+          {activeTab !== 'appearance' && (
+            <Button type="button" size="sm" disabled={saving} onClick={handleSave}>
+              <Save size={13} />
+              {saving ? '保存中…' : '保存设置'}
+            </Button>
+          )}
         </footer>
       </main>
     </div>

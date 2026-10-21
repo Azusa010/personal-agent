@@ -257,12 +257,12 @@ export function WelcomeView({
         {suggestions.map((item, idx) => (
           <button
             key={idx}
-            className="suggestion-chip flex items-start gap-2.5 rounded-[12px] border border-border bg-background p-3 text-left transition-colors duration-150 hover:border-[#dedee2] hover:bg-[#fcfcfc]"
+            className="suggestion-chip flex items-start gap-2.5 rounded-[12px] border border-border bg-background p-3 text-left transition-colors duration-150 hover:border-ring/60 hover:bg-muted/40"
             onMouseMove={handleMagnetic}
             onMouseLeave={handleMouseLeave}
             onClick={() => onAction(item.prompt)}
           >
-            <span className="grid size-[27px] shrink-0 place-items-center rounded-[8px] bg-secondary text-[#52525b]">
+            <span className="grid size-[27px] shrink-0 place-items-center rounded-[8px] bg-secondary text-muted-foreground">
               {React.cloneElement(item.icon, { size: 15 })}
             </span>
             <span className="pt-[3px] text-[12.5px] font-medium leading-[1.4] text-foreground">

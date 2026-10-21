@@ -26,6 +26,9 @@ import type {
   TaskStatus,
   TaskTimeline
 } from './domain'
+import type { AppearanceView, ThemePreference } from './theme'
+
+export type { AppearanceView, ThemePreference }
 
 export type { PdfEntry, SummaryFact }
 
@@ -265,6 +268,19 @@ export interface SetAgentProfileInput {
 
 export type SetAgentProfileResult =
   { ok: true; profile: AgentProfileView } | { ok: false; code: IpcErrorCode; message: string }
+
+// ====== 外观（主题）======
+// preference 是用户的持久化选择，effective 是主进程按 nativeTheme 解析后的生效值。
+// 切换立即生效并落盘，不参与「保存设置」那条提交链（改主题不该重启 runtime）。
+
+export type GetAppearanceResult =
+  { ok: true; appearance: AppearanceView } | { ok: false; code: IpcErrorCode; message: string }
+
+export interface SetAppearanceInput {
+  preference: ThemePreference
+}
+
+export type SetAppearanceResult = GetAppearanceResult
 
 export interface A2UIRenderNotice {
   renderId: string

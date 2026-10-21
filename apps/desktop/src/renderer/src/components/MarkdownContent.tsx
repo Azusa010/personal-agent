@@ -31,7 +31,7 @@ function CodeBlock({
   }
 
   return (
-    <div className="group relative my-2 overflow-hidden rounded-lg border border-border bg-black/5 dark:bg-black/30">
+    <div className="group relative my-2 overflow-hidden rounded-lg border border-border bg-code-bg">
       <div className="flex h-7 items-center justify-between border-b border-border/50 bg-secondary/30 px-3 text-[11px] font-mono text-muted-foreground select-none">
         <span>{language || 'text'}</span>
         <button
@@ -86,7 +86,7 @@ export function MarkdownContent({
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-[#4f46e5] underline underline-offset-2 transition-opacity hover:opacity-80"
+                className="font-medium text-info underline underline-offset-2 transition-opacity hover:opacity-80"
               >
                 {children}
               </a>

@@ -45,12 +45,14 @@ export function A2UIInlineCard({
   const title = render.document.title ?? '需要你补充几项'
 
   return (
-    <div className="overflow-hidden rounded-[12px] border border-[#e8e8ea] bg-background">
-      <div className="flex items-center gap-2 border-b border-[#f0f0f1] bg-[#fafafa] px-3 py-2">
-        <Wand2 size={13} className="shrink-0 text-[#4f46e5]" />
+    <div className="overflow-hidden rounded-[12px] border border-border bg-background">
+      <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
+        <Wand2 size={13} className="shrink-0 text-info" />
         <span className="text-[12px] font-medium text-foreground">{title}</span>
-        <span className="font-mono text-[10px] text-[#b3b3b8]">{componentCount} 个受信组件</span>
-        <span className="ml-auto rounded-full border border-[#e0e7ff] bg-[#eef2ff] px-2 py-[1px] text-[10px] font-medium text-[#4338ca]">
+        <span className="font-mono text-[10px] text-muted-foreground/70">
+          {componentCount} 个受信组件
+        </span>
+        <span className="ml-auto rounded-full border border-info/25 bg-info/10 px-2 py-[1px] text-[10px] font-medium text-info">
           待填写
         </span>
       </div>
@@ -66,7 +68,7 @@ export function A2UIInlineCard({
         />
       </div>
 
-      <div className="flex items-center gap-1.5 border-t border-[#f4f4f5] px-3 py-2 text-[10.5px] text-[#a1a1aa]">
+      <div className="flex items-center gap-1.5 border-t border-border px-3 py-2 text-[10.5px] text-muted-foreground">
         <ShieldCheck size={10} />
         字段由受信组件渲染 · 不执行脚本
       </div>

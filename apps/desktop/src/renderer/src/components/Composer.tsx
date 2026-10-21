@@ -33,7 +33,7 @@ export function Composer(props: ComposerProps): React.JSX.Element {
   return (
     <footer className={variant === 'inline' ? 'w-full' : 'shrink-0 px-6 pb-4 pt-1'}>
       <div className={variant === 'inline' ? 'w-full' : 'mx-auto w-full max-w-[760px]'}>
-        <div className="rounded-[16px] border border-[#e4e4e7] bg-background px-3 pb-2 pt-3 shadow-[0_1px_2px_rgba(9,9,11,0.04),0_8px_24px_-14px_rgba(9,9,11,0.12)] transition-colors focus-within:border-[#d4d4d8]">
+        <div className="rounded-[16px] border border-input bg-background px-3 pb-2 pt-3 shadow-[0_1px_2px_rgba(9,9,11,0.04),0_8px_24px_-14px_rgba(9,9,11,0.12)] transition-colors focus-within:border-ring dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-14px_rgba(0,0,0,0.7)]">
           <textarea
             ref={inputRef}
             rows={2}
@@ -47,7 +47,7 @@ export function Composer(props: ComposerProps): React.JSX.Element {
                 send()
               }
             }}
-            className="block max-h-40 w-full resize-none border-0 bg-transparent px-1 py-1 text-[14px] leading-[1.7] text-foreground outline-none placeholder:text-[#a1a1aa]"
+            className="block max-h-40 w-full resize-none border-0 bg-transparent px-1 py-1 text-[14px] leading-[1.7] text-foreground outline-none placeholder:text-muted-foreground"
           />
           <div className="mt-1 flex items-center justify-between gap-2 px-1">
             <div className="flex min-w-0 items-center gap-0.5">
@@ -90,7 +90,7 @@ export function Composer(props: ComposerProps): React.JSX.Element {
               disabled={running || value.trim().length === 0}
               onClick={send}
               aria-label={running ? '执行中' : '发送'}
-              className="grid size-8 shrink-0 place-items-center rounded-full bg-foreground text-background transition-opacity hover:opacity-90 disabled:bg-[#f4f4f5] disabled:text-[#c9c9ce]"
+              className="grid size-8 shrink-0 place-items-center rounded-full bg-foreground text-background transition-opacity hover:opacity-90 disabled:bg-muted disabled:text-muted-foreground/60"
             >
               {running ? (
                 <LoaderCircle size={15} className="animate-spin" />

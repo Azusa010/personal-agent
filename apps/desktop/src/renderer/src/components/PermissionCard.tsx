@@ -41,11 +41,11 @@ function Row({
   return (
     <div
       className={cn(
-        'grid grid-cols-[52px_minmax(0,1fr)] items-start gap-2.5 border-t border-[#f5f5f6] py-[7px] text-[12.5px]',
+        'grid grid-cols-[52px_minmax(0,1fr)] items-start gap-2.5 border-t border-border/60 py-[7px] text-[12.5px]',
         className
       )}
     >
-      <span className="shrink-0 pt-[3px] text-[11px] text-[#a8a8b0]">{label}</span>
+      <span className="shrink-0 pt-[3px] text-[11px] text-muted-foreground">{label}</span>
       <div className="min-w-0">{children}</div>
     </div>
   )
@@ -371,9 +371,9 @@ export function PermissionCard({ permission, onDecide }: PermissionCardProps): R
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-24 bg-gradient-to-t from-background via-background/70 to-transparent" />
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center px-6">
-        <div className="pointer-events-auto w-full max-w-[760px] overflow-hidden rounded-t-[16px] border border-b-0 border-[#e4e4e7] bg-[linear-gradient(180deg,#fff9ea_0,rgba(255,249,234,0)_104px),linear-gradient(#fff,#fff)] shadow-[0_-1px_2px_rgba(9,9,11,0.04),0_-24px_56px_-30px_rgba(9,9,11,0.34)]">
+        <div className="pointer-events-auto w-full max-w-[760px] overflow-hidden rounded-t-[16px] border border-b-0 border-input bg-card bg-[linear-gradient(180deg,var(--amber-tint)_0,transparent_104px)] shadow-[0_-1px_2px_rgba(9,9,11,0.04),0_-24px_56px_-30px_rgba(9,9,11,0.34)] dark:shadow-[0_-1px_2px_rgba(0,0,0,0.4),0_-24px_56px_-30px_rgba(0,0,0,0.8)]">
           <div className="grid h-3.5 place-items-center">
-            <span className="block h-[3px] w-[30px] rounded-full bg-[#dcdce0]" />
+            <span className="block h-[3px] w-[30px] rounded-full bg-border" />
           </div>
 
           {/* 标题：琥珀图标 + 一句问句 + 倒计时 */}
@@ -396,12 +396,16 @@ export function PermissionCard({ permission, onDecide }: PermissionCardProps): R
               )}
               style={{
                 background: `conic-gradient(${
-                  windowClosed ? 'var(--destructive)' : isUrgent ? 'var(--amber-strong)' : '#d97706'
-                } ${ringDeg}deg, #fde68a 0)`
+                  windowClosed
+                    ? 'var(--destructive)'
+                    : isUrgent
+                      ? 'var(--amber-strong)'
+                      : 'var(--warning)'
+                } ${ringDeg}deg, var(--amber-line) 0)`
               }}
               title="批准窗口剩余时间"
             >
-              <div className="grid size-[26px] place-items-center rounded-full bg-background font-mono text-[9.5px] font-semibold text-[#92400e]">
+              <div className="grid size-[26px] place-items-center rounded-full bg-background font-mono text-[9.5px] font-semibold text-warning">
                 {windowClosed ? '0' : remainingSec}
               </div>
             </div>
@@ -417,7 +421,7 @@ export function PermissionCard({ permission, onDecide }: PermissionCardProps): R
                       {permission.sourcePaths.slice(0, 3).map((path) => (
                         <span
                           key={path}
-                          className="inline-flex items-center gap-1 rounded-[5px] border border-border bg-[#fafafa] px-1.5 py-[2px] font-mono text-[10px] text-[#52525b]"
+                          className="inline-flex items-center gap-1 rounded-[5px] border border-border bg-muted/60 px-1.5 py-[2px] font-mono text-[10px] text-muted-foreground"
                           title={path}
                         >
                           <FileText size={9} className="shrink-0 text-muted-foreground" />
@@ -436,7 +440,7 @@ export function PermissionCard({ permission, onDecide }: PermissionCardProps): R
                 {permission.targetPath !== null && (
                   <Row label="目标位置">
                     <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-                      <span className="inline-flex items-center gap-1 rounded-[5px] border border-[var(--mint-line)] bg-[var(--mint-tint)] px-1.5 py-[2px] font-mono text-[10px] break-all text-[#065f46]">
+                      <span className="inline-flex items-center gap-1 rounded-[5px] border border-[var(--mint-line)] bg-[var(--mint-tint)] px-1.5 py-[2px] font-mono text-[10px] break-all text-info">
                         <ArrowRight size={9} className="shrink-0" />
                         {permission.targetPath}
                       </span>
@@ -445,7 +449,7 @@ export function PermissionCard({ permission, onDecide }: PermissionCardProps): R
                 )}
 
                 <Row label="执行说明">
-                  <span className="text-[12px] leading-[1.6] text-[#52525b]">
+                  <span className="text-[12px] leading-[1.6] text-muted-foreground">
                     {meta.description}
                   </span>
                 </Row>
@@ -460,7 +464,7 @@ export function PermissionCard({ permission, onDecide }: PermissionCardProps): R
 
                 {preview.message !== null && (
                   <Row label="提醒内容">
-                    <span className="inline-block rounded-[5px] border border-border bg-[#fafafa] px-2 py-[3px] text-[12px] text-foreground">
+                    <span className="inline-block rounded-[5px] border border-border bg-muted/60 px-2 py-[3px] text-[12px] text-foreground">
                       {preview.message}
                     </span>
                   </Row>
@@ -480,16 +484,16 @@ export function PermissionCard({ permission, onDecide }: PermissionCardProps): R
               </Row>
             )}
 
-            <div className="flex items-center gap-1.5 border-t border-[#f5f5f6] py-1.5 font-mono text-[9.5px] text-[#b8b8bf]">
+            <div className="flex items-center gap-1.5 border-t border-border/60 py-1.5 font-mono text-[9.5px] text-muted-foreground/70">
               <ShieldAlert size={10} />
-              参数指纹 {permission.argsHash.slice(0, 12)}…<span className="text-[#dcdce0]">·</span>
+              参数指纹 {permission.argsHash.slice(0, 12)}…<span className="text-border">·</span>
               {windowClosed ? '窗口已关闭，不会执行' : `${remainingSec} 秒后自动拒绝`}
             </div>
           </div>
 
           {/* 操作区 */}
-          <div className="flex items-center justify-between gap-3.5 border-t border-[#f5f5f6] px-[18px] pb-[15px] pt-2.5">
-            <div className="flex items-center gap-1.5 text-[10.5px] text-[#b3b3b8]">
+          <div className="flex items-center justify-between gap-3.5 border-t border-border/60 px-[18px] pb-[15px] pt-2.5">
+            <div className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground/70">
               {windowClosed ? (
                 <span className="flex items-center gap-1 font-medium text-destructive">
                   <AlertTriangle size={12} />
@@ -498,11 +502,11 @@ export function PermissionCard({ permission, onDecide }: PermissionCardProps): R
               ) : (
                 <span className="hidden items-center gap-1 sm:flex">
                   按{' '}
-                  <kbd className="rounded border border-border px-1 py-[1px] font-mono text-[9.5px] text-[#71717a]">
+                  <kbd className="rounded border border-border px-1 py-[1px] font-mono text-[9.5px] text-muted-foreground">
                     Enter
                   </kbd>{' '}
                   批准 ·{' '}
-                  <kbd className="rounded border border-border px-1 py-[1px] font-mono text-[9.5px] text-[#71717a]">
+                  <kbd className="rounded border border-border px-1 py-[1px] font-mono text-[9.5px] text-muted-foreground">
                     Esc
                   </kbd>{' '}
                   拒绝
@@ -531,7 +535,7 @@ export function PermissionCard({ permission, onDecide }: PermissionCardProps): R
                 className={cn(
                   'min-w-[104px] font-medium',
                   permission.capability === 'terminal_execute'
-                    ? 'bg-[#be123c] text-white hover:bg-[#9f1239]'
+                    ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
                     : 'bg-foreground text-background hover:bg-foreground/90'
                 )}
               >
