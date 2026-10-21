@@ -1238,3 +1238,23 @@ A2UIComponent.model_rebuild()
 A2UIDocument.model_rebuild()
 A2UIRenderParams.model_rebuild()
 
+
+class LogRecordModel(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    schemaVersion: Literal[1]
+    id: str = Field(min_length=1)
+    ts: str = Field(min_length=1)
+    level: Literal["debug", "info", "warn", "error", "fatal"]
+    source: Literal["main", "python", "renderer"]
+    event: str = Field(min_length=1)
+    code: str | None = None
+    message: str = Field(min_length=1)
+    stack: str | None = None
+    fingerprint: str = Field(pattern=r"^[0-9a-f]{40}$")
+    sessionId: str = Field(min_length=1)
+    taskId: str | None = None
+    traceId: str | None = None
+    durationMs: float | None = None
+    context: dict[str, Any] | None = None
+

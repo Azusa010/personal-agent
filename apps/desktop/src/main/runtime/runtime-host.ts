@@ -21,6 +21,7 @@ import {
   type SecretCodec
 } from '../settings/model-settings'
 import { publishAgentStream } from './stream-fanout'
+import { createStderrParser, logEvent } from '../observability/app-logger'
 
 export type { RuntimeState, RuntimeStatus }
 let supervisor: PythonSupervisor | null = null
@@ -153,6 +154,14 @@ export async function startRuntime(): Promise<void> {
   if (!existsSync(launch.command)) {
     state = 'crashed'
     detail = `找不到运行时（${launch.layout}）: ${launch.command}`
+    logEvent({
+      level: 'error',
+      source: 'main',
+      event: 'runtime.start_failed',
+      code: RUNTIME_ERROR_CODE.CRASHED,
+      message: detail,
+      context: { layout: launch.layout, command: launch.command }
+    })
     return
   }
 
@@ -167,10 +176,20 @@ export async function startRuntime(): Promise<void> {
   supervisor.on('runtime.crashed', (info: { reason: string; detail: string }) => {
     state = 'crashed'
     detail = `runtime 崩溃 (${info.reason}: ${info.detail})`
+    logEvent({
+      level: 'fatal',
+      source: 'main',
+      event: 'runtime.child_crashed',
+      code: RUNTIME_ERROR_CODE.CRASHED,
+      message: detail,
+      context: { reason: info.reason, childDetail: info.detail }
+    })
   })
-  // python 日志
+  // python 日志：结构化帧由 parser 落盘，裸行/回溯同样由它兜住
+  const stderrParser = createStderrParser()
   supervisor.on('stderr', (chunk: string) => {
     if (is.dev) process.stderr.write(`[python] ${chunk}`)
+    stderrParser?.push(chunk)
   })
 
   supervisor.on('agent.stream', publishAgentStream)
@@ -183,6 +202,15 @@ export async function startRuntime(): Promise<void> {
   } catch (err) {
     state = 'crashed'
     detail = err instanceof RuntimeError ? `${err.code}:${err.message}` : String(err)
+    logEvent({
+      level: 'error',
+      source: 'main',
+      event: 'runtime.start_failed',
+      code: err instanceof RuntimeError ? err.code : RUNTIME_ERROR_CODE.HANDSHAKE_FAILED,
+      message: detail,
+      err,
+      context: { layout: launch.layout, command: launch.command }
+    })
     await supervisor.stop().catch(() => {})
     supervisor = null
   }

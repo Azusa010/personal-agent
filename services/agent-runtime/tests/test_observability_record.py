@@ -16,6 +16,7 @@ import re
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from personal_agent.observability import (
     PYTHON_LOG_PREFIX,
@@ -258,5 +259,5 @@ class TestPydanticMirror:
         wire = sample_record().to_wire()
         wire["level"] = "warning"
 
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             LogRecordModel.model_validate(wire)

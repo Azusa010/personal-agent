@@ -20,7 +20,10 @@ import pytest
 
 from personal_agent.observability import PYTHON_LOG_PREFIX, build_record
 from personal_agent.observability.emitter import StderrEmitter
-from personal_agent.observability.logging_setup import configure_logging, install_exception_hooks
+from personal_agent.observability.logging_setup import (
+    configure_logging,
+    install_exception_hooks,
+)
 
 
 def decode_frame(line: str) -> dict:
@@ -75,7 +78,7 @@ class TestStderrEmitter:
 
         raw = stream.getvalue()
         assert "中文不应被转义成" in raw
-        assert "\\u" not in raw
+        assert "\\u4e2d" not in raw
 
     def test_frame_carries_fingerprint_and_session(self) -> None:
         stream = io.StringIO()

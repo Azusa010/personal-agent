@@ -20,6 +20,8 @@ export default defineConfig({
       'tests/main/eval/**'
     ],
     testTimeout: 15000,
-    hookTimeout: 15000
+    // E2E 用例在 beforeAll 里 spawn 真实 Python 子进程，全量并行跑时 CPU 竞争会
+    // 把冷启动从 ~9s 拖到 15s 以上。hook 时限放宽到 30s，避免门禁随机飘红。
+    hookTimeout: 30000
   }
 })

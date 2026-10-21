@@ -279,3 +279,69 @@ export type { A2UIFormSubmitParams, A2UIFormSubmitResult }
 export type A2UIFormSubmitIpcResult =
   | { ok: true; actionId: string; formData: Record<string, unknown>; accepted: boolean }
   | { ok: false; code: IpcErrorCode; message: string }
+
+// ====== 错误日志（可观测性）======
+// 观测性错误码自成一套（OBSERVABILITY_*），与 IpcErrorCode 不共用联合类型。
+
+export interface LogRecordView {
+  schemaVersion: number
+  id: string
+  ts: string
+  level: string
+  source: string
+  event: string
+  code?: string
+  message: string
+  stack?: string
+  fingerprint: string
+  sessionId: string
+  taskId?: string
+  traceId?: string
+  durationMs?: number
+  context?: Record<string, unknown>
+}
+
+export interface LogGroupView {
+  fingerprint: string
+  level: string
+  source: string
+  event: string
+  message: string
+  count: number
+  firstTs: string
+  lastTs: string
+  sampleId: string
+  taskId?: string
+}
+
+export interface LogsListParams {
+  limit?: number
+  minLevel?: string
+  source?: string
+}
+
+export interface LogsGroupParams {
+  minLevel?: string
+  days?: number
+}
+
+export interface LogsReportInput {
+  event: string
+  message: string
+  level?: string
+  stack?: string
+  taskId?: string
+  context?: Record<string, unknown>
+}
+
+export type ListLogsIpcResult =
+  { ok: true; records: LogRecordView[] } | { ok: false; code: string; message: string }
+
+export type GroupLogsIpcResult =
+  { ok: true; groups: LogGroupView[] } | { ok: false; code: string; message: string }
+
+export type ExportLogsIpcResult =
+  { ok: true; path: string } | { ok: false; code: string; message: string }
+
+export type ClearLogsIpcResult =
+  { ok: true; deleted: number } | { ok: false; code: string; message: string }

@@ -31,7 +31,14 @@ import type {
   CreateBotInput,
   CreateBotResult,
   UpdateBotInput,
-  UpdateBotResult
+  UpdateBotResult,
+  ListLogsIpcResult,
+  GroupLogsIpcResult,
+  ExportLogsIpcResult,
+  ClearLogsIpcResult,
+  LogsListParams,
+  LogsGroupParams,
+  LogsReportInput
 } from '../shared/ipc-contract'
 
 export type {
@@ -111,4 +118,16 @@ export type PersonalAgentApi = {
   onA2UIRender(listener: (notice: A2UIRenderNotice) => void): () => void
   /** 同步窗口自绘顶栏系统窗控(最小化/最大化/关闭)主题配色 */
   setTitleBarTheme(theme: string): Promise<{ ok: boolean }>
+  /** 扁平记录列表，按 ts 倒序，默认 100 条 */
+  listLogs(params?: LogsListParams): Promise<ListLogsIpcResult>
+  /** 按 fingerprint 归组，默认只出 error 及以上、近 7 天 */
+  groupLogs(params?: LogsGroupParams): Promise<GroupLogsIpcResult>
+  /** 导出 7 天日志包到下载目录，返回文件路径 */
+  exportLogs(params?: { days?: number }): Promise<ExportLogsIpcResult>
+  /** 清空本系统的 jsonl 日志（不动其它文件） */
+  clearLogs(): Promise<ClearLogsIpcResult>
+  /** 在文件管理器里打开日志目录 */
+  openLogsDir(): Promise<string>
+  /** renderer 侧错误上报（全局钩子与 ErrorBoundary 共用），main 侧做 5s/10 条节流 */
+  reportError(input: LogsReportInput): Promise<{ ok: true; dropped?: boolean }>
 }

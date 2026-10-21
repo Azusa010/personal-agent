@@ -28,6 +28,7 @@ import type { TaskRepository } from '../product-state/task-repository'
 import { onAgentStream } from '../runtime/stream-fanout'
 import { RuntimeError } from '../runtime/python-supervisor'
 import { RUNTIME_ERROR_CODE } from '../runtime/error-code'
+import { logEvent } from '../observability/app-logger'
 import { RUN_TASK_TIMEOUT_MS } from '../runtime/timeouts'
 import {
   VERIFICATION_FAILED_EVENT,
@@ -90,6 +91,14 @@ function persistRuntimeFailure(
   code: string,
   message: string
 ): RunTaskIpcResult {
+  logEvent({
+    level: 'error',
+    source: 'main',
+    event: 'runtime.task_failed',
+    code,
+    message,
+    taskId
+  })
   try {
     const runFail = deps.db.transaction(() => {
       deps.events.append({
@@ -165,14 +174,30 @@ export async function runTask(
       timeoutMs: MAKE_PLAN_TIMEOUT_MS
     })
   } catch (e) {
+    const code = e instanceof RuntimeError ? toIpcCode(e.code) : RUNTIME_ERROR_CODE.CRASHED
+    logEvent({
+      level: 'error',
+      source: 'main',
+      event: 'runtime.plan_failed',
+      code,
+      message: e instanceof Error ? e.message : String(e),
+      err: e
+    })
     return {
       ok: false,
-      code: e instanceof RuntimeError ? toIpcCode(e.code) : RUNTIME_ERROR_CODE.CRASHED,
+      code,
       message: e instanceof Error ? e.message : String(e)
     }
   }
   const parsedPlan = MakePlanResult.safeParse(rawPlan)
   if (!parsedPlan.success) {
+    logEvent({
+      level: 'error',
+      source: 'main',
+      event: 'runtime.plan_failed',
+      code: RUNTIME_ERROR_CODE.PLAN_INVALID,
+      message: parsedPlan.error.message
+    })
     return {
       ok: false,
       code: RUNTIME_ERROR_CODE.PLAN_INVALID,
@@ -299,6 +324,18 @@ async function runAgentPhase(
 
   // failed 不经判定：没有交付物可验，Python 给的原因就是终态原因。
   if (result.status === 'failed') {
+    const reason = result.reason ?? '运行时未给出失败原因'
+    const separator = reason.indexOf(':')
+    const reasonCode = separator > 0 ? reason.slice(0, separator).trim() : undefined
+    logEvent({
+      level: 'error',
+      source: 'main',
+      event: 'runtime.task_failed',
+      ...(reasonCode === undefined ? {} : { code: reasonCode }),
+      message: reason,
+      taskId,
+      context: { origin: 'python', failedEvents: events.filter((ev) => ev.type === TASK_FAILED_EVENT).length }
+    })
     try {
       const runFail = deps.db.transaction(() => {
         for (const ev of events) {
@@ -425,7 +462,21 @@ async function verifyCompletion(
     input.mode = modeEnv
   }
   try {
-    return await deps.verify(input)
+    const outcome = await deps.verify(input)
+    if (!outcome.report.ok) {
+      logEvent({
+        level: 'error',
+        source: 'main',
+        event: 'verification.failed',
+        code: RUNTIME_ERROR_CODE.VERIFICATION_FAILED,
+        message: outcome.report.reason ?? '交付物校验未通过',
+        taskId,
+        context: {
+          failedChecks: outcome.report.checks.filter((check) => !check.ok).map((check) => check.id)
+        }
+      })
+    }
+    return outcome
   } catch (e) {
     return {
       report: {

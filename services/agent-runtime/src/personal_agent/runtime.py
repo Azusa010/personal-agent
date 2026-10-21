@@ -33,6 +33,11 @@ from personal_agent.host_channel import HostChannel
 from personal_agent.live_model import LIVE_MODEL_ENV, LiveModel
 from personal_agent.live_planner import LivePlanner
 from personal_agent.model_gateway import ModelCallFailed, ModelGateway
+from personal_agent.observability.emitter import StderrEmitter
+from personal_agent.observability.logging_setup import (
+    configure_logging,
+    install_exception_hooks,
+)
 from personal_agent.planner import DeterministicPlanner, Planner
 from personal_agent.planning import PlanError
 from personal_agent.protocol.models import (
@@ -51,6 +56,7 @@ from personal_agent.protocol.models import (
     ResetCircuitBreakerParams,
     ResetCircuitBreakerResult,
     Response,
+    RunTaskFailed,
     RunTaskParams,
     RunWorkflowParams,
     ServerInfo,
@@ -363,6 +369,11 @@ def handle_run_task(req: Request, deps: RuntimeDeps | None = None) -> dict:
         except Exception as e:  # noqa: BLE001
             log.warning("后台长程记忆流水线执行异常: %s", e)
 
+    # 任务失败是正常回包（不是异常），必须显式记一条：否则 MODEL_CALL_FAILED
+    # 这类原因只会出现在 tasks.reason 里，日志侧完全看不见。
+    if isinstance(outcome, RunTaskFailed):
+        log.error("任务失败 task=%s reason=%s", params.taskId, outcome.reason)
+
     return Response(jsonrpc="2.0", id=req.id, result=outcome.model_dump()).model_dump(
         exclude_none=True
     )
@@ -494,15 +505,17 @@ def write(msg: dict) -> None:
     sys.stdout.flush()
 
 
+STDERR_EMITTER = StderrEmitter()
+
+
 def _setup_logging() -> logging.Logger:
     logger = logging.getLogger("personal_agent")
-    logger.setLevel(os.environ.get("PERSONAL_AGENT_LOG_LEVEL", "INFO").upper())
-    handler = logging.StreamHandler(sys.stderr)
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
-    )
-    logger.addHandler(handler)
     logger.propagate = False
+    configure_logging(
+        STDERR_EMITTER,
+        level=os.environ.get("PERSONAL_AGENT_LOG_LEVEL", "INFO").upper(),
+        target=logger,
+    )
     return logger
 
 
@@ -591,30 +604,34 @@ def _force_utf8_stdio() -> None:
 def run(channel: HostChannel | None = None) -> None:
     if channel is None:
         _force_utf8_stdio()
-    ch = (
-        channel
-        if channel is not None
-        else HostChannel(readline=sys.stdin.readline, write_msg=write)
-    )
-    deps = RuntimeDeps(
-        channel=ch,
-        model_factory=resolve_model_factory(),
-        planner_factory=resolve_planner_factory(),
-        strategy=resolve_strategy(),
-        notify=write,
-    )
-    ch.set_request_handler(lambda r: dispatch(r, deps))
-    log.info("runtime started")
-    while True:
-        line = ch.next_line()
-        # readline() 在 EOF 时返回空字符串，不是 None。判 is None 的话这个
-        # break 永远不触发：stdin 关闭后 next_line() 一直返回 ''，
-        # handle_line('') 返回 None 不写任何东西，进程 100% CPU 忙等死循环。
-        if not line:
-            break
-        resp = handle_line(line, deps)
-        if resp is not None:
-            write(resp)
+    restore_hooks = install_exception_hooks(STDERR_EMITTER)
+    try:
+        ch = (
+            channel
+            if channel is not None
+            else HostChannel(readline=sys.stdin.readline, write_msg=write)
+        )
+        deps = RuntimeDeps(
+            channel=ch,
+            model_factory=resolve_model_factory(),
+            planner_factory=resolve_planner_factory(),
+            strategy=resolve_strategy(),
+            notify=write,
+        )
+        ch.set_request_handler(lambda r: dispatch(r, deps))
+        log.info("runtime started")
+        while True:
+            line = ch.next_line()
+            # readline() 在 EOF 时返回空字符串，不是 None。判 is None 的话这个
+            # break 永远不触发：stdin 关闭后 next_line() 一直返回 ''，
+            # handle_line('') 返回 None 不写任何东西，进程 100% CPU 忙等死循环。
+            if not line:
+                break
+            resp = handle_line(line, deps)
+            if resp is not None:
+                write(resp)
+    finally:
+        restore_hooks()
     log.info("runtime stopped (stdin EOF)")
 
 

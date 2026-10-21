@@ -6,6 +6,7 @@ import {
   Cpu,
   Database,
   FileText,
+  FileWarning,
   Globe,
   KeyRound,
   Save,
@@ -21,12 +22,21 @@ import type {
 } from '../../../shared/ipc-contract'
 import { cn } from '@renderer/lib/utils'
 import { Button } from './ui/button'
+import { ErrorLogPanel } from './ErrorLogPanel'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Textarea } from './ui/textarea'
 
 type SettingsTab =
-  'profile' | 'model' | 'sidecar' | 'knowledge' | 'storage' | 'typesafe' | 'mineru' | 'tavily'
+  | 'profile'
+  | 'model'
+  | 'sidecar'
+  | 'knowledge'
+  | 'storage'
+  | 'typesafe'
+  | 'mineru'
+  | 'tavily'
+  | 'logs'
 
 interface NavItem {
   group: '助手' | '数据' | '连接'
@@ -92,6 +102,13 @@ const NAV_ITEMS: NavItem[] = [
     label: '联网搜索',
     description: 'Tavily 搜索 API 与端点',
     icon: Globe
+  },
+  {
+    id: 'logs',
+    group: '数据',
+    label: '错误日志',
+    description: '按指纹归组的报错与导出',
+    icon: FileWarning
   }
 ]
 
@@ -485,7 +502,9 @@ function SettingsBody({
         {/* 内容滚动区 */}
         <div className="flex-1 overflow-y-auto px-8 py-5 text-[13px]">
           <div className="mx-auto w-full max-w-[700px]">
-            {loadError !== null ? (
+            {activeTab === 'logs' ? (
+              <ErrorLogPanel />
+            ) : loadError !== null ? (
               <div className="flex h-full items-center justify-center text-[12px] text-destructive">
                 读取设置失败：{loadError}
               </div>

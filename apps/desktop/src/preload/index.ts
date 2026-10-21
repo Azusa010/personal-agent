@@ -9,7 +9,10 @@ import type {
   SetAgentProfileInput,
   SetModelSettingsInput,
   CreateBotInput,
-  UpdateBotInput
+  UpdateBotInput,
+  LogsGroupParams,
+  LogsListParams,
+  LogsReportInput
 } from '../shared/ipc-contract'
 
 // Use `contextBridge` APIs to expose Electron APIs to
@@ -36,7 +39,11 @@ if (process.contextIsolated) {
       getConversation: (conversationId: string) => {
         return ipcRenderer.invoke('personal-agent:get-conversation', conversationId)
       },
-      sendMessage: (input: { conversationId: string | null; text: string; botId?: string | null }) => {
+      sendMessage: (input: {
+        conversationId: string | null
+        text: string
+        botId?: string | null
+      }) => {
         return ipcRenderer.invoke('personal-agent:send-message', input)
       },
       listBots: () => {
@@ -112,6 +119,24 @@ if (process.contextIsolated) {
       },
       setTitleBarTheme: (theme: string) => {
         return ipcRenderer.invoke('personal-agent:set-title-bar-theme', theme)
+      },
+      listLogs: (params?: LogsListParams) => {
+        return ipcRenderer.invoke('personal-agent:logs:list', params)
+      },
+      groupLogs: (params?: LogsGroupParams) => {
+        return ipcRenderer.invoke('personal-agent:logs:groups', params)
+      },
+      exportLogs: (params?: { days?: number }) => {
+        return ipcRenderer.invoke('personal-agent:logs:export', params)
+      },
+      clearLogs: () => {
+        return ipcRenderer.invoke('personal-agent:logs:clear')
+      },
+      openLogsDir: () => {
+        return ipcRenderer.invoke('personal-agent:logs:open-dir')
+      },
+      reportError: (input: LogsReportInput) => {
+        return ipcRenderer.invoke('personal-agent:logs:report', input)
       }
     })
   } catch (error) {

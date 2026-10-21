@@ -18,12 +18,13 @@ function fakeConsole(): ConsoleLike {
 describe('console-bridge ~ 级别映射', () => {
   it('console.error 记为 error 且保留原输出', () => {
     const target = fakeConsole()
+    const original = target.error
     const { logger, sink } = createTestLogger()
     installConsoleBridge(logger, target)
 
     target.error('无法读取配置')
 
-    expect(target.error).toHaveBeenCalledTimes(1)
+    expect(original).toHaveBeenCalledTimes(1)
     expect(sink.records).toHaveLength(1)
     expect(sink.records[0].level).toBe('error')
     expect(sink.records[0].source).toBe('main')

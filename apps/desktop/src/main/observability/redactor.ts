@@ -68,6 +68,20 @@ const DEPTH_LIMIT = '<depth-limit>'
 const CIRCULAR = '<circular>'
 const UNSUPPORTED = '<unsupported>'
 
+const SENSITIVE_KEYS = new Set([
+  'api_key',
+  'apikey',
+  'access_token',
+  'refresh_token',
+  'token',
+  'password',
+  'passwd',
+  'secret',
+  'authorization',
+  'credential',
+  'credentials'
+])
+
 function isPlainObject(value: object): boolean {
   const proto = Object.getPrototypeOf(value)
   return proto === Object.prototype || proto === null
@@ -112,6 +126,10 @@ function sanitizeValue(value: unknown, depth: number, seen: WeakSet<object>): un
   const output: Record<string, unknown> = {}
   for (const [key, child] of Object.entries(target as Record<string, unknown>)) {
     if (child === undefined) continue
+    if (SENSITIVE_KEYS.has(key.trim().toLowerCase())) {
+      output[key] = '***'
+      continue
+    }
     output[key] = sanitizeValue(child, depth + 1, seen)
   }
   return output

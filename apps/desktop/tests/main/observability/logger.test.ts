@@ -158,7 +158,7 @@ describe('Logger ~ 限流降采样', () => {
   it('窗口结束后补发汇总记录，带 suppressed 计数', () => {
     const sink = new FakeSink()
     const clock = createClock()
-    const logger = newLogger(sink, { rateLimit })
+    const logger = newLogger(sink, { rateLimit, clock })
 
     for (let i = 0; i < 8; i += 1) {
       clock.advance(100)

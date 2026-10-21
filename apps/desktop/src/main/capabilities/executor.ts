@@ -11,6 +11,7 @@ import type { ToolExecutionRepository } from '../product-state/tool-execution-re
 import { evaluateCallSafety } from '../policy/sidecar'
 import { afterExecute, beginAttempt, isWriteCapability, type IdempotencyDeps } from './idempotency'
 import { RuleBasedToolRetriever, type ToolRetriever } from './retriever'
+import { logEvent } from '../observability/app-logger'
 import type { TaskScope } from './scope'
 import {
   getCapabilityPlugin,
@@ -79,7 +80,7 @@ export function createExecutor(
     tasks: permission?.tasks,
     now: permission?.now
   })
-  return async (params) => {
+  const execute = async (params: HostExecuteToolParams): Promise<CapabilityOutcome> => {
     const decision = await policy.evaluate(params)
     if (!decision.allowed) {
       return fail(decision.code, decision.reason)
@@ -108,6 +109,39 @@ export function createExecutor(
     const outcome = await runCapability(call, scheduler, knowledge, memory)
     afterExecute(deps, before.key, outcome)
     return outcome
+  }
+
+  return async (params) => {
+    try {
+      const outcome = await execute(params)
+      if (outcome['ok'] === false) {
+        logEvent({
+          level: 'error',
+          source: 'main',
+          event: 'tool.call.failed',
+          ...(typeof outcome['code'] === 'string' ? { code: outcome['code'] } : {}),
+          message:
+            typeof outcome['reason'] === 'string'
+              ? outcome['reason']
+              : `${params.capability} 执行失败`,
+          taskId: scope.taskId,
+          context: { capability: params.capability, callId: params.callId }
+        })
+      }
+      return outcome
+    } catch (err) {
+      logEvent({
+        level: 'error',
+        source: 'main',
+        event: 'tool.call.failed',
+        code: ERROR_CODE.HOST_HANDLER_FAILED,
+        message: `${params.capability} 执行抛错`,
+        err,
+        taskId: scope.taskId,
+        context: { capability: params.capability, callId: params.callId }
+      })
+      throw err
+    }
   }
 }
 

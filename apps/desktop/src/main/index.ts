@@ -81,6 +81,7 @@ import { fireReminder, type FireOutcome } from './scheduler/fire-reminder'
 import { recoverReminders } from './scheduler/recover-reminders'
 import { ReminderTimerService } from './scheduler/reminder-timer'
 import type { ReminderRecord } from '../shared/domain'
+import type { LogsReportInput } from '../shared/ipc-contract'
 import { SqliteConversationRepository } from './product-state/conversation-repository'
 import { SqliteMessageRepository } from './product-state/message-repository'
 import { getConversation } from './tasks/get-conversation'
@@ -92,6 +93,22 @@ import { getAgentProfileView, setAgentProfile } from './settings/agent-profile-i
 import { initVikingStore, resolveVikingStoreRoot } from './viking/viking-store'
 import { SqliteBotRepository } from './product-state/bot-repository'
 import { createBotHandler, getBotHandler, listBotsHandler, updateBotHandler } from './tasks/bot-ipc'
+import { randomUUID } from 'node:crypto'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { JsonlSink } from './observability/jsonl-sink'
+import { Logger } from './observability/logger'
+import {
+  LOGS_CHANNELS,
+  clearLogs,
+  exportLogs,
+  groupLogs,
+  listLogs
+} from './observability/logs-ipc'
+import { installConsoleBridge } from './observability/console-bridge'
+import { installCrashGuard } from './observability/crash-guard'
+import { installAppLogger } from './observability/app-logger'
+import { createNodeLogStore, nodeFileSystem } from './observability/node-fs'
+import { resolveLogDir } from './observability/log-paths'
 
 const PRELOAD_PATH = join(__dirname, '../preload/index.js')
 
@@ -215,6 +232,35 @@ app.whenReady().then(() => {
   // 与 electron-builder.yml 的 appId 一致：Windows 通知按 AUMID 匹配开始菜单快捷方式，
   // 两处不一致时开发态看着正常、安装版反而弹不出通知。
   electronApp.setAppUserModelId('com.personalagent.app')
+
+  // 日志系统必须早于其它初始化：App 启动阶段的崩溃/启动失败也要能被记录。
+  const logDir = resolveLogDir(app.getPath('userData'))
+  const logSink = new JsonlSink({
+    dir: logDir,
+    fs: nodeFileSystem,
+    onError: (error) => {
+      // 不能用 console.error：它已被 bridge 接管，写盘失败会形成回环。
+      process.stderr.write(`[logs] 写入失败: ${String(error)}\n`)
+    }
+  })
+  const appLogger = new Logger({ sink: logSink, sessionId: randomUUID() })
+  installAppLogger(appLogger)
+  installCrashGuard({ logger: appLogger, process })
+  installConsoleBridge(appLogger)
+  app.on('before-quit', () => {
+    logSink.close()
+  })
+
+  const prunedLogs = logSink.prune()
+  if (prunedLogs.deleted.length > 0) {
+    appLogger.info({
+      source: 'main',
+      event: 'logs.retention.pruned',
+      message: `清理过期日志 ${prunedLogs.deleted.length} 个`,
+      context: { deleted: prunedLogs.deleted.length, dir: logDir }
+    })
+    appLogger.flush()
+  }
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -357,6 +403,67 @@ app.whenReady().then(() => {
   }
 
   // IPC test
+  const logsDeps = { store: createNodeLogStore(logDir), dir: logDir }
+
+  ipcMain.handle(LOGS_CHANNELS.list, (_event, params: unknown) => listLogs(params, logsDeps))
+  ipcMain.handle(LOGS_CHANNELS.groups, (_event, params: unknown) => groupLogs(params, logsDeps))
+  ipcMain.handle(LOGS_CHANNELS.export, (_event, params: unknown) => {
+    const result = exportLogs(params, logsDeps)
+    if (!result.ok) return result
+    try {
+      mkdirSync(logDir, { recursive: true })
+      const target = join(app.getPath('downloads'), `personal-agent-logs-${Date.now()}.json`)
+      writeFileSync(target, result.bundle, 'utf8')
+      return { ok: true as const, path: target }
+    } catch (err) {
+      return {
+        ok: false as const,
+        code: 'OBSERVABILITY_EXPORT_FAILED',
+        message: err instanceof Error ? err.message : String(err)
+      }
+    }
+  })
+  ipcMain.handle(LOGS_CHANNELS.clear, () => clearLogs(logsDeps))
+  ipcMain.handle(LOGS_CHANNELS.openDir, async () => {
+    mkdirSync(logDir, { recursive: true })
+    return shell.openPath(logDir)
+  })
+
+  // renderer 上报：5s 窗口内最多 10 条，超出的直接丢弃（渲染错误容易成灾）。
+  let reportWindowStart = 0
+  let reportCount = 0
+  ipcMain.handle('personal-agent:logs:report', (_event, input: unknown) => {
+    const payload = (input ?? {}) as Partial<LogsReportInput>
+    const nowMs = Date.now()
+    if (nowMs - reportWindowStart >= 5000) {
+      reportWindowStart = nowMs
+      reportCount = 0
+    }
+    if (reportCount >= 10) return { ok: true as const, dropped: true }
+    reportCount += 1
+
+    const level = payload.level
+    appLogger.log({
+      level:
+        level === 'debug' || level === 'info' || level === 'warn' || level === 'fatal'
+          ? level
+          : 'error',
+      source: 'renderer',
+      event:
+        typeof payload.event === 'string' && payload.event !== ''
+          ? payload.event
+          : 'renderer.error',
+      message:
+        typeof payload.message === 'string' && payload.message !== ''
+          ? payload.message
+          : '未命名渲染错误',
+      ...(typeof payload.stack === 'string' ? { stack: payload.stack } : {}),
+      ...(typeof payload.taskId === 'string' ? { taskId: payload.taskId } : {}),
+      ...(payload.context === undefined ? {} : { context: payload.context })
+    })
+    return { ok: true as const }
+  })
+
   ipcMain.handle('personal-agent:runtime-status', () => getRuntimeStatus())
 
   ipcMain.handle(

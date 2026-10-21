@@ -1,6 +1,11 @@
-import { LOG_LEVELS, LOG_SCHEMA_VERSION, LOG_SOURCES } from '@personal-agent/protocol'
+import {
+  LOG_LEVELS,
+  LOG_SCHEMA_VERSION,
+  LOG_SOURCES,
+  PYTHON_LOG_PREFIX
+} from '@personal-agent/protocol'
 
-export { LOG_LEVELS, LOG_SOURCES, LOG_SCHEMA_VERSION }
+export { LOG_LEVELS, LOG_SOURCES, LOG_SCHEMA_VERSION, PYTHON_LOG_PREFIX }
 
 export type LogLevel = (typeof LOG_LEVELS)[number]
 
@@ -54,6 +59,8 @@ export interface LogInput {
   message: string
   code?: string
   err?: unknown
+  /** 显式堆栈优先于 err.stack：解析外部帧时堆栈是字符串，没有 Error 实例。 */
+  stack?: string
   context?: LogContext
   taskId?: string
   traceId?: string
