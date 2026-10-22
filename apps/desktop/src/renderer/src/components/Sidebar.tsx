@@ -1,12 +1,10 @@
-import { useMemo, useState } from 'react'
-import { Activity, Database, MessageSquare, Plus, Search, Settings, Zap } from 'lucide-react'
-import type { BotView, ConversationSummary, RuntimeStatus } from '../../../shared/ipc-contract'
+import { Activity, Database, MessageSquare, Plus, Settings, Zap } from 'lucide-react'
+import type { BotView, RuntimeStatus } from '../../../shared/ipc-contract'
 import { cn } from '@renderer/lib/utils'
 
 export type AppView = 'chat' | 'workflows' | 'settings'
 
 export interface SidebarProps {
-  conversations: ConversationSummary[]
   selectedConversationId: string | null
   runtimeStatus: RuntimeStatus | null
   indexedCount: number | null
@@ -14,7 +12,6 @@ export interface SidebarProps {
   bots?: BotView[]
   activeBotId?: string | null
   onSelectView: (view: AppView) => void
-  onSelectConversation: (conversationId: string) => void
   onSelectBot?: (bot: BotView) => void
   onCreateBot?: () => void
   onEditBot?: (bot: BotView) => void
@@ -31,35 +28,7 @@ const RUNTIME_LABELS: Record<RuntimeStatus['state'], { text: string; dot: string
   stopped: { text: '运行时未启动', dot: 'bg-muted-foreground' }
 }
 
-function dayKey(iso: string): string {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return '更早'
-  const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const time = date.getTime()
-  if (time >= startOfToday) return '今天'
-  if (time >= startOfToday - 86_400_000) return '昨天'
-  return '更早'
-}
-
-/** 侧栏会话按最近活动分组。库里 list() 已按 updated_at 倒序，顺序分组即可。 */
-function groupConversations(
-  conversations: ConversationSummary[]
-): Array<{ label: string; items: ConversationSummary[] }> {
-  const groups = new Map<string, ConversationSummary[]>()
-  for (const conversation of conversations) {
-    const label = dayKey(conversation.updatedAt)
-    const bucket = groups.get(label)
-    if (bucket === undefined) groups.set(label, [conversation])
-    else bucket.push(conversation)
-  }
-  return ['今天', '昨天', '更早']
-    .filter((label) => groups.has(label))
-    .map((label) => ({ label, items: groups.get(label) ?? [] }))
-}
-
 export function Sidebar({
-  conversations,
   selectedConversationId,
   runtimeStatus,
   indexedCount,
@@ -67,7 +36,6 @@ export function Sidebar({
   bots = [],
   activeBotId,
   onSelectView,
-  onSelectConversation,
   onSelectBot,
   onCreateBot,
   onEditBot,
@@ -77,16 +45,6 @@ export function Sidebar({
   onSettings
 }: SidebarProps): React.JSX.Element {
   const runtime = RUNTIME_LABELS[runtimeStatus?.state ?? 'stopped']
-  const [query, setQuery] = useState('')
-
-  // 过滤掉已作为专有智能体伴侣常驻会话的记录，避免历史列表中产生重复项
-  const filtered = useMemo(() => {
-    const botConvIds = new Set(bots.map((b) => b.conversationId).filter(Boolean))
-    const keyword = query.trim().toLowerCase()
-    const base = conversations.filter((c) => !botConvIds.has(c.id))
-    if (keyword === '') return base
-    return base.filter((c) => c.title.toLowerCase().includes(keyword))
-  }, [conversations, query, bots])
 
   const navItems = [
     { id: 'chat' as const, label: '对话', icon: MessageSquare },
@@ -95,7 +53,7 @@ export function Sidebar({
 
   return (
     <aside className="flex w-[260px] shrink-0 flex-col border-r border-border bg-background">
-      {/* 新建与搜索 */}
+      {/* 会话入口统一收敛到「智能体」分区，这里只留新建 */}
       <div className="flex shrink-0 flex-col gap-1.5 px-2 pt-2">
         <button
           type="button"
@@ -108,16 +66,6 @@ export function Sidebar({
             ⌘N
           </kbd>
         </button>
-        <label className="flex h-[34px] items-center gap-2 rounded-[9px] px-2.5 text-[12.5px] text-muted-foreground transition-colors focus-within:bg-secondary/70 hover:bg-secondary/70">
-          <Search size={14} className="shrink-0" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索会话"
-            aria-label="搜索会话"
-            className="h-full min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground"
-          />
-        </label>
       </div>
 
       <div className="mt-3 min-h-0 flex-1 overflow-y-auto px-2 pb-2">
@@ -232,44 +180,6 @@ export function Sidebar({
               )
             })}
           </div>
-        </div>
-
-        {/* 历史 */}
-        <div className="mt-5">
-          <div className="mb-1 px-2.5">
-            <span className="text-[11px] font-medium text-muted-foreground">
-              {query.trim() === '' ? '最近' : `搜索「${query.trim()}」`}
-            </span>
-          </div>
-          {filtered.length === 0 && (
-            <p className="m-0 px-2.5 py-1 text-[11.5px] text-muted-foreground">
-              {query.trim() === '' ? '还没有历史会话' : '没有匹配的会话'}
-            </p>
-          )}
-          {groupConversations(filtered).map((group) => (
-            <div key={group.label} className="mt-2">
-              <p className="mb-1 mt-0 px-2.5 text-[10.5px] text-muted-foreground/80">
-                {group.label}
-              </p>
-              <div className="flex flex-col gap-[1px]">
-                {group.items.map((conversation) => (
-                  <button
-                    key={conversation.id}
-                    type="button"
-                    onClick={() => onSelectConversation(conversation.id)}
-                    className={cn(
-                      'flex h-[30px] w-full items-center gap-2 rounded-[7px] px-2.5 text-left text-[12.5px] transition-colors',
-                      conversation.id === selectedConversationId
-                        ? 'bg-secondary font-medium text-foreground'
-                        : 'text-foreground/75 hover:bg-secondary/70 hover:text-foreground'
-                    )}
-                  >
-                    <span className="truncate">{conversation.title}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
         </div>
       </div>
 

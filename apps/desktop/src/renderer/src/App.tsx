@@ -224,16 +224,6 @@ function App(): React.JSX.Element {
     )
   }
 
-  const handleSelectConversation = (conversationId: string): void => {
-    setActiveView('chat')
-    setSelectedConversationId(conversationId)
-    const matchingBot = bots.find((b) => b.conversationId === conversationId)
-    if (matchingBot) {
-      setActiveBotId(matchingBot.id)
-    }
-    void loadConversation(conversationId)
-  }
-
   const handleSelectBot = (bot: BotView): void => {
     setActiveBotId(bot.id)
     setActiveView('chat')
@@ -341,7 +331,6 @@ function App(): React.JSX.Element {
       <div className="flex min-h-0 flex-1">
         {activeView !== 'settings' && (
           <Sidebar
-            conversations={conversations}
             selectedConversationId={selectedConversationId}
             runtimeStatus={runtimeStatus}
             indexedCount={indexedCount}
@@ -349,7 +338,6 @@ function App(): React.JSX.Element {
             bots={bots}
             activeBotId={activeBot?.id ?? null}
             onSelectView={setActiveView}
-            onSelectConversation={handleSelectConversation}
             onSelectBot={handleSelectBot}
             onCreateBot={handleCreateBot}
             onEditBot={handleEditBot}
