@@ -4,11 +4,6 @@ import { app, safeStorage } from 'electron/main'
 import { is } from '@electron-toolkit/utils'
 import { existsSync } from 'node:fs'
 import { RUNTIME_ERROR_CODE } from './error-code'
-import {
-  AGENT_RUN_WORKFLOW,
-  type RunTaskResult,
-  type RunWorkflowParams
-} from '@personal-agent/protocol'
 import type { RuntimeState, RuntimeStatus } from '../../shared/ipc-contract'
 import { executeHostTool, listVisibleCapabilities } from '../capabilities/host-executor'
 import {
@@ -23,7 +18,6 @@ import {
 import { publishAgentStream } from './stream-fanout'
 import { createStderrParser, logEvent } from '../observability/app-logger'
 
-export type { RuntimeState, RuntimeStatus }
 let supervisor: PythonSupervisor | null = null
 let state: RuntimeState = 'stopped'
 let detail: string | undefined
@@ -247,8 +241,4 @@ export async function requestRuntime(
     throw new RuntimeError(RUNTIME_ERROR_CODE.NOT_STARTED, 'Python runtime 未启动')
   }
   return supervisor.request(method, params, opts)
-}
-
-export async function runWorkflow(params: RunWorkflowParams): Promise<RunTaskResult> {
-  return (await requestRuntime(AGENT_RUN_WORKFLOW, params, { timeoutMs: 120_000 })) as RunTaskResult
 }

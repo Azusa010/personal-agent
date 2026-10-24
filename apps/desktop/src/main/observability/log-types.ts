@@ -1,11 +1,6 @@
-import {
-  LOG_LEVELS,
-  LOG_SCHEMA_VERSION,
-  LOG_SOURCES,
-  PYTHON_LOG_PREFIX
-} from '@personal-agent/protocol'
+import { LOG_LEVELS, LOG_SOURCES, PYTHON_LOG_PREFIX } from '@personal-agent/protocol'
 
-export { LOG_LEVELS, LOG_SOURCES, LOG_SCHEMA_VERSION, PYTHON_LOG_PREFIX }
+export { LOG_LEVELS, LOG_SOURCES, PYTHON_LOG_PREFIX }
 
 export type LogLevel = (typeof LOG_LEVELS)[number]
 

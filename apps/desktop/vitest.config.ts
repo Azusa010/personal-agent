@@ -4,7 +4,9 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   resolve: {
     alias: {
-      '@personal-agent/protocol': resolve('../../packages/protocol/schemas/index.ts')
+      '@personal-agent/protocol': resolve('../../packages/protocol/schemas/index.ts'),
+      // 组件测试（如 ErrorLogPanel）会 import 真组件，其内部经 @renderer/lib/utils 引 cn。
+      '@renderer': resolve('src/renderer/src')
     }
   },
   test: {

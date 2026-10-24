@@ -5,8 +5,6 @@ import type { AuthorizedCall } from '../policy/execution-policy'
 import type { ToolExecutionRepository } from '../product-state/tool-execution-repository'
 import { getCapabilityPlugin } from './plugins'
 
-export { safeStat } from './plugins/helpers'
-
 // ---------- 1. 幂等键 ----------
 /**
  * 从任务、能力名与绑定参数算出稳定的幂等键，格式固定为 `taskId:capability:argsHash`。

@@ -15,6 +15,7 @@ import { A2UIInlineCard } from './components/a2ui'
 import { BotDialog } from './components/BotDialog'
 import { Composer } from './components/Composer'
 import { DiagnosticsDialog } from './components/DiagnosticsDialog'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { IndexDialog } from './components/IndexDialog'
 import { MessageStream } from './components/MessageStream'
 import { PermissionCard } from './components/PermissionCard'
@@ -326,173 +327,177 @@ function App(): React.JSX.Element {
   const lastTaskId = [...messages].reverse().find((m) => m.taskId !== null)?.taskId ?? null
 
   return (
-    <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-foreground">
-      <TitleBar />
-      <div className="flex min-h-0 flex-1">
-        {activeView !== 'settings' && (
-          <Sidebar
-            selectedConversationId={selectedConversationId}
-            runtimeStatus={runtimeStatus}
-            indexedCount={indexedCount}
-            activeView={activeView}
-            bots={bots}
-            activeBotId={activeBot?.id ?? null}
-            onSelectView={setActiveView}
-            onSelectBot={handleSelectBot}
-            onCreateBot={handleCreateBot}
-            onEditBot={handleEditBot}
-            onNewChat={handleNewChat}
-            onOpenIndex={() => setIndexOpen(true)}
-            onOpenDiagnostics={() => setDiagnosticsOpen(true)}
-            onSettings={() => setActiveView('settings')}
-          />
-        )}
+    <ErrorBoundary>
+      <div className="flex h-screen w-full flex-col overflow-hidden bg-background text-foreground">
+        <TitleBar />
+        <div className="flex min-h-0 flex-1">
+          {activeView !== 'settings' && (
+            <Sidebar
+              selectedConversationId={selectedConversationId}
+              runtimeStatus={runtimeStatus}
+              indexedCount={indexedCount}
+              activeView={activeView}
+              bots={bots}
+              activeBotId={activeBot?.id ?? null}
+              onSelectView={setActiveView}
+              onSelectBot={handleSelectBot}
+              onCreateBot={handleCreateBot}
+              onEditBot={handleEditBot}
+              onNewChat={handleNewChat}
+              onOpenIndex={() => setIndexOpen(true)}
+              onOpenDiagnostics={() => setDiagnosticsOpen(true)}
+              onSettings={() => setActiveView('settings')}
+            />
+          )}
 
-        {activeView === 'settings' ? (
-          <SettingsPage
-            onBack={() => setActiveView('chat')}
-            onSaved={() => {
-              setStatusPollKey((key) => key + 1)
-              void queryClient.invalidateQueries({ queryKey: ['agentProfile'] })
-            }}
-          />
-        ) : activeView === 'chat' ? (
-          <section className="relative flex min-w-0 flex-1 flex-col">
-            <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
-              <div className="flex min-w-0 items-center gap-2.5">
-                {activeBot && (
+          {activeView === 'settings' ? (
+            <SettingsPage
+              onBack={() => setActiveView('chat')}
+              onSaved={() => {
+                setStatusPollKey((key) => key + 1)
+                void queryClient.invalidateQueries({ queryKey: ['agentProfile'] })
+              }}
+            />
+          ) : activeView === 'chat' ? (
+            <section className="relative flex min-w-0 flex-1 flex-col">
+              <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  {activeBot && (
+                    <button
+                      type="button"
+                      title="点击编辑智能体人设"
+                      onClick={() => handleEditBot(activeBot)}
+                      className="flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-border pl-1 pr-2 transition-colors hover:bg-secondary"
+                    >
+                      <span className="grid size-5 place-items-center rounded-full bg-foreground text-[10px] leading-none text-background">
+                        {activeBot.avatar || '🤖'}
+                      </span>
+                      <span className="max-w-[132px] truncate text-[12.5px] font-medium">
+                        {activeBot.name}
+                      </span>
+                      <ChevronDown size={12} className="text-muted-foreground" />
+                    </button>
+                  )}
+                  <span className="h-3.5 w-px shrink-0 bg-border" />
+                  <span className="truncate text-[12.5px] text-muted-foreground">
+                    {selected === null
+                      ? messages.length === 0
+                        ? '新对话'
+                        : activeBot?.name || '会话'
+                      : selected.title}
+                  </span>
+                </div>
+                <div className="flex shrink-0 items-center gap-0.5">
                   <button
                     type="button"
-                    title="点击编辑智能体人设"
-                    onClick={() => handleEditBot(activeBot)}
-                    className="flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-border pl-1 pr-2 transition-colors hover:bg-secondary"
+                    aria-label="导出本轮记录"
+                    title="复制本轮记录为 Markdown"
+                    onClick={() => void handleExport()}
+                    className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                   >
-                    <span className="grid size-5 place-items-center rounded-full bg-foreground text-[10px] leading-none text-background">
-                      {activeBot.avatar || '🤖'}
-                    </span>
-                    <span className="max-w-[132px] truncate text-[12.5px] font-medium">
-                      {activeBot.name}
-                    </span>
-                    <ChevronDown size={12} className="text-muted-foreground" />
+                    <Share2 size={15} />
                   </button>
-                )}
-                <span className="h-3.5 w-px shrink-0 bg-border" />
-                <span className="truncate text-[12.5px] text-muted-foreground">
-                  {selected === null
-                    ? messages.length === 0
-                      ? '新对话'
-                      : activeBot?.name || '会话'
-                    : selected.title}
-                </span>
-              </div>
-              <div className="flex shrink-0 items-center gap-0.5">
-                <button
-                  type="button"
-                  aria-label="导出本轮记录"
-                  title="复制本轮记录为 Markdown"
-                  onClick={() => void handleExport()}
-                  className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                >
-                  <Share2 size={15} />
-                </button>
-                <button
-                  type="button"
-                  aria-label="更多操作"
-                  onClick={() => showFeedback('更多会话操作暂未实现。')}
-                  className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                >
-                  <Ellipsis size={17} />
-                </button>
-              </div>
-            </header>
-
-            <div className="relative flex min-h-0 flex-1 flex-col">
-              <MessageStream
-                messages={messages}
-                pendingText={pendingText}
-                messagesError={messagesError}
-                feedback={feedback}
-                streamState={streamState}
-                agentName={activeBot ? activeBot.name : agentProfile?.name}
-                thinkingByTaskId={thinkingByTaskId}
-                inlineForm={
-                  activeA2UIRender !== null ? (
-                    <A2UIInlineCard
-                      render={activeA2UIRender}
-                      onSubmit={handleA2UISubmit}
-                      onClose={() => setActiveA2UIRender(null)}
-                    />
-                  ) : null
-                }
-              />
-
-              {showWelcome && (
-                <div className="absolute inset-0 z-10 flex flex-col bg-background">
-                  <WelcomeView
-                    activeBot={activeBot}
-                    onAction={(text) => void handleSend(text)}
-                    onEditBot={handleEditBot}
-                    composer={
-                      <Composer
-                        variant="inline"
-                        running={running}
-                        inputRef={inputRef}
-                        activeBot={activeBot}
-                        onSend={(text) => void handleSend(text)}
-                        onScan={() => void handleScan()}
-                        onOpenIndex={() => setIndexOpen(true)}
-                        onOpenDiagnostics={() => setDiagnosticsOpen(true)}
-                        onExport={() => void handleExport()}
-                      />
-                    }
-                  />
-                  {feedback !== null && (
-                    <p className="pb-3 text-center text-[12px] text-muted-foreground">{feedback}</p>
-                  )}
+                  <button
+                    type="button"
+                    aria-label="更多操作"
+                    onClick={() => showFeedback('更多会话操作暂未实现。')}
+                    className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  >
+                    <Ellipsis size={17} />
+                  </button>
                 </div>
+              </header>
+
+              <div className="relative flex min-h-0 flex-1 flex-col">
+                <MessageStream
+                  messages={messages}
+                  pendingText={pendingText}
+                  messagesError={messagesError}
+                  feedback={feedback}
+                  streamState={streamState}
+                  agentName={activeBot ? activeBot.name : agentProfile?.name}
+                  thinkingByTaskId={thinkingByTaskId}
+                  inlineForm={
+                    activeA2UIRender !== null ? (
+                      <A2UIInlineCard
+                        render={activeA2UIRender}
+                        onSubmit={handleA2UISubmit}
+                        onClose={() => setActiveA2UIRender(null)}
+                      />
+                    ) : null
+                  }
+                />
+
+                {showWelcome && (
+                  <div className="absolute inset-0 z-10 flex flex-col bg-background">
+                    <WelcomeView
+                      activeBot={activeBot}
+                      onAction={(text) => void handleSend(text)}
+                      onEditBot={handleEditBot}
+                      composer={
+                        <Composer
+                          variant="inline"
+                          running={running}
+                          inputRef={inputRef}
+                          activeBot={activeBot}
+                          onSend={(text) => void handleSend(text)}
+                          onScan={() => void handleScan()}
+                          onOpenIndex={() => setIndexOpen(true)}
+                          onOpenDiagnostics={() => setDiagnosticsOpen(true)}
+                          onExport={() => void handleExport()}
+                        />
+                      }
+                    />
+                    {feedback !== null && (
+                      <p className="pb-3 text-center text-[12px] text-muted-foreground">
+                        {feedback}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 审批：自输入区上拉的非模态面板，对话仍可读可滚动 */}
+              {pendingPermission !== null && (
+                <PermissionCard
+                  key={pendingPermission.id}
+                  permission={pendingPermission}
+                  onDecide={handleDecide}
+                />
               )}
-            </div>
 
-            {/* 审批：自输入区上拉的非模态面板，对话仍可读可滚动 */}
-            {pendingPermission !== null && (
-              <PermissionCard
-                key={pendingPermission.id}
-                permission={pendingPermission}
-                onDecide={handleDecide}
-              />
-            )}
+              {!showWelcome && (
+                <Composer
+                  running={running}
+                  inputRef={inputRef}
+                  activeBot={activeBot}
+                  onSend={(text) => void handleSend(text)}
+                  onScan={() => void handleScan()}
+                  onOpenIndex={() => setIndexOpen(true)}
+                  onOpenDiagnostics={() => setDiagnosticsOpen(true)}
+                  onExport={() => void handleExport()}
+                />
+              )}
+            </section>
+          ) : (
+            <WorkflowCenter onCompleted={() => void loadIndexedCount()} />
+          )}
+        </div>
 
-            {!showWelcome && (
-              <Composer
-                running={running}
-                inputRef={inputRef}
-                activeBot={activeBot}
-                onSend={(text) => void handleSend(text)}
-                onScan={() => void handleScan()}
-                onOpenIndex={() => setIndexOpen(true)}
-                onOpenDiagnostics={() => setDiagnosticsOpen(true)}
-                onExport={() => void handleExport()}
-              />
-            )}
-          </section>
-        ) : (
-          <WorkflowCenter onCompleted={() => void loadIndexedCount()} />
-        )}
+        <IndexDialog open={indexOpen} onOpenChange={setIndexOpen} />
+        <DiagnosticsDialog
+          open={diagnosticsOpen}
+          onOpenChange={setDiagnosticsOpen}
+          taskId={lastTaskId}
+        />
+        <BotDialog
+          open={botDialogOpen}
+          onOpenChange={setBotDialogOpen}
+          bot={editingBot}
+          onSaved={handleBotSaved}
+        />
       </div>
-
-      <IndexDialog open={indexOpen} onOpenChange={setIndexOpen} />
-      <DiagnosticsDialog
-        open={diagnosticsOpen}
-        onOpenChange={setDiagnosticsOpen}
-        taskId={lastTaskId}
-      />
-      <BotDialog
-        open={botDialogOpen}
-        onOpenChange={setBotDialogOpen}
-        bot={editingBot}
-        onSaved={handleBotSaved}
-      />
-    </div>
+    </ErrorBoundary>
   )
 }
 

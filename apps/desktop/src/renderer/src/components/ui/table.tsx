@@ -29,7 +29,8 @@ function TableBody({ className, ...props }: React.ComponentProps<'tbody'>) {
   )
 }
 
-function TableFooter({ className, ...props }: React.ComponentProps<'tfoot'>) {
+/** @public shadcn 组件库库存件 */
+export function TableFooter({ className, ...props }: React.ComponentProps<'tfoot'>) {
   return (
     <tfoot
       data-slot="table-footer"
@@ -78,7 +79,8 @@ function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
   )
 }
 
-function TableCaption({ className, ...props }: React.ComponentProps<'caption'>) {
+/** @public shadcn 组件库库存件 */
+export function TableCaption({ className, ...props }: React.ComponentProps<'caption'>) {
   return (
     <caption
       data-slot="table-caption"
@@ -88,4 +90,4 @@ function TableCaption({ className, ...props }: React.ComponentProps<'caption'>) 
   )
 }
 
-export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption }
+export { Table, TableHeader, TableBody, TableHead, TableRow, TableCell }

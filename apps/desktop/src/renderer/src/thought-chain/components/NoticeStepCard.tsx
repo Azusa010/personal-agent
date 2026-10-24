@@ -8,6 +8,7 @@ export interface NoticeStepCardProps {
   step: NoticeStepView
 }
 
+/** @public 旧稿卡片，主人决定保留 */
 export const NoticeStepCard: React.FC<NoticeStepCardProps> = ({ step }) => {
   const [resetState, setResetState] = React.useState<'idle' | 'resetting' | 'done'>('idle')
   const [feedback, setFeedback] = React.useState<string | null>(null)

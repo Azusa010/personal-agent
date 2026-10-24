@@ -17,6 +17,7 @@ export interface VerificationStepCardProps {
   onInspectRaw?: (step: VerificationStepView) => void
 }
 
+/** @public 旧稿卡片，主人决定保留 */
 export const VerificationStepCard: React.FC<VerificationStepCardProps> = ({
   step,
   onInspectRaw

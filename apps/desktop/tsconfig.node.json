@@ -1,13 +1,15 @@
 {
   "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
   "include": ["electron.vite.config.*", "src/main/**/*", "src/preload/**/*", "src/shared/**/*", "tests/**/*"],
+  "exclude": ["tests/renderer/**/*"],
   "compilerOptions": {
     "composite": true,
     "noImplicitAny": true,
     "types": ["electron-vite/node"],
     "baseUrl":".",
     "paths":{
-      "@personal-agent/protocol": ["../../packages/protocol/schemas/index.ts"]
+      "@personal-agent/protocol": ["../../packages/protocol/schemas/index.ts"],
+      "@renderer/*": ["src/renderer/src/*"]
     }
   }
 }

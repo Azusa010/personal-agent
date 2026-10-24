@@ -12,6 +12,7 @@ export interface ToolStepCardProps {
   onInspectRaw?: (step: ToolStepView) => void
 }
 
+/** @public 旧稿卡片，主人决定保留 */
 export const ToolStepCard: React.FC<ToolStepCardProps> = ({
   step,
   defaultExpanded,

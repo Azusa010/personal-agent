@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ChevronDown, ChevronRight, Download, FolderOpen, RefreshCw, Trash2 } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronRight,
+  Download,
+  FolderOpen,
+  RefreshCw,
+  ShieldCheck,
+  Trash2
+} from 'lucide-react'
 
 import type { LogGroupView, LogRecordView } from '../../../shared/ipc-contract'
 import { cn } from '@renderer/lib/utils'
@@ -31,6 +39,22 @@ function formatTime(iso: string): string {
   const date = new Date(stamp)
   const pad = (value: number): string => (value < 10 ? `0${value}` : String(value))
   return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+/** 熔断按任务粒度（RejectionCircuitBreaker keyed by taskId），取最近一条带 taskId 的错误分组作为重置目标。 */
+function latestTaskIdOf(groups: LogGroupView[] | null): string | null {
+  if (groups === null) return null
+  let latest: string | null = null
+  let latestTs = Number.NEGATIVE_INFINITY
+  for (const group of groups) {
+    if (group.taskId === undefined) continue
+    const ts = Date.parse(group.lastTs)
+    if (Number.isFinite(ts) && ts > latestTs) {
+      latestTs = ts
+      latest = group.taskId
+    }
+  }
+  return latest
 }
 
 export function ErrorLogPanel(): React.JSX.Element {
@@ -111,6 +135,25 @@ export function ErrorLogPanel(): React.JSX.Element {
     }
   }
 
+  const resetTargetTaskId = latestTaskIdOf(groups)
+
+  const handleResetCircuitBreaker = async (): Promise<void> => {
+    if (resetTargetTaskId === null) return
+    setBusy(true)
+    setNotice(null)
+    try {
+      const result = await window.personalAgent.resetCircuitBreaker(
+        resetTargetTaskId,
+        '用户在错误日志面板人工确认恢复试探'
+      )
+      setNotice(result.ok ? `已重置熔断：${result.message}` : `重置失败：${result.message}`)
+    } catch (err) {
+      setNotice(`重置失败：${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const detailOf = (fingerprint: string): LogRecordView[] =>
     records.filter((record) => record.fingerprint === fingerprint).slice(0, 20)
 
@@ -151,6 +194,20 @@ export function ErrorLogPanel(): React.JSX.Element {
           <Button variant="ghost" size="sm" onClick={() => void handleClear()} disabled={busy}>
             <Trash2 size={14} />
             清空
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void handleResetCircuitBreaker()}
+            disabled={busy || resetTargetTaskId === null}
+            title={
+              resetTargetTaskId === null
+                ? '当前错误记录里没有携带 taskId 的分组，无法定位要重置的熔断任务'
+                : `重置任务 ${resetTargetTaskId.slice(0, 8)} 的熔断器`
+            }
+          >
+            <ShieldCheck size={14} />
+            重置熔断
           </Button>
         </div>
       </div>

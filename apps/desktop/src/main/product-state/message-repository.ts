@@ -1,7 +1,6 @@
-import { MESSAGE_ROLES, MessageRole, type MessageRecord } from '../../shared/domain'
+import { MESSAGE_ROLES, type MessageRecord } from '../../shared/domain'
 import { SqliteDatabase } from './database'
 
-export type { MessageRecord, MessageRole }
 export { MESSAGE_ROLES }
 
 interface MessageRow {

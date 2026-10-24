@@ -10,6 +10,7 @@ export interface ThoughtStepCardProps {
   onInspectRaw?: (step: ThoughtStepView) => void
 }
 
+/** @public 旧稿卡片，主人决定保留 */
 export const ThoughtStepCard: React.FC<ThoughtStepCardProps> = ({
   step,
   isStreaming = false,

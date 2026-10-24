@@ -62,8 +62,6 @@ export interface NoticeStepView extends BaseStepView {
 export type ThoughtChainStep =
   ThoughtStepView | ToolStepView | VerificationStepView | NoticeStepView
 
-export type StepFilter = 'all' | 'thought' | 'tool' | 'verification' | 'error'
-
 export interface TraceSummaryStats {
   totalSteps: number
   toolCallsCount: number

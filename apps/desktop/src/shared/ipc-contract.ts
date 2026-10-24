@@ -1,7 +1,6 @@
 import type {
   A2UIDocument,
   A2UIFormSubmitParams,
-  A2UIFormSubmitResult,
   AgentStreamParams,
   ERROR_CODE,
   PdfEntry,
@@ -290,7 +289,7 @@ export interface A2UIRenderNotice {
   createdAt: string
 }
 
-export type { A2UIFormSubmitParams, A2UIFormSubmitResult }
+export type { A2UIFormSubmitParams }
 
 export type A2UIFormSubmitIpcResult =
   | { ok: true; actionId: string; formData: Record<string, unknown>; accepted: boolean }

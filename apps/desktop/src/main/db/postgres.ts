@@ -1,16 +1,5 @@
 import { Pool, PoolConfig } from 'pg'
 
-export interface PostgresConfig {
-  host?: string
-  port?: number
-  database?: string
-  user?: string
-  password?: string
-  max?: number
-  idleTimeoutMillis?: number
-  connectionTimeoutMillis?: number
-}
-
 export function getDefaultPostgresConfig(): PoolConfig {
   return {
     host: process.env.POSTGRES_HOST || '127.0.0.1',
