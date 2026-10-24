@@ -74,7 +74,7 @@ def list_result():
         "entries": [
             {
                 "name": "a.pdf",
-                "absolutePath": "D:/downloads/a.pdf",
+                "absolutePath": "D:/workspace/a.pdf",
                 "modifiedAt": "2026-09-01T00:00:00Z",
                 "sizeBytes": 2048,
             }
@@ -102,7 +102,7 @@ def test_react_loop_completes_with_summary():
             kind="tool_call",
             callId="call-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         SummaryDecision(
             kind="summary",
@@ -129,7 +129,7 @@ def test_react_loop_stops_on_step_complete_when_configured():
             kind="tool_call",
             callId="call-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         StepCompleteDecision(
             kind="step_complete",
@@ -155,7 +155,7 @@ def test_react_loop_graceful_completion_on_step_complete():
             kind="tool_call",
             callId="call-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         StepCompleteDecision(
             kind="step_complete",
@@ -184,7 +184,7 @@ def test_react_loop_triggers_budget_exhaustion():
             kind="tool_call",
             callId=f"call-{i}",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         )
         for i in range(10)
     ]
@@ -214,7 +214,7 @@ def test_react_loop_batch_clamps_to_remaining_budget():
             ToolCallItem(
                 callId=f"call-{i}",
                 capability="filesystem_list",
-                arguments={"rootId": "downloads", "slot": i},
+                arguments={"rootId": "workspace", "slot": i},
             )
             for i in range(5)
         ],
@@ -250,7 +250,7 @@ def test_react_loop_soft_landing_summarizes_on_budget_exhaustion():
             kind="tool_call",
             callId="call-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         SummaryDecision(
             kind="summary",
@@ -281,7 +281,7 @@ def test_react_loop_budget_hard_stop_when_model_keeps_calling():
             kind="tool_call",
             callId=f"call-{i}",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         )
         for i in range(3)
     ]
@@ -309,7 +309,7 @@ def test_react_loop_budget_reminder_covers_tool_call_dimension():
             kind="tool_call",
             callId=f"call-{i}",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         )
         for i in range(3)
     ] + [
@@ -339,7 +339,7 @@ def test_react_loop_with_sidecar_allow():
             kind="tool_call",
             callId="call-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         SummaryDecision(
             kind="summary",
@@ -407,7 +407,7 @@ def test_react_loop_with_sidecar_reject_and_self_heal():
             kind="tool_call",
             callId="call-good",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         SummaryDecision(
             kind="summary",
@@ -651,13 +651,13 @@ def test_react_loop_fault_recorded_on_budget_exhaustion():
             kind="tool_call",
             callId="call-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         ToolCallDecision(
             kind="tool_call",
             callId="call-2",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
     ]
     channel = FakeChannel([list_result(), list_result()])
@@ -748,7 +748,7 @@ def test_react_loop_level_2_tool_error_self_healing_feedback():
             kind="tool_call",
             callId="call-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         SummaryDecision(
             kind="summary",
@@ -834,13 +834,13 @@ def test_react_loop_tool_fingerprint_duplicate_call_intercepted():
             kind="tool_call",
             callId="c-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         ToolCallDecision(
             kind="tool_call",
             callId="c-2",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},  # 完全相同
+            arguments={"rootId": "workspace"},  # 完全相同
         ),
         SummaryDecision(
             kind="summary",

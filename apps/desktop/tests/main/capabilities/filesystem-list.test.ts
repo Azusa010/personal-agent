@@ -187,8 +187,8 @@ describe('filesystemListPlugin：带 path 的子目录列举能力插件', () =>
   it('支持列举相对子目录并在 execute 中只返回子目录条目', async () => {
     const { filesystemListPlugin } =
       await import('../../../src/main/capabilities/plugins/filesystem')
-    const prevDownloads = process.env.PERSONAL_AGENT_DOWNLOADS_DIR
-    process.env.PERSONAL_AGENT_DOWNLOADS_DIR = dir
+    const prevDownloads = process.env.PERSONAL_AGENT_WORKSPACE_DIR
+    process.env.PERSONAL_AGENT_WORKSPACE_DIR = dir
     try {
       const subDir = join(dir, 'TeamB')
       await mkdir(subDir)
@@ -197,7 +197,7 @@ describe('filesystemListPlugin：带 path 的子目录列举能力插件', () =>
 
       // 绑定参数
       const bound = await filesystemListPlugin.bindArguments({
-        rootId: 'downloads',
+        rootId: 'workspace',
         path: 'TeamB'
       })
       expect(bound.ok).toBe(true)
@@ -222,18 +222,18 @@ describe('filesystemListPlugin：带 path 的子目录列举能力插件', () =>
       expect(entries).toHaveLength(1)
       expect(entries[0].name).toBe('report.pdf')
     } finally {
-      process.env.PERSONAL_AGENT_DOWNLOADS_DIR = prevDownloads
+      process.env.PERSONAL_AGENT_WORKSPACE_DIR = prevDownloads
     }
   })
 
   it('拦截越界逃逸路径 (../)', async () => {
     const { filesystemListPlugin } =
       await import('../../../src/main/capabilities/plugins/filesystem')
-    const prevDownloads = process.env.PERSONAL_AGENT_DOWNLOADS_DIR
-    process.env.PERSONAL_AGENT_DOWNLOADS_DIR = dir
+    const prevDownloads = process.env.PERSONAL_AGENT_WORKSPACE_DIR
+    process.env.PERSONAL_AGENT_WORKSPACE_DIR = dir
     try {
       const bound = await filesystemListPlugin.bindArguments({
-        rootId: 'downloads',
+        rootId: 'workspace',
         path: '../../etc'
       })
       expect(bound.ok).toBe(false)
@@ -241,7 +241,7 @@ describe('filesystemListPlugin：带 path 的子目录列举能力插件', () =>
         expect(bound.code).toBe('PATH_OUT_OF_ROOT')
       }
     } finally {
-      process.env.PERSONAL_AGENT_DOWNLOADS_DIR = prevDownloads
+      process.env.PERSONAL_AGENT_WORKSPACE_DIR = prevDownloads
     }
   })
 })

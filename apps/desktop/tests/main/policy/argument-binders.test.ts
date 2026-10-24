@@ -9,7 +9,7 @@ import { listCapabilities } from '../../../src/main/capabilities/registry'
 import { toPosix } from '../../../src/main/capabilities/roots'
 import { bindArguments } from '../../../src/main/policy/argument-binders'
 
-const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
+const ENV_NAME = 'PERSONAL_AGENT_WORKSPACE_DIR'
 
 let dir: string
 let realRoot: string
@@ -30,11 +30,11 @@ describe('bindArguments：filesystem_list', () => {
     // rootId 是白名单枚举里的一项，不是用户给的路径，所以不该出现在 paths 里：
     // paths 的每个值都会被 TASK-018 拿去算 Canonical Arguments Hash，
     // 混一个非路径进去，hash 的含义就不清了。
-    const out = await bindArguments('filesystem_list', { rootId: 'downloads' })
+    const out = await bindArguments('filesystem_list', { rootId: 'workspace' })
 
     expect(out).toEqual({
       ok: true,
-      bound: { args: { rootId: 'downloads' }, paths: {} }
+      bound: { args: { rootId: 'workspace' }, paths: {} }
     })
   })
 
@@ -56,9 +56,9 @@ describe('bindArguments：filesystem_list', () => {
   it('多余字段被剥掉：绑出来的 args 只有契约里的键', async () => {
     // z.object 默认 strip。留着多余字段的话，TASK-018 的 hash 会跟着模型
     // 塞进来的垃圾一起变，同一个操作两次批准算出两个 hash。
-    const out = await bindArguments('filesystem_list', { rootId: 'downloads', rmrf: '/' })
+    const out = await bindArguments('filesystem_list', { rootId: 'workspace', rmrf: '/' })
 
-    expect(out.ok && out.bound.args).toEqual({ rootId: 'downloads' })
+    expect(out.ok && out.bound.args).toEqual({ rootId: 'workspace' })
   })
 
   it('reason 里点名是哪个能力的参数不对', async () => {
@@ -511,7 +511,7 @@ describe('bindArguments：没有绑定器的能力', () => {
     // 抛出去的话 supervisor 会把 code 写死成 HOST_HANDLER_FAILED，精确码全丢。
     await mkdir(join(dir, 'sub'), { recursive: true })
     const inputs: [string, Record<string, unknown>][] = [
-      ['filesystem_list', { rootId: 'downloads' }],
+      ['filesystem_list', { rootId: 'workspace' }],
       ['filesystem_list', { rootId: 'nope' }],
       ['document_extract_pdf', { path: dir }],
       ['document_extract_pdf', { path: join(dir, 'sub') }],

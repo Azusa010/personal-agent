@@ -27,7 +27,7 @@ import {
 import { beginTask, currentTask, endTask } from '../../../src/main/policy/task-context'
 import type { BoundArgs } from '../../../src/main/policy/argument-binders'
 
-const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
+const ENV_NAME = 'PERSONAL_AGENT_WORKSPACE_DIR'
 const TASK_ID = 'task-policy'
 
 const PLAN: readonly PlanStep[] = [
@@ -176,7 +176,7 @@ describe('execution-policy：注册与 Scope（TEST-005）', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const out = await agentPolicy(deny).evaluate(
-      params('tc-1', 'filesystem_list', { rootId: 'downloads' })
+      params('tc-1', 'filesystem_list', { rootId: 'workspace' })
     )
 
     expect(out.allowed).toBe(false)
@@ -222,7 +222,7 @@ describe('execution-policy：注册与 Scope（TEST-005）', () => {
 describe('execution-policy：agent 必须有当前任务', () => {
   it('没有当前任务 -> NO_ACTIVE_TASK', async () => {
     const out = await agentPolicy().evaluate(
-      params('tc-5', 'filesystem_list', { rootId: 'downloads' })
+      params('tc-5', 'filesystem_list', { rootId: 'workspace' })
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.NO_ACTIVE_TASK)
@@ -244,7 +244,7 @@ describe('execution-policy：agent 必须有当前任务', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const out = await agentPolicy().evaluate(
-      params('tc-7', 'filesystem_list', { rootId: 'downloads' })
+      params('tc-7', 'filesystem_list', { rootId: 'workspace' })
     )
 
     expect(out.allowed).toBe(true)
@@ -254,7 +254,7 @@ describe('execution-policy：agent 必须有当前任务', () => {
     // renderer 的 IPC 服务「打开窗口就看见文件列表」，它没有计划可比。
     // 把 ui 也要求有任务，等于把 UI 打死；把 agent 放宽，Phase 2 就白做了。
     const out = await policy(UI_ORIGIN).evaluate(
-      params('tc-8', 'filesystem_list', { rootId: 'downloads' })
+      params('tc-8', 'filesystem_list', { rootId: 'workspace' })
     )
 
     expect(currentTask()).toBeNull()
@@ -286,7 +286,7 @@ describe('execution-policy：ActionAlignment', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const out = await agentPolicy().evaluate(
-      params('tc-10', 'filesystem_list', { rootId: 'downloads' })
+      params('tc-10', 'filesystem_list', { rootId: 'workspace' })
     )
 
     expect(out.allowed).toBe(true)
@@ -316,7 +316,7 @@ describe('execution-policy：ActionAlignment', () => {
     expect(currentTask()?.executedCalls).toBe(0)
 
     const right = await agentPolicy().evaluate(
-      params('tc-13', 'filesystem_list', { rootId: 'downloads' })
+      params('tc-13', 'filesystem_list', { rootId: 'workspace' })
     )
     expect(right.allowed).toBe(true)
     expect(currentTask()?.executedCalls).toBe(1)
@@ -324,13 +324,13 @@ describe('execution-policy：ActionAlignment', () => {
 
   it('计划里的能力用完之后再来一次 -> ACTION_NOT_ALIGNED', async () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
-    await agentPolicy().evaluate(params('tc-14', 'filesystem_list', { rootId: 'downloads' }))
+    await agentPolicy().evaluate(params('tc-14', 'filesystem_list', { rootId: 'workspace' }))
     await agentPolicy().evaluate(
       params('tc-15', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
     )
 
     const extra = await agentPolicy().evaluate(
-      params('tc-16', 'filesystem_list', { rootId: 'downloads' })
+      params('tc-16', 'filesystem_list', { rootId: 'workspace' })
     )
 
     expect(currentTask()?.executedCalls).toBe(2)
@@ -590,7 +590,7 @@ describe('execution-policy：挂起等批准', () => {
 
     const out = await policyWithGate(gate.gate, {
       retriever: new RuleBasedToolRetriever()
-    }).evaluate(params('tc-49', 'filesystem_list', { rootId: 'downloads' }))
+    }).evaluate(params('tc-49', 'filesystem_list', { rootId: 'workspace' }))
 
     expect(out.allowed).toBe(true)
     expect(gate.inputs).toEqual([])
@@ -673,7 +673,7 @@ describe('execution-policy：放行产物', () => {
     beginTask('task-other', '整理 PDF', PLAN)
 
     const out = await agentPolicy().evaluate(
-      params('tc-25', 'filesystem_list', { rootId: 'downloads' })
+      params('tc-25', 'filesystem_list', { rootId: 'workspace' })
     )
 
     expect(out.allowed && out.call.taskId).toBe(TASK_ID)
@@ -683,10 +683,10 @@ describe('execution-policy：放行产物', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const out = await agentPolicy().evaluate(
-      params('tc-26', 'filesystem_list', { rootId: 'downloads' })
+      params('tc-26', 'filesystem_list', { rootId: 'workspace' })
     )
 
-    expect(out.allowed && out.call.bound.args).toEqual({ rootId: 'downloads' })
+    expect(out.allowed && out.call.bound.args).toEqual({ rootId: 'workspace' })
     expect(out.allowed && out.call.bound.paths).toEqual({})
   })
 
@@ -695,7 +695,7 @@ describe('execution-policy：放行产物', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const first = await agentPolicy().evaluate(
-      params('tc-27', 'filesystem_list', { rootId: 'downloads' })
+      params('tc-27', 'filesystem_list', { rootId: 'workspace' })
     )
     const second = await agentPolicy().evaluate(
       params('tc-28', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
@@ -716,7 +716,7 @@ describe('execution-policy：evaluate 永不抛', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const inputs: HostExecuteToolParams[] = [
-      params('tc-30', 'filesystem_list', { rootId: 'downloads' }),
+      params('tc-30', 'filesystem_list', { rootId: 'workspace' }),
       params('tc-31', 'filesystem_list', { rootId: 'nope' }),
       params('tc-32', 'filesystem_list', {}),
       params('tc-33', 'document_extract_pdf', { path: '' }),

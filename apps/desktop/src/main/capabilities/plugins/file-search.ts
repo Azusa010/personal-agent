@@ -32,7 +32,7 @@ export const fileSearchPlugin: CapabilityPlugin = {
     const parsed = FileSearchParams.safeParse(args)
     if (!parsed.success) return invalid('file_search', parsed.error.message)
 
-    const root = resolveRoot('downloads')
+    const root = resolveRoot('workspace')
     let searchDir = root
 
     if (parsed.data.relativeRoot) {
@@ -52,7 +52,7 @@ export const fileSearchPlugin: CapabilityPlugin = {
     }
   },
   async execute(call) {
-    const root = resolveRoot('downloads')
+    const root = resolveRoot('workspace')
     const searchDir = call.bound.paths['searchDir'] ?? root
     const pattern = String(call.bound.args['pattern'])
     const searchMode = String(call.bound.args['searchMode'] ?? 'filename')

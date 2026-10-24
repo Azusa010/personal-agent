@@ -31,7 +31,7 @@ const eventNotice = {
       payload: {
         callId: "call-1",
         capability: "filesystem_list",
-        arguments: { rootId: "downloads" },
+        arguments: { rootId: "workspace" },
       },
       occurredAt: "2026-09-18T09:00:00.123Z",
     },

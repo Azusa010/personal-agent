@@ -9,7 +9,7 @@ from personal_agent.conversation.sidecar.classifier import (
 
 
 def test_classify_heuristic_safe_command():
-    assessment = classify_heuristic("c-1", "filesystem_list", {"rootId": "downloads"})
+    assessment = classify_heuristic("c-1", "filesystem_list", {"rootId": "workspace"})
     assert assessment.verdict == "ALLOW"
     assert assessment.riskCategory == "NONE"
     assert assessment.confidence >= 0.8

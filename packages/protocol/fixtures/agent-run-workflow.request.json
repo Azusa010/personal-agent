@@ -6,7 +6,7 @@
     "taskId": "task-wf-1001",
     "workflowId": "golden_path",
     "inputs": {
-      "rootId": "downloads"
+      "rootId": "workspace"
     }
   }
 }

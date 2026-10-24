@@ -68,8 +68,8 @@ def build_golden_path_workflow(
         WorkflowStep(
             id="list_files",
             capability="filesystem_list",
-            description="列出 Downloads 下的 PDF",
-            resolve_args=lambda s: {"rootId": s.inputs.get("rootId", "downloads")},
+            description="列出工作区下的 PDF",
+            resolve_args=lambda s: {"rootId": s.inputs.get("rootId", "workspace")},
         )
     )
 
@@ -89,7 +89,7 @@ def build_golden_path_workflow(
             WorkflowStep(
                 id="create_dir",
                 capability="filesystem_create_dir",
-                description="在 Downloads 下创建 Reading 目录",
+                description="在工作区下创建 Reading 目录",
                 resolve_args=lambda s: {
                     "path": _reading_dir_path(_find_target_pdf(s)["path"])
                 },
@@ -150,7 +150,7 @@ def build_golden_path_workflow(
 
     return WorkflowDefinition(
         id="golden_path",
-        name="整理 Downloads 里的 PDF",
+        name="整理工作区里的 PDF",
         description="扫描、提取、归档并创建阅读提醒的标准流程",
         steps=steps,
         produce_summary=produce_summary,

@@ -463,8 +463,7 @@ pnpm package:win  → NSIS 安装包
 
 | 变量                           | 作用                                             |
 | ------------------------------ | ------------------------------------------------ |
-| `PERSONAL_AGENT_DOWNLOADS_DIR` | 授权根的实际路径，所有工具路径校验以它为界       |
-| `PERSONAL_AGENT_WORKSPACE_DIR` | 工作区根目录（终端执行等能力的工作目录）         |
+| `PERSONAL_AGENT_WORKSPACE_DIR` | 唯一授权根的实际路径，所有工具路径校验以它为界；未设时回退进程工作目录 |
 | `PERSONAL_AGENT_SCRIPT`        | 确定性剧本 JSON 路径（演示与 CI 用，替代真模型） |
 | `OPENAI_MODEL`                 | 真模型名称（设了就用 OpenAI Responses API）      |
 | `OPENAI_API_KEY`               | API Key（仅被 openai SDK 读取，不进日志）        |

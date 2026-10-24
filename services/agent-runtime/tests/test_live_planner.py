@@ -94,7 +94,7 @@ def plan_json(steps):
 def full_plan_json():
     return plan_json(
         [
-            {"description": "列出 Downloads 下的 PDF", "capability": "filesystem_list"},
+            {"description": "列出工作区下的 PDF", "capability": "filesystem_list"},
             {
                 "description": "提取目标 PDF 的每页文本",
                 "capability": "document_extract_pdf",
@@ -145,8 +145,8 @@ def test_a_plan_without_tools_is_valid_even_when_nothing_is_visible():
 # ---- render_plan_input ----
 
 def test_render_plan_input_lists_goal_and_only_visible_capabilities():
-    rendered = render_plan_input("整理 Downloads 里的 PDF", ["filesystem_list"])
-    assert "整理 Downloads 里的 PDF" in rendered
+    rendered = render_plan_input("整理工作区里的 PDF", ["filesystem_list"])
+    assert "整理工作区里的 PDF" in rendered
     assert "filesystem_list" in rendered
     # Scope 外的能力不下发：notification_send 在 TOOL_SPECS 里，但不该出现在这里。
     assert "notification_send" not in rendered
@@ -171,7 +171,7 @@ def test_render_plan_input_renders_the_history_for_coreference():
 
 def test_render_plan_input_omits_the_history_section_on_the_first_turn():
     # 第一轮最常见：整段省略，不给模型一个空标题。
-    rendered = render_plan_input("整理 Downloads 里的 PDF", VISIBLE, [])
+    rendered = render_plan_input("整理工作区里的 PDF", VISIBLE, [])
 
     assert "之前的对话" not in rendered
 
@@ -182,7 +182,7 @@ def test_plan_sends_the_planner_instructions_and_the_output_schema():
     client = FakeClient([FakeResponse(full_plan_json())])
     planner = LivePlanner(model="gpt-test", client=client)
 
-    steps = planner.plan("整理 Downloads 里的 PDF", VISIBLE)
+    steps = planner.plan("整理工作区里的 PDF", VISIBLE)
 
     assert [s.capability for s in steps] == [
         "filesystem_list",
@@ -325,7 +325,7 @@ def test_plan_uses_composed_instructions_when_profile_present():
     client = FakeClient([FakeResponse(full_plan_json())])
     planner = LivePlanner(model="gpt-test", client=client)
 
-    planner.plan("整理 Downloads 里的 PDF", VISIBLE, profile=profile)
+    planner.plan("整理工作区里的 PDF", VISIBLE, profile=profile)
 
     request = client.responses.requests[0]
     assert request["instructions"] == compose_instructions(
@@ -341,7 +341,7 @@ def test_plan_profile_reasoning_summary_overrides_instance_config():
         model="gpt-test", client=client, reasoning_summary=False
     )
 
-    planner.plan("整理 Downloads 里的 PDF", VISIBLE, profile=profile_stream)
+    planner.plan("整理工作区里的 PDF", VISIBLE, profile=profile_stream)
     assert len(client.responses.stream_requests) == 1
     assert len(client.responses.requests) == 0
 

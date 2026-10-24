@@ -105,8 +105,8 @@ def test_parse_tool_call_arguments_empty_or_none():
 def test_parse_tool_call_arguments_dict_and_standard_json():
     from personal_agent.conversation.model.json_parser import parse_tool_call_arguments
 
-    assert parse_tool_call_arguments({"rootId": "downloads"}) == {"rootId": "downloads"}
-    assert parse_tool_call_arguments('{"rootId": "downloads"}') == {"rootId": "downloads"}
+    assert parse_tool_call_arguments({"rootId": "workspace"}) == {"rootId": "workspace"}
+    assert parse_tool_call_arguments('{"rootId": "workspace"}') == {"rootId": "workspace"}
 
 
 def test_parse_tool_call_arguments_windows_path_and_missing_braces():
@@ -129,8 +129,8 @@ def test_parse_tool_call_arguments_python_call_syntax():
         "path": "weekly-03.pdf"
     }
     # 纯关键字参数语法
-    assert parse_tool_call_arguments('rootId="downloads", path="TeamB"') == {
-        "rootId": "downloads",
+    assert parse_tool_call_arguments('rootId="workspace", path="TeamB"') == {
+        "rootId": "workspace",
         "path": "TeamB",
     }
 

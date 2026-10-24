@@ -42,17 +42,14 @@ import {
 
 describe('自适应热修反馈环与能力固化 E2E 测试 (TASK-E2)', () => {
   let wsDir: string
-  let dlDir: string
 
   beforeEach(async () => {
     resetTerminalCwd()
     clearSkillsCache()
 
     wsDir = await mkdtemp(join(tmpdir(), 'pa-ws-hotfix-'))
-    dlDir = await mkdtemp(join(tmpdir(), 'pa-dl-hotfix-'))
 
     vi.stubEnv('PERSONAL_AGENT_WORKSPACE_DIR', wsDir)
-    vi.stubEnv('PERSONAL_AGENT_DOWNLOADS_DIR', dlDir)
   })
 
   afterEach(async () => {
@@ -62,7 +59,6 @@ describe('自适应热修反馈环与能力固化 E2E 测试 (TASK-E2)', () => {
 
     try {
       await rm(wsDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
-      await rm(dlDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
     } catch {
       // 忽略 Windows 偶发文件句柄释放延迟
     }

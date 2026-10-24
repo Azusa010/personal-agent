@@ -21,8 +21,8 @@ def test_deterministic_planner_outputs_make_plan_verbatim():
     # make_plan 逐字相同，否则 20 轮 E2E 与交付物判定会一起漂。
     planner = DeterministicPlanner()
     for visible in (FULL, READ_ONLY):
-        assert planner.plan("整理 Downloads 里的 PDF", visible) == make_plan(
-            "整理 Downloads 里的 PDF", visible
+        assert planner.plan("整理工作区里的 PDF", visible) == make_plan(
+            "整理工作区里的 PDF", visible
         )
 
 

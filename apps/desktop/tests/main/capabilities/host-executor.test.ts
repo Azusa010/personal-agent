@@ -28,7 +28,7 @@ import type {
 } from '../../../src/main/policy/execution-policy'
 import type { PlanStep } from '../../../src/shared/domain'
 
-const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
+const ENV_NAME = 'PERSONAL_AGENT_WORKSPACE_DIR'
 
 // executeHostTool 走 agent origin，必须有当前任务、调用还得对齐计划。
 // 这份就是 planning.make_plan 的字面值（TASK-028 起五步加摘要），顺序与
@@ -76,7 +76,7 @@ describe('executeCapability: IPC 网关', () => {
     // 与 Python 子进程生命周期解耦：Python 没启动也能列举。
     await writeFile(join(dir, 'a.pdf'), 'A')
 
-    const out = await executeCapability('filesystem_list', { rootId: 'downloads' })
+    const out = await executeCapability('filesystem_list', { rootId: 'workspace' })
 
     expect(out['ok']).toBe(true)
     expect(out['entries']).toEqual([expect.objectContaining({ name: 'a.pdf', sizeBytes: 1 })])
@@ -107,7 +107,7 @@ describe('executeCapability: IPC 网关', () => {
   })
 
   it('成功输出同时过 envelope 层与 payload 层契约', async () => {
-    const out = await executeCapability('filesystem_list', { rootId: 'downloads' })
+    const out = await executeCapability('filesystem_list', { rootId: 'workspace' })
 
     expect(() => HostExecuteToolResult.parse(out)).not.toThrow()
     expect(() => FilesystemListResult.parse(out)).not.toThrow()
@@ -115,12 +115,12 @@ describe('executeCapability: IPC 网关', () => {
 
   it('单例不缓存失败状态：上一次根不可用不影响下一次', async () => {
     vi.stubEnv(ENV_NAME, join(dir, 'nope'))
-    const first = await executeCapability('filesystem_list', { rootId: 'downloads' })
+    const first = await executeCapability('filesystem_list', { rootId: 'workspace' })
     expect(first['ok']).toBe(false)
 
     vi.stubEnv(ENV_NAME, dir)
     await writeFile(join(dir, 'b.pdf'), 'BB')
-    const second = await executeCapability('filesystem_list', { rootId: 'downloads' })
+    const second = await executeCapability('filesystem_list', { rootId: 'workspace' })
 
     expect(second['ok']).toBe(true)
     expect(second['entries']).toEqual([expect.objectContaining({ name: 'b.pdf', sizeBytes: 2 })])
@@ -135,9 +135,9 @@ describe('executeHostTool: supervisor 网关', () => {
     beginTask('task-host', '整理 PDF', PLAN)
 
     const viaHost = await executeHostTool(
-      hostParams('tc-1', 'filesystem_list', { rootId: 'downloads' })
+      hostParams('tc-1', 'filesystem_list', { rootId: 'workspace' })
     )
-    const viaIpc = await executeCapability('filesystem_list', { rootId: 'downloads' })
+    const viaIpc = await executeCapability('filesystem_list', { rootId: 'workspace' })
 
     expect(viaHost).toEqual(viaIpc)
   })
@@ -164,7 +164,7 @@ describe('executeHostTool: supervisor 网关', () => {
     beginTask('task-host', '整理 PDF', PLAN)
 
     const out = await executeHostTool(
-      hostParams('tc-3', 'filesystem_list', { rootId: 'downloads' })
+      hostParams('tc-3', 'filesystem_list', { rootId: 'workspace' })
     )
 
     expect(out['ok']).toBe(false)
@@ -176,9 +176,9 @@ describe('executeHostTool: supervisor 网关', () => {
     // 两个断言必须一起看：executeHostTool 拒、executeCapability 不拒。
     // 把它们弄成同一个 origin（任一方向）都会让其中一条红。
     const viaHost = await executeHostTool(
-      hostParams('tc-4', 'filesystem_list', { rootId: 'downloads' })
+      hostParams('tc-4', 'filesystem_list', { rootId: 'workspace' })
     )
-    const viaIpc = await executeCapability('filesystem_list', { rootId: 'downloads' })
+    const viaIpc = await executeCapability('filesystem_list', { rootId: 'workspace' })
 
     expect(viaHost['ok']).toBe(false)
     expect(viaHost['code']).toBe(ERROR_CODE.NO_ACTIVE_TASK)
@@ -192,7 +192,7 @@ describe('executeHostTool: supervisor 网关', () => {
     endTask()
 
     const out = await executeHostTool(
-      hostParams('tc-5', 'filesystem_list', { rootId: 'downloads' })
+      hostParams('tc-5', 'filesystem_list', { rootId: 'workspace' })
     )
 
     expect(out['code']).toBe(ERROR_CODE.NO_ACTIVE_TASK)

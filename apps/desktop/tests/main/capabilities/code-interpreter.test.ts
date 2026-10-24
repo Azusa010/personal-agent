@@ -14,7 +14,7 @@ import { RuleBasedToolRetriever } from '../../../src/main/capabilities/retriever
 import type { TaskScope } from '../../../src/main/capabilities/scope'
 import { codeInterpreterPlugin } from '../../../src/main/capabilities/plugins/code-interpreter'
 
-const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
+const ENV_NAME = 'PERSONAL_AGENT_WORKSPACE_DIR'
 
 let dir: string
 const scope: TaskScope = {

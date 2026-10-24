@@ -46,7 +46,6 @@ import { materializeCase, type MaterializedCase } from './workspace'
  *  跨语言没有共享常量表，observation.test.ts 里用 python 真读一遍这两侧的值钉着。 */
 export const SCRIPT_ENV = 'PERSONAL_AGENT_SCRIPT'
 export const LIVE_MODEL_ENV = 'OPENAI_MODEL'
-export const DOWNLOADS_ENV = ROOT_ENV['downloads'] ?? 'PERSONAL_AGENT_DOWNLOADS_DIR'
 export const WORKSPACE_ENV = ROOT_ENV['workspace'] ?? 'PERSONAL_AGENT_WORKSPACE_DIR'
 /** 目标 PDF 该被提取的那一步：与 Python planning.py 的三步计划前两步对齐 */
 const LIST_CAPABILITY = 'filesystem_list'
@@ -94,7 +93,6 @@ export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
 
   const results: EvalCaseResult[] = []
   const runs = Math.max(1, options.runs ?? 1)
-  const savedRoot = process.env[DOWNLOADS_ENV]
   const savedWorkspace = process.env[WORKSPACE_ENV]
   try {
     for (const evalCase of options.cases) {
@@ -114,8 +112,6 @@ export async function runEval(options: RunEvalOptions): Promise<EvalReport> {
   } finally {
     db.close()
     broker.dispose()
-    if (savedRoot === undefined) delete process.env[DOWNLOADS_ENV]
-    else process.env[DOWNLOADS_ENV] = savedRoot
     if (savedWorkspace === undefined) delete process.env[WORKSPACE_ENV]
     else process.env[WORKSPACE_ENV] = savedWorkspace
   }
@@ -282,9 +278,7 @@ async function runOneCase(
   let runError: string | null = null
   let latencyMs = 0
 
-  const savedRoot = process.env[DOWNLOADS_ENV]
   const savedWorkspace = process.env[WORKSPACE_ENV]
-  process.env[DOWNLOADS_ENV] = materialized.dir
   process.env[WORKSPACE_ENV] = materialized.dir
   const supervisor = new PythonSupervisor({
     command: options.runtime.command,
@@ -343,8 +337,6 @@ async function runOneCase(
   } finally {
     supervisor.off('stderr', onStderr)
     await supervisor.stop().catch(() => {})
-    if (savedRoot === undefined) delete process.env[DOWNLOADS_ENV]
-    else process.env[DOWNLOADS_ENV] = savedRoot
     if (savedWorkspace === undefined) delete process.env[WORKSPACE_ENV]
     else process.env[WORKSPACE_ENV] = savedWorkspace
   }
@@ -428,7 +420,7 @@ export function writeScriptedDecisions(
       kind: 'tool_call',
       callId: 'call-1',
       capability: LIST_CAPABILITY,
-      arguments: { rootId: 'downloads' }
+      arguments: { rootId: 'workspace' }
     },
     {
       kind: 'tool_call',

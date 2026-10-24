@@ -72,7 +72,7 @@ declare global {
 
 export type PersonalAgentApi = {
   runtimeStatus(): Promise<RuntimeStatus>
-  listPdfs(rootId: 'downloads'): Promise<ListPdfsResult>
+  listPdfs(rootId: 'workspace'): Promise<ListPdfsResult>
   indexedPdfs(): Promise<IndexedPdfsResult>
   /** 侧栏历史会话列表：全量任务，renderer 自己按天分组与倒序 */
   listTasks(): Promise<ListTasksResult>

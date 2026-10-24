@@ -118,7 +118,7 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
 # 字段级语义描述增强（提供具象样例与约束）
 PROPERTY_DESCRIPTIONS: dict[str, dict[str, str]] = {
     "filesystem_list": {
-        "rootId": "授权根标识，如 downloads",
+        "rootId": "授权根标识，workspace",
         "path": "可选子目录路径（相对路径或绝对路径），不传则列出根目录",
     },
     "document_extract_pdf": {

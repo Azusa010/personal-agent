@@ -793,7 +793,7 @@ RUN_TASK_RESULT = TypeAdapter(RunTaskResult)
 
 def test_run_task_params_constraints():
     plan = [
-        {"description": "列出 Downloads 下的 PDF", "capability": "filesystem_list"},
+        {"description": "列出工作区下的 PDF", "capability": "filesystem_list"},
         {"description": "基于页面内容生成带页码引用的摘要"},
     ]
     RunTaskParams.model_validate({"taskId": "t-1", "goal": "整理 PDF", "plan": plan})
@@ -938,7 +938,7 @@ def test_turn_and_history_constraints():
     # history 可选：第一轮没有历史，两个 params 都不强制。
     MakePlanParams.model_validate({"taskId": "t-1", "goal": "整理 PDF"})
     plan = [
-        {"description": "列出 Downloads 下的 PDF", "capability": "filesystem_list"},
+        {"description": "列出工作区下的 PDF", "capability": "filesystem_list"},
         {"description": "基于页面内容生成带页码引用的摘要"},
     ]
     RunTaskParams.model_validate({"taskId": "t-1", "goal": "整理 PDF", "plan": plan})
@@ -1072,7 +1072,7 @@ def test_make_plan_response_dumps_without_a_null_capability():
             "result": MakePlanResult(
                 steps=[
                     PlanStepDto(
-                        description="列出 Downloads 下的 PDF",
+                        description="列出工作区下的 PDF",
                         capability="filesystem_list",
                     ),
                     PlanStepDto(
@@ -1439,8 +1439,9 @@ def test_reset_circuit_breaker_response_fixture():
 
 def test_coding_agent_file_models_and_root_id():
     adapter = TypeAdapter(RootId)
-    assert adapter.validate_python("downloads") == "downloads"
     assert adapter.validate_python("workspace") == "workspace"
+    with pytest.raises(ValidationError):
+        adapter.validate_python("downloads")
     with pytest.raises(ValidationError):
         adapter.validate_python("invalid_root")
 

@@ -22,12 +22,12 @@ def test_discriminated_union_parses_tool_call():
             "kind": "tool_call",
             "callId": "c-1",
             "capability": "filesystem_list",
-            "arguments": {"rootId": "downloads"},
+            "arguments": {"rootId": "workspace"},
         }
     )
     assert isinstance(d, ToolCallDecision)
     assert d.capability == "filesystem_list"
-    assert d.arguments == {"rootId": "downloads"}
+    assert d.arguments == {"rootId": "workspace"}
 
 
 def test_discriminated_union_parses_summary():

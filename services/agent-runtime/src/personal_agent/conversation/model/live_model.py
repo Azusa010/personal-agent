@@ -71,7 +71,7 @@ DECISION_SCHEMA: dict[str, Any] = DECISION_ADAPTER.json_schema()
 # 向后兼容说明书（供文字提示与既有测试使用）
 TOOL_SPECS: dict[str, str] = {
     "filesystem_list": (
-        '列出指定授权根目录下的文件与子目录条目。参数 {"rootId": "<授权根标识，如 downloads>", '
+        '列出指定授权根目录下的文件与子目录条目。参数 {"rootId": "<授权根标识，workspace>", '
         '"path": "<可选子目录路径，深入遍历子目录>"}'
     ),
     "document_extract_pdf": '解析并提取 PDF 文件的逐页文本与页码。参数 {"path": "<目标 PDF 文件的绝对路径>"}',

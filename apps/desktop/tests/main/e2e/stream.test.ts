@@ -35,7 +35,7 @@ const RUNTIME_CWD = join(ROOT, 'services', 'agent-runtime')
 const FIXTURE_PDF = join(ROOT, 'tests', 'fixtures', 'pdfs', 'three-page-text.pdf')
 const PDF_NAME = 'three-page-text.pdf'
 const SCRIPT_ENV = 'PERSONAL_AGENT_SCRIPT'
-const DOWNLOADS_ENV = ROOT_ENV['downloads'] ?? 'PERSONAL_AGENT_DOWNLOADS_DIR'
+const WORKSPACE_ENV = ROOT_ENV['workspace'] ?? 'PERSONAL_AGENT_WORKSPACE_DIR'
 
 const TASK_ID = 't-stream-1'
 const GOAL = '把这份 PDF 摘要一下'
@@ -47,7 +47,7 @@ const THINKING_SUMMARY = '材料齐了：先说清做了什么，再放结论。
 
 // 只读三步计划：与握手下发的能力对得上（对齐闸口按它放行）。
 const PLAN: PlanStep[] = [
-  { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },
+  { description: '列出工作区下的 PDF', capability: 'filesystem_list' },
   { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
   { description: '基于页面内容生成带页码引用的摘要' }
 ]
@@ -70,7 +70,7 @@ function buildScript(root: string): string {
       kind: 'tool_call',
       callId: 'c-1',
       capability: 'filesystem_list',
-      arguments: { rootId: 'downloads' },
+      arguments: { rootId: 'workspace' },
       thinking: THINKING_LIST
     },
     {
@@ -103,8 +103,8 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
       mkdirSync(downloadsRoot, { recursive: true })
       copyFileSync(FIXTURE_PDF, join(downloadsRoot, PDF_NAME))
 
-      savedDownloadsEnv = process.env[DOWNLOADS_ENV]
-      process.env[DOWNLOADS_ENV] = downloadsRoot
+      savedDownloadsEnv = process.env[WORKSPACE_ENV]
+      process.env[WORKSPACE_ENV] = downloadsRoot
 
       supervisor = new PythonSupervisor({
         command: VENV_PYTHON,
@@ -122,8 +122,8 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
     afterEach(async () => {
       await supervisor?.stop().catch(() => {})
       supervisor = null
-      if (savedDownloadsEnv === undefined) delete process.env[DOWNLOADS_ENV]
-      else process.env[DOWNLOADS_ENV] = savedDownloadsEnv
+      if (savedDownloadsEnv === undefined) delete process.env[WORKSPACE_ENV]
+      else process.env[WORKSPACE_ENV] = savedDownloadsEnv
       rmSync(tempDir, { recursive: true, force: true })
     })
 

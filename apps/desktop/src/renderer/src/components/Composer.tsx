@@ -53,8 +53,8 @@ export function Composer(props: ComposerProps): React.JSX.Element {
             <div className="flex min-w-0 items-center gap-0.5">
               <button
                 type="button"
-                aria-label="扫描 Downloads 里的 PDF"
-                title="扫描 Downloads 里的 PDF"
+                aria-label="扫描工作区里的 PDF"
+                title="扫描工作区里的 PDF"
                 onClick={props.onScan}
                 className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               >

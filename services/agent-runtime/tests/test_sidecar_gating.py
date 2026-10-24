@@ -43,7 +43,7 @@ def test_sidecar_gate_allow_proceeds_and_records_success():
         circuit_breaker=cb,
         goal="查找文件",
         capability="filesystem_list",
-        arguments={"rootId": "downloads"},
+        arguments={"rootId": "workspace"},
     )
 
     assert isinstance(result, SidecarGateResult)

@@ -27,7 +27,7 @@ if (process.contextIsolated) {
       runtimeStatus: () => {
         return ipcRenderer.invoke('personal-agent:runtime-status')
       },
-      listPdfs: (rootId: 'downloads') => {
+      listPdfs: (rootId: 'workspace') => {
         return ipcRenderer.invoke('personal-agent:list-pdfs', rootId)
       },
       indexedPdfs: () => {

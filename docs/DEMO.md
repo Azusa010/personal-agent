@@ -36,18 +36,18 @@ powershell -File scripts/demo/start-demo.ps1 -Dev         # 开发版（先 uv s
 ```
 
 脚本会：重置演示根 `%TEMP%\personal-agent-demo`（只动这个目录）→ 放入 fixture PDF →
-生成剧本 → 设 `PERSONAL_AGENT_DOWNLOADS_DIR` / `PERSONAL_AGENT_SCRIPT` → 启动 app。
+生成剧本 → 设 `PERSONAL_AGENT_WORKSPACE_DIR` / `PERSONAL_AGENT_SCRIPT` → 启动 app。
 
 > 提醒时刻在脚本运行时就算死了（剧本是静态 JSON，不支持「任务开始后 N 分钟」）。
 > **三个批准面板要在它之前点完**：拖到过期的话 `scheduler.create` 会以
 > `REMINDER_TIME_IN_PAST` 失败，交付物闸口照样判不通过——这也是产品的正确行为。
 
-> 授权根指向演示目录，所以**不会碰你真实的 Downloads**。演示根路径在脚本输出里，
+> 授权根指向演示目录，所以**不会碰你真实的文件**。演示根路径在脚本输出里，
 > 资源管理器可以开在那儿对照文件变化。
 
 ### 步骤
 
-- [ ] 1. 在输入框发送：`整理 Downloads 里的 PDF，给出带页码引用的摘要`
+- [ ] 1. 在输入框发送：`整理工作区里的 PDF，给出带页码引用的摘要`
 - [ ] 2. 看计划出现五步（list → extract → create_dir → move → scheduler.create → 摘要）
 - [ ] 3. 在批准面板点「批准」三次：创建 Reading、移动文件、创建提醒
 - [ ] 4. 任务走到 completed，展开摘要与时间线核对
@@ -60,7 +60,7 @@ powershell -File scripts/demo/start-demo.ps1 -Dev         # 开发版（先 uv s
 - [ ] **批准面板**每次都展示：能力名、影响文件、来源绝对路径、目标绝对路径、
       参数摘要、过期时间——且路径是**演示目录**下的绝对路径
 - [ ] 三次批准都是「挂起等批准」：点批准之前，文件系统没有任何变化
-- [ ] `Downloads\Reading\three-page-text.pdf` 真的存在了，源文件不在原位
+- [ ] `Workspace\Reading\three-page-text.pdf` 真的存在了，源文件不在原位
 - [ ] 摘要的 facts 带页码引用（第 1 页与第 2、3 页），页码可追溯到提取过的页面
 - [ ] 时间线里能看到 `verification_started` / `verification_passed`：完成是交付物闸口
       判出来的，不是模型自称的
@@ -76,7 +76,7 @@ powershell -File scripts/demo/start-demo.ps1 -Dev         # 开发版（先 uv s
 然后**改用真模型启动**：
 
 ```powershell
-$env:PERSONAL_AGENT_DOWNLOADS_DIR = "$env:TEMP\personal-agent-demo\Downloads"
+$env:PERSONAL_AGENT_WORKSPACE_DIR = "$env:TEMP\personal-agent-demo\Workspace"
 $env:OPENAI_MODEL = "gpt-4o-mini"          # 换成你要用的模型
 $env:OPENAI_API_KEY = "sk-..."             # 只被 openai SDK 读取
 Remove-Item Env:\PERSONAL_AGENT_SCRIPT     # 真模型优先，但别留剧本免得看混

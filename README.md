@@ -463,8 +463,7 @@ Runtime resolution order: `packaged (frozen artifact shipped with the app)` > `d
 
 | Variable                       | Purpose                                                                  |
 | ------------------------------ | ------------------------------------------------------------------------ |
-| `PERSONAL_AGENT_DOWNLOADS_DIR` | Real path of the authorized root; all tool path validation is bounded by it |
-| `PERSONAL_AGENT_WORKSPACE_DIR` | Workspace root (working directory for terminal execution and similar)     |
+| `PERSONAL_AGENT_WORKSPACE_DIR` | Real path of the authorized root; all tool path validation is bounded by it. Falls back to the process working directory when unset |
 | `PERSONAL_AGENT_SCRIPT`        | Path to a deterministic script JSON (for demos and CI, replacing the real model) |
 | `OPENAI_MODEL`                 | Real model name (when set, the OpenAI Responses API is used)             |
 | `OPENAI_API_KEY`               | API key (read only by the openai SDK; never logged)                      |

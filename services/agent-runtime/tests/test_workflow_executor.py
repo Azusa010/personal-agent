@@ -85,7 +85,7 @@ def test_workflow_executor_golden_run():
     )
 
     executor = WorkflowExecutor(channel=channel)
-    outcome = executor.execute(wf, inputs={"rootId": "downloads"})
+    outcome = executor.execute(wf, inputs={"rootId": "workspace"})
 
     assert isinstance(outcome, RunTaskCompleted)
     assert outcome.status == "completed"
@@ -95,7 +95,7 @@ def test_workflow_executor_golden_run():
 
     # 验证参数推导正确且调用了2次
     assert len(channel.calls) == 2
-    assert channel.calls[0].arguments == {"rootId": "downloads"}
+    assert channel.calls[0].arguments == {"rootId": "workspace"}
     assert channel.calls[1].arguments == {"path": "/downloads/doc.pdf"}
 
     # 验证事件流事件类型稳定

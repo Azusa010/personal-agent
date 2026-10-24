@@ -8,7 +8,7 @@ from personal_agent.workflow.definition import (
 
 
 def test_workflow_state_recording_and_parameter_resolution():
-    state = WorkflowState(inputs={"rootId": "downloads"})
+    state = WorkflowState(inputs={"rootId": "workspace"})
 
     # 模拟步骤 1：列出文件
     step1 = WorkflowStep(
@@ -18,7 +18,7 @@ def test_workflow_state_recording_and_parameter_resolution():
         resolve_args=lambda s: {"rootId": s.inputs["rootId"]},
     )
     args1 = step1.resolve_args(state)
-    assert args1 == {"rootId": "downloads"}
+    assert args1 == {"rootId": "workspace"}
 
     # 模拟步骤 1 执行完毕落库
     state.set_result(

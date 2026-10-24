@@ -79,7 +79,7 @@ def list_result():
         "entries": [
             {
                 "name": "a.pdf",
-                "absolutePath": "D:/downloads/a.pdf",
+                "absolutePath": "D:/workspace/a.pdf",
                 "modifiedAt": "2026-09-01T00:00:00Z",
                 "sizeBytes": 2048,
             }
@@ -98,13 +98,13 @@ def golden_path():
             kind="tool_call",
             callId="c-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         ToolCallDecision(
             kind="tool_call",
             callId="c-2",
             capability="document_extract_pdf",
-            arguments={"path": "D:/downloads/a.pdf"},
+            arguments={"path": "D:/workspace/a.pdf"},
         ),
         SummaryDecision(
             kind="summary", reply="已完成", facts=[{"text": "摘要", "pageRefs": [1]}]
@@ -196,7 +196,7 @@ def test_execute_ok_true_carries_extra_fields_into_payload():
     assert obs.ok is True
     # payload 里要是 entries，不是一个只有 ok 的 dict：
     # 模型要读绝对路径才能决定下一步 extract 哪个文件。
-    assert obs.payload["entries"][0]["absolutePath"] == "D:/downloads/a.pdf"
+    assert obs.payload["entries"][0]["absolutePath"] == "D:/workspace/a.pdf"
     assert "ok" not in obs.payload
 
 
@@ -349,7 +349,7 @@ def test_run_golden_path_completes():
     engine, model, channel, _ = make_engine(
         [list_result(), pdf_result()], golden_path()
     )
-    outcome = engine.run("整理 Downloads 里的 PDF", VISIBLE)
+    outcome = engine.run("整理工作区里的 PDF", VISIBLE)
     assert isinstance(outcome, RunTaskCompleted)
     assert outcome.status == "completed"
     assert len(outcome.facts) == 1
@@ -373,8 +373,8 @@ def test_run_event_order_on_golden_path():
 
 def test_run_task_started_payload_carries_goal():
     engine, *_ = make_engine([list_result(), pdf_result()], golden_path())
-    outcome = engine.run("整理 Downloads 里的 PDF", VISIBLE)
-    assert outcome.events[0].payload == {"goal": "整理 Downloads 里的 PDF"}
+    outcome = engine.run("整理工作区里的 PDF", VISIBLE)
+    assert outcome.events[0].payload == {"goal": "整理工作区里的 PDF"}
 
 
 def _completed_payload(outcome):
@@ -425,13 +425,13 @@ def test_run_task_completed_payload_carries_every_fact_not_just_the_first():
             kind="tool_call",
             callId="c-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         ToolCallDecision(
             kind="tool_call",
             callId="c-2",
             capability="document_extract_pdf",
-            arguments={"path": "D:/downloads/a.pdf"},
+            arguments={"path": "D:/workspace/a.pdf"},
         ),
         SummaryDecision(
             kind="summary",

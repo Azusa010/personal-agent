@@ -71,7 +71,7 @@ def list_result():
         "entries": [
             {
                 "name": "a.pdf",
-                "absolutePath": "D:/downloads/a.pdf",
+                "absolutePath": "D:/workspace/a.pdf",
                 "modifiedAt": "2026-09-01T00:00:00Z",
                 "sizeBytes": 2048,
             }
@@ -122,7 +122,7 @@ def test_classic_strategy_executes_golden_path():
             kind="tool_call",
             callId="c-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         SummaryDecision(
             kind="summary",
@@ -174,7 +174,7 @@ def test_react_strategy_wires_sidecar_components():
             kind="tool_call",
             callId="c-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         SummaryDecision(
             kind="summary",
@@ -255,13 +255,13 @@ def test_plan_and_execute_strategy_shares_single_circuit_breaker_across_steps():
             kind="tool_call",
             callId="c-bad",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         ToolCallDecision(
             kind="tool_call",
             callId="c-good-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         StepCompleteDecision(kind="step_complete", result="步骤1完成"),
         # 第二步：good -> summary
@@ -269,7 +269,7 @@ def test_plan_and_execute_strategy_shares_single_circuit_breaker_across_steps():
             kind="tool_call",
             callId="c-good-2",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         SummaryDecision(kind="summary", reply="步骤2完成", facts=[]),
     ]
@@ -339,13 +339,13 @@ def test_plan_and_execute_strategy_trips_circuit_breaker_and_halts():
             kind="tool_call",
             callId="c-bad-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         ToolCallDecision(
             kind="tool_call",
             callId="c-bad-2",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
     ]
     model = ScriptedModel(decisions)

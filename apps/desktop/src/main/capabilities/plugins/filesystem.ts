@@ -212,7 +212,7 @@ export const filesystemCreateDirPlugin: CapabilityPlugin = {
     description: '在授权根目录下创建子目录'
   },
   bindArguments: defineBinder('filesystem_create_dir', FilesystemCreateDirParams, [
-    { field: 'path', root: 'downloads' }
+    { field: 'path', root: 'workspace' }
   ]),
   extractPermissionPaths(bound) {
     return { sourcePaths: [], targetPath: bound.paths['path'] ?? null }
@@ -261,8 +261,8 @@ export const filesystemMovePlugin: CapabilityPlugin = {
     description: '在授权根目录内移动文件'
   },
   bindArguments: defineBinder('filesystem_move', FilesystemMoveParams, [
-    { field: 'source', root: 'downloads' },
-    { field: 'target', root: 'downloads' }
+    { field: 'source', root: 'workspace' },
+    { field: 'target', root: 'workspace' }
   ]),
   extractPermissionPaths(bound) {
     return {

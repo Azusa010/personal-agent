@@ -54,7 +54,7 @@ export interface PermissionBrokerDeps {
   readonly newId?: () => string
   /** 默认 PERMISSION_TTL_MS（5 分钟） */
   readonly ttlMs?: number
-  /** 默认 resolveRoot('downloads')。注入是为了让测试把根指到临时目录 */
+  /** 默认 resolveRoot('workspace')。注入是为了让测试把根指到临时目录 */
   readonly root?: () => string
   /** 推给 Renderer 的出口。不传就只落库不推送。 */
   readonly notify?: (notice: PermissionNotice) => void
@@ -94,7 +94,7 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
   const now = deps.now ?? ((): string => new Date().toISOString())
   const newId = deps.newId ?? ((): string => randomUUID())
   const ttlMs = deps.ttlMs ?? PERMISSION_TTL_MS
-  const root = deps.root ?? ((): string => resolveRoot('downloads'))
+  const root = deps.root ?? ((): string => resolveRoot('workspace'))
 
   interface Waiter {
     readonly resolve: (outcome: PermissionOutcome) => void

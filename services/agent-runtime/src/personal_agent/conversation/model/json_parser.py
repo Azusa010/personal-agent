@@ -60,7 +60,7 @@ def parse_tool_call_arguments(raw_args: Any) -> dict[str, Any]:
     except Exception:  # noqa: BLE001, S110
         pass
 
-    # 3. 尝试解析 Python 关键字入参，如 path="weekly-03.pdf", rootId="downloads"
+    # 3. 尝试解析 Python 关键字入参，如 path="weekly-03.pdf", rootId="workspace"
     try:
         call_tree = ast.parse(f"dummy({text})")
         if (

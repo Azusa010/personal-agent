@@ -35,7 +35,7 @@ import { RuleBasedToolRetriever } from '../../../src/main/capabilities/retriever
 import { toPosix } from '../../../src/main/capabilities/roots'
 import type { TaskScope } from '../../../src/main/capabilities/scope'
 
-const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
+const ENV_NAME = 'PERSONAL_AGENT_WORKSPACE_DIR'
 const T0 = '2026-09-14T00:00:00.000Z'
 const T1 = '2026-09-14T00:00:05.000Z'
 

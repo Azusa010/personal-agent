@@ -19,7 +19,7 @@ from personal_agent.runtime import (
     resolve_planner_factory,
 )
 
-GOAL = "整理 Downloads 里的 PDF"
+GOAL = "整理工作区里的 PDF"
 
 
 class StubChannel:

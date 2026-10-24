@@ -8,24 +8,18 @@ import { z } from 'zod'
 import { defineBinder } from '../../../src/main/capabilities/binder'
 import { toPosix } from '../../../src/main/capabilities/roots'
 
-let downloadsDir: string
 let workspaceDir: string
-let realDownloadsRoot: string
 let realWorkspaceRoot: string
 
 beforeEach(async () => {
-  downloadsDir = await mkdtemp(join(tmpdir(), 'pa-binder-dl-'))
   workspaceDir = await mkdtemp(join(tmpdir(), 'pa-binder-ws-'))
-  realDownloadsRoot = toPosix(await realpath(downloadsDir))
   realWorkspaceRoot = toPosix(await realpath(workspaceDir))
 
-  vi.stubEnv('PERSONAL_AGENT_DOWNLOADS_DIR', downloadsDir)
   vi.stubEnv('PERSONAL_AGENT_WORKSPACE_DIR', workspaceDir)
 })
 
 afterEach(async () => {
   vi.unstubAllEnvs()
-  await rm(downloadsDir, { recursive: true, force: true })
   await rm(workspaceDir, { recursive: true, force: true })
 })
 
@@ -133,7 +127,7 @@ describe('defineBinder：可选路径参数与自定义别名 destKey', () => {
   const binder = defineBinder('file_search', Schema, [
     {
       field: 'relativeRoot',
-      root: 'downloads',
+      root: 'workspace',
       optional: true,
       destKey: 'searchDir'
     }
@@ -156,7 +150,7 @@ describe('defineBinder：可选路径参数与自定义别名 destKey', () => {
       ok: true,
       bound: {
         args: { pattern: '*.pdf', relativeRoot: 'invoices' },
-        paths: { searchDir: `${realDownloadsRoot}/invoices` }
+        paths: { searchDir: `${realWorkspaceRoot}/invoices` }
       }
     })
   })
@@ -172,7 +166,7 @@ describe('defineBinder：可选路径参数与自定义别名 destKey', () => {
 
 describe('defineBinder：动态根函数 (Dynamic Root)', () => {
   const Schema = z.object({
-    rootId: z.enum(['downloads', 'workspace']),
+    rootId: z.enum(['workspace']),
     path: z.string().optional()
   })
 
@@ -195,17 +189,6 @@ describe('defineBinder：动态根函数 (Dynamic Root)', () => {
       }
     })
   })
-
-  it('根据 rootId="downloads" 动态绑定到 downloads 根', async () => {
-    const res = await binder({ rootId: 'downloads', path: 'report.pdf' })
-    expect(res).toEqual({
-      ok: true,
-      bound: {
-        args: { rootId: 'downloads', path: 'report.pdf' },
-        paths: { targetDir: `${realDownloadsRoot}/report.pdf` }
-      }
-    })
-  })
 })
 
 describe('defineBinder：多路径参数能力绑定 (如 filesystem_move)', () => {
@@ -215,8 +198,8 @@ describe('defineBinder：多路径参数能力绑定 (如 filesystem_move)', () 
   })
 
   const binder = defineBinder('filesystem_move', Schema, [
-    { field: 'sourcePath', root: 'downloads' },
-    { field: 'destinationPath', root: 'downloads' }
+    { field: 'sourcePath', root: 'workspace' },
+    { field: 'destinationPath', root: 'workspace' }
   ])
 
   it('两个合法路径同时校验成功并写入 bound.paths', async () => {
@@ -229,8 +212,8 @@ describe('defineBinder：多路径参数能力绑定 (如 filesystem_move)', () 
       bound: {
         args: { sourcePath: 'a.pdf', destinationPath: 'archive/a.pdf' },
         paths: {
-          sourcePath: `${realDownloadsRoot}/a.pdf`,
-          destinationPath: `${realDownloadsRoot}/archive/a.pdf`
+          sourcePath: `${realWorkspaceRoot}/a.pdf`,
+          destinationPath: `${realWorkspaceRoot}/archive/a.pdf`
         }
       }
     })

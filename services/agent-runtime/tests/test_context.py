@@ -99,7 +99,7 @@ def test_truncate_leaves_identifier_fields_alone():
     src = {
         "code": "PATH_OUT_OF_ROOT",
         "name": "季度报告.pdf",
-        "absolutePath": "D:/downloads/季度报告.pdf",
+        "absolutePath": "D:/workspace/季度报告.pdf",
         "modifiedAt": "2026-09-11T10:00:00.000Z",
     }
     assert truncate_strings(src, 5) == src
@@ -201,10 +201,10 @@ def test_observations_is_readonly_snapshot():
 def test_build_passes_goal_and_capabilities_through():
     m = ContextManager()
     ctx = m.build(
-        "整理 Downloads 里的 PDF", ["filesystem_list", "document_extract_pdf"]
+        "整理工作区里的 PDF", ["filesystem_list", "document_extract_pdf"]
     )
 
-    assert ctx.taskGoal == "整理 Downloads 里的 PDF"
+    assert ctx.taskGoal == "整理工作区里的 PDF"
     assert ctx.visibleCapabilities == ["filesystem_list", "document_extract_pdf"]
 
 
@@ -285,11 +285,11 @@ def test_build_carries_the_plan_into_the_context():
     # 计划是任务级常量，跟 observations 一样归这个容器管：Main 随 run_task
     # 带回来的计划要原样走到 ModelContext.plan，模型才知道这一轮要做哪几步。
     plan = [
-        PlanStepDto(description="列出 Downloads 下的 PDF", capability="filesystem_list"),
+        PlanStepDto(description="列出工作区下的 PDF", capability="filesystem_list"),
         PlanStepDto(description="基于页面内容生成带页码引用的摘要"),
     ]
 
-    ctx = ContextManager(plan=plan).build("整理 Downloads 里的 PDF", ["filesystem_list"])
+    ctx = ContextManager(plan=plan).build("整理工作区里的 PDF", ["filesystem_list"])
 
     assert ctx.plan == plan
 

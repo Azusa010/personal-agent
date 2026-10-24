@@ -36,7 +36,7 @@ def test_dispatch_run_workflow_golden_path_success():
         "params": {
             "taskId": "task-100",
             "workflowId": "golden_path",
-            "inputs": {"rootId": "downloads"},
+            "inputs": {"rootId": "workspace"},
         },
     }
 
@@ -44,7 +44,7 @@ def test_dispatch_run_workflow_golden_path_success():
         [
             HostExecuteToolResult(
                 ok=True,
-                entries=[{"name": "test.pdf", "path": "D:/downloads/test.pdf"}],
+                entries=[{"name": "test.pdf", "path": "D:/workspace/test.pdf"}],
             ),
             HostExecuteToolResult(
                 ok=True,

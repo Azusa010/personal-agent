@@ -22,7 +22,7 @@ describe('transformer', () => {
         payload: {
           callId: 'call-1',
           capability: 'filesystem_list',
-          arguments: { rootId: 'downloads' }
+          arguments: { rootId: 'workspace' }
         },
         occurredAt: '2026-09-20T10:00:00.000Z'
       },

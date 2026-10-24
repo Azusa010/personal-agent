@@ -1,9 +1,7 @@
 import { existsSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
 export const ROOT_ENV: Record<string, string> = {
-  downloads: 'PERSONAL_AGENT_DOWNLOADS_DIR',
   workspace: 'PERSONAL_AGENT_WORKSPACE_DIR'
 }
 
@@ -23,14 +21,7 @@ export function resolveRoot(rootId: string): string {
     throw new Error(`未知 rootId: ${rootId}`)
   }
   const fromEnv = process.env[envName]
-  let base: string
-  if (fromEnv) {
-    base = fromEnv
-  } else if (rootId === 'workspace') {
-    base = process.cwd()
-  } else {
-    base = join(homedir(), 'Downloads')
-  }
+  const base = fromEnv || process.cwd()
   return toPosix(resolve(base))
 }
 

@@ -51,7 +51,7 @@ class PdfEntry(ProtocolModel):
     type: Literal["file", "directory"] = "file"
 
 
-RootId = Literal["downloads", "workspace"]
+RootId = Literal["workspace"]
 
 
 class FilesystemListParams(ProtocolModel):

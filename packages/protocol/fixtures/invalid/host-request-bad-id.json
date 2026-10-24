@@ -6,7 +6,7 @@
     "callId": "tc-9f3a",
     "capability": "filesystem_list",
     "arguments": {
-      "rootId": "downloads"
+      "rootId": "workspace"
     }
   }
 }

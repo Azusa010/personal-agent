@@ -65,7 +65,7 @@ def list_result():
         "entries": [
             {
                 "name": "report.pdf",
-                "absolutePath": "D:/downloads/report.pdf",
+                "absolutePath": "D:/workspace/report.pdf",
                 "modifiedAt": "2026-09-01T00:00:00Z",
                 "sizeBytes": 1024,
             }
@@ -90,7 +90,7 @@ def test_replan_flow_updates_plan_and_completes():
             kind="tool_call",
             callId="c-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         ReplanDecision(
             kind="replan",
@@ -100,7 +100,7 @@ def test_replan_flow_updates_plan_and_completes():
             kind="tool_call",
             callId="c-2",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         StepCompleteDecision(
             kind="step_complete",
@@ -227,7 +227,7 @@ def test_replan_triggered_by_permission_denial_feedback():
             kind="tool_call",
             callId="c-1",
             capability="filesystem_create_dir",
-            arguments={"path": "D:/downloads/archive"},
+            arguments={"path": "D:/workspace/archive"},
         ),
         ReplanDecision(
             kind="replan",
@@ -237,7 +237,7 @@ def test_replan_triggered_by_permission_denial_feedback():
             kind="tool_call",
             callId="c-2",
             capability="filesystem_create_dir",
-            arguments={"path": "D:/downloads/temp"},
+            arguments={"path": "D:/workspace/temp"},
         ),
         StepCompleteDecision(
             kind="step_complete",

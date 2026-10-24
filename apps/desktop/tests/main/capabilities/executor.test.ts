@@ -61,7 +61,7 @@ import {
 import { toPosix } from '../../../src/main/capabilities/roots'
 import { readOnlyScope, type TaskScope } from '../../../src/main/capabilities/scope'
 
-const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
+const ENV_NAME = 'PERSONAL_AGENT_WORKSPACE_DIR'
 
 let dir: string
 let run: (params: HostExecuteToolParams) => Promise<Record<string, unknown>>
@@ -112,7 +112,7 @@ describe('executor：authorize 是唯一关口（TEST-005）', () => {
 
   it('readOnlyScope 放行两个 READ 能力', async () => {
     // 空目录，filesystem_list 成功返回空 entries。
-    const out = await run(params('filesystem_list', { rootId: 'downloads' }))
+    const out = await run(params('filesystem_list', { rootId: 'workspace' }))
     expect(out['ok']).toBe(true)
   })
 
@@ -125,7 +125,7 @@ describe('executor：authorize 是唯一关口（TEST-005）', () => {
       UI_ORIGIN,
       denyRetriever('CAPABILITY_OUT_OF_SCOPE')
     )
-    const out = await denied(params('filesystem_list', { rootId: 'downloads' }))
+    const out = await denied(params('filesystem_list', { rootId: 'workspace' }))
     expect(out['code']).toBe(ERROR_CODE.CAPABILITY_OUT_OF_SCOPE)
   })
 
@@ -138,7 +138,7 @@ describe('executor：authorize 是唯一关口（TEST-005）', () => {
       UI_ORIGIN,
       denyRetriever('CAPABILITY_NOT_REGISTERED')
     )
-    const out = await denied(params('filesystem_list', { rootId: 'downloads' }))
+    const out = await denied(params('filesystem_list', { rootId: 'workspace' }))
     expect(out['code']).toBe(ERROR_CODE.CAPABILITY_NOT_REGISTERED)
   })
 })
@@ -183,7 +183,7 @@ describe('executor：arguments 二次校验', () => {
 describe('executor：filesystem_list', () => {
   it('成功时 ok 是 boolean true', async () => {
     await writeFile(join(dir, 'a.pdf'), 'A')
-    const out = await run(params('filesystem_list', { rootId: 'downloads' }))
+    const out = await run(params('filesystem_list', { rootId: 'workspace' }))
 
     // toBe 是严格相等：ok 写成字符串 'true' 的话这里就红。
     // 契约里 HostExecuteToolResult 钉的是 z.boolean()。
@@ -193,7 +193,7 @@ describe('executor：filesystem_list', () => {
 
   it('成功输出同时过 envelope 层与 payload 层契约', async () => {
     await writeFile(join(dir, 'a.pdf'), 'A')
-    const out = await run(params('filesystem_list', { rootId: 'downloads' }))
+    const out = await run(params('filesystem_list', { rootId: 'workspace' }))
 
     // 两层各管一件事：HostExecuteToolResult 钉 ok 是 boolean，
     // FilesystemListResult 钉 entries 形状。只过其中一层证明不了 wire 合法
@@ -204,7 +204,7 @@ describe('executor：filesystem_list', () => {
 
   it('根目录不存在 -> FILESYSTEM_ROOT_UNAVAILABLE', async () => {
     vi.stubEnv(ENV_NAME, join(dir, 'nope'))
-    const out = await run(params('filesystem_list', { rootId: 'downloads' }))
+    const out = await run(params('filesystem_list', { rootId: 'workspace' }))
     expect(out['ok']).toBe(false)
     expect(out['code']).toBe(ERROR_CODE.FILESYSTEM_ROOT_UNAVAILABLE)
     // reason 里要带原始 errno，否则"目录不存在"和"没权限"分不开。
@@ -215,14 +215,14 @@ describe('executor：filesystem_list', () => {
     const filePath = join(dir, 'not-a-dir')
     await writeFile(filePath, 'x')
     vi.stubEnv(ENV_NAME, filePath)
-    const out = await run(params('filesystem_list', { rootId: 'downloads' }))
+    const out = await run(params('filesystem_list', { rootId: 'workspace' }))
     expect(out['code']).toBe(ERROR_CODE.FILESYSTEM_ROOT_UNAVAILABLE)
     expect(String(out['reason'])).toContain('ENOTDIR')
   })
 
   it('失败输出过 CapabilityFailure 契约', async () => {
     vi.stubEnv(ENV_NAME, join(dir, 'nope'))
-    const out = await run(params('filesystem_list', { rootId: 'downloads' }))
+    const out = await run(params('filesystem_list', { rootId: 'workspace' }))
     expect(() => CapabilityFailure.parse(out)).not.toThrow()
   })
 })
@@ -321,7 +321,7 @@ describe('executor：永不 throw', () => {
     // 精确码全丢。这里直接 await：抛了测试就红。
     vi.stubEnv(ENV_NAME, join(dir, 'nope'))
     const inputs: HostExecuteToolParams[] = [
-      params('filesystem_list', { rootId: 'downloads' }),
+      params('filesystem_list', { rootId: 'workspace' }),
       params('filesystem_list', { rootId: 'nope' }),
       params('filesystem_list', {}),
       params('document_extract_pdf', { path: '' }),

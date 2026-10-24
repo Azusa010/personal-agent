@@ -48,7 +48,7 @@ export const codeInterpreterPlugin: CapabilityPlugin = {
       typeof call.bound.args['timeoutMs'] === 'number' ? call.bound.args['timeoutMs'] : 30_000
     const saveArtifacts = Boolean(call.bound.args['saveArtifacts'] ?? false)
 
-    const root = resolveRoot('downloads')
+    const root = resolveRoot('workspace')
     const sandboxDir = join(root, '.scratch', `sandbox_${randomUUID().slice(0, 8)}`)
     await mkdir(sandboxDir, { recursive: true })
 

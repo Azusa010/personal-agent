@@ -344,7 +344,7 @@ describe('PythonSupervisor ~ 片 2b (host.execute_tool)', () => {
         params: {
           callId: 'tc-1',
           capability: 'filesystem_list',
-          arguments: { rootId: 'downloads' }
+          arguments: { rootId: 'workspace' }
         },
         ...over
       }) + '\n'
@@ -391,7 +391,7 @@ describe('PythonSupervisor ~ 片 2b (host.execute_tool)', () => {
     expect(handler.mock.calls[0][0]).toMatchObject({
       callId: 'tc-1',
       capability: 'filesystem_list',
-      arguments: { rootId: 'downloads' }
+      arguments: { rootId: 'workspace' }
     })
     expect(reply).toEqual({ jsonrpc: '2.0', id: 'call-1', result: { ok: true, entries: [] } })
   })

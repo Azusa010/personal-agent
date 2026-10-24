@@ -110,13 +110,13 @@ def initialize_line(req_id="10", capabilities=None, version="0.1"):
 
 
 PLAN = [
-    {"description": "列出 Downloads 下的 PDF", "capability": "filesystem_list"},
+    {"description": "列出工作区下的 PDF", "capability": "filesystem_list"},
     {"description": "提取目标 PDF 的每页文本", "capability": "document_extract_pdf"},
     {"description": "基于页面内容生成带页码引用的摘要"},
 ]
 
 
-def run_task_line(req_id="30", task_id="task-001", goal="整理 Downloads 里的 PDF"):
+def run_task_line(req_id="30", task_id="task-001", goal="整理工作区里的 PDF"):
     return json.dumps(
         {
             "jsonrpc": "2.0",
@@ -127,7 +127,7 @@ def run_task_line(req_id="30", task_id="task-001", goal="整理 Downloads 里的
     )
 
 
-def make_plan_line(req_id="20", task_id="task-001", goal="整理 Downloads 里的 PDF"):
+def make_plan_line(req_id="20", task_id="task-001", goal="整理工作区里的 PDF"):
     return json.dumps(
         {
             "jsonrpc": "2.0",
@@ -189,13 +189,13 @@ def read_only_script():
             kind="tool_call",
             callId="c-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         ToolCallDecision(
             kind="tool_call",
             callId="c-2",
             capability=EXTRACT_PDF_CAPABILITY,
-            arguments={"path": "D:/downloads/a.pdf"},
+            arguments={"path": "D:/workspace/a.pdf"},
         ),
         SummaryDecision(
             kind="summary", reply="已完成", facts=[{"text": "摘要", "pageRefs": [1]}]
@@ -344,7 +344,7 @@ def test_run_task_capabilities_from_initialize_reach_model():
     assert factory.instances[0].receivedContexts
     for ctx in factory.instances[0].receivedContexts:
         assert ctx.visibleCapabilities == EXPECTED_PLAN_CAPABILITIES
-        assert ctx.taskGoal == "整理 Downloads 里的 PDF"
+        assert ctx.taskGoal == "整理工作区里的 PDF"
 
 
 def test_run_task_hands_the_plan_to_the_model():
@@ -358,7 +358,7 @@ def test_run_task_hands_the_plan_to_the_model():
     assert factory.instances[0].receivedContexts
     for ctx in factory.instances[0].receivedContexts:
         assert [(s.description, s.capability) for s in ctx.plan] == [
-            ("列出 Downloads 下的 PDF", "filesystem_list"),
+            ("列出工作区下的 PDF", "filesystem_list"),
             ("提取目标 PDF 的每页文本", "document_extract_pdf"),
             ("基于页面内容生成带页码引用的摘要", None),
         ]
@@ -480,7 +480,7 @@ def test_filesystem_list_is_not_a_python_method():
             "jsonrpc": "2.0",
             "id": "20",
             "method": "filesystem.list",
-            "params": {"rootId": "downloads"},
+            "params": {"rootId": "workspace"},
         }
     )
     resp = handle_line(line)
@@ -662,9 +662,9 @@ def test_make_plan_returns_the_full_golden_path_after_initialize():
     steps = out["result"]["steps"]
     assert [s.get("capability") for s in steps] == [*EXPECTED_PLAN_CAPABILITIES, None]
     assert [s["description"] for s in steps] == [
-        "列出 Downloads 下的 PDF",
+        "列出工作区下的 PDF",
         "提取目标 PDF 的每页文本",
-        "在 Downloads 下创建 Reading 目录",
+        "在工作区下创建 Reading 目录",
         "把选中的 PDF 移到 Reading",
         "创建一次性阅读提醒",
         "基于页面内容生成带页码引用的摘要",
@@ -776,7 +776,7 @@ def test_make_plan_goes_through_the_planner_factory():
         {"description": "自定义的一步", "capability": "filesystem_list"}
     ]
     # 端口拿到的是目标文本 + 握手下发的能力名清单（顺序原样）+ 空历史（第一轮）。
-    assert planner.calls == [("整理 Downloads 里的 PDF", EXPECTED_PLAN_CAPABILITIES, [])]
+    assert planner.calls == [("整理工作区里的 PDF", EXPECTED_PLAN_CAPABILITIES, [])]
 
 
 def test_make_plan_hands_the_history_to_the_planner():

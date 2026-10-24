@@ -40,14 +40,14 @@ function permission(id: string, overrides: Partial<PermissionRecord> = {}): Perm
     taskId: 't-1',
     toolCallId: `call-${id}`,
     capability: 'filesystem_move',
-    argsCanonical: '{"source":"D:/downloads/a.pdf","target":"D:/downloads/Reading/a.pdf"}',
+    argsCanonical: '{"source":"D:/workspace/a.pdf","target":"D:/workspace/Reading/a.pdf"}',
     argsHash: `hash-${id}`,
     status: 'pending',
     requestedAt: '2026-09-13T00:00:00.000Z',
     expiresAt: '2026-09-13T00:05:00.000Z',
     decidedAt: null,
-    sourcePaths: ['D:/downloads/a.pdf'],
-    targetPath: 'D:/downloads/Reading/a.pdf',
+    sourcePaths: ['D:/workspace/a.pdf'],
+    targetPath: 'D:/workspace/Reading/a.pdf',
     ...overrides
   }
 }
@@ -97,12 +97,12 @@ describe('SqlitePermissionRepository', () => {
     const repo = makeRepo()
     repo.insert(
       permission('p-1', {
-        sourcePaths: ['D:/downloads/a.pdf', 'D:/downloads/b.pdf', 'D:/downloads/c.pdf']
+        sourcePaths: ['D:/workspace/a.pdf', 'D:/workspace/b.pdf', 'D:/workspace/c.pdf']
       })
     )
     const found = repo.findById('p-1')
     expect(found?.sourcePaths).toHaveLength(3)
-    expect(found?.sourcePaths[1]).toBe('D:/downloads/b.pdf')
+    expect(found?.sourcePaths[1]).toBe('D:/workspace/b.pdf')
   })
 
   it('findById 不命中返回 null', () => {

@@ -3,7 +3,7 @@
   "cases": [
     {
       "id": "one-page-note",
-      "goal": "把 Downloads 里那份 PDF 的要点总结出来，每条都带页码引用",
+      "goal": "把工作区里那份 PDF 的要点总结出来，每条都带页码引用",
       "pdfs": [
         {
           "name": "q3-update.pdf",
@@ -371,7 +371,7 @@
     },
     {
       "id": "three-files-pick-newest",
-      "goal": "Downloads 里有几份周报，把最近改过的那份总结出来，带页码引用",
+      "goal": "工作区里有几份周报，把最近改过的那份总结出来，带页码引用",
       "pdfs": [
         {
           "name": "weekly-01.pdf",
@@ -474,7 +474,7 @@
     },
     {
       "id": "non-pdf-noise",
-      "goal": "Summarize the PDF in Downloads with page references. Ignore anything that is not a PDF.",
+      "goal": "Summarize the PDF in the workspace with page references. Ignore anything that is not a PDF.",
       "pdfs": [
         {
           "name": "warranty.pdf",
@@ -682,7 +682,7 @@
     },
     {
       "id": "two-files-pick-older",
-      "goal": "Downloads 里有两份路线图，请把更早的那份总结出来，带页码引用",
+      "goal": "工作区里有两份路线图，请把更早的那份总结出来，带页码引用",
       "pdfs": [
         {
           "name": "roadmap-2025.pdf",
@@ -785,7 +785,7 @@
     {
       "id": "stateful-archive-newest",
       "type": "stateful_ops",
-      "goal": "把 Downloads 里最新改的那份 PDF 移到 Reading 目录归档，建一条 1 小时后提醒我读它的 Reminder，然后给我带页码引用的摘要",
+      "goal": "把工作区里最新改的那份 PDF 移到 Reading 目录归档，建一条 1 小时后提醒我读它的 Reminder，然后给我带页码引用的摘要",
       "pdfs": [
         {
           "name": "q1-notes.pdf",
@@ -893,7 +893,7 @@
     {
       "id": "stateful-archive-oldest",
       "type": "stateful_ops",
-      "goal": "把 Downloads 里最早改的那份 PDF 移到 Reading 目录归档，建一条 1 小时后的阅读提醒，然后给我带页码引用的摘要",
+      "goal": "把工作区里最早改的那份 PDF 移到 Reading 目录归档，建一条 1 小时后的阅读提醒，然后给我带页码引用的摘要",
       "pdfs": [
         {
           "name": "old-draft.pdf",

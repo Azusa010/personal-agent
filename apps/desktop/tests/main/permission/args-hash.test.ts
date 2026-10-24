@@ -23,27 +23,27 @@ describe('effectiveArgs', () => {
   it('paths 覆盖同名的 args 键，执行体读的是规范化值', () => {
     const bound: BoundArgs = {
       args: { path: 'D:\\downloads\\a.pdf' },
-      paths: { path: 'D:/downloads/a.pdf' }
+      paths: { path: 'D:/workspace/a.pdf' }
     }
-    expect(effectiveArgs(bound)).toEqual({ path: 'D:/downloads/a.pdf' })
+    expect(effectiveArgs(bound)).toEqual({ path: 'D:/workspace/a.pdf' })
   })
 
   it('没有路径的能力原样透传 args', () => {
-    const bound: BoundArgs = { args: { rootId: 'downloads' }, paths: {} }
-    expect(effectiveArgs(bound)).toEqual({ rootId: 'downloads' })
+    const bound: BoundArgs = { args: { rootId: 'workspace' }, paths: {} }
+    expect(effectiveArgs(bound)).toEqual({ rootId: 'workspace' })
   })
 
   it('多个路径字段各自覆盖', () => {
     const bound: BoundArgs = {
       args: { source: 'D:\\downloads\\a.pdf', target: 'D:\\downloads\\Reading\\a.pdf' },
       paths: {
-        source: 'D:/downloads/a.pdf',
-        target: 'D:/downloads/Reading/a.pdf'
+        source: 'D:/workspace/a.pdf',
+        target: 'D:/workspace/Reading/a.pdf'
       }
     }
     expect(effectiveArgs(bound)).toEqual({
-      source: 'D:/downloads/a.pdf',
-      target: 'D:/downloads/Reading/a.pdf'
+      source: 'D:/workspace/a.pdf',
+      target: 'D:/workspace/Reading/a.pdf'
     })
   })
 })
@@ -53,34 +53,34 @@ describe('fingerprintArguments：同值同 Hash', () => {
     // 模型给反斜杠还是正斜杠，规范化之后都是同一个 realpath
     const windowsStyle: BoundArgs = {
       args: { path: 'D:\\downloads\\a.pdf' },
-      paths: { path: 'D:/downloads/a.pdf' }
+      paths: { path: 'D:/workspace/a.pdf' }
     }
     const posixStyle: BoundArgs = {
-      args: { path: 'D:/downloads/a.pdf' },
-      paths: { path: 'D:/downloads/a.pdf' }
+      args: { path: 'D:/workspace/a.pdf' },
+      paths: { path: 'D:/workspace/a.pdf' }
     }
     expect(fingerprintArguments(windowsStyle).hash).toBe(fingerprintArguments(posixStyle).hash)
   })
 
   it('非路径字段的键序不影响 Hash', () => {
     const a: BoundArgs = {
-      args: { rootId: 'downloads', overwrite: true, limit: 10 },
+      args: { rootId: 'workspace', overwrite: true, limit: 10 },
       paths: {}
     }
     const b: BoundArgs = {
-      args: { limit: 10, overwrite: true, rootId: 'downloads' },
+      args: { limit: 10, overwrite: true, rootId: 'workspace' },
       paths: {}
     }
     expect(fingerprintArguments(a).hash).toBe(fingerprintArguments(b).hash)
   })
 
   it('同一个 BoundArgs 调两次结果一样', () => {
-    const bound: BoundArgs = { args: { rootId: 'downloads' }, paths: {} }
+    const bound: BoundArgs = { args: { rootId: 'workspace' }, paths: {} }
     expect(fingerprintArguments(bound)).toEqual(fingerprintArguments(bound))
   })
 
   it('Hash 就是 canonical 串的 sha256，两者不会各算一套', () => {
-    const bound: BoundArgs = { args: { rootId: 'downloads' }, paths: {} }
+    const bound: BoundArgs = { args: { rootId: 'workspace' }, paths: {} }
     const fingerprint = fingerprintArguments(bound)
     expect(fingerprint.hash).toBe(sha256Hex(fingerprint.canonical))
   })
@@ -90,15 +90,15 @@ describe('fingerprintArguments：任一参数变化 Hash 不同', () => {
   const base: BoundArgs = {
     args: { source: 'a.pdf', target: 'Reading/a.pdf', overwrite: false },
     paths: {
-      source: 'D:/downloads/a.pdf',
-      target: 'D:/downloads/Reading/a.pdf'
+      source: 'D:/workspace/a.pdf',
+      target: 'D:/workspace/Reading/a.pdf'
     }
   }
 
   it('换一个来源路径', () => {
     const changed: BoundArgs = {
       ...base,
-      paths: { ...base.paths, source: 'D:/downloads/b.pdf' }
+      paths: { ...base.paths, source: 'D:/workspace/b.pdf' }
     }
     expect(fingerprintArguments(changed).hash).not.toBe(fingerprintArguments(base).hash)
   })
@@ -106,7 +106,7 @@ describe('fingerprintArguments：任一参数变化 Hash 不同', () => {
   it('换一个目标路径', () => {
     const changed: BoundArgs = {
       ...base,
-      paths: { ...base.paths, target: 'D:/downloads/Archive/a.pdf' }
+      paths: { ...base.paths, target: 'D:/workspace/Archive/a.pdf' }
     }
     expect(fingerprintArguments(changed).hash).not.toBe(fingerprintArguments(base).hash)
   })
@@ -133,8 +133,8 @@ describe('fingerprintArguments：任一参数变化 Hash 不同', () => {
     const swapped: BoundArgs = {
       args: { source: 'Reading/a.pdf', target: 'a.pdf', overwrite: false },
       paths: {
-        source: 'D:/downloads/Reading/a.pdf',
-        target: 'D:/downloads/a.pdf'
+        source: 'D:/workspace/Reading/a.pdf',
+        target: 'D:/workspace/a.pdf'
       }
     }
     expect(fingerprintArguments(swapped).hash).not.toBe(fingerprintArguments(base).hash)
@@ -151,10 +151,10 @@ describe('fingerprintArguments：canonical 串', () => {
   it('就是 Permission Contract 要展示的规范化参数摘要，能被 JSON.parse 回原值', () => {
     const bound: BoundArgs = {
       args: { source: 'D:\\downloads\\a.pdf', overwrite: false },
-      paths: { source: 'D:/downloads/a.pdf' }
+      paths: { source: 'D:/workspace/a.pdf' }
     }
     const { canonical } = fingerprintArguments(bound)
-    expect(canonical).toBe('{"overwrite":false,"source":"D:/downloads/a.pdf"}')
+    expect(canonical).toBe('{"overwrite":false,"source":"D:/workspace/a.pdf"}')
     expect(JSON.parse(canonical)).toEqual(effectiveArgs(bound))
   })
 })

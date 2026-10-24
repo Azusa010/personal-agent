@@ -240,7 +240,7 @@ export const readDocumentPlugin: CapabilityPlugin = {
     const parsed = ReadDocumentParams.safeParse(args)
     if (!parsed.success) return invalid('read_document', parsed.error.message)
 
-    const root = resolveRoot('downloads')
+    const root = resolveRoot('workspace')
     const guarded = await resolveWithinRootReal(root, parsed.data.path)
     if (guarded.ok) {
       return {
@@ -296,7 +296,7 @@ export const documentExtractPdfPlugin: CapabilityPlugin = {
     description: '提取 PDF 每页文本与页码'
   },
   bindArguments: defineBinder('document_extract_pdf', DocumentExtractPdfParams, [
-    { field: 'path', root: 'downloads' }
+    { field: 'path', root: 'workspace' }
   ]),
   async execute(call) {
     const abs = call.bound.paths['path']

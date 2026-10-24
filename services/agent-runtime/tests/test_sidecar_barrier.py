@@ -22,8 +22,8 @@ def test_barrier_submit_and_wait():
 
     barrier = StreamBarrier(classifier=mock_classifier)
     try:
-        barrier.submit("c-b1", "filesystem_list", {"rootId": "downloads"})
-        res = barrier.wait_or_pass("c-b1", "filesystem_list", {"rootId": "downloads"})
+        barrier.submit("c-b1", "filesystem_list", {"rootId": "workspace"})
+        res = barrier.wait_or_pass("c-b1", "filesystem_list", {"rootId": "workspace"})
         assert res.verdict == "ALLOW"
         assert res.callId == "c-b1"
     finally:
@@ -45,7 +45,7 @@ def test_barrier_direct_wait_without_submit():
 
     barrier = StreamBarrier(classifier=mock_classifier)
     try:
-        res = barrier.wait_or_pass("c-b2", "filesystem_list", {"rootId": "downloads"})
+        res = barrier.wait_or_pass("c-b2", "filesystem_list", {"rootId": "workspace"})
         assert res.verdict == "ALLOW"
         assert mock_classifier.classify.called
     finally:

@@ -55,7 +55,7 @@ def test_golden_path_read_only_mode():
         [
             HostExecuteToolResult(
                 ok=True,
-                entries=[{"name": "test.pdf", "path": "D:/downloads/test.pdf"}],
+                entries=[{"name": "test.pdf", "path": "D:/workspace/test.pdf"}],
             ),
             HostExecuteToolResult(
                 ok=True,
@@ -68,7 +68,7 @@ def test_golden_path_read_only_mode():
     )
 
     executor = WorkflowExecutor(channel=channel)
-    outcome = executor.execute(wf, inputs={"rootId": "downloads"})
+    outcome = executor.execute(wf, inputs={"rootId": "workspace"})
 
     assert isinstance(outcome, RunTaskCompleted)
     assert outcome.status == "completed"
@@ -76,8 +76,8 @@ def test_golden_path_read_only_mode():
     assert outcome.facts[0].pageRefs == [1]
     assert outcome.facts[1].pageRefs == [2]
     assert len(channel.calls) == 2
-    assert channel.calls[0].arguments == {"rootId": "downloads"}
-    assert channel.calls[1].arguments == {"path": "D:/downloads/test.pdf"}
+    assert channel.calls[0].arguments == {"rootId": "workspace"}
+    assert channel.calls[1].arguments == {"path": "D:/workspace/test.pdf"}
 
 
 def test_golden_path_full_five_steps():
@@ -109,7 +109,7 @@ def test_golden_path_full_five_steps():
     )
 
     executor = WorkflowExecutor(channel=channel)
-    outcome = executor.execute(wf, inputs={"rootId": "downloads"})
+    outcome = executor.execute(wf, inputs={"rootId": "workspace"})
 
     assert isinstance(outcome, RunTaskCompleted)
     assert outcome.status == "completed"
@@ -119,7 +119,7 @@ def test_golden_path_full_five_steps():
 
     # 验证 5 次调用的参数链式传递
     assert len(channel.calls) == 5
-    assert channel.calls[0].arguments == {"rootId": "downloads"}
+    assert channel.calls[0].arguments == {"rootId": "workspace"}
     assert channel.calls[1].arguments == {"path": "D:/Downloads/paper.pdf"}
     # create_dir 应在 Downloads 下创建 Reading
     assert channel.calls[2].arguments["path"].replace("\\", "/").endswith(

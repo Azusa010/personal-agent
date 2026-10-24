@@ -108,7 +108,7 @@ def test_normalize_other_distinct_tool_signatures():
     assert norm_move["capability"] == "filesystem_move"
 
     # filesystem_list: 特征参数 rootId
-    raw_list = {"rootId": "downloads"}
+    raw_list = {"rootId": "workspace"}
     norm_list = normalize_raw_decision(raw_list)
     assert norm_list["kind"] == "tool_call"
     assert norm_list["capability"] == "filesystem_list"

@@ -27,14 +27,14 @@ describe('pdf-repository', () => {
     expect(findAll(db)).toEqual([])
   })
   it('upsert 后能读回', () => {
-    upsertMany(db, 'downloads', [entry], T1)
+    upsertMany(db, 'workspace', [entry], T1)
     expect(findAll(db)).toEqual([
-      { ...entry, rootId: 'downloads', firstSeenAt: T1, lastSeenAt: T1 }
+      { ...entry, rootId: 'workspace', firstSeenAt: T1, lastSeenAt: T1 }
     ])
   })
   it('重复 upsert:镜像字段更新,first_seen_at 保住,且不产生重复行', () => {
-    upsertMany(db, 'downloads', [entry], T1)
-    upsertMany(db, 'downloads', [{ ...entry, name: 'renamed.pdf', sizeBytes: 2048 }], T2)
+    upsertMany(db, 'workspace', [entry], T1)
+    upsertMany(db, 'workspace', [{ ...entry, name: 'renamed.pdf', sizeBytes: 2048 }], T2)
 
     const rows = findAll(db)
     expect(rows).toHaveLength(1)
@@ -44,13 +44,13 @@ describe('pdf-repository', () => {
     expect(rows[0].lastSeenAt).toBe(T2)
   })
   it('空 entries 直接返回,不炸事物', () => {
-    upsertMany(db, 'downloads', [], T1)
+    upsertMany(db, 'workspace', [], T1)
     expect(findAll(db)).toEqual([])
   })
   it('多条按 modified_at 倒序', () => {
     upsertMany(
       db,
-      'downloads',
+      'workspace',
       [
         {
           ...entry,

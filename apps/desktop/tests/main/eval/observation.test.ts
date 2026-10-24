@@ -20,7 +20,7 @@ import {
   type ObservationDeps
 } from '../../../src/main/eval/observation'
 import { repoRoot } from '../../../src/main/eval/paths'
-import { DOWNLOADS_ENV, LIVE_MODEL_ENV, SCRIPT_ENV } from '../../../src/main/eval/run-eval'
+import { WORKSPACE_ENV, LIVE_MODEL_ENV, SCRIPT_ENV } from '../../../src/main/eval/run-eval'
 
 /**
  * 取证的验收（TASK-027）。
@@ -85,7 +85,7 @@ describe('collectObservation：从库里取事实', () => {
       payload: {
         callId: 'call-1',
         capability: 'filesystem_list',
-        arguments: { rootId: 'downloads' }
+        arguments: { rootId: 'workspace' }
       },
       occurredAt: AT
     })
@@ -302,8 +302,8 @@ describe.skipIf(!existsSync(VENV_PYTHON))('跨语言契约：与 Python 侧对�
     expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true)
     expect(probeResult.env.script).toBe(SCRIPT_ENV)
     expect(probeResult.env.live).toBe(LIVE_MODEL_ENV)
-    // downloads 根的变量名只在 TS 侧定义（roots.ts 的 ROOT_ENV）。
-    expect(DOWNLOADS_ENV).toBe('PERSONAL_AGENT_DOWNLOADS_DIR')
+    // workspace 根的变量名只在 TS 侧定义（roots.ts 的 ROOT_ENV）。
+    expect(WORKSPACE_ENV).toBe('PERSONAL_AGENT_WORKSPACE_DIR')
   })
 })
 

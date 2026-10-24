@@ -7,7 +7,7 @@
     "capability": "terminal_execute",
     "arguments": {
       "command": "echo hello",
-      "cwd": "D:/downloads",
+      "cwd": "D:/workspace",
       "expected_cwd_exists": true
     }
   }

@@ -3,10 +3,10 @@ import { canonicalize } from '../../../src/main/permission/canonical-json'
 
 describe('canonicalize：键序', () => {
   it('键序打乱得到同一个串', () => {
-    const a = canonicalize({ path: 'D:/downloads/a.pdf', overwrite: true })
-    const b = canonicalize({ overwrite: true, path: 'D:/downloads/a.pdf' })
+    const a = canonicalize({ path: 'D:/workspace/a.pdf', overwrite: true })
+    const b = canonicalize({ overwrite: true, path: 'D:/workspace/a.pdf' })
     expect(a).toBe(b)
-    expect(a).toBe('{"overwrite":true,"path":"D:/downloads/a.pdf"}')
+    expect(a).toBe('{"overwrite":true,"path":"D:/workspace/a.pdf"}')
   })
 
   it('嵌套对象递归排序', () => {
@@ -69,7 +69,7 @@ describe('canonicalize：标量', () => {
   })
 
   it('顶层不是对象也能处理', () => {
-    expect(canonicalize('D:/downloads/a.pdf')).toBe('"D:/downloads/a.pdf"')
+    expect(canonicalize('D:/workspace/a.pdf')).toBe('"D:/workspace/a.pdf"')
     expect(canonicalize(42)).toBe('42')
     expect(canonicalize(true)).toBe('true')
     expect(canonicalize(null)).toBe('null')
@@ -97,15 +97,15 @@ describe('canonicalize：转义', () => {
 describe('canonicalize：贴近真实参数的综合用例', () => {
   it('filesystem_move 的两个规范化路径', () => {
     const bound = {
-      target: 'D:/downloads/Reading/a.pdf',
-      source: 'D:/downloads/a.pdf'
+      target: 'D:/workspace/Reading/a.pdf',
+      source: 'D:/workspace/a.pdf'
     }
     expect(canonicalize(bound)).toBe(
-      '{"source":"D:/downloads/a.pdf","target":"D:/downloads/Reading/a.pdf"}'
+      '{"source":"D:/workspace/a.pdf","target":"D:/workspace/Reading/a.pdf"}'
     )
   })
 
   it('filesystem_list 只有一个枚举字段', () => {
-    expect(canonicalize({ rootId: 'downloads' })).toBe('{"rootId":"downloads"}')
+    expect(canonicalize({ rootId: 'workspace' })).toBe('{"rootId":"workspace"}')
   })
 })

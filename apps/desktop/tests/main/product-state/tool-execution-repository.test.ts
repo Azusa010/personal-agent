@@ -51,8 +51,8 @@ function execution(key: string, overrides: Partial<ToolExecutionRecord> = {}): T
     toolCallId: `call-${key}`,
     capability: 'filesystem_move',
     argsHash: `hash-${key}`,
-    sourcePaths: ['D:/downloads/a.pdf'],
-    targetPath: 'D:/downloads/Reading/a.pdf',
+    sourcePaths: ['D:/workspace/a.pdf'],
+    targetPath: 'D:/workspace/Reading/a.pdf',
     status: 'attempting',
     attemptedAt: T0,
     finishedAt: null,
@@ -125,17 +125,17 @@ describe('SqliteToolExecutionRepository 读写往返', () => {
     const repo = makeRepo()
     repo.insert(
       execution('k-1', {
-        sourcePaths: ['D:/downloads/a.pdf', 'D:/downloads/b.pdf']
+        sourcePaths: ['D:/workspace/a.pdf', 'D:/workspace/b.pdf']
       })
     )
     const found = repo.findByKey('k-1')
     expect(found?.sourcePaths).toHaveLength(2)
-    expect(found?.sourcePaths[1]).toBe('D:/downloads/b.pdf')
+    expect(found?.sourcePaths[1]).toBe('D:/workspace/b.pdf')
   })
 
   it('resultPayload 存 JSON，读回来结构一致（命中已执行时靠它原样返回）', () => {
     const repo = makeRepo()
-    const payload = { ok: true, source: 'D:/downloads/a.pdf', target: 'D:/downloads/Reading/a.pdf' }
+    const payload = { ok: true, source: 'D:/workspace/a.pdf', target: 'D:/workspace/Reading/a.pdf' }
     repo.insert(execution('k-1', { status: 'succeeded', finishedAt: T1, resultPayload: payload }))
     expect(repo.findByKey('k-1')?.resultPayload).toEqual(payload)
   })
@@ -184,7 +184,7 @@ describe('SqliteToolExecutionRepository 状态翻转', () => {
   it('transition attempting→succeeded：status/finishedAt/resultPayload 都真落库', () => {
     const repo = makeRepo()
     repo.insert(execution('k-1'))
-    const result = { ok: true, source: 'D:/downloads/a.pdf', target: 'D:/downloads/Reading/a.pdf' }
+    const result = { ok: true, source: 'D:/workspace/a.pdf', target: 'D:/workspace/Reading/a.pdf' }
     const after = repo.transition('k-1', 'succeeded', T1, result)
     expect(after.status).toBe('succeeded')
     expect(after.finishedAt).toBe(T1)

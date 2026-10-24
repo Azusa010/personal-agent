@@ -1,7 +1,7 @@
 import * as z from "zod";
 import { CapabilityFailure } from "./host";
 
-export const RootId = z.enum(["downloads", "workspace"]);
+export const RootId = z.enum(["workspace"]);
 export type RootId = z.infer<typeof RootId>;
 
 export const FilesystemListParams = z.object({

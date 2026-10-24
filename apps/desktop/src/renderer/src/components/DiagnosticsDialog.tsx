@@ -37,7 +37,7 @@ function DiagnosticsBody({ taskId }: { taskId: string | null }): React.JSX.Eleme
   const rescan = (): void => {
     setScanning(true)
     void window.personalAgent
-      .listPdfs('downloads')
+      .listPdfs('workspace')
       .then((result) => {
         setScan(result)
         setScanning(false)
@@ -53,7 +53,7 @@ function DiagnosticsBody({ taskId }: { taskId: string | null }): React.JSX.Eleme
         </p>
         <Button type="button" variant="secondary" size="sm" onClick={rescan} disabled={scanning}>
           <ScanSearch size={14} />
-          {scanning ? '扫描中…' : '扫描 Downloads'}
+          {scanning ? '扫描中…' : '扫描工作区'}
         </Button>
       </div>
 
@@ -69,7 +69,7 @@ function DiagnosticsBody({ taskId }: { taskId: string | null }): React.JSX.Eleme
         </p>
       )}
       {scan !== null && scan.ok && scan.entries.length === 0 && (
-        <p className="text-[12px] text-muted-foreground">Downloads 里没有 PDF。</p>
+        <p className="text-[12px] text-muted-foreground">工作区里没有 PDF。</p>
       )}
       {scan !== null && scan.ok && scan.entries.length > 0 && (
         <>
@@ -193,7 +193,7 @@ export function DiagnosticsDialog({
         <DialogHeader>
           <DialogTitle>运行诊断</DialogTitle>
           <DialogDescription>
-            运行时状态、Downloads 目录扫描结果与当前会话的权限记录。
+            运行时状态、工作区扫描结果与当前会话的权限记录。
           </DialogDescription>
         </DialogHeader>
         {open && <DiagnosticsBody key={taskId ?? 'none'} taskId={taskId} />}

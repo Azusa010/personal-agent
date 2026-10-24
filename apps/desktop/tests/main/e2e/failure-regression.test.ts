@@ -70,10 +70,10 @@ const ROOT = repoRoot()
 const VENV_PYTHON = join(ROOT, 'services', 'agent-runtime', '.venv', 'Scripts', 'python.exe')
 const RUNTIME_CWD = join(ROOT, 'services', 'agent-runtime')
 const FIXTURE_PDF = join(ROOT, 'tests', 'fixtures', 'pdfs', 'three-page-text.pdf')
-const DOWNLOADS_ENV = 'PERSONAL_AGENT_DOWNLOADS_DIR'
+const WORKSPACE_ENV = 'PERSONAL_AGENT_WORKSPACE_DIR'
 const SCRIPT_ENV = 'PERSONAL_AGENT_SCRIPT'
 const PDF_NAME = 'three-page-text.pdf'
-const GOAL = '整理 Downloads 里的 PDF，给出带页码引用的摘要'
+const GOAL = '整理工作区里的 PDF，给出带页码引用的摘要'
 const ROOT_PLACEHOLDER = '{{DOWNLOADS_ROOT}}'
 const REMIND_PLACEHOLDER = '{{REMIND_AT}}'
 
@@ -96,7 +96,7 @@ const summary = (pageRefs: number[] = [1]): Decision => ({
 /** 完整 Golden Path 的决策序列（路径用占位符，落盘时替换）。 */
 function goldenPathDecisions(): Decision[] {
   return [
-    toolCall('c-1', 'filesystem_list', { rootId: 'downloads' }),
+    toolCall('c-1', 'filesystem_list', { rootId: 'workspace' }),
     toolCall('c-2', 'document_extract_pdf', { path: `${ROOT_PLACEHOLDER}/${PDF_NAME}` }),
     toolCall('c-3', 'filesystem_create_dir', { path: `${ROOT_PLACEHOLDER}/Reading` }),
     toolCall('c-4', 'filesystem_move', {
@@ -155,7 +155,7 @@ async function openWorld(options: WorldOptions): Promise<World> {
     copyFileSync(FIXTURE_PDF, join(root, PDF_NAME))
   }
 
-  process.env[DOWNLOADS_ENV] = root
+  process.env[WORKSPACE_ENV] = root
   const db = openProductState(join(dir, 'product-state.db'))
   migrate(db)
   const repos = {
@@ -247,7 +247,7 @@ async function openWorld(options: WorldOptions): Promise<World> {
       resetHostExecutorWiring()
       db.close()
       rmSync(dir, { recursive: true, force: true })
-      delete process.env[DOWNLOADS_ENV]
+      delete process.env[WORKSPACE_ENV]
     }
   }
   worlds.push(world)
@@ -321,7 +321,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
     // 后面的 WRITE 一步都没机会执行。
     const world = await openWorld({
       decisions: [
-        toolCall('c-1', 'filesystem_list', { rootId: 'downloads' }),
+        toolCall('c-1', 'filesystem_list', { rootId: 'workspace' }),
         toolCall('c-2', 'document_extract_pdf', { path: `${ROOT_PLACEHOLDER}/${PDF_NAME}` }),
         summary([1])
       ],

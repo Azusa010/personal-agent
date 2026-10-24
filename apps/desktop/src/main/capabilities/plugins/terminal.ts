@@ -13,12 +13,6 @@ import { auditExpectedValues, describeError, fail, invalid, safeStat } from './h
 let currentTerminalCwd: string | null = null
 
 export function getTerminalDefaultRoot(): string {
-  if (process.env.PERSONAL_AGENT_WORKSPACE_DIR) {
-    return resolveRoot('workspace')
-  }
-  if (process.env.PERSONAL_AGENT_DOWNLOADS_DIR) {
-    return resolveRoot('downloads')
-  }
   return resolveRoot('workspace')
 }
 

@@ -39,8 +39,8 @@ import {
 } from '../../../src/main/verification/evidence-bundle'
 import { verifyDeliverables } from '../../../src/main/verification/verify-deliverables'
 
-const PDF = 'D:/downloads/report.pdf'
-const READING = 'D:/downloads/Reading/report.pdf'
+const PDF = 'D:/workspace/report.pdf'
+const READING = 'D:/workspace/Reading/report.pdf'
 
 const FULL_PLAN: PlanStep[] = [
   { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },

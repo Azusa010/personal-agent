@@ -222,7 +222,7 @@ describe('Sidecar 行为分类器与安全审查', () => {
 
   describe('evaluateCallSafety 宿主端安全综合评估', () => {
     it('常规安全调用评估为 allow', () => {
-      const action = evaluateCallSafety('filesystem_list', { rootId: 'downloads' })
+      const action = evaluateCallSafety('filesystem_list', { rootId: 'workspace' })
       expect(action.kind).toBe('allow')
     })
 

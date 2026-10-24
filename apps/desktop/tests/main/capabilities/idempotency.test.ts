@@ -49,7 +49,7 @@ function record(
 describe('idempotencyKey：内容派生的稳定键', () => {
   const bound: BoundArgs = {
     args: { source: 'a.pdf', target: 'Reading/a.pdf' },
-    paths: { source: '/root/downloads/a.pdf', target: '/root/reading/Reading/a.pdf' }
+    paths: { source: '/root/workspace/a.pdf', target: '/root/reading/Reading/a.pdf' }
   }
 
   it('格式是 taskId:capability:argsHash', () => {
@@ -81,7 +81,7 @@ describe('idempotencyKey：内容派生的稳定键', () => {
   it('不同参数 → 不同 key', () => {
     const other: BoundArgs = {
       args: { source: 'b.pdf' },
-      paths: { source: '/root/downloads/b.pdf' }
+      paths: { source: '/root/workspace/b.pdf' }
     }
     expect(idempotencyKey('task-1', 'filesystem_move', bound)).not.toBe(
       idempotencyKey('task-1', 'filesystem_move', other)

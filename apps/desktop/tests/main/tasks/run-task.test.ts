@@ -66,7 +66,7 @@ function pythonEvents(): Array<{ type: string; payload: unknown; occurredAt: str
     { type: 'task_started', payload: { goal: GOAL }, occurredAt: AT },
     {
       type: 'tool_called',
-      payload: { callId: 'c-1', capability: 'filesystem_list', arguments: { rootId: 'downloads' } },
+      payload: { callId: 'c-1', capability: 'filesystem_list', arguments: { rootId: 'workspace' } },
       occurredAt: AT
     },
     {

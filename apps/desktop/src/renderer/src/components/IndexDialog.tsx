@@ -32,7 +32,7 @@ function IndexBody(): React.JSX.Element {
         </p>
       )}
       {result !== null && result.ok && result.entries.length === 0 && (
-        <p className="text-[12px] text-muted-foreground">索引为空，先用回形针扫描 Downloads。</p>
+        <p className="text-[12px] text-muted-foreground">索引为空，先用回形针扫描工作区。</p>
       )}
       {result !== null && result.ok && result.entries.length > 0 && (
         <Table>

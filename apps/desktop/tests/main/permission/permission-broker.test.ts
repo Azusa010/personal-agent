@@ -320,17 +320,17 @@ describe('respond', () => {
     const waiting = broker!.request(moveInput())
     await Promise.resolve()
 
-    broker!.respond('perm-1', 'denied', '请改存到 D:/downloads/temp')
+    broker!.respond('perm-1', 'denied', '请改存到 D:/workspace/temp')
 
     const outcome = await waiting
     expect(outcome.approved).toBe(false)
     if (!outcome.approved) {
       expect(outcome.code).toBe(ERROR_CODE.PERMISSION_DENIED)
-      expect(outcome.reason).toContain('请改存到 D:/downloads/temp')
+      expect(outcome.reason).toContain('请改存到 D:/workspace/temp')
     }
     expect(events().at(-1)?.payload).toMatchObject({
       decision: 'denied',
-      reason: expect.stringContaining('请改存到 D:/downloads/temp')
+      reason: expect.stringContaining('请改存到 D:/workspace/temp')
     })
   })
 
@@ -742,7 +742,7 @@ describe('broker.verify：组装入参', () => {
     })
   })
 
-  it('viking_write_l2 能力使用 Viking 根复查，不会被判定为 downloads 根外', async () => {
+  it('viking_write_l2 能力使用 Viking 根复查，不会被判定为 workspace 根外', async () => {
     const vikingStoreDir = join(tmpRoot, 'viking_store')
     mkdirSync(join(vikingStoreDir, 'knowledge'), { recursive: true })
     const oldEnv = process.env.PERSONAL_AGENT_VIKING_ROOT

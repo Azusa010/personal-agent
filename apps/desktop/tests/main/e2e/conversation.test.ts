@@ -58,7 +58,7 @@ const RUNTIME_CWD = join(ROOT, 'services', 'agent-runtime')
 const FIXTURE_PDF = join(ROOT, 'tests', 'fixtures', 'pdfs', 'three-page-text.pdf')
 const PDF_NAME = 'three-page-text.pdf'
 const SCRIPT_ENV = 'PERSONAL_AGENT_SCRIPT'
-const DOWNLOADS_ENV = ROOT_ENV['downloads'] ?? 'PERSONAL_AGENT_DOWNLOADS_DIR'
+const WORKSPACE_ENV = ROOT_ENV['workspace'] ?? 'PERSONAL_AGENT_WORKSPACE_DIR'
 
 const QUESTION_1 = '第一问：把这份 PDF 摘要一下'
 const QUESTION_2 = '第二问：再摘要一遍'
@@ -106,7 +106,7 @@ function buildScript(downloadsRootPath: string): string {
     kind: 'tool_call',
     callId: 'c-1',
     capability: 'filesystem_list',
-    arguments: { rootId: 'downloads' }
+    arguments: { rootId: 'workspace' }
   }
   const extract = {
     kind: 'tool_call',
@@ -137,8 +137,8 @@ describe.skipIf(!existsSync(VENV_PYTHON))('会话 E2E：两轮对话同一个会
     mkdirSync(downloadsRoot, { recursive: true })
     copyFileSync(FIXTURE_PDF, join(downloadsRoot, PDF_NAME))
 
-    savedDownloadsEnv = process.env[DOWNLOADS_ENV]
-    process.env[DOWNLOADS_ENV] = downloadsRoot
+    savedDownloadsEnv = process.env[WORKSPACE_ENV]
+    process.env[WORKSPACE_ENV] = downloadsRoot
 
     db = openProductState(join(tempDir, 'product-state.db'))
     migrate(db)
@@ -164,8 +164,8 @@ describe.skipIf(!existsSync(VENV_PYTHON))('会话 E2E：两轮对话同一个会
     supervisor = null
     db?.close()
     db = null
-    if (savedDownloadsEnv === undefined) delete process.env[DOWNLOADS_ENV]
-    else process.env[DOWNLOADS_ENV] = savedDownloadsEnv
+    if (savedDownloadsEnv === undefined) delete process.env[WORKSPACE_ENV]
+    else process.env[WORKSPACE_ENV] = savedDownloadsEnv
     rmSync(tempDir, { recursive: true, force: true })
   })
 

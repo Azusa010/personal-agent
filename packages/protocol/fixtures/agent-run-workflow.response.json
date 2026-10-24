@@ -15,7 +15,7 @@
         "type": "task_started",
         "payload": {
           "workflowId": "golden_path",
-          "goal": "整理 Downloads 里的 PDF"
+          "goal": "整理工作区里的 PDF"
         },
         "occurredAt": "2026-09-20T10:00:00.000Z"
       },

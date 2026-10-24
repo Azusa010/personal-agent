@@ -21,13 +21,13 @@ def golden_path() -> list:
             kind="tool_call",
             callId="c-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         ToolCallDecision(
             kind="tool_call",
             callId="c-2",
             capability="document_extract_pdf",
-            arguments={"path": "D:/downloads/a.pdf"},
+            arguments={"path": "D:/workspace/a.pdf"},
         ),
         SummaryDecision(
             kind="summary", reply="已完成", facts=[{"text": "摘要", "pageRefs": [1]}]
@@ -37,7 +37,7 @@ def golden_path() -> list:
 
 def ctx() -> ModelContext:
     return ModelContext(
-        taskGoal="整理 Downloads 里的 PDF",
+        taskGoal="整理工作区里的 PDF",
         visibleCapabilities=["filesystem_list", "document_extract_pdf"],
     )
 
@@ -80,7 +80,7 @@ def test_records_received_contexts():
     m.decide(c)
     m.decide(c)
     assert len(m.receivedContexts) == 2
-    assert m.receivedContexts[0].taskGoal == "整理 Downloads 里的 PDF"
+    assert m.receivedContexts[0].taskGoal == "整理工作区里的 PDF"
 
 
 def test_constructor_copies_input_sequence():
@@ -128,7 +128,7 @@ SCRIPT = [
         "kind": "tool_call",
         "callId": "c-1",
         "capability": "filesystem_list",
-        "arguments": {"rootId": "downloads"},
+        "arguments": {"rootId": "workspace"},
     },
     {"kind": "summary", "reply": "已完成", "facts": [{"text": "摘要", "pageRefs": [1]}]},
 ]
@@ -147,7 +147,7 @@ def test_load_script_returns_decisions_in_file_order(tmp_path):
             kind="tool_call",
             callId="c-1",
             capability="filesystem_list",
-            arguments={"rootId": "downloads"},
+            arguments={"rootId": "workspace"},
         ),
         SummaryDecision(
             kind="summary", reply="已完成", facts=[{"text": "摘要", "pageRefs": [1]}]

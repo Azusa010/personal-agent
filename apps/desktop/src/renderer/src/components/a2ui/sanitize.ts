@@ -67,7 +67,7 @@ export function sanitizeImageSrc(src: unknown): string | null {
     }
   }
 
-  // 允许相对路径（workspace/downloads/assets）
+  // 允许相对路径（workspace/assets）
   if (!trimmed.includes('://') && !trimmed.startsWith('/') && !/^[a-zA-Z]:[\\/]/.test(trimmed)) {
     return trimmed
   }

@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 from personal_agent.planning import PlanError, PlanStep, make_plan
 
-GOAL = "整理 Downloads 里的 PDF，给出带页码引用的摘要"
+GOAL = "整理工作区里的 PDF，给出带页码引用的摘要"
 VISIBLE = [
     "filesystem_list",
     "document_extract_pdf",
@@ -23,9 +23,9 @@ VISIBLE = [
 ]
 
 EXPECTED_DESCRIPTIONS = [
-    "列出 Downloads 下的 PDF",
+    "列出工作区下的 PDF",
     "提取目标 PDF 的每页文本",
-    "在 Downloads 下创建 Reading 目录",
+    "在工作区下创建 Reading 目录",
     "把选中的 PDF 移到 Reading",
     "创建一次性阅读提醒",
     "基于页面内容生成带页码引用的摘要",
@@ -109,7 +109,7 @@ def test_make_plan_shrinks_to_a_read_only_plan_when_writes_are_not_visible() -> 
 
     assert [s.capability for s in steps] == ["filesystem_list", "document_extract_pdf", None]
     assert [s.description for s in steps] == [
-        "列出 Downloads 下的 PDF",
+        "列出工作区下的 PDF",
         "提取目标 PDF 的每页文本",
         "基于页面内容生成带页码引用的摘要",
     ]

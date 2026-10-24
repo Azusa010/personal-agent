@@ -23,14 +23,14 @@ const RECORD: PermissionRecord = {
   taskId: 'task-1',
   toolCallId: 'tc-9f3a',
   capability: 'filesystem_create_dir',
-  argsCanonical: '{"path":"D:/downloads/reports"}',
+  argsCanonical: '{"path":"D:/workspace/reports"}',
   argsHash: 'a1b2c3d4e5f60718293a',
   status: 'pending',
   requestedAt: '2026-09-07T08:00:00.000Z',
   expiresAt: '2026-09-07T08:05:00.000Z',
   decidedAt: null,
   sourcePaths: [],
-  targetPath: 'D:/downloads/reports'
+  targetPath: 'D:/workspace/reports'
 }
 
 // 每个 stub 都显式标返回类型：不标的话 vi.fn 会把 `ok: true` 推成 boolean，

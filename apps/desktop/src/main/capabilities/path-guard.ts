@@ -71,7 +71,7 @@ export const WINDOWS_DEVICE_NAME_REGEX =
  * 指向根外的文件」它一律放行。这里把两边都换成真实路径再比一次。
  *
  * 入参：
- * - root：resolveRoot('downloads') 的返回值，已经是正斜杠绝对路径。
+ * - root：resolveRoot('workspace') 的返回值，已经是正斜杠绝对路径。
  * - candidate：模型给的 path 参数原样，不可信（SEC-006）。
  */
 export async function resolveWithinRootReal(

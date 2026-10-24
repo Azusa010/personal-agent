@@ -153,7 +153,7 @@ export function parseSkillContent(
 
 /**
  * 扫描指定根目录下的技能目录，解析并写入 skillsMap。
- * @param rootDir 根目录绝对路径（如 downloads 或 workspace 根）
+ * @param rootDir 根目录绝对路径（workspace 授权根）
  * @param subDir 技能子目录相对路径（如 '.skills' 或 '.agent/skills'）
  * @param skillsMap 收集目标 Map，后写入的技能将覆盖同名先写入的技能
  */
@@ -269,13 +269,6 @@ async function computeAllFingerprints(): Promise<string> {
   const parts: string[] = []
 
   try {
-    const downloadsRoot = resolveRoot('downloads')
-    parts.push(await getDirFingerprint(join(downloadsRoot, '.skills')))
-  } catch {
-    parts.push('none')
-  }
-
-  try {
     const workspaceRoot = resolveRoot('workspace')
     parts.push(await getDirFingerprint(join(workspaceRoot, '.skills')))
     parts.push(await getDirFingerprint(join(workspaceRoot, '.agent', 'skills')))
@@ -288,7 +281,7 @@ async function computeAllFingerprints(): Promise<string> {
 
 /**
  * 加载所有可用技能，执行多源发现与优先级覆盖合并。
- * 覆盖优先级规则：workspace/.agent/skills > workspace/.skills > downloads/.skills > BUILTIN_SKILLS。
+ * 覆盖优先级规则：workspace/.agent/skills > workspace/.skills > BUILTIN_SKILLS。
  */
 export async function loadAllSkills(): Promise<SkillDetail[]> {
   const now = Date.now()
@@ -301,13 +294,6 @@ export async function loadAllSkills(): Promise<SkillDetail[]> {
   const skillsMap = new Map<string, SkillDetail>()
   for (const skill of BUILTIN_SKILLS) {
     skillsMap.set(skill.name.toLowerCase(), skill)
-  }
-
-  try {
-    const downloadsRoot = resolveRoot('downloads')
-    await scanSkillsDir(downloadsRoot, '.skills', skillsMap)
-  } catch {
-    // 静默忽略 downloads 未配置或路径异常
   }
 
   try {

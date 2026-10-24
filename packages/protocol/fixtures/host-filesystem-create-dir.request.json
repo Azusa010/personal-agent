@@ -6,7 +6,7 @@
     "callId": "tc-4b7c",
     "capability": "filesystem_create_dir",
     "arguments": {
-      "path": "D:/Users/demo/Downloads/Reading",
+      "path": "D:/Users/demo/Workspace/Reading",
       "expected_parent_exists": true
     }
   }

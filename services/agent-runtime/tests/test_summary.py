@@ -50,7 +50,7 @@ def list_obs():
             "entries": [
                 {
                     "name": "a.pdf",
-                    "absolutePath": "D:/downloads/a.pdf",
+                    "absolutePath": "D:/workspace/a.pdf",
                     "modifiedAt": "2026-09-01T00:00:00Z",
                     "sizeBytes": 2048,
                 }

@@ -234,7 +234,7 @@ def tool_call_json(call_id="call-1", capability="filesystem_list", **arguments):
             "kind": "tool_call",
             "callId": call_id,
             "capability": capability,
-            "arguments": arguments or {"rootId": "downloads"},
+            "arguments": arguments or {"rootId": "workspace"},
         }
     )
 
@@ -256,7 +256,7 @@ def context_with(
     visible: list[str] | None = None,
 ) -> ModelContext:
     return ModelContext(
-        taskGoal="整理 Downloads 里的 PDF",
+        taskGoal="整理工作区里的 PDF",
         visibleCapabilities=visible if visible is not None else VISIBLE,
         observations=observations or [],
         plan=plan or [],
@@ -296,7 +296,7 @@ def test_render_messages_full_structure():
                 capability="filesystem_list",
                 ok=True,
                 payload={"entries": [{"name": "a.pdf"}]},
-                arguments={"rootId": "downloads"},
+                arguments={"rootId": "workspace"},
             ),
             Observation(
                 callId="call-2",
@@ -321,14 +321,14 @@ def test_render_messages_full_structure():
     assert messages[1] == {"role": "user", "content": "请帮我整理文件"}
     # 3. current task goal & plan
     assert messages[2]["role"] == "user"
-    assert "整理 Downloads 里的 PDF" in messages[2]["content"]
+    assert "整理工作区里的 PDF" in messages[2]["content"]
     assert "1. 列出目录（filesystem_list）" in messages[2]["content"]
     assert "2. 总结汇报" in messages[2]["content"]
     # 4. assistant call-1
     assert messages[3]["role"] == "assistant"
     assert messages[3]["tool_calls"][0]["id"] == "call-1"
     assert messages[3]["tool_calls"][0]["function"]["name"] == "filesystem_list"
-    assert json.loads(messages[3]["tool_calls"][0]["function"]["arguments"]) == {"rootId": "downloads"}
+    assert json.loads(messages[3]["tool_calls"][0]["function"]["arguments"]) == {"rootId": "workspace"}
     # 5. tool result 1
     assert messages[4]["role"] == "tool"
     assert messages[4]["tool_call_id"] == "call-1"
@@ -344,7 +344,7 @@ def test_render_messages_empty_history_and_plan():
     assert len(messages) == 2
     assert messages[0]["role"] == "system"
     assert messages[1]["role"] == "user"
-    assert "整理 Downloads 里的 PDF" in messages[1]["content"]
+    assert "整理工作区里的 PDF" in messages[1]["content"]
     assert "（空）" in messages[1]["content"]
 
 
@@ -368,7 +368,7 @@ def test_render_input_lists_goal_capabilities_and_observations():
         )
     )
 
-    assert "整理 Downloads 里的 PDF" in rendered
+    assert "整理工作区里的 PDF" in rendered
     assert "- filesystem_list: " in rendered
     assert "- document_extract_pdf: " in rendered
     assert "call-1" in rendered and "a.pdf" in rendered
@@ -394,7 +394,7 @@ def test_decide_responses_sends_the_contract_schema_and_returns_a_tool_call():
 
     assert isinstance(decision, ToolCallDecision)
     assert decision.capability == "filesystem_list"
-    assert decision.arguments == {"rootId": "downloads"}
+    assert decision.arguments == {"rootId": "workspace"}
     assert len(client.responses.requests) == 1
     request = client.responses.requests[0]
     assert request["model"] == "gpt-test"
@@ -410,7 +410,7 @@ def test_decide_chat_completions_sends_tools_and_returns_a_tool_call():
 
     assert isinstance(decision, ToolCallDecision)
     assert decision.capability == "filesystem_list"
-    assert decision.arguments == {"rootId": "downloads"}
+    assert decision.arguments == {"rootId": "workspace"}
     assert len(client.chat.completions.requests) == 1
     request = client.chat.completions.requests[0]
     assert request["model"] == "gpt-test"

@@ -27,7 +27,7 @@ export interface MaterializedFile {
 
 export interface MaterializedCase {
   id: string
-  /** 这次任务的授权根（Downloads）。跑完由调用方决定留不留 */
+  /** 这次任务的授权根（workspace）。跑完由调用方决定留不留 */
   dir: string
   /** 期望被提取的那份 PDF 的绝对路径 */
   targetPath: string

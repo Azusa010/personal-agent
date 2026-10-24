@@ -6,7 +6,7 @@
     "callId": "tc-9f3a",
     "capability": "document_extract_pdf",
     "arguments": {
-      "path": "D:/Users/demo/Downloads/report-2026.pdf"
+      "path": "D:/Users/demo/Workspace/report-2026.pdf"
     }
   }
 }

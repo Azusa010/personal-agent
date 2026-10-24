@@ -36,7 +36,7 @@ const GOLDEN_PATH_STEPS: WorkflowStepMeta[] = [
     index: 1,
     title: '扫描文件',
     capability: 'filesystem_list',
-    description: '检索 Downloads 目录下的待处理 PDF 文档',
+    description: '检索工作区目录下的待处理 PDF 文档',
     icon: <FileCheck2 size={16} />
   },
   {
@@ -50,7 +50,7 @@ const GOLDEN_PATH_STEPS: WorkflowStepMeta[] = [
     index: 3,
     title: '创建目录',
     capability: 'filesystem_create_dir',
-    description: '在 Downloads 目录下新建 Reading 分类归档目录',
+    description: '在工作区目录下新建 Reading 分类归档目录',
     icon: <FolderPlus size={16} />
   },
   {
@@ -91,7 +91,7 @@ export function WorkflowCenter({ onCompleted }: WorkflowCenterProps): React.JSX.
           const cap = (ev.payload as { capability?: string })?.capability
           if (cap === 'filesystem_list') {
             setStepStatuses(['running', 'pending', 'pending', 'pending', 'pending'])
-            setLogs((prev) => [...prev, `[步骤 1] 正在扫描 Downloads 目录…`])
+            setLogs((prev) => [...prev, `[步骤 1] 正在扫描工作区目录…`])
           } else if (cap === 'document_extract_pdf') {
             setStepStatuses(['completed', 'running', 'pending', 'pending', 'pending'])
             setLogs((prev) => [...prev, `[步骤 2] 正在解析 PDF 页面内容…`])
@@ -131,7 +131,7 @@ export function WorkflowCenter({ onCompleted }: WorkflowCenterProps): React.JSX.
     setStepStatuses(['running', 'pending', 'pending', 'pending', 'pending'])
 
     try {
-      const res = await window.personalAgent.runWorkflow('golden_path', { rootId: 'downloads' })
+      const res = await window.personalAgent.runWorkflow('golden_path', { rootId: 'workspace' })
       setResult(res)
       if (res.ok) {
         setActiveTaskId(res.taskId)
@@ -202,7 +202,7 @@ export function WorkflowCenter({ onCompleted }: WorkflowCenterProps): React.JSX.
                     PDF 自动归档整理
                   </CardTitle>
                   <CardDescription className="mt-1 text-[12px] leading-[1.6]">
-                    扫描 Downloads 里的 PDF，提取要点后按目录归档，并设定阅读提醒。
+                    扫描工作区里的 PDF，提取要点后按目录归档，并设定阅读提醒。
                   </CardDescription>
                 </div>
               </div>

@@ -1,5 +1,6 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest'
-import { mkdir, writeFile, rm } from 'node:fs/promises'
+import { afterAll, describe, expect, it, beforeEach, afterEach } from 'vitest'
+import { mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import type {
@@ -9,7 +10,6 @@ import type {
   SkillSearchResult
 } from '@personal-agent/protocol'
 
-import { resolveRoot } from '../../../src/main/capabilities/roots'
 import {
   skillSearchPlugin,
   skillReadPlugin,
@@ -19,15 +19,29 @@ import {
 } from '../../../src/main/capabilities/plugins/skills'
 import type { AuthorizedCall } from '../../../src/main/capabilities/plugin'
 
+// workspace 根是唯一的技能扫描源：钉到临时目录，避免测试写进真实 cwd
+const root = await mkdtemp(join(tmpdir(), 'pa-skills-ws-'))
+const skillsDir = join(root, '.skills')
+
+afterAll(async () => {
+  await rm(root, { recursive: true, force: true }).catch(() => {})
+})
+
 describe('Skill Progressive Disclosure Plugins (skill_search & skill_read)', () => {
-  const root = resolveRoot('downloads')
-  const skillsDir = join(root, '.skills')
+  let origWsEnv: string | undefined
 
   beforeEach(async () => {
+    origWsEnv = process.env['PERSONAL_AGENT_WORKSPACE_DIR']
+    process.env['PERSONAL_AGENT_WORKSPACE_DIR'] = root
     await rm(skillsDir, { recursive: true, force: true }).catch(() => {})
   })
 
   afterEach(async () => {
+    if (origWsEnv !== undefined) {
+      process.env['PERSONAL_AGENT_WORKSPACE_DIR'] = origWsEnv
+    } else {
+      delete process.env['PERSONAL_AGENT_WORKSPACE_DIR']
+    }
     await rm(skillsDir, { recursive: true, force: true }).catch(() => {})
   })
 
@@ -264,73 +278,6 @@ tags: [api, adapter, http]
       expect(outcome.tags).toEqual(['api', 'adapter', 'http'])
     })
 
-    it('多层技能覆盖优先级：workspace .agent/skills 覆盖 downloads .skills 覆盖内置技能', async () => {
-      // 1. 在 downloads/.skills 建立同名技能覆盖内置 data-cleaner
-      const dlDir = join(skillsDir, 'data-cleaner')
-      await mkdir(dlDir, { recursive: true })
-      await writeFile(
-        join(dlDir, 'SKILL.md'),
-        `---
-name: data-cleaner
-description: downloads 全局自定义清洗技能
-tags: [downloads, custom]
----
-# Downloads Data Cleaner
-这是来自 downloads 的覆盖版本。
-`,
-        'utf-8'
-      )
-
-      // 2. 在 workspace/.agent/skills 建立同名技能再次覆盖
-      const wsDir = join(testWsSkillsDir, 'data-cleaner')
-      await mkdir(wsDir, { recursive: true })
-      await writeFile(
-        join(wsDir, 'SKILL.md'),
-        `---
-name: data-cleaner
-description: workspace 项目级自举清洗技能
-tags: [workspace, custom]
----
-# Workspace Data Cleaner
-这是来自 workspace 的最高优先级版本。
-`,
-        'utf-8'
-      )
-
-      const bindResult = await skillReadPlugin.bindArguments({ name: 'data-cleaner' })
-      expect(bindResult.ok).toBe(true)
-      if (!bindResult.ok) return
-
-      const call: AuthorizedCall = {
-        callId: 'call-ws-3',
-        taskId: 'task-ws-1',
-        capability: skillReadPlugin.descriptor as CapabilityDescriptor,
-        bound: bindResult.bound
-      }
-
-      // 验证 workspace 优先级最高
-      const outcome1 = (await skillReadPlugin.execute(call, {})) as unknown as SkillReadResult
-      expect(outcome1.ok).toBe(true)
-      expect(outcome1.description).toBe('workspace 项目级自举清洗技能')
-      expect(outcome1.content).toContain('来自 workspace 的最高优先级版本')
-      expect(outcome1.path).toBe('.agent/skills/data-cleaner/SKILL.md')
-
-      // 删除 workspace 级后，次级 downloads 生效
-      await rm(wsDir, { recursive: true, force: true })
-      const outcome2 = (await skillReadPlugin.execute(call, {})) as unknown as SkillReadResult
-      expect(outcome2.ok).toBe(true)
-      expect(outcome2.description).toBe('downloads 全局自定义清洗技能')
-      expect(outcome2.content).toContain('来自 downloads 的覆盖版本')
-      expect(outcome2.path).toBe('.skills/data-cleaner/SKILL.md')
-
-      // 删除 downloads 级后，回退至内置技能
-      await rm(dlDir, { recursive: true, force: true })
-      const outcome3 = (await skillReadPlugin.execute(call, {})) as unknown as SkillReadResult
-      expect(outcome3.ok).toBe(true)
-      expect(outcome3.description).toContain('规范化表格与 CSV 数据')
-      expect(outcome3.path).toBe('builtin://data-cleaner')
-    })
-
     it('workspace 目录不存在或未配置时静默降级，不抛出异常', async () => {
       // 指向不存在的目录
       process.env['PERSONAL_AGENT_WORKSPACE_DIR'] = join(root, 'non_existent_folder_abc_123')
@@ -401,12 +348,12 @@ tags: [workspace, custom]
     })
 
     it('skill_search: 自动忽略 README.md、LICENSE.md 等通用文档及隐藏文件', async () => {
-      await mkdir(skillsDir, { recursive: true })
-      await writeFile(join(skillsDir, 'README.md'), '# Readme Document\nNot a skill', 'utf-8')
-      await writeFile(join(skillsDir, 'LICENSE.md'), '# License\nMIT', 'utf-8')
-      await writeFile(join(skillsDir, '.hidden-skill.md'), '# Hidden\nSecret', 'utf-8')
+      await mkdir(wsSkillsDir, { recursive: true })
+      await writeFile(join(wsSkillsDir, 'README.md'), '# Readme Document\nNot a skill', 'utf-8')
+      await writeFile(join(wsSkillsDir, 'LICENSE.md'), '# License\nMIT', 'utf-8')
+      await writeFile(join(wsSkillsDir, '.hidden-skill.md'), '# Hidden\nSecret', 'utf-8')
       await writeFile(
-        join(skillsDir, 'valid-standalone.md'),
+        join(wsSkillsDir, 'valid-standalone.md'),
         '---\nname: valid-standalone\ndescription: 有效的独立技能文件\n---\n# Valid Standalone',
         'utf-8'
       )
@@ -432,7 +379,7 @@ tags: [workspace, custom]
     })
 
     it('skill_search: 子目录中兼容匹配小写的 skill.md', async () => {
-      const dir = join(skillsDir, 'case-insensitive-skill')
+      const dir = join(wsSkillsDir, 'case-insensitive-skill')
       await mkdir(dir, { recursive: true })
       await writeFile(
         join(dir, 'skill.md'),

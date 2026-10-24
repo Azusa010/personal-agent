@@ -51,8 +51,8 @@ const AT = '2026-09-15T09:00:00.000Z'
 const TASK_ID = 't-1'
 const OTHER_TASK_ID = 't-2'
 const GOAL = '整理 Downloads 里的 PDF'
-const PDF = 'D:/downloads/report.pdf'
-const READING = 'D:/downloads/Reading/report.pdf'
+const PDF = 'D:/workspace/report.pdf'
+const READING = 'D:/workspace/Reading/report.pdf'
 
 const FACTS: SummaryFact[] = [{ text: '第一页与第三页讲了同一件事', pageRefs: [3, 1, 3] }]
 
@@ -138,7 +138,7 @@ function seedPermission(
     toolCallId: 'c-move',
     capability: 'filesystem_move',
     argsCanonical:
-      '{"source":"D:/downloads/report.pdf","target":"D:/downloads/Reading/report.pdf"}',
+      '{"source":"D:/workspace/report.pdf","target":"D:/workspace/Reading/report.pdf"}',
     argsHash: 'h-move',
     status: 'approved',
     requestedAt: AT,
@@ -196,7 +196,7 @@ function seedGoldenEvents(deps: EvidenceDeps, taskId = TASK_ID): void {
   seedEvent(
     deps,
     'tool_called',
-    { callId: 'c-list', capability: 'filesystem_list', arguments: { rootId: 'downloads' } },
+    { callId: 'c-list', capability: 'filesystem_list', arguments: { rootId: 'workspace' } },
     taskId
   )
   seedEvent(
@@ -270,24 +270,24 @@ describe('lastExtractedPath：摘要依据的是哪份 PDF', () => {
       event(1, 'tool_called', {
         callId: 'c-1',
         capability: 'document_extract_pdf',
-        arguments: { path: 'D:/downloads/a.pdf' }
+        arguments: { path: 'D:/workspace/a.pdf' }
       }),
       event(2, 'tool_result', { callId: 'c-1', capability: 'document_extract_pdf', ok: false }),
       event(3, 'tool_called', {
         callId: 'c-2',
         capability: 'document_extract_pdf',
-        arguments: { path: 'D:/downloads/b.pdf' }
+        arguments: { path: 'D:/workspace/b.pdf' }
       }),
       event(4, 'tool_result', { callId: 'c-2', capability: 'document_extract_pdf', ok: true }),
       event(5, 'tool_called', {
         callId: 'c-3',
         capability: 'document_extract_pdf',
-        arguments: { path: 'D:/downloads/c.pdf' }
+        arguments: { path: 'D:/workspace/c.pdf' }
       }),
       event(6, 'tool_result', { callId: 'c-3', capability: 'document_extract_pdf', ok: true })
     ]
 
-    expect(lastExtractedPath(events)).toBe('D:/downloads/c.pdf')
+    expect(lastExtractedPath(events)).toBe('D:/workspace/c.pdf')
   })
 
   it('没有成功的提取 → null；缺 arguments.path → 定不出来', () => {
@@ -335,12 +335,12 @@ describe('currentPathOf / finalPathOf：文件现在在哪、哪条算交付', (
     const chained = [
       {
         sourcePath: PDF,
-        targetPath: 'D:/downloads/mid.pdf',
+        targetPath: 'D:/workspace/mid.pdf',
         sourceGone: true,
         targetPresent: true
       },
       {
-        sourcePath: 'D:/downloads/mid.pdf',
+        sourcePath: 'D:/workspace/mid.pdf',
         targetPath: READING,
         sourceGone: true,
         targetPresent: true
@@ -352,8 +352,8 @@ describe('currentPathOf / finalPathOf：文件现在在哪、哪条算交付', (
   it('最终路径只认搬成功的那条', () => {
     const moves = [
       {
-        sourcePath: 'D:/downloads/a.pdf',
-        targetPath: 'D:/downloads/Reading/a.pdf',
+        sourcePath: 'D:/workspace/a.pdf',
+        targetPath: 'D:/workspace/Reading/a.pdf',
         sourceGone: false,
         targetPresent: false
       },

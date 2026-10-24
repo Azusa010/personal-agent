@@ -9,7 +9,7 @@ import type { EvalCase } from '../../../src/main/eval/case-manifest'
 import { materializeCase, MTIME_STEP_MS } from '../../../src/main/eval/workspace'
 
 /**
- * 工作区物化：清单 → 一次任务真能看见的 Downloads 目录。
+ * 工作区物化：清单 → 一次任务真能看见的工作区目录。
  *
  * 这里走真文件系统与真 PDF 解析（不假端口）：物化出来的东西正是被测链路要读的
  * 输入，它错了后面全错，而错误形态是"PDF 读不出来"或"排序不对"这种运行期才

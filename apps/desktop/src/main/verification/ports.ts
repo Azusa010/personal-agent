@@ -27,7 +27,7 @@ import type { PageNumbersRead, VerificationPorts } from './evidence-bundle'
  */
 export const realVerificationPorts: VerificationPorts = {
   async resolvePath(rawPath: string): Promise<string | null> {
-    const guarded = await resolveWithinRootReal(resolveRoot('downloads'), rawPath)
+    const guarded = await resolveWithinRootReal(resolveRoot('workspace'), rawPath)
     if (!guarded.ok) {
       logFailure('resolvePath', `${guarded.code}: ${guarded.reason} (${rawPath})`)
       return null

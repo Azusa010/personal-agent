@@ -70,7 +70,7 @@ import { SqlitePermissionRepository } from '../../../src/main/product-state/perm
 import { SqliteTaskRepository } from '../../../src/main/product-state/task-repository'
 import { SqliteToolExecutionRepository } from '../../../src/main/product-state/tool-execution-repository'
 
-const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
+const ENV_NAME = 'PERSONAL_AGENT_WORKSPACE_DIR'
 const T0 = '2026-09-15T09:00:00.000Z'
 const T1 = '2026-09-15T09:00:05.000Z'
 const TASK_ID = 'task-sec'
@@ -352,7 +352,7 @@ describe('Deny：拒绝即零副作用', () => {
 
 describe('Allow：批准精确执行一次，READ 不弹 Permission', () => {
   it('READ（filesystem_list）不挂起、不建 Permission，直接成功', async () => {
-    const out = await run(params('tc-read', 'filesystem_list', { rootId: 'downloads' }))
+    const out = await run(params('tc-read', 'filesystem_list', { rootId: 'workspace' }))
 
     expect(out['ok']).toBe(true)
     // 没有任何 permission 记录、没有 notify，证明 READ 完全没走批准通道。

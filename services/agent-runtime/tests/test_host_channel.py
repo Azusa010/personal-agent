@@ -147,7 +147,7 @@ def test_non_matching_request_goes_to_inbox():
     """
     ts_request = (
         '{"jsonrpc": "2.0", "id": "req-7", "method": "filesystem_list",'
-        ' "params": {"rootId": "downloads"}}'
+        ' "params": {"rootId": "workspace"}}'
     )
     ch, _, _ = make_channel([ts_request, OK_CALL_1])
 

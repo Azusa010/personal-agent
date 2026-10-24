@@ -291,9 +291,9 @@ function App(): React.JSX.Element {
   }
 
   const handleScan = async (): Promise<void> => {
-    showFeedback('正在扫描 Downloads 里的 PDF…')
+    showFeedback('正在扫描工作区里的 PDF…')
     try {
-      const result = await window.personalAgent.listPdfs('downloads')
+      const result = await window.personalAgent.listPdfs('workspace')
       if (result.ok) {
         showFeedback(`扫描完成，共索引 ${result.entries.length} 份 PDF。`)
         void loadIndexedCount()

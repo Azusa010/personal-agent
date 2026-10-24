@@ -253,7 +253,7 @@ describe('summarizePayload', () => {
     const line = summarizePayload('tool_called', {
       callId: 'call-1',
       capability: 'filesystem_list',
-      arguments: { rootId: 'downloads' }
+      arguments: { rootId: 'workspace' }
     })
 
     expect(line).toContain('filesystem_list')
@@ -336,12 +336,12 @@ describe('summarizePayload', () => {
       permissionId: 'p-1',
       capability: 'filesystem_create_dir',
       sourcePaths: [],
-      targetPath: 'D:/downloads/reports',
+      targetPath: 'D:/workspace/reports',
       expiresAt: '2026-09-07T08:05:00.000Z'
     })
 
     expect(line).toContain('filesystem_create_dir')
-    expect(line).toContain('D:/downloads/reports')
+    expect(line).toContain('D:/workspace/reports')
   })
 
   it('permission_requested 两个路径都有时优先显示 targetPath', () => {
@@ -349,12 +349,12 @@ describe('summarizePayload', () => {
     const line = summarizePayload('permission_requested', {
       permissionId: 'p-2',
       capability: 'filesystem_move',
-      sourcePaths: ['D:/downloads/a.pdf'],
-      targetPath: 'D:/downloads/reports/a.pdf',
+      sourcePaths: ['D:/workspace/a.pdf'],
+      targetPath: 'D:/workspace/reports/a.pdf',
       expiresAt: '2026-09-07T08:05:00.000Z'
     })
 
-    expect(line).toContain('D:/downloads/reports/a.pdf')
+    expect(line).toContain('D:/workspace/reports/a.pdf')
   })
 
   it('permission_requested 只有 sourcePaths 时把它们都列出来', () => {
@@ -407,7 +407,7 @@ describe('summarizePayload', () => {
     // 字符串也有 .length，会走进 else-if 分支，而字符串没有 .filter。
     const line = summarizePayload('permission_requested', {
       capability: 'filesystem_move',
-      sourcePaths: 'D:/downloads/a.pdf',
+      sourcePaths: 'D:/workspace/a.pdf',
       targetPath: null
     })
 
@@ -418,10 +418,10 @@ describe('summarizePayload', () => {
   it('permission_requested 缺 capability 时不把 undefined 拼进摘要', () => {
     const line = summarizePayload('permission_requested', {
       sourcePaths: [],
-      targetPath: 'D:/downloads/reports'
+      targetPath: 'D:/workspace/reports'
     })
 
-    expect(line).toContain('D:/downloads/reports')
+    expect(line).toContain('D:/workspace/reports')
     expect(line).not.toContain('undefined')
   })
 

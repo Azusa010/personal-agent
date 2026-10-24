@@ -52,7 +52,7 @@ def make_event(
 
 
 def a_plan() -> list[PlanStepDto]:
-    return [PlanStepDto(description="列出 Downloads 下的 PDF", capability="filesystem_list")]
+    return [PlanStepDto(description="列出工作区下的 PDF", capability="filesystem_list")]
 
 
 class RecordingChannel:
@@ -191,7 +191,7 @@ def test_scripted_model_forwards_thinking_in_chunks() -> None:
                 kind="tool_call",
                 callId="c-1",
                 capability="filesystem_list",
-                arguments={"rootId": "downloads"},
+                arguments={"rootId": "workspace"},
                 thinking=text,
             )
         ],
@@ -216,7 +216,7 @@ def test_scripted_model_without_thinking_emits_nothing() -> None:
                 kind="tool_call",
                 callId="c-1",
                 capability="filesystem_list",
-                arguments={"rootId": "downloads"},
+                arguments={"rootId": "workspace"},
             )
         ],
         thinking_pause_seconds=0.0,
@@ -250,7 +250,7 @@ def test_engine_forwards_every_event_except_model_usage() -> None:
                 kind="tool_call",
                 callId="c-1",
                 capability="filesystem_list",
-                arguments={"rootId": "downloads"},
+                arguments={"rootId": "workspace"},
             ),
             SummaryDecision(kind="summary", reply="整理完了。", facts=[]),
         ]
@@ -273,7 +273,7 @@ def test_engine_interleaves_thinking_before_its_decision() -> None:
                 kind="tool_call",
                 callId="c-1",
                 capability="filesystem_list",
-                arguments={"rootId": "downloads"},
+                arguments={"rootId": "workspace"},
                 thinking="先列目录",
             ),
             SummaryDecision(kind="summary", reply="整理完了。", facts=[], thinking="材料齐了。"),

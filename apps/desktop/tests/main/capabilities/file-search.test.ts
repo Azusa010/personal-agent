@@ -9,7 +9,7 @@ import { UI_ORIGIN, type PermissionGate } from '../../../src/main/policy/executi
 import { RuleBasedToolRetriever } from '../../../src/main/capabilities/retriever'
 import type { TaskScope } from '../../../src/main/capabilities/scope'
 
-const ENV_NAME = 'PERSONAL_AGENT_DOWNLOADS_DIR'
+const ENV_NAME = 'PERSONAL_AGENT_WORKSPACE_DIR'
 
 let dir: string
 const scope: TaskScope = {

@@ -73,13 +73,13 @@ const FIXTURE_PDF = join(ROOT, 'tests', 'fixtures', 'pdfs', 'three-page-text.pdf
 const SCRIPT_TEMPLATE = join(ROOT, 'tests', 'fixtures', 'scripts', 'golden-path.json')
 
 const ROUNDS = 20
-const GOAL = '整理 Downloads 里的 PDF，给出带页码引用的摘要'
+const GOAL = '整理工作区里的 PDF，给出带页码引用的摘要'
 const PDF_NAME = 'three-page-text.pdf'
 const READING = 'Reading'
 // 与 runtime.py 的 SCRIPT_ENV 是同一个字面量，跨语言没有共享常量表。
 // 名字漂了这里会红成 RUNTIME_MODEL_NOT_CONFIGURED，diagnostic() 会把 stderr 带出来。
 const SCRIPT_ENV = 'PERSONAL_AGENT_SCRIPT'
-const DOWNLOADS_ENV = ROOT_ENV['downloads'] ?? 'PERSONAL_AGENT_DOWNLOADS_DIR'
+const WORKSPACE_ENV = ROOT_ENV['workspace'] ?? 'PERSONAL_AGENT_WORKSPACE_DIR'
 const ROOT_PLACEHOLDER = '{{DOWNLOADS_ROOT}}'
 const REMIND_PLACEHOLDER = '{{REMIND_AT}}'
 
@@ -115,9 +115,9 @@ const GOLDEN_EVENT_TYPES = [
 // 跨语言没有共享常量表，只能在这儿钉一份当漂移探测器。钉在 E2E 而不是单元测试里
 // 的理由：只有这里走真进程，中文描述真的穿过一次 stdin/stdout。
 const PLAN_DESCRIPTIONS = [
-  '列出 Downloads 下的 PDF',
+  '列出工作区下的 PDF',
   '提取目标 PDF 的每页文本',
-  '在 Downloads 下创建 Reading 目录',
+  '在工作区下创建 Reading 目录',
   '把选中的 PDF 移到 Reading',
   '创建一次性阅读提醒',
   '基于页面内容生成带页码引用的摘要'
@@ -283,8 +283,8 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
       seedDownloads()
 
       // 授权根是 host 侧（也就是本进程）读的，不在子进程 env 里。
-      savedDownloadsEnv = process.env[DOWNLOADS_ENV]
-      process.env[DOWNLOADS_ENV] = downloadsRoot
+      savedDownloadsEnv = process.env[WORKSPACE_ENV]
+      process.env[WORKSPACE_ENV] = downloadsRoot
 
       dbPath = join(tempDir, 'product-state.db')
       db = openProductState(dbPath)
@@ -341,8 +341,8 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
       resetHostExecutorWiring()
       db?.close()
       db = null
-      if (savedDownloadsEnv === undefined) delete process.env[DOWNLOADS_ENV]
-      else process.env[DOWNLOADS_ENV] = savedDownloadsEnv
+      if (savedDownloadsEnv === undefined) delete process.env[WORKSPACE_ENV]
+      else process.env[WORKSPACE_ENV] = savedDownloadsEnv
       if (tempDir !== '') rmSync(tempDir, { recursive: true, force: true })
     }, 30_000)
 
@@ -508,8 +508,8 @@ describe.skipIf(!existsSync(VENV_PYTHON))('提醒到点：真定时器 + 假通�
     const dir = mkdtempSync(join(tmpdir(), 'pa-golden-fire-'))
     const root = join(dir, 'Downloads')
     mkdirSync(root, { recursive: true })
-    const savedRoot = process.env[DOWNLOADS_ENV]
-    process.env[DOWNLOADS_ENV] = root
+    const savedRoot = process.env[WORKSPACE_ENV]
+    process.env[WORKSPACE_ENV] = root
 
     const store = openProductState(join(dir, 'product-state.db'))
     migrate(store)
@@ -587,8 +587,8 @@ describe.skipIf(!existsSync(VENV_PYTHON))('提醒到点：真定时器 + 假通�
       autoBroker.dispose()
       resetHostExecutorWiring()
       store.close()
-      if (savedRoot === undefined) delete process.env[DOWNLOADS_ENV]
-      else process.env[DOWNLOADS_ENV] = savedRoot
+      if (savedRoot === undefined) delete process.env[WORKSPACE_ENV]
+      else process.env[WORKSPACE_ENV] = savedRoot
       rmSync(dir, { recursive: true, force: true })
     }
   }, 60_000)

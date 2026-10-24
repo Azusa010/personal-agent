@@ -1299,9 +1299,9 @@ describe("ProfileDto 约束（TASK-034）", () => {
 });
 
 describe("Coding Agent File Schemas & RootId", () => {
-  it("RootId 支持 downloads 与 workspace", () => {
-    expect(RootId.parse("downloads")).toBe("downloads");
+  it("RootId 仅支持 workspace", () => {
     expect(RootId.parse("workspace")).toBe("workspace");
+    expect(() => RootId.parse("downloads")).toThrow();
     expect(() => RootId.parse("invalid_root")).toThrow();
   });
 
