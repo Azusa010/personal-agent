@@ -1,21 +1,20 @@
 import { readFile, stat } from 'node:fs/promises'
 
 import { extractPdf } from '../capabilities/plugins/document'
-import { resolveWithinRootReal } from '../capabilities/path-guard'
-import { resolveRoot } from '../capabilities/roots'
+import { resolvePathReal } from '../capabilities/path-guard'
 import type { PageNumbersRead, VerificationPorts } from './evidence-bundle'
 
 /**
  * VerificationPorts 的生产实现。
  *
  * 三个端口都贴着「可信侧的真实状态」：
- *   - 路径解析走与执行体同一条 path-guard，越界与链接逃逸在这里再判一次；
+ *   - 路径解析走与执行体同一条 path-guard（卫生校验 + realpath），在这里再规范化一次；
  *   - 页号是**重新读一遍真实 PDF** 得到的，不是 Python 回传的页数。
  *     取证要独立于被取证方的自述，否则页码上下限校验只是把同一个数抄第二遍。
  *   - 存在性是真实文件系统检查。
  *
  * 与 executor 侧的分工：executor 用 realpath 后的绝对路径干活，
- * 这里用 resolveWithinRootReal 把「事件里的原始路径」重新规范化，两边同一套规则。
+ * 这里用 resolvePathReal 把「事件里的原始路径」重新规范化，两边同一套规则。
  * 差异只在目的：那边是执行前的把关，这边是执行后的复核。
  *
  * 失败留痕：三个端口的失败各打一条 console.warn，正常路径一次都不打。
@@ -23,11 +22,11 @@ import type { PageNumbersRead, VerificationPorts } from './evidence-bundle'
  * 日志只到主进程控制台，**不进 ExecutionEvent、也不进 Evidence Bundle**——
  * 那两样会到 Renderer（SEC-006/008），失败明细（路径、errno）不该出现在那里。
  * 判定表读到的是 gaps 里那句人话，排查的人靠这条日志拿到更细的现场：
- * 是路径被拒（越界 / 根不可用）、还是文件读不出来（ENOENT / EPERM）。
+ * 是路径被拒（拼写非法 / 不可解析）、还是文件读不出来（ENOENT / EPERM）。
  */
 export const realVerificationPorts: VerificationPorts = {
   async resolvePath(rawPath: string): Promise<string | null> {
-    const guarded = await resolveWithinRootReal(resolveRoot('workspace'), rawPath)
+    const guarded = await resolvePathReal(rawPath)
     if (!guarded.ok) {
       logFailure('resolvePath', `${guarded.code}: ${guarded.reason} (${rawPath})`)
       return null

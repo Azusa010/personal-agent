@@ -9,7 +9,8 @@ import type {
   SendMessageIpcResult,
   RuntimeStatus,
   A2UIRenderNotice,
-  BotView
+  BotView,
+  WorkspaceView
 } from '../../shared/ipc-contract'
 import { A2UIInlineCard } from './components/a2ui'
 import { BotDialog } from './components/BotDialog'
@@ -70,6 +71,7 @@ function App(): React.JSX.Element {
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null)
   const [indexedCount, setIndexedCount] = useState<number | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [workspace, setWorkspace] = useState<WorkspaceView | null>(null)
   const [indexOpen, setIndexOpen] = useState(false)
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
   const [botDialogOpen, setBotDialogOpen] = useState(false)
@@ -126,6 +128,26 @@ function App(): React.JSX.Element {
     }
   }, [])
 
+  const loadWorkspace = useCallback(async (): Promise<void> => {
+    try {
+      setWorkspace(await window.personalAgent.getWorkspace())
+    } catch (err) {
+      console.error('[renderer] 读工作区失败', err)
+    }
+  }, [])
+
+  const applyWorkspaceResult = useCallback(
+    (label: string, result: { ok: boolean; message?: string; changed?: boolean }): void => {
+      if (result.ok) {
+        void loadWorkspace()
+        if (result.changed !== false) showFeedback(`${label}完成。`)
+      } else {
+        showFeedback(result.message ?? `${label}失败。`)
+      }
+    },
+    [loadWorkspace, showFeedback]
+  )
+
   // Runtime 状态轮询：starting 期间每秒问一次，到终态停表（TASK-029 的老坑）。
   useEffect(() => {
     let timer: number | null = null
@@ -175,6 +197,20 @@ function App(): React.JSX.Element {
       setActiveA2UIRender(notice)
     })
     return unsubscribe
+  }, [])
+
+  // 工作区视图首载
+  useEffect(() => {
+    let cancelled = false
+    void window.personalAgent
+      .getWorkspace()
+      .then((view) => {
+        if (!cancelled) setWorkspace(view)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // 主题的唯一驱动方是主进程：用户切换与「跟随系统」时的 OS 变化都从这里下发。
@@ -286,7 +322,6 @@ function App(): React.JSX.Element {
     // 不管这轮成没成，会话里都留下了痕迹（user 消息 + 承载结局的 assistant 消息），重读它。
     setSelectedConversationId(result.conversationId)
     if (result.conversationId !== '') await loadConversation(result.conversationId)
-    if (result.ok && result.status === 'completed') showFeedback('本轮完成。')
     void loadIndexedCount()
   }
 
@@ -339,6 +374,7 @@ function App(): React.JSX.Element {
               activeView={activeView}
               bots={bots}
               activeBotId={activeBot?.id ?? null}
+              workspace={workspace}
               onSelectView={setActiveView}
               onSelectBot={handleSelectBot}
               onCreateBot={handleCreateBot}
@@ -347,6 +383,21 @@ function App(): React.JSX.Element {
               onOpenIndex={() => setIndexOpen(true)}
               onOpenDiagnostics={() => setDiagnosticsOpen(true)}
               onSettings={() => setActiveView('settings')}
+              onSwitchWorkspace={(dir) => {
+                void window.personalAgent
+                  .switchWorkspace(dir)
+                  .then((r) => applyWorkspaceResult('切换工作区', r))
+              }}
+              onChooseWorkspace={() => {
+                void window.personalAgent
+                  .chooseWorkspace()
+                  .then((r) => applyWorkspaceResult('切换工作区', r))
+              }}
+              onRemoveWorkspaceBookmark={(dir) => {
+                void window.personalAgent
+                  .removeWorkspaceBookmark(dir)
+                  .then((r) => applyWorkspaceResult('删除书签', r))
+              }}
             />
           )}
 

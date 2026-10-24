@@ -15,7 +15,7 @@ export const NAME_MAX_LENGTH = 40
 export const PERSONA_MAX_LENGTH = 2000
 
 export const DEFAULT_AGENT_PROFILE: AgentProfile = {
-  name: 'PersonalAgent',
+  name: 'Saki Bot',
   persona: '',
   reasoningSummary: false
 }

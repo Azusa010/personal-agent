@@ -41,7 +41,10 @@ import type {
   ClearLogsIpcResult,
   LogsListParams,
   LogsGroupParams,
-  LogsReportInput
+  LogsReportInput,
+  ChooseWorkspaceResult,
+  WorkspaceMutateResult,
+  WorkspaceView
 } from '../shared/ipc-contract'
 import type { AppearanceView, EffectiveTheme } from '../shared/theme'
 
@@ -107,6 +110,14 @@ export type PersonalAgentApi = {
   getModelSettings(): Promise<GetModelSettingsResult>
   /** 保存模型配置。留空的字段 = 保持不变；保存后 main 会在空闲时重启 runtime 生效 */
   setModelSettings(input: SetModelSettingsInput): Promise<SetModelSettingsResult>
+  /** 当前工作区视图（current/home/书签列表） */
+  getWorkspace(): Promise<WorkspaceView>
+  /** 弹原生文件夹选择器并切换工作区；有任务 running 时拒切，取消时 changed=false */
+  chooseWorkspace(): Promise<ChooseWorkspaceResult>
+  /** 直切到书签指向的工作区（不走选择器）；有任务 running 时拒切 */
+  switchWorkspace(dir: string): Promise<ChooseWorkspaceResult>
+  /** 删除工作区书签。当前激活项会被拒（CURRENT_BOOKMARK） */
+  removeWorkspaceBookmark(dir: string): Promise<WorkspaceMutateResult>
   /** 订阅 main 推来的批准事件。返回的函数取消订阅，组件卸载时必须调 */
   onPermissionNotice(listener: (notice: PermissionNotice) => void): () => void
   onAgentStream(listener: (notice: AgentStreamNotice) => void): () => void

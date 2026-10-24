@@ -56,7 +56,7 @@ export const fileWritePlugin: CapabilityPlugin = {
     description: '在工作区内写入或完全覆盖文件，自动创建父级目录'
   },
   bindArguments: defineBinder('file_write', FileWriteParams, [
-    { field: 'path', root: 'workspace' }
+    { field: 'path' }
   ]),
   extractPermissionPaths(bound) {
     return { sourcePaths: [], targetPath: bound.paths['path'] ?? null }

@@ -174,14 +174,13 @@ describe('terminal_execute 执行体', () => {
     expect(String(checkRes['stdout'])).toContain('workspace_sub')
   })
 
-  it('cd 尝试逃逸出受限根目录时被安全阻断', async () => {
+  it('cd .. 指向工作区外照常切换（根不是边界）', async () => {
     const executor = createExecutor(scope, UI_ORIGIN, new RuleBasedToolRetriever(), {
       gate: allowAllGate()
     })
 
     const res = await executor(terminalParams({ command: 'cd ..' }))
-    expect(res['ok']).toBe(false)
-    expect(res['code']).toBe('PATH_OUT_OF_ROOT')
+    expect(res['ok']).toBe(true)
   })
 
   it('cd 不存在的目录返回明确错误', async () => {

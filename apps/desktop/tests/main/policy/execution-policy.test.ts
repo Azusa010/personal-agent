@@ -392,7 +392,7 @@ describe('execution-policy：风险', () => {
     expect(gate.inputs).toEqual([])
   })
 
-  it('路径逃出根时也不挂起：guard 比批准靠前', async () => {
+  it('路径在根外也照常进批准闸（根不是边界，批准卡是）', async () => {
     beginTask(TASK_ID, '整理 PDF', MOVE_PLAN)
     const gate = makeGate({ approved: true })
 
@@ -403,8 +403,8 @@ describe('execution-policy：风险', () => {
       })
     )
 
-    expect(!out.allowed && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
-    expect(gate.inputs).toEqual([])
+    expect(out.allowed).toBe(true)
+    expect(gate.inputs).toHaveLength(1)
   })
 
   it('契约不过关的 WRITE 能力先撞 INVALID_ARGUMENT，到不了批准这一关', async () => {
@@ -611,14 +611,14 @@ describe('execution-policy：参数契约与路径', () => {
     expect(currentTask()?.executedCalls).toBe(0)
   })
 
-  it('根外路径 -> PATH_OUT_OF_ROOT', async () => {
+  it('根外路径 -> 照常放行（读不设根界）', async () => {
     beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'document_extract_pdf' }])
 
     const out = await agentPolicy().evaluate(
       params('tc-21', 'document_extract_pdf', { path: 'C:/Windows/win.ini' })
     )
 
-    expect(!out.allowed && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+    expect(out.allowed).toBe(true)
   })
 
   it('根内 junction 指向根外 -> PATH_ESCAPES_ROOT_VIA_LINK', async () => {
@@ -632,8 +632,7 @@ describe('execution-policy：参数契约与路径', () => {
         params('tc-22', 'document_extract_pdf', { path: join(dir, 'escape', 'secret.pdf') })
       )
 
-      expect(!out.allowed && out.code).toBe(ERROR_CODE.PATH_ESCAPES_ROOT_VIA_LINK)
-      expect(currentTask()?.executedCalls).toBe(0)
+      expect(out.allowed).toBe(true)
     } finally {
       await rm(outside, { recursive: true, force: true })
     }

@@ -1,6 +1,7 @@
 import { Activity, Database, MessageSquare, Plus, Settings, Zap } from 'lucide-react'
-import type { BotView, RuntimeStatus } from '../../../shared/ipc-contract'
+import type { BotView, RuntimeStatus, WorkspaceView } from '../../../shared/ipc-contract'
 import { cn } from '@renderer/lib/utils'
+import { WorkspaceChip } from './WorkspaceChip'
 
 export type AppView = 'chat' | 'workflows' | 'settings'
 
@@ -11,6 +12,7 @@ export interface SidebarProps {
   activeView: AppView
   bots?: BotView[]
   activeBotId?: string | null
+  workspace?: WorkspaceView | null
   onSelectView: (view: AppView) => void
   onSelectBot?: (bot: BotView) => void
   onCreateBot?: () => void
@@ -19,6 +21,9 @@ export interface SidebarProps {
   onOpenIndex: () => void
   onOpenDiagnostics: () => void
   onSettings: () => void
+  onSwitchWorkspace?: (dir: string) => void
+  onChooseWorkspace?: () => void
+  onRemoveWorkspaceBookmark?: (dir: string) => void
 }
 
 const RUNTIME_LABELS: Record<RuntimeStatus['state'], { text: string; dot: string }> = {
@@ -35,6 +40,7 @@ export function Sidebar({
   activeView,
   bots = [],
   activeBotId,
+  workspace = null,
   onSelectView,
   onSelectBot,
   onCreateBot,
@@ -42,7 +48,10 @@ export function Sidebar({
   onNewChat,
   onOpenIndex,
   onOpenDiagnostics,
-  onSettings
+  onSettings,
+  onSwitchWorkspace,
+  onChooseWorkspace,
+  onRemoveWorkspaceBookmark
 }: SidebarProps): React.JSX.Element {
   const runtime = RUNTIME_LABELS[runtimeStatus?.state ?? 'stopped']
 
@@ -192,6 +201,14 @@ export function Sidebar({
             {indexedCount !== null && ` · 索引 ${indexedCount} 份`}
           </span>
         </div>
+        {onSwitchWorkspace && onChooseWorkspace && onRemoveWorkspaceBookmark && (
+          <WorkspaceChip
+            workspace={workspace}
+            onSwitch={onSwitchWorkspace}
+            onChoose={onChooseWorkspace}
+            onRemoveBookmark={onRemoveWorkspaceBookmark}
+          />
+        )}
         <button
           type="button"
           onClick={onSettings}

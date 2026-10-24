@@ -226,7 +226,7 @@ describe('filesystemListPlugin：带 path 的子目录列举能力插件', () =>
     }
   })
 
-  it('拦截越界逃逸路径 (../)', async () => {
+  it('.. 指向工作区外也放行（根不是边界）', async () => {
     const { filesystemListPlugin } =
       await import('../../../src/main/capabilities/plugins/filesystem')
     const prevDownloads = process.env.PERSONAL_AGENT_WORKSPACE_DIR
@@ -236,10 +236,7 @@ describe('filesystemListPlugin：带 path 的子目录列举能力插件', () =>
         rootId: 'workspace',
         path: '../../etc'
       })
-      expect(bound.ok).toBe(false)
-      if (!bound.ok) {
-        expect(bound.code).toBe('PATH_OUT_OF_ROOT')
-      }
+      expect(bound.ok).toBe(true)
     } finally {
       process.env.PERSONAL_AGENT_WORKSPACE_DIR = prevDownloads
     }

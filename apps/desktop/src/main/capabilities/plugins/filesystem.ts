@@ -188,7 +188,7 @@ export const filesystemListPlugin: CapabilityPlugin = {
     description: '列出授权根目录下的条目'
   },
   bindArguments: defineBinder('filesystem_list', FilesystemListParams, [
-    { field: 'path', root: (args) => String(args.rootId), destKey: 'targetDir', optional: true }
+    { field: 'path', destKey: 'targetDir', optional: true }
   ]),
   async execute(call) {
     const rootId = String(call.bound.args['rootId'])
@@ -212,7 +212,7 @@ export const filesystemCreateDirPlugin: CapabilityPlugin = {
     description: '在授权根目录下创建子目录'
   },
   bindArguments: defineBinder('filesystem_create_dir', FilesystemCreateDirParams, [
-    { field: 'path', root: 'workspace' }
+    { field: 'path' }
   ]),
   extractPermissionPaths(bound) {
     return { sourcePaths: [], targetPath: bound.paths['path'] ?? null }
@@ -261,8 +261,8 @@ export const filesystemMovePlugin: CapabilityPlugin = {
     description: '在授权根目录内移动文件'
   },
   bindArguments: defineBinder('filesystem_move', FilesystemMoveParams, [
-    { field: 'source', root: 'workspace' },
-    { field: 'target', root: 'workspace' }
+    { field: 'source' },
+    { field: 'target' }
   ]),
   extractPermissionPaths(bound) {
     return {

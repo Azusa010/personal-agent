@@ -23,7 +23,8 @@ import type {
   SetAgentProfileInput,
   SetModelSettingsInput,
   SetModelSettingsResult,
-  ThemePreference
+  ThemePreference,
+  WorkspaceView
 } from '../../../shared/ipc-contract'
 import { cn } from '@renderer/lib/utils'
 import { Button } from './ui/button'
@@ -146,6 +147,8 @@ function SettingsBody({
   onBack: () => void
 }): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView | null>(null)
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null)
 
   const [modelView, setModelView] = useState<ModelSettingsView | null>(null)
   const [profileView, setProfileView] = useState<AgentProfileView | null>(null)
@@ -296,6 +299,13 @@ function SettingsBody({
   }, [])
 
   useEffect(() => {
+    void window.personalAgent
+      .getWorkspace()
+      .then(setWorkspaceView)
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     let cancelled = false
     void window.personalAgent
       .getAppearance()
@@ -417,7 +427,7 @@ function SettingsBody({
         sidecarJevApiKey: sidecarJevApiKey.trim() === '' ? undefined : sidecarJevApiKey.trim()
       },
       {
-        name: name.trim() || 'PersonalAgent',
+        name: name.trim() || 'Saki Bot',
         persona: persona.trim(),
         reasoningSummary
       }
@@ -428,7 +438,7 @@ function SettingsBody({
     void submit(
       { clearSidecarApiKey: true },
       {
-        name: name.trim() || 'PersonalAgent',
+        name: name.trim() || 'Saki Bot',
         persona: persona.trim(),
         reasoningSummary
       }
@@ -439,7 +449,7 @@ function SettingsBody({
     void submit(
       { clearSidecarJevApiKey: true },
       {
-        name: name.trim() || 'PersonalAgent',
+        name: name.trim() || 'Saki Bot',
         persona: persona.trim(),
         reasoningSummary
       }
@@ -450,7 +460,7 @@ function SettingsBody({
     void submit(
       { clearApiKey: true },
       {
-        name: name.trim() || 'PersonalAgent',
+        name: name.trim() || 'Saki Bot',
         persona: persona.trim(),
         reasoningSummary
       }
@@ -461,7 +471,7 @@ function SettingsBody({
     void submit(
       { clearTypesafeApiKey: true },
       {
-        name: name.trim() || 'PersonalAgent',
+        name: name.trim() || 'Saki Bot',
         persona: persona.trim(),
         reasoningSummary
       }
@@ -472,7 +482,7 @@ function SettingsBody({
     void submit(
       { clearMineruApiKey: true },
       {
-        name: name.trim() || 'PersonalAgent',
+        name: name.trim() || 'Saki Bot',
         persona: persona.trim(),
         reasoningSummary
       }
@@ -483,7 +493,7 @@ function SettingsBody({
     void submit(
       { clearTavilyApiKey: true },
       {
-        name: name.trim() || 'PersonalAgent',
+        name: name.trim() || 'Saki Bot',
         persona: persona.trim(),
         reasoningSummary
       }
@@ -494,7 +504,7 @@ function SettingsBody({
     void submit(
       { clearPostgresPassword: true },
       {
-        name: name.trim() || 'PersonalAgent',
+        name: name.trim() || 'Saki Bot',
         persona: persona.trim(),
         reasoningSummary
       }
@@ -628,13 +638,49 @@ function SettingsBody({
             ) : activeTab === 'profile' ? (
               <div className="space-y-4">
                 <div className="space-y-1.5">
+                  <Label htmlFor="workspace-current">工作区（智能体的活动范围）</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="workspace-current"
+                      value={workspaceView?.current ?? ''}
+                      readOnly
+                      spellCheck={false}
+                      className="font-mono text-[12px]"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        void window.personalAgent.chooseWorkspace().then((r) => {
+                          if (r.ok) {
+                            setWorkspaceError(null)
+                            void window.personalAgent.getWorkspace().then(setWorkspaceView)
+                          } else {
+                            setWorkspaceError(r.message)
+                          }
+                        })
+                      }}
+                    >
+                      更改…
+                    </Button>
+                  </div>
+                  {workspaceError !== null && (
+                    <p className="m-0 text-[11px] text-destructive">{workspaceError}</p>
+                  )}
+                  <p className="m-0 text-[11px] text-muted-foreground">
+                    智能体的家在 {workspaceView?.home ?? '~/.saki-bot'}
+                    ；切换会重启运行时，有任务运行时会被拒绝。
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
                   <Label htmlFor="profile-name">助手称呼</Label>
                   <Input
                     id="profile-name"
                     value={name}
                     maxLength={40}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="PersonalAgent"
+                    placeholder="Saki Bot"
                     spellCheck={false}
                   />
                 </div>

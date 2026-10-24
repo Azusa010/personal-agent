@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, nativeTheme } from 'electron'
+import { app, shell, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import {
@@ -93,6 +93,18 @@ import { sendMessage, SendMessageInput } from './tasks/send-message'
 import { onAgentStream } from './runtime/stream-fanout'
 import { AGENT_PROFILE_FILE_NAME, createAgentProfileStore } from './settings/agent-profile'
 import { getAgentProfileView, setAgentProfile } from './settings/agent-profile-ipc'
+import {
+  ensureWorkspaceState,
+  loadWorkspaceState,
+  WORKSPACE_FILE_NAME
+} from './settings/workspace-store'
+import {
+  chooseWorkspace,
+  getWorkspaceView,
+  removeWorkspaceBookmark,
+  switchWorkspace,
+  type WorkspaceIpcDeps
+} from './settings/workspace-ipc'
 import { APPEARANCE_FILE_NAME, createAppearanceStore } from './settings/appearance'
 import { applySystemAppearance, getAppearanceView, setThemePreference } from './theme/theme-ipc'
 import {
@@ -109,13 +121,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { JsonlSink } from './observability/jsonl-sink'
 import { Logger } from './observability/logger'
-import {
-  LOGS_CHANNELS,
-  clearLogs,
-  exportLogs,
-  groupLogs,
-  listLogs
-} from './observability/logs-ipc'
+import { LOGS_CHANNELS, clearLogs, exportLogs, groupLogs, listLogs } from './observability/logs-ipc'
 import { installConsoleBridge } from './observability/console-bridge'
 import { installCrashGuard } from './observability/crash-guard'
 import { installAppLogger } from './observability/app-logger'
@@ -328,6 +334,34 @@ app.whenReady().then(() => {
   const agentProfileStore = createAgentProfileStore({
     filePath: join(app.getPath('userData'), AGENT_PROFILE_FILE_NAME)
   })
+
+  // 工作区选择：启动时读 workspace.json（缺失则落 ~/.saki-bot 家目录），
+  // 并写进本进程 env——resolveRoot 每次调用都实时读它，Python 由 spawn 继承。
+  const workspaceFilePath = join(app.getPath('userData'), WORKSPACE_FILE_NAME)
+  ensureWorkspaceState(workspaceFilePath)
+  process.env.PERSONAL_AGENT_WORKSPACE_DIR = loadWorkspaceState(workspaceFilePath)?.current
+
+  const workspaceIpcDeps: WorkspaceIpcDeps = {
+    filePath: workspaceFilePath,
+    hasActiveTask: () => {
+      try {
+        const tasks = new SqliteTaskRepository(getStore()).findAll()
+        return tasks.some((t) => t.status === 'running' || t.status === 'waiting_permission')
+      } catch {
+        // 库打不开时宁可挡住切换，也不冒中途换根的风险
+        return true
+      }
+    },
+    pickDir: async () => {
+      const picked = await dialog.showOpenDialog({
+        properties: ['openDirectory', 'createDirectory']
+      })
+      return picked.canceled ? null : (picked.filePaths[0] ?? null)
+    },
+    restartRuntime: async () => {
+      await restartRuntime()
+    }
+  }
 
   const appearanceStore = createAppearanceStore({
     filePath: join(app.getPath('userData'), APPEARANCE_FILE_NAME)
@@ -793,6 +827,16 @@ app.whenReady().then(() => {
         store: modelSettingsStore,
         runtime: { restart: restartRuntime }
       })
+  )
+
+  // 工作区：读视图 / 选择并切换 / 书签直切 / 删书签。切换含 running 拒切、env 更新与 runtime 重启。
+  ipcMain.handle('personal-agent:workspace-get', () => getWorkspaceView(workspaceIpcDeps))
+  ipcMain.handle('personal-agent:workspace-choose', () => chooseWorkspace(workspaceIpcDeps))
+  ipcMain.handle('personal-agent:workspace-switch', (_e, dir: unknown) =>
+    switchWorkspace(workspaceIpcDeps, dir)
+  )
+  ipcMain.handle('personal-agent:workspace-remove-bookmark', (_e, dir: unknown) =>
+    removeWorkspaceBookmark(workspaceIpcDeps, dir)
   )
 
   ipcMain.handle(AGENT_PROFILE_GET_CHANNEL, (): GetAgentProfileResult =>

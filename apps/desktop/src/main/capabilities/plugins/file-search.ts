@@ -1,9 +1,9 @@
 import { readdir, readFile, stat } from 'node:fs/promises'
-import { join, relative } from 'node:path'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 
 import { ERROR_CODE, FileSearchParams, type FileSearchMatch } from '@personal-agent/protocol'
 
-import { resolveWithinRootReal } from '../path-guard'
+import { resolvePathReal } from '../path-guard'
 import { resolveRoot, toPosix } from '../roots'
 import type { CapabilityPlugin } from '../plugin'
 import { fail, invalid } from './helpers'
@@ -32,11 +32,13 @@ export const fileSearchPlugin: CapabilityPlugin = {
     const parsed = FileSearchParams.safeParse(args)
     if (!parsed.success) return invalid('file_search', parsed.error.message)
 
-    const root = resolveRoot('workspace')
-    let searchDir = root
+    let searchDir = resolveRoot('workspace')
 
     if (parsed.data.relativeRoot) {
-      const guarded = await resolveWithinRootReal(root, parsed.data.relativeRoot)
+      const candidate = isAbsolute(parsed.data.relativeRoot)
+        ? parsed.data.relativeRoot
+        : resolve(searchDir, parsed.data.relativeRoot)
+      const guarded = await resolvePathReal(candidate)
       if (!guarded.ok) {
         return { ok: false, code: guarded.code, reason: guarded.reason }
       }

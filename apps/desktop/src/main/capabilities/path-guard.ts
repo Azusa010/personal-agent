@@ -65,23 +65,17 @@ export async function splitExisting(abs: string): Promise<{ existing: string; re
 export const WINDOWS_DEVICE_NAME_REGEX =
   /(^|[/\\])(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.[^/\\]*)?([/\\]|$)/i
 
-/** 词法检查之外再加一层：把 junction / symlink 解开之后再判一次
- *
- * resolveWithinRoot 只做字符串运算，'D:/root/link.pdf' 这种「根内的链接
- * 指向根外的文件」它一律放行。这里把两边都换成真实路径再比一次。
- *
- * 入参：
- * - root：resolveRoot('workspace') 的返回值，已经是正斜杠绝对路径。
- * - candidate：模型给的 path 参数原样，不可信（SEC-006）。
- */
-export async function resolveWithinRootReal(
-  root: string,
+/** 卫生校验 + realpath 规范化的共享内核，不包含任何根约束。
+ * 工作区不是安全边界：读全盘自由，写由批准卡片逐笔授权（Q15-B）。
+ * 这里只拦会产生歧义或破坏的拼写——UNC、Windows 保留设备名、非法/控制字符——
+ * 并把 junction / symlink 解到真实路径，让批准卡、幂等记录与日志里的路径即所得。
+ * 返回 real（真实路径）与 abs（词法解析路径），后者供根比较当分类器用。 */
+async function sanitizeReal(
   candidate: string
-): Promise<PathGuardResult> {
-  const base = toPosix(resolve(root))
+): Promise<{ ok: true; real: string; abs: string } | { ok: false; code: PathGuardCode; reason: string }> {
   const abs = toPosix(resolve(candidate))
 
-  if (base.startsWith('//') || abs.startsWith('//')) {
+  if (abs.startsWith('//') || candidate.startsWith('\\\\')) {
     return {
       ok: false,
       code: 'PATH_UNC_NOT_ALLOWED',
@@ -106,16 +100,8 @@ export async function resolveWithinRootReal(
       reason: `路径包含非法或控制字符: ${candidate}`
     }
   }
-  // 根自己可能就是 junction，不先解开的话下面拿一个假根去比。
-  let realRoot: string
-  try {
-    realRoot = toPosix(await realpath(base))
-  } catch {
-    // 根都不可用，就没有任何东西能在它里面。判不出来就是拒。
-    return { ok: false, code: 'PATH_OUT_OF_ROOT', reason: `授权根不可用: ${base}` }
-  }
 
-  // 目标还没被创建时 realpath 会 ENOENT，而「不存在」不等于「越界」——
+  // 目标还没被创建时 realpath 会 ENOENT，而「不存在」不等于「非法」——
   // 那该由下游 readFile 报 FILE_UNREADABLE。所以只对最近存在的祖先做 realpath。
   const { existing, rest } = await splitExisting(abs)
   let realExisting: string
@@ -126,6 +112,38 @@ export async function resolveWithinRootReal(
   }
   const stem = realExisting.endsWith('/') ? realExisting.slice(0, -1) : realExisting
   const real = rest.length === 0 ? realExisting : `${stem}/${rest.join('/')}`
+
+  return { ok: true, real, abs }
+}
+
+/** 无根约束的路径解析：卫生检查 + realpath 规范化，工作区内外一律放行。 */
+export async function resolvePathReal(candidate: string): Promise<PathGuardResult> {
+  const sanitized = await sanitizeReal(candidate)
+  if (!sanitized.ok) return sanitized
+  // 回真实路径：下游直接喂 readFile，不要再 resolve 一次，
+  // 否则日志里的路径与实际读的不是同一个字符串。
+  return { ok: true, path: sanitized.real }
+}
+
+/** 根约束版，现在只有封闭存储在用（viking:// 知识库根、tool_outputs 暂存根）。
+ * 通用工具链路已迁到 resolvePathReal——写边界在批准卡片，不在路径前缀。 */
+export async function resolveWithinRootReal(
+  root: string,
+  candidate: string
+): Promise<PathGuardResult> {
+  const base = toPosix(resolve(root))
+  const sanitized = await sanitizeReal(candidate)
+  if (!sanitized.ok) return sanitized
+  const { real, abs } = sanitized
+
+  // 根自己可能就是 junction，不先解开的话下面拿一个假根去比。
+  let realRoot: string
+  try {
+    realRoot = toPosix(await realpath(base))
+  } catch {
+    // 根都不可用，就没有任何东西能在它里面。判不出来就是拒。
+    return { ok: false, code: 'PATH_OUT_OF_ROOT', reason: `授权根不可用: ${base}` }
+  }
 
   // 放行与否只认真身：8.3 短名与长名是同一目录的两种拼写，拿拼写去比会把
   // 授权根内的合法路径误判成越界（CI 的 TEMP 就是 RUNNER~1/runneradmin 这一对）。

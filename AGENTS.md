@@ -87,16 +87,16 @@ Scope → Retriever → Binder → Executor → Path-Guard
 | ------------ | ---------------------------- | -------------------------------------------------------------------------- |
 | ① Scope      | `capabilities/scope.ts`      | 定义任务级权限边界（`TaskScope`），决定哪些能力对当前任务可见                                       |
 | ② Retriever  | `capabilities/retriever.ts`  | 从 `CapabilityRegistry` 检索能力描述符，校验能力已注册且在 Scope 内                           |
-| ③ Binder     | `policy/argument-binders.ts` | 用 Zod `safeParse` 校验参数契约，调用 `resolveWithinRootReal` 做路径规范化与 root guard     |
+| ③ Binder     | `policy/argument-binders.ts` | 用 Zod `safeParse` 校验参数契约，调用 `resolvePathReal` 做路径卫生校验与 realpath 规范化           |
 | ④ Executor   | `capabilities/executor.ts`   | 组装 policy → 调用 `policy.evaluate()` → 分发到具体能力实现                             |
-| ⑤ Path-Guard | `capabilities/path-guard.ts` | `resolveWithinRootReal` 处理 6 类边界：不存在、junction/symlink、UNC 路径、根不可用、链接逃逸、大小写 |
+| ⑤ Path-Guard | `capabilities/path-guard.ts` | `resolvePathReal`（通用链路）拦 UNC/保留设备名/非法字符并解开 symlink，**不做根约束**；`resolveWithinRootReal` 仅剩封闭存储在用（viking 知识库根） |
 
 ### 规则
 
 - **自描述插件架构（CapabilityPlugin）**：所有能力实现收敛在 `capabilities/plugins/`，高内聚包含 `schema`、`bind` 路径提取、`risk` 等级、`idempotency` 策略与 `execute` 执行体。严禁在 `argument-binders.ts`、`executor.ts`、`idempotency.ts` 中写硬编码的 `switch-case`。
 - **动态 Scope 与单一事实来源**：`AGENT_TASK_CAPABILITIES` 动态从 `listCapabilities()` 派生，自动包含所有注册的非内部插件，严禁在 `scope.ts` 手写静态白名单；Python 侧由 `tool_schema_generator.py` 动态反射生成 OpenAI Tool Schemas，严禁手写冗余字典。
 - 安全校验函数的入参必须用 `string` 类型，不可用枚举或 branded type——调用点传入的值不可信。
-- `resolveWithinRoot` 只做字符串运算；涉及 symlink/junction 必须再经 `resolveWithinRootReal` 做 realpath 二次校验。
+- **工作区不是安全边界**：读全盘自由，写由 Permission 批准卡片逐笔授权。工作区（`PERSONAL_AGENT_WORKSPACE_DIR`，默认 `~/.saki-bot`）只是「当前在哪干活」的旋钮——相对路径解析基准、终端默认 cwd、技能发现根、文件组织默认落点；它由设置持久化（`workspace.json`）驱动，切换时主进程改 env 并重启 runtime。`resolveWithinRoot` 只做字符串运算；封闭存储涉及 symlink/junction 必须再经 `resolveWithinRootReal` 做 realpath 二次校验。
 - 执行体（executor）拿到 binder 输出的 `paths` 后直接使用，不再二次 parse/resolve。
 
 ---

@@ -140,16 +140,13 @@ describe('fileEditPlugin: 自描述插件闭环 (defineBinder + permissions + ex
     }
   })
 
-  it('bindArguments：路径逃逸触发 PATH_OUT_OF_ROOT 拦截', async () => {
+  it('bindArguments：.. 指向工作区外也放行（写边界在批准卡片，不在路径前缀）', async () => {
     const bindRes = await fileEditPlugin.bindArguments({
       path: '../../escape.txt',
       oldString: 'a',
       newString: 'b'
     })
-    expect(bindRes.ok).toBe(false)
-    if (!bindRes.ok) {
-      expect(bindRes.code).toBe('PATH_OUT_OF_ROOT')
-    }
+    expect(bindRes.ok).toBe(true)
   })
 
   it('bindArguments：Windows 保留设备名触发 PATH_DEVICE_NAME_FORBIDDEN 拦截', async () => {

@@ -123,7 +123,7 @@ export const fileEditPlugin: CapabilityPlugin = {
     description: '在现有文件中进行精准单块局部修改，Old String 必须在文件中全局唯一存在'
   },
   bindArguments: defineBinder('file_edit', FileEditParams, [
-    { field: 'path', root: 'workspace' }
+    { field: 'path' }
   ]),
   extractPermissionPaths(bound) {
     return { sourcePaths: [], targetPath: bound.paths['path'] ?? null }

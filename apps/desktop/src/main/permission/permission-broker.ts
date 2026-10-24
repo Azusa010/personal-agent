@@ -8,14 +8,13 @@ import type {
   PermissionRecord,
   PermissionViewState
 } from '../../shared/domain'
-import { resolveRoot } from '../capabilities/roots'
 import { getCapabilityPlugin } from '../capabilities/plugins'
 import type { BoundArgs } from '../policy/argument-binders'
 import type { EventRepository } from '../product-state/event-repository'
 import type { PermissionRepository } from '../product-state/permission-repository'
 import { fingerprintArguments, type ArgumentFingerprint } from './args-hash'
 import { computeExpiresAt, PERMISSION_TTL_MS, permissionState } from './expiry'
-import { resolveWithinRootReal } from '../capabilities/path-guard'
+import { resolvePathReal, resolveWithinRootReal } from '../capabilities/path-guard'
 import { resolveVikingStoreRoot } from '../viking/viking-store'
 
 export const PERMISSION_EVENT = {
@@ -54,8 +53,6 @@ export interface PermissionBrokerDeps {
   readonly newId?: () => string
   /** 默认 PERMISSION_TTL_MS（5 分钟） */
   readonly ttlMs?: number
-  /** 默认 resolveRoot('workspace')。注入是为了让测试把根指到临时目录 */
-  readonly root?: () => string
   /** 推给 Renderer 的出口。不传就只落库不推送。 */
   readonly notify?: (notice: PermissionNotice) => void
 }
@@ -94,7 +91,6 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
   const now = deps.now ?? ((): string => new Date().toISOString())
   const newId = deps.newId ?? ((): string => randomUUID())
   const ttlMs = deps.ttlMs ?? PERMISSION_TTL_MS
-  const root = deps.root ?? ((): string => resolveRoot('workspace'))
 
   interface Waiter {
     readonly resolve: (outcome: PermissionOutcome) => void
@@ -239,9 +235,10 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
 
     async verify({ taskId, toolCallId, bound }) {
       const permission = deps.permissions.findByTaskAndToolCall(taskId, toolCallId)
+      // viking 是封闭存储，写路径要复核在知识库根内；通用能力只做卫生复查
       const effectiveRoot = permission?.capability.startsWith('viking_')
         ? resolveVikingStoreRoot()
-        : root()
+        : undefined
       return verifyPermission({
         permission,
         fingerprint: fingerprintArguments(bound),
@@ -280,8 +277,9 @@ export interface PermissionVerifyInput {
   /** 这次调用的 callId */
   readonly toolCallId: string
   readonly now: string
-  /** 当前授权根，正斜杠绝对路径 */
-  readonly root: string
+  /** 封闭存储的复查根（viking 知识库）。通用能力不传——写边界是这张批准卡本身，
+   * 路径复查只做卫生校验 + realpath 规范化，不做根约束 */
+  readonly root?: string
 }
 
 export type PermissionVerifyResult =
@@ -318,14 +316,20 @@ export async function verifyPermission(
 
   // 路经复查
   for (const sourcePath of input.permission.sourcePaths) {
-    const result = await resolveWithinRootReal(input.root, sourcePath)
+    const result =
+      input.root === undefined
+        ? await resolvePathReal(sourcePath)
+        : await resolveWithinRootReal(input.root, sourcePath)
     if (result.ok === false) {
       return { ok: false, code: result.code, reason: result.reason }
     }
   }
 
   if (input.permission.targetPath !== null) {
-    const targetResult = await resolveWithinRootReal(input.root, input.permission.targetPath)
+    const targetResult =
+      input.root === undefined
+        ? await resolvePathReal(input.permission.targetPath)
+        : await resolveWithinRootReal(input.root, input.permission.targetPath)
     if (targetResult.ok === false) {
       return { ok: false, code: targetResult.code, reason: targetResult.reason }
     }

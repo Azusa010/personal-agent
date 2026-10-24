@@ -6,16 +6,17 @@ import { z } from 'zod'
 import { invalid } from './plugins/helpers'
 import { BindResult } from '../policy/argument-binders'
 import { resolveRoot } from './roots'
+import { resolvePathReal } from './path-guard'
 import path from 'node:path'
-import { resolveWithinRootReal } from './path-guard'
 
 export interface PathRule {
   field: string // 字段名
-  root: string | ((args: Record<string, unknown>) => string)
   optional?: boolean
   destKey?: string
 }
 
+/** 相对路径的解析基准：工作区根。它不是安全边界——读全盘自由，写走批准卡片；
+ * 在这里只负责「模型说 report.pdf 时找到的是哪个目录」。 */
 export function defineBinder<T extends Record<string, unknown>>(
   capabilityName: string,
   schema: z.ZodSchema<T>,
@@ -28,21 +29,17 @@ export function defineBinder<T extends Record<string, unknown>>(
     }
     const paths: Record<string, string> = {}
     if (pathRules) {
+      const base = resolveRoot('workspace')
       for (const rule of pathRules) {
         const fieldValue = parsed.data[rule.field]
         if (fieldValue === undefined || fieldValue === null || typeof fieldValue !== 'string') {
           if (rule.optional) continue
           return invalid(capabilityName, `Field ${rule.field} is required but missing or null`)
         }
-        const rootId =
-          rule.root && typeof rule.root === 'function'
-            ? rule.root(parsed.data as Record<string, unknown>)
-            : rule.root
-        const resolvedRoot = resolveRoot(rootId)
         const candidate = path.isAbsolute(fieldValue)
           ? fieldValue
-          : path.resolve(resolvedRoot, fieldValue)
-        const guarded = await resolveWithinRootReal(resolvedRoot, candidate)
+          : path.resolve(base, fieldValue)
+        const guarded = await resolvePathReal(candidate)
         if (!guarded.ok) {
           return {
             ok: false,

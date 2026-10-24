@@ -69,7 +69,7 @@ describe('defineBinder：单必填路径参数能力绑定', () => {
     path: z.string().min(1)
   })
 
-  const binder = defineBinder('file_read', Schema, [{ field: 'path', root: 'workspace' }])
+  const binder = defineBinder('file_read', Schema, [{ field: 'path' }])
 
   it('根内合法相对/绝对路径规范化并绑定进 bound.paths.path', async () => {
     const file = join(workspaceDir, 'notes.txt')
@@ -85,12 +85,9 @@ describe('defineBinder：单必填路径参数能力绑定', () => {
     })
   })
 
-  it('父级目录 .. 越界被 Path-Guard 拦截为 PATH_OUT_OF_ROOT', async () => {
+  it('父级目录 .. 指向工作区外也放行（根不是边界，卫生校验照走）', async () => {
     const res = await binder({ path: '../outside.txt' })
-    expect(res.ok).toBe(false)
-    if (!res.ok) {
-      expect(res.code).toBe('PATH_OUT_OF_ROOT')
-    }
+    expect(res.ok).toBe(true)
   })
 
   it('Windows 保留设备名 (如 con.txt) 被拦截为 PATH_DEVICE_NAME_FORBIDDEN', async () => {
@@ -101,16 +98,17 @@ describe('defineBinder：单必填路径参数能力绑定', () => {
     }
   })
 
-  it('Symlink 穿透授权根被拦截为 PATH_ESCAPES_ROOT_VIA_LINK', async () => {
+  it('Symlink 解析到真实路径（含指向工作区外的 junction），不再按越界拒', async () => {
     const outside = await mkdtemp(join(tmpdir(), 'pa-binder-out-'))
     try {
       await writeFile(join(outside, 'secret.pdf'), 'secret')
       await symlink(outside, join(workspaceDir, 'link_out'), 'junction')
 
       const res = await binder({ path: 'link_out/secret.pdf' })
-      expect(res.ok).toBe(false)
-      if (!res.ok) {
-        expect(res.code).toBe('PATH_ESCAPES_ROOT_VIA_LINK')
+      expect(res.ok).toBe(true)
+      if (res.ok) {
+        // 绑定的是解开链接后的真实路径，批准卡与日志看到的即所得
+        expect(res.bound.paths['path']).toBe(`${toPosix(await realpath(outside))}/secret.pdf`)
       }
     } finally {
       await rm(outside, { recursive: true, force: true })
@@ -127,7 +125,6 @@ describe('defineBinder：可选路径参数与自定义别名 destKey', () => {
   const binder = defineBinder('file_search', Schema, [
     {
       field: 'relativeRoot',
-      root: 'workspace',
       optional: true,
       destKey: 'searchDir'
     }
@@ -155,16 +152,13 @@ describe('defineBinder：可选路径参数与自定义别名 destKey', () => {
     })
   })
 
-  it('当可选路径传入越界值时，依然触发 Path-Guard 拦截', async () => {
+  it('当可选路径传入越界值时，仍然正常绑定（根不是边界）', async () => {
     const res = await binder({ pattern: '*.pdf', relativeRoot: '../../windows' })
-    expect(res.ok).toBe(false)
-    if (!res.ok) {
-      expect(res.code).toBe('PATH_OUT_OF_ROOT')
-    }
+    expect(res.ok).toBe(true)
   })
 })
 
-describe('defineBinder：动态根函数 (Dynamic Root)', () => {
+describe('defineBinder：动态根函数退役后的 rootId 透传', () => {
   const Schema = z.object({
     rootId: z.enum(['workspace']),
     path: z.string().optional()
@@ -173,13 +167,12 @@ describe('defineBinder：动态根函数 (Dynamic Root)', () => {
   const binder = defineBinder('filesystem_list', Schema, [
     {
       field: 'path',
-      root: (args) => String(args.rootId),
       optional: true,
       destKey: 'targetDir'
     }
   ])
 
-  it('根据 rootId="workspace" 动态绑定到 workspace 根', async () => {
+  it('rootId=workspace 时相对路径按工作区根解析', async () => {
     const res = await binder({ rootId: 'workspace', path: 'src/main.ts' })
     expect(res).toEqual({
       ok: true,
@@ -198,8 +191,8 @@ describe('defineBinder：多路径参数能力绑定 (如 filesystem_move)', () 
   })
 
   const binder = defineBinder('filesystem_move', Schema, [
-    { field: 'sourcePath', root: 'workspace' },
-    { field: 'destinationPath', root: 'workspace' }
+    { field: 'sourcePath' },
+    { field: 'destinationPath' }
   ])
 
   it('两个合法路径同时校验成功并写入 bound.paths', async () => {
@@ -219,14 +212,11 @@ describe('defineBinder：多路径参数能力绑定 (如 filesystem_move)', () 
     })
   })
 
-  it('任一路径越界则整体验证失败', async () => {
+  it('任一路径指向工作区外也整体绑定成功（写边界在批准卡片）', async () => {
     const res = await binder({
       sourcePath: 'a.pdf',
       destinationPath: '../outside/a.pdf'
     })
-    expect(res.ok).toBe(false)
-    if (!res.ok) {
-      expect(res.code).toBe('PATH_OUT_OF_ROOT')
-    }
+    expect(res.ok).toBe(true)
   })
 })

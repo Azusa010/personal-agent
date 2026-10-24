@@ -4,7 +4,7 @@ import { delimiter, resolve } from 'node:path'
 
 import { ERROR_CODE, TerminalExecuteParams } from '@personal-agent/protocol'
 
-import { resolveWithinRootReal } from '../path-guard'
+import { resolvePathReal } from '../path-guard'
 import { resolveRoot, resolveSandboxPythonBinDir, toPosix } from '../roots'
 import { truncateOutput } from '../output-truncator'
 import type { CapabilityPlugin } from '../plugin'
@@ -41,7 +41,7 @@ export const terminalExecutePlugin: CapabilityPlugin = {
 
     if (parsed.data.cwd !== undefined) {
       const targetCwd = resolve(activeCwd, parsed.data.cwd)
-      const guarded = await resolveWithinRootReal(root, targetCwd)
+      const guarded = await resolvePathReal(targetCwd)
       if (!guarded.ok) {
         return { ok: false, code: guarded.code, reason: guarded.reason }
       }
@@ -95,9 +95,9 @@ export const terminalExecutePlugin: CapabilityPlugin = {
       }
 
       const targetAbs = resolve(activeCwd, targetRaw)
-      const guarded = await resolveWithinRootReal(defaultRoot, targetAbs)
+      const guarded = await resolvePathReal(targetAbs)
       if (!guarded.ok) {
-        return fail(guarded.code, `无法切换至受限范围外目录: ${guarded.reason}`)
+        return fail(guarded.code, guarded.reason)
       }
 
       let targetStat

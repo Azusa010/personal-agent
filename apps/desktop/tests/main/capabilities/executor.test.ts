@@ -245,40 +245,28 @@ describe('executor：document_extract_pdf', () => {
     }
   })
 
-  it('根外绝对路径 -> PATH_OUT_OF_ROOT', async () => {
+  it('根外绝对路径 -> 照常提取（读不设根界）', async () => {
     const outside = join(tmpdir(), 'pa-outside-secret.pdf')
     await writeFile(outside, buildPdf(['secret']))
     try {
       const out = await run(params('document_extract_pdf', { path: outside }))
-      expect(out['ok']).toBe(false)
-      expect(out['code']).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+      expect(out['ok']).toBe(true)
     } finally {
       await rm(outside, { force: true })
     }
   })
 
-  it('.. 逃逸 -> PATH_OUT_OF_ROOT', async () => {
-    // 模型给出的路径不可信（SEC-006）。resolve 会吃掉 '..'，
-    // 所以先 resolve 再前缀比较才挡得住。
+  it('.. 指向工作区外 -> 不再按越界拒（文件在就提取，不在就 FILE_UNREADABLE）', async () => {
+    // 模型给出的路径不可信（SEC-006）：UNC / 设备名 / 非法字符仍被拦，
+    // 但根不再是边界——读全盘自由，写的边界在批准卡片。
     const out = await run(
       params('document_extract_pdf', { path: join(dir, '..', '..', 'secret.pdf') })
     )
-    expect(out['code']).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+    expect(out['ok']).toBe(false)
+    expect(out['code']).not.toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
   })
 
-  it('同名前缀的兄弟目录 -> PATH_OUT_OF_ROOT', async () => {
-    // 不补分隔符时 startsWith 会误判通过（实测 'D:/pa-root-evil/x'
-    // .startsWith('D:/pa-root') === true）。
-    const evilDir = `${dir}-evil`
-    await mkdir(evilDir, { recursive: true })
-    await writeFile(join(evilDir, 'x.pdf'), buildPdf(['x']))
-    try {
-      const out = await run(params('document_extract_pdf', { path: join(evilDir, 'x.pdf') }))
-      expect(out['code']).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
-    } finally {
-      await rm(evilDir, { recursive: true, force: true })
-    }
-  })
+
 
   it('根内不存在的文件 -> FILE_UNREADABLE', async () => {
     const out = await run(params('document_extract_pdf', { path: join(dir, 'ghost.pdf') }))

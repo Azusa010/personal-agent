@@ -31,9 +31,9 @@ describe('agent-profile 存储与校验（TASK-034 R1）', () => {
   })
 
   describe('DEFAULT_AGENT_PROFILE 常量', () => {
-    it('默认人设名称为 PersonalAgent，人设为空，思维摘要默认关闭', () => {
+    it('默认人设名称为 Saki Bot，人设为空，思维摘要默认关闭', () => {
       expect(DEFAULT_AGENT_PROFILE).toEqual({
-        name: 'PersonalAgent',
+        name: 'Saki Bot',
         persona: '',
         reasoningSummary: false
       })

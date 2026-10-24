@@ -83,7 +83,6 @@ function openBroker(overrides: Partial<PermissionBrokerDeps> = {}): PermissionBr
     now: () => clock,
     newId: () => `perm-${++idSeq}`,
     ttlMs: 1000,
-    root: () => posixRoot,
     notify: (notice) => notices.push(notice),
     ...overrides
   })
@@ -194,8 +193,7 @@ describe('request：建记录、写事件、推送', () => {
       permissions: new SqlitePermissionRepository(d),
       events: new SqliteEventRepository(d),
       now: () => clock,
-      newId: () => `perm-${++idSeq}`,
-      root: () => posixRoot
+      newId: () => `perm-${++idSeq}`
     })
 
     const pending = broker.request(moveInput())
@@ -253,8 +251,7 @@ describe('request：建记录、写事件、推送', () => {
       events: new SqliteEventRepository(d),
       now: () => clock,
       newId: () => `perm-${++idSeq}`,
-      ttlMs: 10,
-      root: () => posixRoot
+      ttlMs: 10
     })
 
     const pending = broker.request(moveInput())

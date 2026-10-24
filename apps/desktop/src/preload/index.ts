@@ -76,6 +76,18 @@ if (process.contextIsolated) {
       setModelSettings: (input: SetModelSettingsInput) => {
         return ipcRenderer.invoke('personal-agent:set-model-settings', input)
       },
+      getWorkspace: () => {
+        return ipcRenderer.invoke('personal-agent:workspace-get')
+      },
+      chooseWorkspace: () => {
+        return ipcRenderer.invoke('personal-agent:workspace-choose')
+      },
+      switchWorkspace: (dir: string) => {
+        return ipcRenderer.invoke('personal-agent:workspace-switch', dir)
+      },
+      removeWorkspaceBookmark: (dir: string) => {
+        return ipcRenderer.invoke('personal-agent:workspace-remove-bookmark', dir)
+      },
       // 唯一一个 main → renderer 的推送通道。返回的函数取消订阅，
       // removeListener 必须传同一个包装引用：传原始 listener 取消不掉。
       onPermissionNotice: (listener: (notice: PermissionNotice) => void) => {

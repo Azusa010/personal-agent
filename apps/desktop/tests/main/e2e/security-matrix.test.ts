@@ -131,7 +131,6 @@ beforeEach(async () => {
     now: () => clock,
     newId: () => `perm-${++idSeq}`,
     ttlMs: TTL_MS,
-    root: () => realRoot,
     notify: (notice) => {
       notices.push(notice)
       if (notice.kind === 'requested' && requestedResolve !== null) {
@@ -462,42 +461,45 @@ describe('Tamper：参数变化后旧 Permission 无效', () => {
   })
 })
 
-// ---------- Traversal：路径逃逸 100% 拒绝 ----------
+// ---------- Traversal：根约束退役，写边界在批准卡片 ----------
 
-describe('Traversal：路径逃逸在 bindArguments 阶段即拒，零副作用', () => {
-  it('move source 用 .. 逃逸 → PATH_OUT_OF_ROOT', async () => {
-    const before = await snapshotRoot()
+describe('Traversal：根不再是边界，UNC 等卫生校验仍拦', () => {
+  it('move source 用 .. 指向根外 → 照常批准执行（批准卡即授权）', async () => {
+    await writeFile(join(dir, '..', 'secret.pdf'), 'SECRET')
+    try {
+      const out = await drive(
+        params('tc-trav-dotdot', 'filesystem_move', {
+          source: join(dir, '..', 'secret.pdf'),
+          target: p('a.pdf')
+        }),
+        { decision: 'approved' }
+      )
 
-    const out = await run(
-      params('tc-trav-dotdot', 'filesystem_move', {
-        source: join(dir, '..', 'secret.pdf'),
-        target: p('a.pdf')
-      })
-    )
-
-    expect(out['code']).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
-    expect(await snapshotRoot()).toEqual(before)
+      expect(out['ok']).toBe(true)
+      expect(await readFile(p('a.pdf'), 'utf-8')).toBe('SECRET')
+    } finally {
+      await rm(join(dir, '..', 'secret.pdf'), { force: true })
+    }
   })
 
-  it('move target 经 junction 逃出根 → PATH_ESCAPES_ROOT_VIA_LINK，根外零落地', async () => {
+  it('move target 经 junction 落到根外 → 按真实路径批准执行', async () => {
     const outside = await mkdtemp(join(tmpdir(), 'pa-sec-out-'))
     try {
       await writeFile(join(dir, 'a.pdf'), 'ORIGINAL')
       await symlink(outside, join(dir, 'escape'), 'junction')
-      const before = await snapshotRoot()
 
-      const out = await run(
+      const out = await drive(
         params('tc-trav-junction', 'filesystem_move', {
           source: p('a.pdf'),
           target: join(dir, 'escape', 'a.pdf')
-        })
+        }),
+        { decision: 'approved' }
       )
 
-      expect(out['code']).toBe(ERROR_CODE.PATH_ESCAPES_ROOT_VIA_LINK)
-      // a.pdf 没被移动，根外目录也没多出任何文件。
-      expect(await readFile(join(dir, 'a.pdf'), 'utf-8')).toBe('ORIGINAL')
-      expect(await readdir(outside)).toEqual([])
-      expect(await snapshotRoot()).toEqual(before)
+      expect(out['ok']).toBe(true)
+      // 文件真实落在了链接指向的根外目录
+      expect(await readFile(join(outside, 'a.pdf'), 'utf-8')).toBe('ORIGINAL')
+      expect(await readdir(dir)).not.toContain('a.pdf')
     } finally {
       await rm(outside, { recursive: true, force: true })
     }
@@ -518,30 +520,7 @@ describe('Traversal：路径逃逸在 bindArguments 阶段即拒，零副作用'
     expect(await snapshotRoot()).toEqual(before)
   })
 
-  it('move target 落到同名前缀兄弟目录 → PATH_OUT_OF_ROOT', async () => {
-    const evilDir = `${dir}-evil`
-    await mkdir(evilDir, { recursive: true })
-    try {
-      await writeFile(join(dir, 'a.pdf'), 'ORIGINAL')
-      const before = await snapshotRoot()
-
-      const out = await run(
-        params('tc-trav-sibling', 'filesystem_move', {
-          source: p('a.pdf'),
-          target: join(evilDir, 'a.pdf')
-        })
-      )
-
-      // 不补分隔符时 'dir-evil'.startsWith('dir') 会误判通过，这里必须拒。
-      expect(out['code']).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
-      expect(await readFile(join(dir, 'a.pdf'), 'utf-8')).toBe('ORIGINAL')
-      expect(await snapshotRoot()).toEqual(before)
-    } finally {
-      await rm(evilDir, { recursive: true, force: true })
-    }
-  })
-
-  it('根内大小写变体放行：toLowerCase 比较不误杀合法路径', async () => {
+  it('根内大小写变体放行：卫生校验不误杀合法路径', async () => {
     const out = await drive(
       params('tc-trav-case', 'filesystem_create_dir', { path: join(dir, 'READING') }),
       { decision: 'approved' }

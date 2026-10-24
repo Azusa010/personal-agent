@@ -116,7 +116,7 @@ export const fileReadPlugin: CapabilityPlugin = {
     kind: 'READ',
     description: '读取指定文件内容，支持按起始行号与结束行号分页读取，每行自带行号前缀'
   },
-  bindArguments: defineBinder('file_read', FileReadParams, [{ field: 'path', root: 'workspace' }]),
+  bindArguments: defineBinder('file_read', FileReadParams, [{ field: 'path' }]),
   async execute(call) {
     const absPath = call.bound.paths['path']
     const startLine =

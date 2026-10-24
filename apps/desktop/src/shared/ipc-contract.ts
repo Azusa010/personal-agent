@@ -360,3 +360,23 @@ export type ExportLogsIpcResult =
 
 export type ClearLogsIpcResult =
   { ok: true; deleted: number } | { ok: false; code: string; message: string }
+
+// ---------- 工作区选择 ----------
+
+/** 侧栏与设置页共用的工作区视图。路径均为正斜杠绝对路径。 */
+export interface WorkspaceView {
+  /** 当前激活的工作区（写链路默认落点、终端 cwd、技能发现根） */
+  current: string
+  /** 首启创建的智能体家目录（~/.saki-bot），仅用于展示与定位 */
+  home: string
+  /** 历史选过的工作区书签，最近选择在前；current 恒在列表中 */
+  bookmarks: string[]
+}
+
+export type ChooseWorkspaceResult =
+  | { ok: true; view: WorkspaceView; changed: boolean }
+  | { ok: false; code: string; message: string }
+
+export type WorkspaceMutateResult =
+  | { ok: true; view: WorkspaceView }
+  | { ok: false; code: string; message: string }

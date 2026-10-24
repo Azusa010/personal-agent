@@ -21,7 +21,7 @@ export function TitleBar(): React.JSX.Element {
     >
       <PersonalAgentLogo size={17} className="shrink-0" />
       <span className="text-[12.5px] font-semibold tracking-[-0.01em] text-foreground">
-        Personal Agent
+        Saki Bot
       </span>
       <span className="rounded-full border border-border px-1.5 py-[1px] text-[9.5px] font-medium text-muted-foreground">
         本地

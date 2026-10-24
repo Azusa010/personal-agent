@@ -1,6 +1,5 @@
 import { createRequire } from 'node:module'
-import { dirname, extname, resolve } from 'node:path'
-import { tmpdir } from 'node:os'
+import { dirname, extname, isAbsolute, resolve } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import {
   getDocument,
@@ -19,7 +18,7 @@ import {
   type ReadDocumentOutcome
 } from '@personal-agent/protocol'
 
-import { resolveWithinRootReal } from '../path-guard'
+import { resolvePathReal } from '../path-guard'
 import { resolveRoot } from '../roots'
 import { defineBinder } from '../binder'
 import type { CapabilityPlugin } from '../plugin'
@@ -240,35 +239,25 @@ export const readDocumentPlugin: CapabilityPlugin = {
     const parsed = ReadDocumentParams.safeParse(args)
     if (!parsed.success) return invalid('read_document', parsed.error.message)
 
-    const root = resolveRoot('workspace')
-    const guarded = await resolveWithinRootReal(root, parsed.data.path)
-    if (guarded.ok) {
+    // 读不设根界：相对路径以工作区为基准，绝对路径全盘可读（卫生校验照走）
+    const base = resolveRoot('workspace')
+    const absCandidate = isAbsolute(parsed.data.path)
+      ? parsed.data.path
+      : resolve(base, parsed.data.path)
+    const guarded = await resolvePathReal(absCandidate)
+    if (!guarded.ok) {
       return {
-        ok: true,
-        bound: {
-          args: parsed.data as Record<string, unknown>,
-          paths: { path: guarded.path }
-        }
+        ok: false,
+        code: guarded.code,
+        reason: `${guarded.reason}（read_document 的 path 参数）`
       }
     }
-
-    // 允许安全读取 Sidecar 生成的 tool_outputs 本地暂存文件
-    const tempToolOutputs = resolve(tmpdir(), 'personal_agent', 'tool_outputs')
-    const guardedTemp = await resolveWithinRootReal(tempToolOutputs, parsed.data.path)
-    if (guardedTemp.ok) {
-      return {
-        ok: true,
-        bound: {
-          args: parsed.data as Record<string, unknown>,
-          paths: { path: guardedTemp.path }
-        }
-      }
-    }
-
     return {
-      ok: false,
-      code: guarded.code,
-      reason: `${guarded.reason}（read_document 的 path 参数）`
+      ok: true,
+      bound: {
+        args: parsed.data as Record<string, unknown>,
+        paths: { path: guarded.path }
+      }
     }
   },
   async execute(call) {
@@ -296,7 +285,7 @@ export const documentExtractPdfPlugin: CapabilityPlugin = {
     description: '提取 PDF 每页文本与页码'
   },
   bindArguments: defineBinder('document_extract_pdf', DocumentExtractPdfParams, [
-    { field: 'path', root: 'workspace' }
+    { field: 'path' }
   ]),
   async execute(call) {
     const abs = call.bound.paths['path']

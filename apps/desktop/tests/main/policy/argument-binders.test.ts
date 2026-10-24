@@ -97,22 +97,21 @@ describe('bindArguments：document_extract_pdf', () => {
     expect(out.ok && out.bound.paths['path']).toBe(`${realRoot}/inner/a.pdf`)
   })
 
-  it('根外绝对路径 -> PATH_OUT_OF_ROOT', async () => {
+  it('根外绝对路径 -> 照常绑定（读不设根界）', async () => {
     const out = await bindArguments('document_extract_pdf', { path: 'C:/Windows/win.ini' })
 
-    expect(out.ok).toBe(false)
-    expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+    expect(out.ok).toBe(true)
   })
 
-  it('.. 逃逸 -> PATH_OUT_OF_ROOT', async () => {
+  it('.. 指向工作区外 -> 照常绑定（写边界在批准卡片）', async () => {
     const out = await bindArguments('document_extract_pdf', {
       path: join(dir, '..', '..', 'secret.pdf')
     })
 
-    expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+    expect(out.ok).toBe(true)
   })
 
-  it('根内 junction 指向根外 -> PATH_ESCAPES_ROOT_VIA_LINK', async () => {
+  it('根内 junction 指向根外 -> 绑定到解开链接后的真实路径', async () => {
     const outside = await mkdtemp(join(tmpdir(), 'pa-bind-outside-'))
     try {
       await writeFile(join(outside, 'secret.pdf'), 'S')
@@ -122,7 +121,9 @@ describe('bindArguments：document_extract_pdf', () => {
         path: join(dir, 'escape', 'secret.pdf')
       })
 
-      expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_ESCAPES_ROOT_VIA_LINK)
+      expect(out.ok && out.bound.paths['path']).toBe(
+        `${toPosix(await realpath(outside))}/secret.pdf`
+      )
     } finally {
       await rm(outside, { recursive: true, force: true })
     }
@@ -155,29 +156,30 @@ describe('bindArguments：document_extract_pdf', () => {
     })
   })
 
-  it('授权根跟着环境变量走，不是写死的', async () => {
-    // 绑定的根必须与执行体 resolveRoot 拿到的是同一个值，
-    // 否则「校验时用的根」与「读取时用的根」会分叉。
+  it('相对路径基准跟着环境变量走，不是写死的', async () => {
+    // 根不再是边界，但它仍是相对路径的解析基准：env 换了，
+    // 同一个相对路径绑定到的是另一个目录下的真身。
     const other = await mkdtemp(join(tmpdir(), 'pa-bind-other-'))
     try {
       vi.stubEnv(ENV_NAME, other)
-      const out = await bindArguments('document_extract_pdf', { path: join(dir, 'a.pdf') })
+      const out = await bindArguments('document_extract_pdf', { path: 'a.pdf' })
 
-      expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+      expect(out.ok && out.bound.paths['path']).toBe(
+        `${toPosix(await realpath(other))}/a.pdf`
+      )
     } finally {
       await rm(other, { recursive: true, force: true })
     }
   })
 
-  it('授权根不存在 -> PATH_OUT_OF_ROOT，而不是绑定成功', async () => {
+  it('相对基准目录不存在 -> 仍绑定成功（基准只做字符串解析）', async () => {
     vi.stubEnv(ENV_NAME, join(dir, 'nope'))
 
     const out = await bindArguments('document_extract_pdf', {
       path: join(dir, 'nope', 'a.pdf')
     })
 
-    expect(out.ok).toBe(false)
-    expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+    expect(out.ok).toBe(true)
   })
 })
 
@@ -207,20 +209,19 @@ describe('bindArguments：filesystem_create_dir', () => {
     expect(out.ok && out.bound.paths['path']).toBe(`${realRoot}/exists`)
   })
 
-  it('根外 -> PATH_OUT_OF_ROOT', async () => {
+  it('根外 -> 照常绑定（写边界在批准卡片）', async () => {
     const out = await bindArguments('filesystem_create_dir', { path: 'C:/Windows/Temp/evil' })
 
-    expect(out.ok).toBe(false)
-    expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+    expect(out.ok).toBe(true)
   })
 
-  it('.. 逃逸 -> PATH_OUT_OF_ROOT', async () => {
+  it('.. 指向工作区外 -> 照常绑定', async () => {
     const out = await bindArguments('filesystem_create_dir', { path: join(dir, '..', 'escaped') })
 
-    expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
+    expect(out.ok).toBe(true)
   })
 
-  it('根内 junction 指向根外 -> PATH_ESCAPES_ROOT_VIA_LINK', async () => {
+  it('根内 junction 指向根外 -> 绑定到真实路径', async () => {
     const outside = await mkdtemp(join(tmpdir(), 'pa-bind-cd-outside-'))
     try {
       await symlink(outside, join(dir, 'escape'), 'junction')
@@ -229,7 +230,9 @@ describe('bindArguments：filesystem_create_dir', () => {
         path: join(dir, 'escape', 'sub')
       })
 
-      expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_ESCAPES_ROOT_VIA_LINK)
+      expect(out.ok && out.bound.paths['path']).toBe(
+        `${toPosix(await realpath(outside))}/sub`
+      )
     } finally {
       await rm(outside, { recursive: true, force: true })
     }
@@ -274,18 +277,16 @@ describe('bindArguments：filesystem_move', () => {
     })
   })
 
-  it('source 越界 -> PATH_OUT_OF_ROOT，reason 点名 source', async () => {
+  it('source 指向根外 -> 照常绑定（写边界在批准卡片）', async () => {
     const out = await bindArguments('filesystem_move', {
       source: 'C:/Windows/win.ini',
       target: join(dir, 'a.pdf')
     })
 
-    expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
-    expect(!out.ok && out.reason).toContain('source 参数')
+    expect(out.ok).toBe(true)
   })
 
-  it('target 越界 -> PATH_OUT_OF_ROOT，reason 点名 target', async () => {
-    // 只校验 source 的话，这一条就是「从合法位置搬到根外」，正是要拦的。
+  it('target 指向根外 -> 照常绑定，批准卡上能看到根外绝对路径', async () => {
     await writeFile(join(dir, 'a.pdf'), 'A')
 
     const out = await bindArguments('filesystem_move', {
@@ -293,11 +294,13 @@ describe('bindArguments：filesystem_move', () => {
       target: 'C:/Windows/Temp/a.pdf'
     })
 
-    expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
-    expect(!out.ok && out.reason).toContain('target 参数')
+    expect(out.ok).toBe(true)
+    if (out.ok) {
+      expect(out.bound.paths['target']).toBe('C:/Windows/Temp/a.pdf')
+    }
   })
 
-  it('source 经 junction 逃出根 -> PATH_ESCAPES_ROOT_VIA_LINK', async () => {
+  it('source 经 junction 指向根外 -> 绑定到真实路径', async () => {
     const outside = await mkdtemp(join(tmpdir(), 'pa-bind-mv-src-'))
     try {
       await writeFile(join(outside, 'secret.pdf'), 'S')
@@ -308,15 +311,15 @@ describe('bindArguments：filesystem_move', () => {
         target: join(dir, 'moved.pdf')
       })
 
-      expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_ESCAPES_ROOT_VIA_LINK)
-      expect(!out.ok && out.reason).toContain('source 参数')
+      expect(out.ok && out.bound.paths['source']).toBe(
+        `${toPosix(await realpath(outside))}/secret.pdf`
+      )
     } finally {
       await rm(outside, { recursive: true, force: true })
     }
   })
 
-  it('target 经 junction 逃出根 -> PATH_ESCAPES_ROOT_VIA_LINK', async () => {
-    // 写入侧的逃逸比读取侧严重：它会把文件落在根外，而且落完就不在授权范围内了。
+  it('target 经 junction 指向根外 -> 绑定到真实路径', async () => {
     const outside = await mkdtemp(join(tmpdir(), 'pa-bind-mv-dst-'))
     try {
       await writeFile(join(dir, 'a.pdf'), 'A')
@@ -327,8 +330,9 @@ describe('bindArguments：filesystem_move', () => {
         target: join(dir, 'escape', 'a.pdf')
       })
 
-      expect(!out.ok && out.code).toBe(ERROR_CODE.PATH_ESCAPES_ROOT_VIA_LINK)
-      expect(!out.ok && out.reason).toContain('target 参数')
+      expect(out.ok && out.bound.paths['target']).toBe(
+        `${toPosix(await realpath(outside))}/a.pdf`
+      )
     } finally {
       await rm(outside, { recursive: true, force: true })
     }
@@ -568,15 +572,12 @@ describe('bindArguments：terminal_execute', () => {
     }
   })
 
-  it('cwd 逃逸授权根 -> PATH_OUT_OF_ROOT', async () => {
+  it('cwd 指向工作区外 -> 照常绑定（cwd 只是起点，命令行为归批准管）', async () => {
     const out = await bindArguments('terminal_execute', {
       command: 'whoami',
       cwd: '../../outside'
     })
-    expect(out.ok).toBe(false)
-    if (!out.ok) {
-      expect(out.code).toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
-    }
+    expect(out.ok).toBe(true)
   })
 
   it('缺 command 或 command 为空 -> INVALID_ARGUMENT', async () => {
