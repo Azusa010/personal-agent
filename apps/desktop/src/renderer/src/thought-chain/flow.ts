@@ -112,22 +112,29 @@ function toolSentence(step: ToolStepView): string {
   return target === null ? verb : `${verb}：${target}`
 }
 
-/** 思考步骤只在没有动作可讲时露一句，避免整段独白淹没执行叙述。 */
-function thoughtSentence(text: string): string {
+/** 思考步骤只提炼一句话，避免整段独白淹没执行叙述。 */
+function thoughtSentence(text: string, recent = false): string {
   const flat = text
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/[#*`>_~]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-  const firstCut = flat.split(/(?<=[。！？.!?])\s*/)[0] ?? flat
-  const sentence = firstCut.length > 52 ? `${firstCut.slice(0, 51)}…` : firstCut
-  return sentence === '' ? '正在想…' : sentence
+  const sentences = flat.split(/(?<=[。！？.!?])\s*/).filter((s) => s !== '')
+  // 工具后新一轮思考的 delta 累加在串尾，叙述要跟着新内容走，取最后一句；
+  // 开场思考从头讲起。
+  const sentence = (recent ? sentences.at(-1) : sentences[0]) ?? flat
+  return sentence === ''
+    ? '正在想…'
+    : sentence.length > 52
+      ? `${sentence.slice(0, 51)}…`
+      : sentence
 }
 
 /**
  * steps → 执行叙述行。
- * 规则：工具与提醒各自成句；思考只有在「还没有任何动作」时保留一句，
- * 让直播态不至于空着，历史态又不会被大段独白拖长。
+ * 规则：工具与提醒各自成句；思考在「还没有任何动作」时保留一句；
+ * 工具跑过之后，已落定的开场思考吞掉（历史态不被独白拖长），
+ * 但正在进行的思考（直播新一轮）保留——那是当前唯一的活动状态。
  */
 export function stepsToFlowLines(steps: ThoughtChainStep[]): FlowLine[] {
   const lines: FlowLine[] = []
@@ -163,10 +170,10 @@ export function stepsToFlowLines(steps: ThoughtChainStep[]): FlowLine[] {
       continue
     }
     if (step.type === 'thought') {
-      if (hasTool) continue
+      if (hasTool && step.status !== 'running') continue
       lines.push({
         id: step.id,
-        text: thoughtSentence(step.thinkingText),
+        text: thoughtSentence(step.thinkingText, step.recent === true),
         status: step.status,
         step
       })

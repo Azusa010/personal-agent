@@ -23,6 +23,8 @@ export interface ThoughtStepView extends BaseStepView {
   type: 'thought'
   thinkingText: string
   planSteps?: ThoughtPlanItem[]
+  /** 直播态下工具已跑过的新一轮思考：文本在整段累加串的末尾，叙述时从尾部取句 */
+  recent?: boolean
 }
 
 export interface ToolStepView extends BaseStepView {

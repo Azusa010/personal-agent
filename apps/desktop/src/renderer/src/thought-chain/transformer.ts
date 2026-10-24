@@ -356,14 +356,17 @@ export function streamStateToSteps(state: LiveStreamState | null): ThoughtChainS
   if (!state) return []
   const steps: ThoughtChainStep[] = []
 
-  // 如果有思考内容，作为实时思考卡片
+  // 如果有思考内容，作为实时思考卡片。thinking 是全程累加串：
+  // 工具跑过之后的新一轮思考 delta 落在串尾，打上 recent 让叙述跟新内容走。
   if (state.thinking && state.thinking.trim().length > 0) {
+    const hasToolEvent = state.events.some((event) => event.type === 'tool_called')
     steps.push({
       id: `live-thinking-${state.taskId ?? 'current'}`,
       type: 'thought',
       title: '正在深度思考与推理...',
       status: 'running',
-      thinkingText: state.thinking
+      thinkingText: state.thinking,
+      ...(hasToolEvent ? { recent: true } : {})
     })
   }
 

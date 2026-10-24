@@ -207,9 +207,23 @@ describe('transformer', () => {
     expect(steps[0].type).toBe('thought')
     expect(steps[0].status).toBe('running')
     expect((steps[0] as ThoughtStepView).thinkingText).toBe('先分析当前用户目标...')
+    // events 里已有工具调用：这轮思考是工具后的新一轮，打 recent 让叙述取尾部新句
+    expect((steps[0] as ThoughtStepView).recent).toBe(true)
 
     expect(steps[1].type).toBe('tool')
     expect(steps[1].status).toBe('running')
+  })
+
+  it('流式状态转换：开场思考（无工具事件）不打 recent', () => {
+    const live: LiveStreamState = {
+      taskId: 'task-live',
+      thinking: '先分析当前用户目标...',
+      events: []
+    }
+
+    const steps = streamStateToSteps(live)
+    expect(steps).toHaveLength(1)
+    expect((steps[0] as ThoughtStepView).recent).toBeUndefined()
   })
 
   it('计算轨迹摘要指标', () => {

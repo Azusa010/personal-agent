@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { stepsToFlowLines } from '../../../../src/renderer/src/thought-chain/flow'
-import type { NoticeStepView, ToolStepView } from '../../../../src/renderer/src/thought-chain/types'
+import type {
+  NoticeStepView,
+  ThoughtStepView,
+  ToolStepView
+} from '../../../../src/renderer/src/thought-chain/types'
 
 function toolStep(id: string): ToolStepView {
   return {
@@ -14,6 +18,17 @@ function toolStep(id: string): ToolStepView {
     startedAt: '2026-10-24T10:00:00.000Z',
     durationMs: 800,
     observation: null
+  }
+}
+
+function thoughtStep(id: string, overrides: Partial<ThoughtStepView> = {}): ThoughtStepView {
+  return {
+    id,
+    type: 'thought',
+    title: '正在深度思考与推理...',
+    status: 'running',
+    thinkingText: '',
+    ...overrides
   }
 }
 
@@ -42,5 +57,52 @@ describe('stepsToFlowLines', () => {
 
     expect(lines.map((line) => line.id)).toEqual(['t-1', 'n-1'])
     expect(lines[1]?.text).toContain('提醒时间')
+  })
+
+  it('工具跑过之后正在进行的思考行保留（直播新一轮思考是唯一活动状态）', () => {
+    const lines = stepsToFlowLines([
+      thoughtStep('live-thinking-1', { thinkingText: '再看一遍清单。' }),
+      toolStep('t-1')
+    ])
+
+    expect(lines.map((line) => line.id)).toEqual(['live-thinking-1', 't-1'])
+    expect(lines[0]?.status).toBe('running')
+  })
+
+  it('工具跑过之后已落定的开场思考行吞掉（历史态不被独白拖长）', () => {
+    const lines = stepsToFlowLines([
+      thoughtStep('plan-1', { status: 'success', thinkingText: '先列目录再提取。' }),
+      toolStep('t-1')
+    ])
+
+    expect(lines.map((line) => line.id)).toEqual(['t-1'])
+  })
+
+  it('没有工具时思考行照常保留（原语义）', () => {
+    const lines = stepsToFlowLines([thoughtStep('live-thinking-1', { thinkingText: '先想一想。' })])
+
+    expect(lines.map((line) => line.id)).toEqual(['live-thinking-1'])
+  })
+
+  it('recent 思考从累加串尾部取句：叙述跟新内容走，不是开场第一句', () => {
+    const lines = stepsToFlowLines([
+      thoughtStep('live-thinking-1', {
+        recent: true,
+        thinkingText: '第一轮：先列目录。第二轮：清单里挑最近改的那份，正在比时间戳。'
+      }),
+      toolStep('t-1')
+    ])
+
+    expect(lines[0]?.text).toBe('第二轮：清单里挑最近改的那份，正在比时间戳。')
+  })
+
+  it('非 recent 思考从开头取句（原语义）', () => {
+    const lines = stepsToFlowLines([
+      thoughtStep('live-thinking-1', {
+        thinkingText: '第一句。第二句。'
+      })
+    ])
+
+    expect(lines[0]?.text).toBe('第一句。')
   })
 })
