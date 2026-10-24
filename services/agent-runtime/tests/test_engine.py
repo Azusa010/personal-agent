@@ -154,11 +154,12 @@ def test_not_registered_code_matches_ts_registry():
 
 
 def test_budget_defaults():
-    # TASK-028：完整 Golden Path 是 5 次工具调用 + 1 次摘要决策，而预算在每次决策
-    # 之前判（>= 就停），所以上限必须大于调用数本身。这两个数是余量，不是精确值。
+    # 预算定位是安全阀不是任务节奏管理器（shared/budget.py）：Golden Path 只要
+    # 5 次调用，默认 50/40 对齐 SOTA harness 量级（Manus 披露平均约 50 次调用），
+    # 调研型任务（多轮搜索+抓取）不再撞墙。
     budget = Budget()
-    assert budget.maxSteps == DEFAULT_MAX_STEPS == 12
-    assert budget.maxToolCalls == DEFAULT_MAX_TOOL_CALLS == 8
+    assert budget.maxSteps == DEFAULT_MAX_STEPS == 50
+    assert budget.maxToolCalls == DEFAULT_MAX_TOOL_CALLS == 40
 
 
 def test_budget_rejects_zero_and_negative():

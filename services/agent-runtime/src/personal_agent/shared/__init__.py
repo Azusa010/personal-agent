@@ -4,6 +4,7 @@ from personal_agent.shared.budget import (
     DEFAULT_MAX_STEPS,
     DEFAULT_MAX_TOOL_CALLS,
     Budget,
+    budget_exhausted_reason,
 )
 from personal_agent.shared.events import (
     EVENT_BUDGET_EXHAUSTED,
@@ -57,6 +58,7 @@ __all__ = [
     "HostRequestFailed",
     "StreamEmitter",
     "StreamSink",
+    "budget_exhausted_reason",
     "chunk_text",
     "emit_thinking_chunks",
     "event_notice",

@@ -221,7 +221,7 @@ export function eventsToSteps(
           title: '预算耗尽',
           status: 'failed',
           startedAt: ev.occurredAt,
-          description: `已达上限：${stepsCount ?? '?'} 步 / ${toolCalls ?? '?'} 次工具调用`,
+          description: `已用 ${stepsCount ?? '?'} 步 / ${toolCalls ?? '?'} 次工具调用`,
           rawPayload: ev.payload
         }
         steps.push(notice)

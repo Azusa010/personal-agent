@@ -145,7 +145,15 @@ export function stepsToFlowLines(steps: ThoughtChainStep[]): FlowLine[] {
       continue
     }
     if (step.type === 'notice') {
-      if (step.noticeKind === 'permission' || step.noticeKind === 'sidecar') continue
+      // permission/sidecar/budget 的结论要么走专门的审批区，要么已由
+      // 聊天正文里的终态消息说明（budget_exhausted 的 reason 就是助手消息），
+      // 再出一句只会重复。
+      if (
+        step.noticeKind === 'permission' ||
+        step.noticeKind === 'sidecar' ||
+        step.noticeKind === 'budget'
+      )
+        continue
       lines.push({
         id: step.id,
         text: step.description,

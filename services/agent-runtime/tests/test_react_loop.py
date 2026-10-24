@@ -26,7 +26,11 @@ from personal_agent.conversation.loop.trajectory import (
     DeathSpiralProtector,
     ToolFingerprintDetector,
 )
-from personal_agent.conversation.model.gateway import ModelCallFailed
+from personal_agent.conversation.model.gateway import (
+    BatchToolCallDecision,
+    ModelCallFailed,
+    ToolCallItem,
+)
 from personal_agent.conversation.sidecar import (
     RejectionCircuitBreaker,
     StreamBarrier,
@@ -195,6 +199,134 @@ def test_react_loop_triggers_budget_exhaustion():
     assert isinstance(outcome, ReActOutcome)
     assert outcome.kind == "budget_exhausted"
     assert "预算耗尽" in (outcome.reason or "")
+    # 文案必须带真实上限，避免「已用 X 步」被读成「上限是 X 步」
+    assert "2/3" in (outcome.reason or "")
+
+
+def test_react_loop_batch_clamps_to_remaining_budget():
+    """场景：一步批量调用数超过剩余预算时，只执行剩余额度，超额部分标记未执行。
+
+    回归防护：批量调用不得越过 maxToolCalls（修复前 3 步 9 连发会执行到 9/8）。
+    """
+    batch = BatchToolCallDecision(
+        kind="batch_tool_call",
+        calls=[
+            ToolCallItem(
+                callId=f"call-{i}",
+                capability="filesystem_list",
+                arguments={"rootId": "downloads", "slot": i},
+            )
+            for i in range(5)
+        ],
+    )
+    loop, _, channel, context = make_loop(
+        [list_result() for _ in range(5)],
+        [batch],
+        budget=Budget(maxSteps=5, maxToolCalls=3),
+    )
+
+    outcome = loop.run("批量检索", VISIBLE)
+
+    assert outcome.kind == "budget_exhausted"
+    # 只有 3 次真实下发（预算上限），另 2 次被 clamp 成合成观察
+    assert len(channel.calls) == 3
+    assert outcome.tool_calls_used == 3
+    budget_skipped = [
+        obs
+        for obs in context.observations
+        if obs.payload.get("warning") == "budget_exhausted"
+    ]
+    assert len(budget_skipped) == 2
+    assert "3/3" in (outcome.reason or "")
+
+
+def test_react_loop_soft_landing_summarizes_on_budget_exhaustion():
+    """场景：预算尽后模型按提示收尾总结，任务以 completed 落地并保留预算事件。
+
+    回归防护：撞墙不再等于失败丢成果（SOTA harness 的软着陆模式）。
+    """
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId="call-1",
+            capability="filesystem_list",
+            arguments={"rootId": "downloads"},
+        ),
+        SummaryDecision(
+            kind="summary",
+            reply="基于已收集信息的阶段性总结",
+            facts=[],
+        ),
+    ]
+    loop, _, _, _ = make_loop(
+        [list_result()], decisions, budget=Budget(maxSteps=5, maxToolCalls=1)
+    )
+
+    outcome = loop.run("调研任务", VISIBLE)
+
+    assert outcome.kind == "completed"
+    assert outcome.reply == "基于已收集信息的阶段性总结"
+    # 收尾这步模型调用也计入步数
+    assert outcome.steps_used == 2
+    event_types = [e.type for e in outcome.events]
+    assert "budget_exhausted" in event_types
+    assert "task_completed" in event_types
+    assert "task_failed" not in event_types
+
+
+def test_react_loop_budget_hard_stop_when_model_keeps_calling():
+    """场景：预算尽后模型无视提示仍要调工具，维持硬停护栏（budget_exhausted）。"""
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId=f"call-{i}",
+            capability="filesystem_list",
+            arguments={"rootId": "downloads"},
+        )
+        for i in range(3)
+    ]
+    loop, _, channel, _ = make_loop(
+        [list_result()] * 3,
+        decisions,
+        budget=Budget(maxSteps=5, maxToolCalls=1),
+    )
+
+    outcome = loop.run("停不下来的任务", VISIBLE)
+
+    assert outcome.kind == "budget_exhausted"
+    assert "task_failed" in [e.type for e in outcome.events]
+    # 软着陆决策要的新工具不执行
+    assert len(channel.calls) == 1
+
+
+def test_react_loop_budget_reminder_covers_tool_call_dimension():
+    """场景：步数富余而工具调用已 70%+ 时，预警必须从调用维度触发。
+
+    回归防护：只看步数的预警会让批量搜索任务在调用预算先爆时毫无提醒。
+    """
+    decisions = [
+        ToolCallDecision(
+            kind="tool_call",
+            callId=f"call-{i}",
+            capability="filesystem_list",
+            arguments={"rootId": "downloads"},
+        )
+        for i in range(3)
+    ] + [
+        SummaryDecision(kind="summary", reply="收工", facts=[]),
+    ]
+    loop, model, _, _ = make_loop(
+        [list_result()] * 3,
+        decisions,
+        budget=Budget(maxSteps=100, maxToolCalls=4),
+    )
+
+    loop.run("多轮调研", VISIBLE)
+
+    # 第 4 次决策时：步数 4/100 仅 4%，调用 3/4=75% —— 提醒必须来自调用维度
+    reminders = model.receivedContexts[3].systemReminders
+    assert any("执行预算已消耗 70%" in r for r in reminders)
+    assert model.receivedContexts[0].systemReminders == []
 
 
 def test_react_loop_with_sidecar_allow():

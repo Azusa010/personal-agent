@@ -25,6 +25,7 @@ from personal_agent.shared import (
     HostChannelClosed,
     HostRequestFailed,
     StreamSink,
+    budget_exhausted_reason,
     now_occurred_at,
 )
 from personal_agent.workflow.definition import WorkflowDefinition, WorkflowState
@@ -63,7 +64,9 @@ class WorkflowExecutor:
                 step_idx >= self._budget.maxSteps
                 or step_idx >= self._budget.maxToolCalls
             ):
-                reason = f"预算耗尽：已用 {step_idx} 步 / {step_idx} 次工具调用"
+                reason = budget_exhausted_reason(
+                    step_idx, step_idx, self._budget
+                )
                 self._emit(
                     events,
                     EVENT_BUDGET_EXHAUSTED,

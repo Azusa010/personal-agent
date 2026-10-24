@@ -80,6 +80,7 @@ from personal_agent.shared import (
     HostChannelClosed,
     HostRequestFailed,
     StreamSink,
+    budget_exhausted_reason,
     now_occurred_at,
 )
 
@@ -171,14 +172,22 @@ class ReActLoop:
                 steps_used >= self._budget.maxSteps
                 or tool_calls_used >= self._budget.maxToolCalls
             ):
-                reason = (
-                    f"预算耗尽：已用 {steps_used} 步 / {tool_calls_used} 次工具调用"
+                reason = budget_exhausted_reason(
+                    steps_used, tool_calls_used, self._budget
                 )
                 self._emit(
                     events,
                     EVENT_BUDGET_EXHAUSTED,
                     {"steps": steps_used, "toolCalls": tool_calls_used},
                 )
+                # 软着陆：预算尽后先给模型一次收尾总结的机会——拿得到成果就不算
+                # 失败；模型仍要调工具或收尾调用失败，才走硬停护栏。
+                final = self._budget_final_decision(goal)
+                if isinstance(final, SummaryDecision):
+                    steps_used += 1
+                    return self._finalize_summary(
+                        final, events, steps_used, tool_calls_used
+                    )
                 self._emit(events, EVENT_TASK_FAILED, {"reason": reason})
                 fault = classify_fault(reason)
                 plan = determine_recovery_plan(
@@ -202,7 +211,7 @@ class ReActLoop:
             sys.stderr.flush()
             try:
                 decision = self._decide_with_recovery(
-                    goal, visible_capabilities, steps_used
+                    goal, visible_capabilities, steps_used, tool_calls_used
                 )
             except DeathSpiralError as e:
                 return self._fail(
@@ -472,6 +481,22 @@ class ReActLoop:
                             },
                             arguments=call.arguments,
                         )
+                    elif (
+                        tool_calls_used + len(calls_to_execute)
+                        >= self._budget.maxToolCalls
+                    ):
+                        # 预算 clamp：批量调用不得越过 maxToolCalls，超出的以合成观察
+                        # 告知模型「未执行」，保证 tool_calls_used 恒不超过上限。
+                        synth_obs_map[call.callId] = Observation(
+                            callId=call.callId,
+                            capability=call.capability,
+                            ok=False,
+                            payload={
+                                "warning": "budget_exhausted",
+                                "reason": "本轮工具调用预算已用完，该调用未执行。",
+                            },
+                            arguments=call.arguments,
+                        )
                     else:
                         calls_to_execute.append(call)
                 real_observations = (
@@ -507,69 +532,10 @@ class ReActLoop:
                         tool_result_payload,
                     )
                     self._context.record(observation)
-                tool_calls_used += len(decision.calls)
+                tool_calls_used += len(calls_to_execute)
             elif isinstance(decision, SummaryDecision):
-                evidence = collect_retrieved_evidence(self._context.observations)
-                require_grounded = (
-                    self._plan_requires_grounded_summary() and len(evidence.pages) > 0
-                )
-                candidate_facts = decision.facts
-                if require_grounded:
-                    valid_grounded = [
-                        f
-                        for f in decision.facts
-                        if (
-                            f.get("pageRefs")
-                            if isinstance(f, dict)
-                            else getattr(f, "pageRefs", None)
-                        )
-                    ]
-                    if valid_grounded:
-                        candidate_facts = valid_grounded
-
-                sys.stderr.write(
-                    f"[LOOP] >>> 模型产出总结 (facts count={len(candidate_facts)}):\n"
-                )
-                for idx, f in enumerate(candidate_facts, 1):
-                    if isinstance(f, dict):
-                        p_refs = f.get("pageRefs")
-                        text_val = f.get("text")
-                    else:
-                        p_refs = getattr(f, "pageRefs", None)
-                        text_val = getattr(f, "text", str(f))
-                    sys.stderr.write(
-                        f"  [Fact {idx}] pageRefs={p_refs} text={text_val!r}\n"
-                    )
-                sys.stderr.write(f"  [Reply] {decision.reply!r}\n")
-                sys.stderr.flush()
-                try:
-                    facts = verify_summary(
-                        candidate_facts,
-                        evidence.pages,
-                        require_page_refs=require_grounded,
-                        evidence=evidence,
-                    )
-                except SummaryRejected as e:
-                    return self._fail(
-                        events, e.reason, steps_used, tool_calls_used, fault_source=e
-                    )
-
-                self._emit(
-                    events,
-                    EVENT_TASK_COMPLETED,
-                    {
-                        "reply": decision.reply,
-                        "factCount": len(facts),
-                        "facts": [f.model_dump() for f in facts],
-                    },
-                )
-                return ReActOutcome(
-                    kind="completed",
-                    reply=decision.reply,
-                    facts=[f.model_dump() for f in facts],
-                    steps_used=steps_used,
-                    tool_calls_used=tool_calls_used,
-                    events=events,
+                return self._finalize_summary(
+                    decision, events, steps_used, tool_calls_used
                 )
 
             elif isinstance(decision, StepCompleteDecision):
@@ -672,14 +638,106 @@ class ReActLoop:
             recovery_plan=plan,
         )
 
+    def _budget_final_decision(self, goal: str) -> ModelDecision | None:
+        """预算耗尽后的收尾决策：不给工具、明示立即总结；调用失败返回 None 走硬停。"""
+        context = self._context.build(
+            goal,
+            [],
+            system_reminders=[
+                (
+                    "执行预算已用尽，所有工具调用已停止。"
+                    "请立即基于已有观察输出最终总结（summary），不要再请求任何工具调用。"
+                )
+            ],
+        )
+        try:
+            return self._model.decide(context)
+        except (ModelCallFailed, ScriptExhausted, StreamStalledError):
+            return None
+
+    def _finalize_summary(
+        self,
+        decision: SummaryDecision,
+        events: list[RunTaskEvent],
+        steps_used: int,
+        tool_calls_used: int,
+    ) -> ReActOutcome:
+        """SummaryDecision → 校验后的 completed 终态（主循环与预算软着陆共用收尾）。"""
+        evidence = collect_retrieved_evidence(self._context.observations)
+        require_grounded = (
+            self._plan_requires_grounded_summary() and len(evidence.pages) > 0
+        )
+        candidate_facts = decision.facts
+        if require_grounded:
+            valid_grounded = [
+                f
+                for f in decision.facts
+                if (
+                    f.get("pageRefs")
+                    if isinstance(f, dict)
+                    else getattr(f, "pageRefs", None)
+                )
+            ]
+            if valid_grounded:
+                candidate_facts = valid_grounded
+
+        sys.stderr.write(
+            f"[LOOP] >>> 模型产出总结 (facts count={len(candidate_facts)}):\n"
+        )
+        for idx, f in enumerate(candidate_facts, 1):
+            if isinstance(f, dict):
+                p_refs = f.get("pageRefs")
+                text_val = f.get("text")
+            else:
+                p_refs = getattr(f, "pageRefs", None)
+                text_val = getattr(f, "text", str(f))
+            sys.stderr.write(f"  [Fact {idx}] pageRefs={p_refs} text={text_val!r}\n")
+        sys.stderr.write(f"  [Reply] {decision.reply!r}\n")
+        sys.stderr.flush()
+        try:
+            facts = verify_summary(
+                candidate_facts,
+                evidence.pages,
+                require_page_refs=require_grounded,
+                evidence=evidence,
+            )
+        except SummaryRejected as e:
+            return self._fail(
+                events, e.reason, steps_used, tool_calls_used, fault_source=e
+            )
+
+        self._emit(
+            events,
+            EVENT_TASK_COMPLETED,
+            {
+                "reply": decision.reply,
+                "factCount": len(facts),
+                "facts": [f.model_dump() for f in facts],
+            },
+        )
+        return ReActOutcome(
+            kind="completed",
+            reply=decision.reply,
+            facts=[f.model_dump() for f in facts],
+            steps_used=steps_used,
+            tool_calls_used=tool_calls_used,
+            events=events,
+        )
+
     def _decide_with_recovery(
-        self, goal: str, visible_capabilities: Sequence[str], steps_used: int = 0
+        self,
+        goal: str,
+        visible_capabilities: Sequence[str],
+        steps_used: int = 0,
+        tool_calls_used: int = 0,
     ) -> ModelDecision:
         attempt = 1
         attempted_actions: list[str] = []
         while True:
             try:
-                decision = self._decide(goal, visible_capabilities, steps_used)
+                decision = self._decide(
+                    goal, visible_capabilities, steps_used, tool_calls_used
+                )
                 self._path_breaker.record_success("silent_retry")
                 return decision
             except (ModelCallFailed, StreamStalledError) as e:
@@ -799,23 +857,34 @@ class ReActLoop:
         )
 
     def _decide(
-        self, goal: str, visible_capabilities: Sequence[str], steps_used: int = 0
+        self,
+        goal: str,
+        visible_capabilities: Sequence[str],
+        steps_used: int = 0,
+        tool_calls_used: int = 0,
     ) -> ModelDecision:
         current_step = steps_used + 1
-        percent = (
-            float(current_step) / self._budget.maxSteps
+        # 预警取双维度（步数 / 工具调用）中更紧的那个：调研型任务的调用消耗
+        # 远快于步数，只看步数会让调用预算先爆、预警从未出现就硬停。
+        steps_pct = (
+            current_step / self._budget.maxSteps
             if self._budget.maxSteps > 0
             else 0.0
         )
+        calls_pct = (
+            tool_calls_used / self._budget.maxToolCalls
+            if self._budget.maxToolCalls > 0
+            else 0.0
+        )
+        percent = max(steps_pct, calls_pct)
         reminder: list[str] = []
         if percent >= 0.85:
-            remaining = max(0, self._budget.maxSteps - current_step)
             reminder.append(
-                f"步数预算即将耗尽(已使用 {percent:.0%})，剩余 {remaining} 步，立即收敛回复真实状态。"
+                f"执行预算即将耗尽(已使用 {percent:.0%})，立即基于已有信息收敛并输出最终总结。"
             )
         elif 0.70 <= percent < 0.85:
             reminder.append(
-                f"步数预算已消耗 70% 以上 (当前已使用 {percent:.0%})，请注意聚焦核心目标并精简调用。"
+                f"执行预算已消耗 70% 以上 (当前已使用 {percent:.0%})，请聚焦核心目标并精简调用。"
             )
         context = self._context.build(
             goal, visible_capabilities, system_reminders=reminder
