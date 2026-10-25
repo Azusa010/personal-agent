@@ -12,6 +12,7 @@ from pydantic import TypeAdapter, ValidationError
 from personal_agent.conversation.model.gateway import (
     ModelContext,
     ModelDecision,
+    ReplySink,
     ScriptExhausted,
     ThinkingSink,
 )
@@ -41,7 +42,10 @@ class ScriptedModel:
         self.receivedContexts: list[ModelContext] = []
 
     def decide(
-        self, context: ModelContext, on_thinking: ThinkingSink | None = None
+        self,
+        context: ModelContext,
+        on_thinking: ThinkingSink | None = None,
+        on_reply: ReplySink | None = None,
     ) -> ModelDecision:
         self.receivedContexts.append(context)
         if self._cursor >= len(self._decisions):
@@ -51,6 +55,10 @@ class ScriptedModel:
         if on_thinking is not None and decision.thinking:
             emit_thinking_chunks(
                 decision.thinking, on_thinking, self._thinking_pause_seconds
+            )
+        if on_reply is not None and decision.kind == "summary":
+            emit_thinking_chunks(
+                decision.reply, on_reply, self._thinking_pause_seconds
             )
         return decision
 

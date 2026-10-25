@@ -856,8 +856,17 @@ class AgentStreamThinking(ProtocolModel):
     delta: str = Field(min_length=1)
 
 
+class AgentStreamReply(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    kind: Literal["reply"]
+    taskId: str = Field(min_length=1)
+    delta: str = Field(min_length=1)
+
+
 AgentStreamParams = Annotated[
-    AgentStreamEvent | AgentStreamThinking, Field(discriminator="kind")
+    AgentStreamEvent | AgentStreamThinking | AgentStreamReply,
+    Field(discriminator="kind"),
 ]
 
 

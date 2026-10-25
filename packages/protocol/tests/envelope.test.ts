@@ -634,6 +634,12 @@ const legalCases = [
     payload: null,
     field: "params",
   },
+  {
+    file: "agent-stream.reply.notification.json",
+    envelope: AgentStreamNotification,
+    payload: null,
+    field: "params",
+  },
   // agent.run_workflow：确定性工作流契约
   {
     file: "agent-run-workflow.request.json",

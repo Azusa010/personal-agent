@@ -42,6 +42,7 @@ from personal_agent.conversation.model.gateway import (
     ModelDecision,
     ModelUsage,
     ReplanDecision,
+    ReplySink,
     StepCompleteDecision,
     SummaryDecision,
     ThinkingSink,
@@ -52,6 +53,7 @@ from personal_agent.conversation.model.json_parser import (
     parse_tool_call_arguments,
     safe_parse_model_json,
 )
+from personal_agent.conversation.model.reply_stream import extract_streamed_reply
 from personal_agent.conversation.model.tool_schema_generator import (
     LOCAL_TOOL_DESCRIPTIONS,
     LOCAL_TOOL_SCHEMAS,
@@ -309,17 +311,19 @@ class LiveModel:
         self,
         context: ModelContext,
         on_thinking: ThinkingSink | None = None,
+        on_reply: ReplySink | None = None,
     ) -> ModelDecision:
         client = self._client_or_create()
         if self._api_protocol == "chat_completions":
-            return self._decide_chat_completions(client, context, on_thinking)
-        return self._decide_responses(client, context, on_thinking)
+            return self._decide_chat_completions(client, context, on_thinking, on_reply)
+        return self._decide_responses(client, context, on_thinking, on_reply)
 
     def _decide_responses(
         self,
         client: Any,
         context: ModelContext,
         on_thinking: ThinkingSink | None = None,
+        on_reply: ReplySink | None = None,
     ) -> ModelDecision:
         text_config = {
             "format": {
@@ -338,7 +342,6 @@ class LiveModel:
             if context.profile and context.profile.reasoningSummary is not None
             else self._reasoning_summary
         )
-        streamed_chunks = 0
         t0 = time.time()
         sys.stderr.write(
             f"\n[LIVE_MODEL] >>> 正在请求模型决策 (model={self._model}, enable_reasoning={enable_reasoning})...\n"
@@ -354,22 +357,9 @@ class LiveModel:
                     store=False,
                     reasoning={"summary": "auto"},
                 ) as stream:
-                    for event in stream:
-                        ev_type = getattr(event, "type", None)
-                        if ev_type in (
-                            "response.reasoning_summary_text.delta",
-                            "response.reasoning_text.delta",
-                            "response.reasoning.delta",
-                        ):
-                            delta = getattr(event, "delta", "")
-                            if delta and on_thinking is not None:
-                                on_thinking(delta)
-                                streamed_chunks += 1
-                                if streamed_chunks % 15 == 0:
-                                    sys.stderr.write(
-                                        f"[LIVE_MODEL] 决策思考流式生成中... ({streamed_chunks} chunks)\n"
-                                    )
-                                    sys.stderr.flush()
+                    streamed_chunks, reply_chars = self._consume_responses_events(
+                        stream, on_thinking, on_reply
+                    )
                     response = stream.get_final_response()
             else:
                 response = client.responses.create(
@@ -379,6 +369,8 @@ class LiveModel:
                     text=text_config,
                     store=False,
                 )
+                streamed_chunks = 0
+                reply_chars = 0
         except ModelCallFailed:
             raise
         except Exception as e:
@@ -410,6 +402,7 @@ class LiveModel:
             and getattr(decision, "thinking", None)
         ):
             emit_thinking_chunks(decision.thinking, on_thinking, 0.02)
+        self._fallback_emit_reply(decision, reply_chars, on_reply)
         return decision
 
     def _decide_chat_completions(
@@ -417,6 +410,7 @@ class LiveModel:
         client: Any,
         context: ModelContext,
         on_thinking: ThinkingSink | None = None,
+        on_reply: ReplySink | None = None,
     ) -> ModelDecision:
         messages = render_messages(context)
         tools = build_tools(context.visibleCapabilities)
@@ -426,6 +420,7 @@ class LiveModel:
             else self._reasoning_summary
         )
         streamed_chunks = 0
+        reply_chars = 0
         try:
             if enable_reasoning:
                 stream_res = client.chat.completions.create(
@@ -436,12 +431,12 @@ class LiveModel:
                 )
                 if hasattr(stream_res, "__enter__"):
                     with stream_res as stream:
-                        response, streamed_chunks = self._consume_stream(
-                            stream, on_thinking
+                        response, streamed_chunks, reply_chars = self._consume_stream(
+                            stream, on_thinking, on_reply
                         )
                 else:
-                    response, streamed_chunks = self._consume_stream(
-                        stream_res, on_thinking
+                    response, streamed_chunks, reply_chars = self._consume_stream(
+                        stream_res, on_thinking, on_reply
                     )
             else:
                 response = client.chat.completions.create(
@@ -461,6 +456,7 @@ class LiveModel:
             and getattr(decision, "thinking", None)
         ):
             emit_thinking_chunks(decision.thinking, on_thinking, 0.02)
+        self._fallback_emit_reply(decision, reply_chars, on_reply)
         return decision
 
     def usage_snapshot(self) -> ModelUsage | None:
@@ -489,32 +485,20 @@ class LiveModel:
         return self._client
 
     def _consume_stream(
-        self, stream: Any, on_thinking: ThinkingSink | None
-    ) -> tuple[Any, int]:
-        """消费流式响应，抽取思维链，并聚合组装出最终响应。"""
+        self,
+        stream: Any,
+        on_thinking: ThinkingSink | None,
+        on_reply: ReplySink | None = None,
+    ) -> tuple[Any, int, int]:
+        """消费流式响应，抽取思维链与正文增量，并聚合组装出最终响应。"""
         if hasattr(stream, "get_final_response"):
             final_response = stream.get_final_response()
-            count = 0
-            for event in stream:
-                ev_type = getattr(event, "type", "")
-                if ev_type in (
-                    "response.reasoning_summary_text.delta",
-                    "response.reasoning_text.delta",
-                    "response.reasoning.delta",
-                ):
-                    delta = getattr(event, "delta", "")
-                    if delta and on_thinking is not None:
-                        on_thinking(delta)
-                        count += 1
-                elif not ev_type:
-                    delta = getattr(event, "reasoning_content", None) or getattr(
-                        event, "reasoning", None
-                    )
-                    if delta and on_thinking is not None:
-                        on_thinking(delta)
-                        count += 1
-            return final_response, count
-        count = 0
+            thinking_chunks, reply_chars = self._consume_responses_events(
+                stream, on_thinking, on_reply
+            )
+            return final_response, thinking_chunks, reply_chars
+        thinking_chunks = 0
+        reply_chars = 0
         accumulated_content = []
         accumulated_tool_calls: dict[int, dict[str, str]] = {}
         finish_reason = "stop"
@@ -535,7 +519,7 @@ class LiveModel:
             )
             if reasoning_delta and on_thinking is not None:
                 on_thinking(reasoning_delta)
-                count += 1
+                thinking_chunks += 1
 
             # 2. 累加正文文本
             if getattr(delta, "content", None):
@@ -555,6 +539,17 @@ class LiveModel:
                             accumulated_tool_calls[idx]["name"] += func.name
                         if getattr(func, "arguments", None):
                             accumulated_tool_calls[idx]["arguments"] += func.arguments
+                            # finish_task 的 reply 边到边抽：name 没拼齐前先只累积
+                            if (
+                                on_reply is not None
+                                and accumulated_tool_calls[idx]["name"]
+                                == FINISH_TASK_TOOL_NAME
+                            ):
+                                reply_chars = self._emit_reply_prefix(
+                                    accumulated_tool_calls[idx]["arguments"],
+                                    reply_chars,
+                                    on_reply,
+                                )
         tool_calls_list = []
         for idx in sorted(accumulated_tool_calls.keys()):
             tc_data = accumulated_tool_calls[idx]
@@ -578,7 +573,86 @@ class LiveModel:
                 SimpleNamespace(message=complete_message, finish_reason=finish_reason)
             ]
         )
-        return final_completion, count
+        return final_completion, thinking_chunks, reply_chars
+
+    def _consume_responses_events(
+        self,
+        stream: Any,
+        on_thinking: ThinkingSink | None,
+        on_reply: ReplySink | None,
+    ) -> tuple[int, int]:
+        """消费 Responses API 事件流：转发思维增量，并从 finish_task 参数增量抽取正文。
+
+        返回 (thinking_chunks, reply_chars)。
+        """
+        thinking_chunks = 0
+        reply_chars = 0
+        call_names: dict[str, str] = {}
+        args_buffers: dict[str, str] = {}
+        for event in stream:
+            ev_type = getattr(event, "type", "")
+            if ev_type in (
+                "response.reasoning_summary_text.delta",
+                "response.reasoning_text.delta",
+                "response.reasoning.delta",
+            ):
+                delta = getattr(event, "delta", "")
+                if delta and on_thinking is not None:
+                    on_thinking(delta)
+                    thinking_chunks += 1
+                    if thinking_chunks % 15 == 0:
+                        sys.stderr.write(
+                            f"[LIVE_MODEL] 决策思考流式生成中... ({thinking_chunks} chunks)\n"
+                        )
+                        sys.stderr.flush()
+            elif not ev_type:
+                delta = getattr(event, "reasoning_content", None) or getattr(
+                    event, "reasoning", None
+                )
+                if delta and on_thinking is not None:
+                    on_thinking(delta)
+                    thinking_chunks += 1
+            elif ev_type == "response.output_item.added":
+                item = getattr(event, "item", None)
+                if item is not None and getattr(item, "type", "") == "function_call":
+                    call_names[getattr(item, "id", "") or ""] = (
+                        getattr(item, "name", "") or ""
+                    )
+            elif ev_type == "response.function_call_arguments.delta":
+                item_id = getattr(event, "item_id", "") or ""
+                if call_names.get(item_id) != FINISH_TASK_TOOL_NAME:
+                    continue
+                buffer = args_buffers.get(item_id, "") + (
+                    getattr(event, "delta", "") or ""
+                )
+                args_buffers[item_id] = buffer
+                reply_chars = self._emit_reply_prefix(buffer, reply_chars, on_reply)
+        return thinking_chunks, reply_chars
+
+    @staticmethod
+    def _emit_reply_prefix(
+        args_buffer: str, emitted: int, on_reply: ReplySink | None
+    ) -> int:
+        """把 reply 字段的已到达前缀中新增部分推给 on_reply，返回新的已发长度。"""
+        if on_reply is None:
+            return emitted
+        decoded = extract_streamed_reply(args_buffer)
+        if len(decoded) > emitted:
+            on_reply(decoded[emitted:])
+            return len(decoded)
+        return emitted
+
+    @staticmethod
+    def _fallback_emit_reply(
+        decision: ModelDecision, reply_chars: int, on_reply: ReplySink | None
+    ) -> None:
+        """流上没抽到正文增量（非流式调用 / 纯文本回复）时，按块补发完整 reply。"""
+        if (
+            reply_chars == 0
+            and on_reply is not None
+            and isinstance(decision, SummaryDecision)
+        ):
+            emit_thinking_chunks(decision.reply, on_reply, 0.02)
 
     def _account(self, response: Any) -> None:
         """记账。兼容 Responses API 与 Chat Completions。"""

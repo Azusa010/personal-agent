@@ -208,7 +208,7 @@ class AgentEngine:
         context = self._context.build(goal, visibleCapabilities)
         if self._stream is None:
             return self._model.decide(context)
-        return self._model.decide(context, self._stream.thinking)
+        return self._model.decide(context, self._stream.thinking, self._stream.reply)
 
     def _plan_requires_grounded_summary(self) -> bool:
         """计划里有「提取 PDF」这一步，摘要就必须可溯源到页面。

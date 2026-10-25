@@ -621,6 +621,12 @@ def _pick(raw: dict, path: str):
             None,
             "params",
         ),
+        (
+            "agent-stream.reply.notification.json",
+            AgentStreamNotification,
+            None,
+            "params",
+        ),
         # agent.run_workflow：确定性工作流契约
         (
             "agent-run-workflow.request.json",

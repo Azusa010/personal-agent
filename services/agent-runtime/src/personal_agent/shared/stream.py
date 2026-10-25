@@ -40,6 +40,14 @@ def thinking_notice(task_id: str, delta: str) -> dict:
     }
 
 
+def reply_notice(task_id: str, delta: str) -> dict:
+    return {
+        "jsonrpc": "2.0",
+        "method": AGENT_STREAM,
+        "params": {"kind": "reply", "taskId": task_id, "delta": delta},
+    }
+
+
 def chunk_text(text: str, size: int) -> list[str]:
     """把一段文本按固定大小切开。空文本给空列表"""
     if size < 1:
@@ -64,6 +72,12 @@ class StreamEmitter:
         if delta == "":
             return
         self._safe_write(thinking_notice(self._task_id, delta))
+
+    def reply(self, delta: str) -> None:
+        """正文（finish_task 的 reply 字段）的流式增量，与 thinking 同形状。"""
+        if delta == "":
+            return
+        self._safe_write(reply_notice(self._task_id, delta))
 
     def _safe_write(self, notice: dict) -> None:
         try:

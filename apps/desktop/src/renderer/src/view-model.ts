@@ -444,9 +444,11 @@ export interface LiveStreamState {
   taskId: string | null
   events: RunTaskEvent[]
   thinking: string
+  /** 正文（finish_task 的 reply）流式增量，任务终态后被回包里的正式回复取代 */
+  reply: string
 }
 export function createInitialStreamState(): LiveStreamState {
-  return { taskId: null, events: [], thinking: '' }
+  return { taskId: null, events: [], thinking: '', reply: '' }
 }
 
 // 实时流状态规约
@@ -462,6 +464,7 @@ export function applyStreamNotice(
       ...state,
       taskId: notice.taskId,
       thinking: notice.kind === 'thinking' ? notice.delta : '',
+      reply: notice.kind === 'reply' ? notice.delta : '',
       events: notice.kind === 'event' ? [notice.event] : []
     }
   } else if (state.taskId !== notice.taskId) {
@@ -469,6 +472,8 @@ export function applyStreamNotice(
   }
   if (notice.kind === 'thinking') {
     return { ...state, thinking: state.thinking + notice.delta }
+  } else if (notice.kind === 'reply') {
+    return { ...state, reply: state.reply + notice.delta }
   } else if (notice.kind === 'event') {
     return { ...state, events: [...state.events, notice.event] }
   }

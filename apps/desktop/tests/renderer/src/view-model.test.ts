@@ -941,11 +941,12 @@ describe('extractReply', () => {
 })
 
 describe('createInitialStreamState', () => {
-  it('返回空的实时流初始状态（taskId 为 null，events 为空，thinking 为空串）', () => {
+  it('返回空的实时流初始状态（taskId 为 null，events 为空，thinking 与 reply 为空串）', () => {
     expect(createInitialStreamState()).toEqual({
       taskId: null,
       events: [],
-      thinking: ''
+      thinking: '',
+      reply: ''
     })
   })
 })
@@ -971,7 +972,8 @@ describe('applyStreamNotice', () => {
     expect(next).toEqual({
       taskId: 't-100',
       events: [],
-      thinking: '先列出目录'
+      thinking: '先列出目录',
+      reply: ''
     })
   })
 
@@ -991,7 +993,8 @@ describe('applyStreamNotice', () => {
     expect(next).toEqual({
       taskId: 't-200',
       events: [event],
-      thinking: ''
+      thinking: '',
+      reply: ''
     })
   })
 
@@ -999,7 +1002,8 @@ describe('applyStreamNotice', () => {
     const current: LiveStreamState = {
       taskId: 't-current',
       events: [],
-      thinking: '已有一些思考'
+      thinking: '已有一些思考',
+      reply: ''
     }
     const foreignNotice: AgentStreamNotice = {
       kind: 'thinking',
@@ -1020,7 +1024,8 @@ describe('applyStreamNotice', () => {
     expect(state).toEqual({
       taskId: 't-1',
       events: [],
-      thinking: '先列目录再提取'
+      thinking: '先列目录再提取',
+      reply: ''
     })
   })
 
@@ -1039,7 +1044,8 @@ describe('applyStreamNotice', () => {
     expect(state).toEqual({
       taskId: 't-1',
       events: [ev1, ev2],
-      thinking: ''
+      thinking: '',
+      reply: ''
     })
   })
 
@@ -1060,7 +1066,38 @@ describe('applyStreamNotice', () => {
     expect(state).toEqual({
       taskId: 't-1',
       events: [ev1, ev2],
-      thinking: '第一步：开始调用工具'
+      thinking: '第一步：开始调用工具',
+      reply: ''
+    })
+  })
+
+  it('首个 reply 通知确立 taskId 并追加正文增量', () => {
+    const initial = createInitialStreamState()
+    const next = applyStreamNotice(initial, {
+      kind: 'reply',
+      taskId: 't-300',
+      delta: '结论是：'
+    })
+
+    expect(next).toEqual({
+      taskId: 't-300',
+      events: [],
+      thinking: '',
+      reply: '结论是：'
+    })
+  })
+
+  it('连续 reply delta 累加成完整正文，与 thinking 互不干扰', () => {
+    let state: LiveStreamState | null = createInitialStreamState()
+    state = applyStreamNotice(state, { kind: 'thinking', taskId: 't-1', delta: '想想' })
+    state = applyStreamNotice(state, { kind: 'reply', taskId: 't-1', delta: '第一段。' })
+    state = applyStreamNotice(state, { kind: 'reply', taskId: 't-1', delta: '第二段。' })
+
+    expect(state).toEqual({
+      taskId: 't-1',
+      events: [],
+      thinking: '想想',
+      reply: '第一段。第二段。'
     })
   })
 
@@ -1071,7 +1108,8 @@ describe('applyStreamNotice', () => {
     const original: LiveStreamState = {
       taskId: 't-1',
       events: originalEvents,
-      thinking: '初始'
+      thinking: '初始',
+      reply: ''
     }
 
     const next = applyStreamNotice(original, {
@@ -1090,7 +1128,8 @@ describe('applyStreamNotice', () => {
     const current: LiveStreamState = {
       taskId: 't-1',
       events: [],
-      thinking: '思考'
+      thinking: '思考',
+      reply: ''
     }
     const unknownNotice = {
       kind: 'unknown_kind',

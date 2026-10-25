@@ -60,7 +60,11 @@ let savedDownloadsEnv: string | undefined
 /** 把通知序列压成可读标签，专门用来钉顺序。 */
 function labels(notices: AgentStreamParams[]): string[] {
   return notices.map((notice) =>
-    notice.kind === 'thinking' ? 'thinking' : `event:${notice.event.type}`
+    notice.kind === 'thinking'
+      ? 'thinking'
+      : notice.kind === 'reply'
+        ? 'reply'
+        : `event:${notice.event.type}`
   )
 }
 
@@ -159,7 +163,8 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
       expect(new Set(notices.map((notice) => notice.taskId))).toEqual(new Set([TASK_ID]))
 
       // 2. 顺序：思考落在它所属的那个决策之前（ScriptedModel 在返回决策前分块吐完）。
-      expect(labels(notices)).toEqual([
+      //    reply 增量单独钉（见 3.5），这里的事件/思维序列与没有正文流式时一致。
+      expect(labels(notices).filter((label) => label !== 'reply')).toEqual([
         'event:task_started',
         'thinking',
         'thinking',
@@ -179,6 +184,21 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
         .map((notice) => (notice.kind === 'thinking' ? notice.delta : ''))
         .join('')
       expect(thinking).toBe(`${THINKING_LIST}${THINKING_EXTRACT}${THINKING_SUMMARY}`)
+
+      // 3.5 正文也是流式的：summary 决策的 reply 分块上线，拼接还原全文，
+      //     且全部落在最后一段 thinking 之后、task_completed 之前。
+      const replyLabels = labels(notices)
+      const reply = notices
+        .filter((notice) => notice.kind === 'reply')
+        .map((notice) => (notice.kind === 'reply' ? notice.delta : ''))
+        .join('')
+      expect(reply).toBe(REPLY)
+      expect(replyLabels.lastIndexOf('reply')).toBeGreaterThan(
+        replyLabels.lastIndexOf('thinking')
+      )
+      expect(replyLabels.indexOf('event:task_completed')).toBeGreaterThan(
+        replyLabels.lastIndexOf('reply')
+      )
 
       // 4. event 通知与回包 events 是同一批：通知只是预览，回包才是唯一事实来源。
       //    scripted 不记账，所以这里没有 model_usage 要减（真模型下它会少一条——

@@ -4,6 +4,7 @@ import type { MessageView } from '../../../shared/ipc-contract'
 import { ScrollPinButton, TextShimmer, ThoughtChainViewer, useScrollAnchor } from '../thought-chain'
 import { extractFacts, getTimelineStepCount, type LiveStreamState } from '../view-model'
 import { MarkdownContent } from './MarkdownContent'
+import { useSmoothText } from '../lib/use-smooth-text'
 import { cn } from '@renderer/lib/utils'
 
 export interface MessageStreamProps {
@@ -90,6 +91,9 @@ export function MessageStream({
 
   const waiting = pendingText !== null
   const hasInlineForm = inlineForm !== null && inlineForm !== undefined
+
+  // 打字机：正文增量常一大口到达，经平滑缓冲按帧吐出
+  const smoothReply = useSmoothText(streamState?.reply ?? '')
 
   useEffect(() => {
     notifyContentGrowth()
@@ -218,8 +222,16 @@ export function MessageStream({
                     </div>
                     {streamState &&
                     (streamState.thinking ||
+                      streamState.reply ||
                       (streamState.events && streamState.events.length > 0)) ? (
-                      <ThoughtChainViewer liveStream={streamState} isStreaming />
+                      <>
+                        <ThoughtChainViewer liveStream={streamState} isStreaming />
+                        {smoothReply && (
+                          <div className="mt-3 text-[13.5px] leading-[1.85] text-foreground/95">
+                            <MarkdownContent content={smoothReply} />
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div className="flex select-none items-center gap-1.5 py-0.5">
                         <LoaderCircle

@@ -21,6 +21,9 @@ class Observation(BaseModel):
 
 ThinkingSink = Callable[[str], None]
 
+# 正文增量 sink：finish_task 的 reply 字段边生成边推给 UI，形状与 ThinkingSink 相同
+ReplySink = Callable[[str], None]
+
 
 class ModelContext(BaseModel):
     """模型上下文"""
@@ -143,9 +146,13 @@ class ModelGateway(Protocol):
     """模型抽象端口"""
 
     def decide(
-        self, context: ModelContext, on_thinking: ThinkingSink | None = None
+        self,
+        context: ModelContext,
+        on_thinking: ThinkingSink | None = None,
+        on_reply: ReplySink | None = None,
     ) -> ModelDecision:
-        """给出下一步决策。给了 on_thinking 就边想边把摘要吐给它。"""
+        """给出下一步决策。给了 on_thinking 就边想边把摘要吐给它；
+        给了 on_reply 就把最终回复（finish_task 的 reply）边生成边吐给它。"""
 
 
 @runtime_checkable

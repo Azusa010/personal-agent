@@ -651,7 +651,9 @@ class ReActLoop:
             ],
         )
         try:
-            return self._model.decide(context)
+            if self._stream is None:
+                return self._model.decide(context)
+            return self._model.decide(context, self._stream.thinking, self._stream.reply)
         except (ModelCallFailed, ScriptExhausted, StreamStalledError):
             return None
 
@@ -897,7 +899,10 @@ class ReActLoop:
             thinking_sink = self._stream.thinking
             if self._watchdog is not None:
                 thinking_sink = self._watchdog.wrap_sink(thinking_sink)
-            decision = self._model.decide(context, thinking_sink)
+            reply_sink = self._stream.reply
+            if self._watchdog is not None:
+                reply_sink = self._watchdog.wrap_sink(reply_sink)
+            decision = self._model.decide(context, thinking_sink, reply_sink)
         if self._watchdog is not None:
             self._watchdog.assert_alive()
             self._watchdog.feed()

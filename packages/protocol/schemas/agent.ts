@@ -176,9 +176,17 @@ export const AgentStreamThinking = z.object({
   delta: z.string().min(1),
 });
 
+// 正文流式：finish_task 的 reply 字段边生成边推，形状与 thinking 增量一致
+export const AgentStreamReply = z.object({
+  kind: z.literal("reply"),
+  taskId: z.string().min(1),
+  delta: z.string().min(1),
+});
+
 export const AgentStreamParams = z.discriminatedUnion("kind", [
   AgentStreamEvent,
   AgentStreamThinking,
+  AgentStreamReply,
 ]);
 
 export const AgentStreamNotification = z.object({
@@ -189,6 +197,7 @@ export const AgentStreamNotification = z.object({
 
 export type AgentStreamEvent = z.infer<typeof AgentStreamEvent>;
 export type AgentStreamThinking = z.infer<typeof AgentStreamThinking>;
+export type AgentStreamReply = z.infer<typeof AgentStreamReply>;
 export type AgentStreamParams = z.infer<typeof AgentStreamParams>;
 export type AgentStreamNotification = z.infer<typeof AgentStreamNotification>;
 

@@ -193,6 +193,7 @@ describe('transformer', () => {
     const live: LiveStreamState = {
       taskId: 'task-live',
       thinking: '先分析当前用户目标...',
+      reply: '',
       events: [
         {
           type: 'tool_called',
@@ -218,6 +219,7 @@ describe('transformer', () => {
     const live: LiveStreamState = {
       taskId: 'task-live',
       thinking: '先分析当前用户目标...',
+      reply: '',
       events: []
     }
 

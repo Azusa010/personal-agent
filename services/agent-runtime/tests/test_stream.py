@@ -33,6 +33,7 @@ from personal_agent.stream import (
     StreamEmitter,
     chunk_text,
     event_notice,
+    reply_notice,
     thinking_notice,
 )
 
@@ -76,8 +77,8 @@ class AccountingScriptedModel:
     def __init__(self, decisions: list) -> None:
         self._inner = ScriptedModel(decisions, thinking_pause_seconds=0.0)
 
-    def decide(self, context: ModelContext, on_thinking=None):
-        return self._inner.decide(context, on_thinking=on_thinking)
+    def decide(self, context: ModelContext, on_thinking=None, on_reply=None):
+        return self._inner.decide(context, on_thinking=on_thinking, on_reply=on_reply)
 
     def usage_snapshot(self) -> ModelUsage:
         return ModelUsage(model="fake-live", inputTokens=120, outputTokens=32, calls=2)
@@ -97,8 +98,8 @@ def labels(notices: list[dict]) -> list[str]:
     out: list[str] = []
     for notice in notices:
         params = notice["params"]
-        if params["kind"] == "thinking":
-            out.append("thinking")
+        if params["kind"] in ("thinking", "reply"):
+            out.append(params["kind"])
         else:
             out.append(f"event:{params['event']['type']}")
     return out
@@ -131,6 +132,14 @@ def test_thinking_notice_shape() -> None:
     }
 
 
+def test_reply_notice_shape() -> None:
+    assert reply_notice(TASK_ID, "第一段正文") == {
+        "jsonrpc": "2.0",
+        "method": AGENT_STREAM,
+        "params": {"kind": "reply", "taskId": TASK_ID, "delta": "第一段正文"},
+    }
+
+
 # ---- chunk_text ----
 
 
@@ -157,7 +166,8 @@ def test_emitter_writes_both_kinds() -> None:
     emitter = StreamEmitter(written.append, TASK_ID)
     emitter.event(make_event())
     emitter.thinking("先列目录")
-    assert [n["params"]["kind"] for n in written] == ["event", "thinking"]
+    emitter.reply("第一段正文")
+    assert [n["params"]["kind"] for n in written] == ["event", "thinking", "reply"]
     assert written[0]["params"]["taskId"] == TASK_ID
 
 
@@ -166,6 +176,7 @@ def test_emitter_skips_empty_delta() -> None:
     # 契约层 delta 是 min_length=1，这里不能让它先上船。
     written: list[dict] = []
     StreamEmitter(written.append, TASK_ID).thinking("")
+    StreamEmitter(written.append, TASK_ID).reply("")
     assert written == []
 
 
@@ -229,6 +240,36 @@ def test_scripted_model_without_thinking_emits_nothing() -> None:
     assert chunks == []
 
 
+def test_scripted_model_forwards_summary_reply_in_chunks() -> None:
+    reply = "结论第一段。" + "补充细节。" * 10
+    model = ScriptedModel(
+        [SummaryDecision(kind="summary", reply=reply, facts=[])],
+        thinking_pause_seconds=0.0,
+    )
+    chunks: list[str] = []
+    decision = model.decide(
+        ModelContext(taskGoal="整理 PDF", visibleCapabilities=VISIBLE),
+        on_reply=chunks.append,
+    )
+
+    assert decision.kind == "summary"
+    assert len(chunks) > 1
+    assert "".join(chunks) == reply
+
+
+def test_scripted_model_without_reply_sink_emits_nothing() -> None:
+    model = ScriptedModel(
+        [SummaryDecision(kind="summary", reply="完整回复", facts=[])],
+        thinking_pause_seconds=0.0,
+    )
+    chunks: list[str] = []
+    model.decide(
+        ModelContext(taskGoal="整理 PDF", visibleCapabilities=VISIBLE),
+        on_thinking=chunks.append,
+    )
+    assert chunks == []
+
+
 def test_scripted_model_decide_without_sink_is_fine() -> None:
     """不传 sink = 今天的行为：一条通知都不发，决策照旧。"""
     model = ScriptedModel(
@@ -258,8 +299,15 @@ def test_engine_forwards_every_event_except_model_usage() -> None:
     outcome = make_engine(model, notices).run("把 PDF 整理一下", VISIBLE)
 
     assert outcome.status == "completed"
-    streamed = [n["params"]["event"]["type"] for n in notices]
+    streamed = [
+        n["params"]["event"]["type"] for n in notices if n["params"]["kind"] == "event"
+    ]
     assert streamed == [e.type for e in outcome.events if e.type != EVENT_MODEL_USAGE]
+    # summary 决策的 reply 也随实时流分段上线（engine 把 reply sink 接给了模型）
+    reply_text = "".join(
+        n["params"]["delta"] for n in notices if n["params"]["kind"] == "reply"
+    )
+    assert reply_text == "整理完了。"
     # 反过来钉一次：model_usage 确实进了落库事件，只是不进实时流——
     # 它是结算，不是过程。
     assert any(e.type == EVENT_MODEL_USAGE for e in outcome.events)
@@ -289,6 +337,7 @@ def test_engine_interleaves_thinking_before_its_decision() -> None:
         "event:tool_called",
         "event:tool_result",
         "thinking",
+        "reply",
         "event:task_completed",
     ]
     thinking_text = "".join(
