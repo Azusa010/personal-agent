@@ -58,7 +58,7 @@ const FACTS: SummaryFact[] = [{ text: '第一页与第三页讲了同一件事',
 
 const PLAN: PlanStep[] = [
   { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },
-  { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
+  { description: '提取目标 PDF 的每页文本', capability: 'read_document' },
   { description: '把选中的 PDF 移到 Reading', capability: 'filesystem_move' },
   { description: '创建阅读提醒', capability: 'scheduler_create' }
 ]
@@ -208,13 +208,13 @@ function seedGoldenEvents(deps: EvidenceDeps, taskId = TASK_ID): void {
   seedEvent(
     deps,
     'tool_called',
-    { callId: 'c-extract', capability: 'document_extract_pdf', arguments: { path: PDF } },
+    { callId: 'c-extract', capability: 'read_document', arguments: { path: PDF } },
     taskId
   )
   seedEvent(
     deps,
     'tool_result',
-    { callId: 'c-extract', capability: 'document_extract_pdf', ok: true },
+    { callId: 'c-extract', capability: 'read_document', ok: true },
     taskId
   )
   seedEvent(deps, 'task_completed', { factCount: FACTS.length }, taskId)
@@ -239,14 +239,14 @@ describe('collectToolResults：调用与结果的配对', () => {
     const events = [
       event(1, 'tool_called', { callId: 'c-1', capability: 'filesystem_list' }),
       event(2, 'tool_result', { callId: 'c-1', capability: 'filesystem_list', ok: true }),
-      event(3, 'tool_called', { callId: 'c-2', capability: 'document_extract_pdf' }),
-      event(4, 'tool_result', { callId: 'c-2', capability: 'document_extract_pdf', ok: false }),
+      event(3, 'tool_called', { callId: 'c-2', capability: 'read_document' }),
+      event(4, 'tool_result', { callId: 'c-2', capability: 'read_document', ok: false }),
       event(5, 'tool_called', { callId: 'c-3', capability: 'filesystem_move' })
     ]
 
     expect(collectToolResults(events)).toEqual([
       { callId: 'c-1', capability: 'filesystem_list', ok: true, hasResult: true },
-      { callId: 'c-2', capability: 'document_extract_pdf', ok: false, hasResult: true },
+      { callId: 'c-2', capability: 'read_document', ok: false, hasResult: true },
       { callId: 'c-3', capability: 'filesystem_move', ok: false, hasResult: false }
     ])
   })
@@ -269,22 +269,22 @@ describe('lastExtractedPath：摘要依据的是哪份 PDF', () => {
     const events = [
       event(1, 'tool_called', {
         callId: 'c-1',
-        capability: 'document_extract_pdf',
+        capability: 'read_document',
         arguments: { path: 'D:/workspace/a.pdf' }
       }),
-      event(2, 'tool_result', { callId: 'c-1', capability: 'document_extract_pdf', ok: false }),
+      event(2, 'tool_result', { callId: 'c-1', capability: 'read_document', ok: false }),
       event(3, 'tool_called', {
         callId: 'c-2',
-        capability: 'document_extract_pdf',
+        capability: 'read_document',
         arguments: { path: 'D:/workspace/b.pdf' }
       }),
-      event(4, 'tool_result', { callId: 'c-2', capability: 'document_extract_pdf', ok: true }),
+      event(4, 'tool_result', { callId: 'c-2', capability: 'read_document', ok: true }),
       event(5, 'tool_called', {
         callId: 'c-3',
-        capability: 'document_extract_pdf',
+        capability: 'read_document',
         arguments: { path: 'D:/workspace/c.pdf' }
       }),
-      event(6, 'tool_result', { callId: 'c-3', capability: 'document_extract_pdf', ok: true })
+      event(6, 'tool_result', { callId: 'c-3', capability: 'read_document', ok: true })
     ]
 
     expect(lastExtractedPath(events)).toBe('D:/workspace/c.pdf')
@@ -294,14 +294,14 @@ describe('lastExtractedPath：摘要依据的是哪份 PDF', () => {
     const failed = [
       event(1, 'tool_called', {
         callId: 'c-1',
-        capability: 'document_extract_pdf',
+        capability: 'read_document',
         arguments: { path: PDF }
       }),
-      event(2, 'tool_result', { callId: 'c-1', capability: 'document_extract_pdf', ok: false })
+      event(2, 'tool_result', { callId: 'c-1', capability: 'read_document', ok: false })
     ]
     const noPath = [
-      event(1, 'tool_called', { callId: 'c-2', capability: 'document_extract_pdf' }),
-      event(2, 'tool_result', { callId: 'c-2', capability: 'document_extract_pdf', ok: true })
+      event(1, 'tool_called', { callId: 'c-2', capability: 'read_document' }),
+      event(2, 'tool_result', { callId: 'c-2', capability: 'read_document', ok: true })
     ]
 
     expect(lastExtractedPath(failed)).toBeNull()
@@ -311,10 +311,10 @@ describe('lastExtractedPath：摘要依据的是哪份 PDF', () => {
       lastExtractedPath([
         event(1, 'tool_called', {
           callId: 'c-3',
-          capability: 'document_extract_pdf',
+          capability: 'read_document',
           arguments: { path: '' }
         }),
-        event(2, 'tool_result', { callId: 'c-3', capability: 'document_extract_pdf', ok: true })
+        event(2, 'tool_result', { callId: 'c-3', capability: 'read_document', ok: true })
       ])
     ).toBeNull()
   })
@@ -443,8 +443,8 @@ describe('collectEvidence：库内记录的搬运与派生字段', () => {
     seedTask(deps)
     seedEvent(deps, 'tool_called', { callId: 'c-1', capability: 'filesystem_list' })
     seedEvent(deps, 'tool_result', { callId: 'c-1', capability: 'filesystem_list', ok: true })
-    seedEvent(deps, 'tool_called', { callId: 'c-2', capability: 'document_extract_pdf' })
-    seedEvent(deps, 'tool_result', { callId: 'c-2', capability: 'document_extract_pdf', ok: false })
+    seedEvent(deps, 'tool_called', { callId: 'c-2', capability: 'read_document' })
+    seedEvent(deps, 'tool_result', { callId: 'c-2', capability: 'read_document', ok: false })
     seedEvent(deps, 'tool_called', { callId: 'c-3', capability: 'filesystem_move' })
 
     const evidence = await collectEvidence(deps, { taskId: TASK_ID, facts: FACTS })
@@ -452,7 +452,7 @@ describe('collectEvidence：库内记录的搬运与派生字段', () => {
 
     expect(evidence.toolResults).toEqual([
       { callId: 'c-1', capability: 'filesystem_list', ok: true, hasResult: true },
-      { callId: 'c-2', capability: 'document_extract_pdf', ok: false, hasResult: true },
+      { callId: 'c-2', capability: 'read_document', ok: false, hasResult: true },
       { callId: 'c-3', capability: 'filesystem_move', ok: false, hasResult: false }
     ])
   })
@@ -468,12 +468,12 @@ describe('collectEvidence：证据缺口如实记录（不抛错、不编造）'
     seedPlan(deps)
     seedEvent(deps, 'tool_called', {
       callId: 'c-extract',
-      capability: 'document_extract_pdf',
+      capability: 'read_document',
       arguments: { path: PDF }
     })
     seedEvent(deps, 'tool_result', {
       callId: 'c-extract',
-      capability: 'document_extract_pdf',
+      capability: 'read_document',
       ok: false
     })
 
@@ -484,7 +484,7 @@ describe('collectEvidence：证据缺口如实记录（不抛错、不编造）'
     expect(evidence.resolvedPdfPath).toBeNull()
     expect(evidence.parsedPageNumbers).toBeNull()
     expect(evidence.parsedPageCount).toBeNull()
-    expect(evidence.gaps.join()).toContain('没有成功的 document_extract_pdf')
+    expect(evidence.gaps.join()).toContain('没有成功的 read_document')
     // 连不上路径就不该去碰文件系统
     expect(world.reads).toEqual([])
     expect(world.seeks).toEqual([])
@@ -637,7 +637,7 @@ describe('collectEvidence：证据缺口如实记录（不抛错、不编造）'
     expectBundleForTask(evidence)
 
     expect(evidence.toolResults).toEqual([])
-    expect(evidence.gaps.join()).toContain('没有成功的 document_extract_pdf')
+    expect(evidence.gaps.join()).toContain('没有成功的 read_document')
     expect(evidence.eventSequenceRange).toEqual({ from: 1, to: 4 })
   })
 })
@@ -749,6 +749,6 @@ describe('collectEvidence：零工具轮次的取证（TASK-031）', () => {
 
     const evidence = await collectEvidence(deps, { taskId: TASK_ID, facts: FACTS })
 
-    expect(evidence.gaps.some((gap) => gap.includes('document_extract_pdf'))).toBe(true)
+    expect(evidence.gaps.some((gap) => gap.includes('read_document'))).toBe(true)
   })
 })

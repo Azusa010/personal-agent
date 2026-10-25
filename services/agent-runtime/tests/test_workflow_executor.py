@@ -51,7 +51,7 @@ def test_workflow_executor_golden_run():
     )
     step2 = WorkflowStep(
         id="extract",
-        capability="document_extract_pdf",
+        capability="read_document",
         description="提取内容",
         resolve_args=lambda s: {"path": s.get_result("list")["entries"][0]["path"]},
     )

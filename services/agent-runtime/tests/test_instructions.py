@@ -37,7 +37,7 @@ def test_instructions_do_not_hardcode_specific_paths_or_capabilities():
         assert "Downloads" not in prompt
         assert "Reading" not in prompt
         assert "filesystem_list" not in prompt
-        assert "document_extract_pdf" not in prompt
+        assert "read_document" not in prompt
 
 
 def test_compose_instructions_injects_persona_with_strict_enforcement():

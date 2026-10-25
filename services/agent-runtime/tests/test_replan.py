@@ -29,7 +29,7 @@ from personal_agent.react_loop import (
 from personal_agent.scripted_model import ScriptedModel
 from personal_agent.strategy import PlanAndExecuteStrategy
 
-VISIBLE = ["filesystem_list", "document_extract_pdf"]
+VISIBLE = ["filesystem_list", "read_document"]
 
 
 class FakeChannel:

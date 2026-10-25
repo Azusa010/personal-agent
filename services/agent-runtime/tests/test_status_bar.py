@@ -128,9 +128,9 @@ def test_tool_call_tracker_format():
         tracker.format_annotation("write_file")
 
     # 记录调用后自动使用当前计数
-    tracker.record_call("document_extract_pdf")
-    tracker.record_call("document_extract_pdf")
-    assert tracker.format_annotation("document_extract_pdf") == "Tool call #2 for 'document_extract_pdf'"
+    tracker.record_call("read_document")
+    tracker.record_call("read_document")
+    assert tracker.format_annotation("read_document") == "Tool call #2 for 'read_document'"
 
 
 def test_tool_call_tracker_to_state():
@@ -310,7 +310,7 @@ def test_status_bar_renderer():
             python_version="3.13.3",
         ),
         tool_counter=ToolCounterState(
-            calls_per_tool={"document_extract_pdf": 1},
+            calls_per_tool={"read_document": 1},
             total_calls=1,
         ),
         todos=[

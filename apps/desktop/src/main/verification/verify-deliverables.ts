@@ -47,7 +47,7 @@ import {
  * 验收：`verify-deliverables.test.ts`。
  */
 
-const EXTRACT_PDF_CAPABILITY = CapabilityId.enum['document_extract_pdf']
+const READ_DOCUMENT_CAPABILITY = CapabilityId.enum['read_document']
 const MOVE_CAPABILITY = CapabilityId.enum['filesystem_move']
 const SCHEDULER_CREATE_CAPABILITY = CapabilityId.enum['scheduler_create']
 export type VerificationMode = 'strict' | 'lenient'
@@ -93,8 +93,7 @@ function fail(detail: string): CheckResult {
 const CHECKS: CheckSpec[] = [
   {
     id: 'summary_present',
-    required: (evidence) =>
-      planHas(evidence, EXTRACT_PDF_CAPABILITY) || planHas(evidence, 'read_document'),
+    required: (evidence) => planHas(evidence, READ_DOCUMENT_CAPABILITY),
     notApplicable: '计划里没有提取 PDF 的步骤：摘要不依据页文本',
     run: (evidence) => {
       if (evidence.summary.length === 0) {
@@ -123,8 +122,7 @@ const CHECKS: CheckSpec[] = [
   },
   {
     id: 'page_refs_grounded',
-    required: (evidence) =>
-      planHas(evidence, EXTRACT_PDF_CAPABILITY) || planHas(evidence, 'read_document'),
+    required: (evidence) => planHas(evidence, READ_DOCUMENT_CAPABILITY),
     notApplicable: '计划里没有提取 PDF 的步骤：摘要不依据页文本',
     run: (evidence) => {
       const pages = evidence.parsedPageNumbers

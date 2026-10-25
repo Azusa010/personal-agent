@@ -16,7 +16,7 @@ export type ReminderStatus = z.infer<typeof ReminderStatus>;
 
 // remindAt 是模型把「今晚」这类自然语言解析后的具体时间（ISO-8601）。
 // 契约层只钉形状：能不能解析、是不是未来时刻由 host 侧 binder 判定
-//（REMINDER_TIME_IN_PAST），与 DocumentExtractPdfParams 不校验路径越界
+//（REMINDER_TIME_IN_PAST），与 ReadDocumentParams 不校验路径越界
 // 是同一个分层原则——契约钉形状，语义归执行链。
 // message 是到期通知的正文，落 reminders.message。
 export const SchedulerCreateParams = z.object({

@@ -111,7 +111,7 @@ function buildScript(downloadsRootPath: string): string {
   const extract = {
     kind: 'tool_call',
     callId: 'c-2',
-    capability: 'document_extract_pdf',
+    capability: 'read_document',
     arguments: { path: `${toPosix(downloadsRootPath)}/${PDF_NAME}` }
   }
   const decisions = [

@@ -45,7 +45,7 @@ class PlanStep(BaseModel):
 # 批准移动、任务落终态、摘要随之交付，这三件事的先后在任务层面看不出差别。
 READ_STEPS: tuple[tuple[CapabilityId, str], ...] = (
     ("filesystem_list", "列出工作区下的 PDF"),
-    ("document_extract_pdf", "提取目标 PDF 的每页文本"),
+    ("read_document", "提取目标 PDF 的每页文本"),
 )
 
 WRITE_STEPS: tuple[tuple[CapabilityId, str], ...] = (

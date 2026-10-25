@@ -68,15 +68,18 @@ describe('bindArguments：filesystem_list', () => {
   })
 })
 
-describe('bindArguments：document_extract_pdf', () => {
+describe('bindArguments：read_document', () => {
   it('根内真实文件 -> paths.path 是 realpath 后的绝对路径', async () => {
     await writeFile(join(dir, 'a.pdf'), 'A')
 
-    const out = await bindArguments('document_extract_pdf', { path: join(dir, 'a.pdf') })
+    const out = await bindArguments('read_document', { path: join(dir, 'a.pdf') })
 
     expect(out).toEqual({
       ok: true,
-      bound: { args: { path: join(dir, 'a.pdf') }, paths: { path: `${realRoot}/a.pdf` } }
+      bound: {
+        args: { path: join(dir, 'a.pdf'), fileType: 'auto', pageStart: 1, maxCharsPerPage: 4000 },
+        paths: { path: `${realRoot}/a.pdf` }
+      }
     })
   })
 
@@ -91,20 +94,20 @@ describe('bindArguments：document_extract_pdf', () => {
     await symlink(inner, join(dir, 'alias'), 'junction')
     const viaAlias = join(dir, 'alias', 'a.pdf')
 
-    const out = await bindArguments('document_extract_pdf', { path: viaAlias })
+    const out = await bindArguments('read_document', { path: viaAlias })
 
     expect(out.ok && out.bound.args['path']).toBe(viaAlias)
     expect(out.ok && out.bound.paths['path']).toBe(`${realRoot}/inner/a.pdf`)
   })
 
   it('根外绝对路径 -> 照常绑定（读不设根界）', async () => {
-    const out = await bindArguments('document_extract_pdf', { path: 'C:/Windows/win.ini' })
+    const out = await bindArguments('read_document', { path: 'C:/Windows/win.ini' })
 
     expect(out.ok).toBe(true)
   })
 
   it('.. 指向工作区外 -> 照常绑定（写边界在批准卡片）', async () => {
-    const out = await bindArguments('document_extract_pdf', {
+    const out = await bindArguments('read_document', {
       path: join(dir, '..', '..', 'secret.pdf')
     })
 
@@ -117,7 +120,7 @@ describe('bindArguments：document_extract_pdf', () => {
       await writeFile(join(outside, 'secret.pdf'), 'S')
       await symlink(outside, join(dir, 'escape'), 'junction')
 
-      const out = await bindArguments('document_extract_pdf', {
+      const out = await bindArguments('read_document', {
         path: join(dir, 'escape', 'secret.pdf')
       })
 
@@ -130,7 +133,7 @@ describe('bindArguments：document_extract_pdf', () => {
   })
 
   it('UNC -> PATH_UNC_NOT_ALLOWED', async () => {
-    const out = await bindArguments('document_extract_pdf', {
+    const out = await bindArguments('read_document', {
       path: '\\\\evil-server\\share\\x.pdf'
     })
 
@@ -139,7 +142,7 @@ describe('bindArguments：document_extract_pdf', () => {
 
   it('空 path / 缺 path -> INVALID_ARGUMENT', async () => {
     for (const args of [{ path: '' }, {}]) {
-      const out = await bindArguments('document_extract_pdf', args)
+      const out = await bindArguments('read_document', args)
       expect(out.ok, JSON.stringify(args)).toBe(false)
       expect(!out.ok && out.code, JSON.stringify(args)).toBe(ERROR_CODE.INVALID_ARGUMENT)
     }
@@ -148,11 +151,14 @@ describe('bindArguments：document_extract_pdf', () => {
   it('根内不存在的目标仍然绑定成功', async () => {
     // 「不存在」不等于「越界」。这里拒了的话，下游 readFile 的 FILE_UNREADABLE
     // 就永远出不来，UI 上只会看到一句莫名其妙的路径错误。
-    const out = await bindArguments('document_extract_pdf', { path: join(dir, 'ghost.pdf') })
+    const out = await bindArguments('read_document', { path: join(dir, 'ghost.pdf') })
 
     expect(out).toEqual({
       ok: true,
-      bound: { args: { path: join(dir, 'ghost.pdf') }, paths: { path: `${realRoot}/ghost.pdf` } }
+      bound: {
+        args: { path: join(dir, 'ghost.pdf'), fileType: 'auto', pageStart: 1, maxCharsPerPage: 4000 },
+        paths: { path: `${realRoot}/ghost.pdf` }
+      }
     })
   })
 
@@ -162,7 +168,7 @@ describe('bindArguments：document_extract_pdf', () => {
     const other = await mkdtemp(join(tmpdir(), 'pa-bind-other-'))
     try {
       vi.stubEnv(ENV_NAME, other)
-      const out = await bindArguments('document_extract_pdf', { path: 'a.pdf' })
+      const out = await bindArguments('read_document', { path: 'a.pdf' })
 
       expect(out.ok && out.bound.paths['path']).toBe(
         `${toPosix(await realpath(other))}/a.pdf`
@@ -175,7 +181,7 @@ describe('bindArguments：document_extract_pdf', () => {
   it('相对基准目录不存在 -> 仍绑定成功（基准只做字符串解析）', async () => {
     vi.stubEnv(ENV_NAME, join(dir, 'nope'))
 
-    const out = await bindArguments('document_extract_pdf', {
+    const out = await bindArguments('read_document', {
       path: join(dir, 'nope', 'a.pdf')
     })
 
@@ -517,9 +523,9 @@ describe('bindArguments：没有绑定器的能力', () => {
     const inputs: [string, Record<string, unknown>][] = [
       ['filesystem_list', { rootId: 'workspace' }],
       ['filesystem_list', { rootId: 'nope' }],
-      ['document_extract_pdf', { path: dir }],
-      ['document_extract_pdf', { path: join(dir, 'sub') }],
-      ['document_extract_pdf', { path: join(dir, 'ghost.pdf') }],
+      ['read_document', { path: dir }],
+      ['read_document', { path: join(dir, 'sub') }],
+      ['read_document', { path: join(dir, 'ghost.pdf') }],
       ['filesystem_create_dir', { path: '' }],
       ['filesystem_create_dir', { path: join(dir, 'sub', 'deep') }],
       ['filesystem_move', { source: 'a', target: 'b' }],

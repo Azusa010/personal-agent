@@ -124,7 +124,7 @@ const PLAN_DESCRIPTIONS = [
 ]
 const PLAN_CAPABILITIES = [
   'filesystem_list',
-  'document_extract_pdf',
+  'read_document',
   'filesystem_create_dir',
   'filesystem_move',
   'scheduler_create',

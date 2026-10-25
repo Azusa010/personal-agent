@@ -42,7 +42,7 @@ const GOLDEN_PATH_STEPS: WorkflowStepMeta[] = [
   {
     index: 2,
     title: '提取页面',
-    capability: 'document_extract_pdf',
+    capability: 'read_document',
     description: '提取目标 PDF 的每页文本并抽取核心要点',
     icon: <Sparkles size={16} />
   },
@@ -92,7 +92,7 @@ export function WorkflowCenter({ onCompleted }: WorkflowCenterProps): React.JSX.
           if (cap === 'filesystem_list') {
             setStepStatuses(['running', 'pending', 'pending', 'pending', 'pending'])
             setLogs((prev) => [...prev, `[步骤 1] 正在扫描工作区目录…`])
-          } else if (cap === 'document_extract_pdf') {
+          } else if (cap === 'read_document') {
             setStepStatuses(['completed', 'running', 'pending', 'pending', 'pending'])
             setLogs((prev) => [...prev, `[步骤 2] 正在解析 PDF 页面内容…`])
           } else if (cap === 'filesystem_create_dir') {

@@ -32,7 +32,7 @@ const TASK_ID = 'task-policy'
 
 const PLAN: readonly PlanStep[] = [
   { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },
-  { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
+  { description: '提取目标 PDF 的每页文本', capability: 'read_document' },
   { description: '基于页面内容生成带页码引用的摘要' }
 ]
 
@@ -297,12 +297,12 @@ describe('execution-policy：ActionAlignment', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const out = await agentPolicy().evaluate(
-      params('tc-11', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
+      params('tc-11', 'read_document', { path: join(dir, 'a.pdf') })
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.ACTION_NOT_ALIGNED)
     expect(!out.allowed && out.reason).toBe(
-      '第 1 次 tool call 期望 filesystem_list，实际是 document_extract_pdf'
+      '第 1 次 tool call 期望 filesystem_list，实际是 read_document'
     )
   })
 
@@ -310,7 +310,7 @@ describe('execution-policy：ActionAlignment', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const wrong = await agentPolicy().evaluate(
-      params('tc-12', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
+      params('tc-12', 'read_document', { path: join(dir, 'a.pdf') })
     )
     expect(wrong.allowed).toBe(false)
     expect(currentTask()?.executedCalls).toBe(0)
@@ -326,7 +326,7 @@ describe('execution-policy：ActionAlignment', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
     await agentPolicy().evaluate(params('tc-14', 'filesystem_list', { rootId: 'workspace' }))
     await agentPolicy().evaluate(
-      params('tc-15', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
+      params('tc-15', 'read_document', { path: join(dir, 'a.pdf') })
     )
 
     const extra = await agentPolicy().evaluate(
@@ -344,7 +344,7 @@ describe('execution-policy：ActionAlignment', () => {
 
     // 顺序上 ui 的第一次调用与计划第 1 步无关，所以哪怕能力不同也放行。
     const out = await policy(UI_ORIGIN).evaluate(
-      params('tc-17', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
+      params('tc-17', 'read_document', { path: join(dir, 'a.pdf') })
     )
 
     expect(out.allowed).toBe(true)
@@ -356,7 +356,7 @@ describe('execution-policy：ActionAlignment', () => {
     beginTask(TASK_ID, '整理 PDF', PLAN)
 
     const out = await agentPolicy().evaluate(
-      params('tc-18', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
+      params('tc-18', 'read_document', { path: join(dir, 'a.pdf') })
     )
 
     expect(out.allowed).toBe(true)
@@ -612,10 +612,10 @@ describe('execution-policy：参数契约与路径', () => {
   })
 
   it('根外路径 -> 照常放行（读不设根界）', async () => {
-    beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'document_extract_pdf' }])
+    beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'read_document' }])
 
     const out = await agentPolicy().evaluate(
-      params('tc-21', 'document_extract_pdf', { path: 'C:/Windows/win.ini' })
+      params('tc-21', 'read_document', { path: 'C:/Windows/win.ini' })
     )
 
     expect(out.allowed).toBe(true)
@@ -626,10 +626,10 @@ describe('execution-policy：参数契约与路径', () => {
     try {
       await writeFile(join(outside, 'secret.pdf'), 'S')
       await symlink(outside, join(dir, 'escape'), 'junction')
-      beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'document_extract_pdf' }])
+      beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'read_document' }])
 
       const out = await agentPolicy().evaluate(
-        params('tc-22', 'document_extract_pdf', { path: join(dir, 'escape', 'secret.pdf') })
+        params('tc-22', 'read_document', { path: join(dir, 'escape', 'secret.pdf') })
       )
 
       expect(out.allowed).toBe(true)
@@ -639,10 +639,10 @@ describe('execution-policy：参数契约与路径', () => {
   })
 
   it('UNC -> PATH_UNC_NOT_ALLOWED', async () => {
-    beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'document_extract_pdf' }])
+    beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'read_document' }])
 
     const out = await agentPolicy().evaluate(
-      params('tc-23', 'document_extract_pdf', { path: '\\\\evil-server\\share\\x.pdf' })
+      params('tc-23', 'read_document', { path: '\\\\evil-server\\share\\x.pdf' })
     )
 
     expect(!out.allowed && out.code).toBe(ERROR_CODE.PATH_UNC_NOT_ALLOWED)
@@ -652,17 +652,17 @@ describe('execution-policy：参数契约与路径', () => {
 describe('execution-policy：放行产物', () => {
   it('AuthorizedCall 带 callId、descriptor、绑定后的参数与 taskId', async () => {
     await writeFile(join(dir, 'a.pdf'), 'A')
-    beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'document_extract_pdf' }])
+    beginTask(TASK_ID, '整理 PDF', [{ description: '提取', capability: 'read_document' }])
 
     const out = await agentPolicy().evaluate(
-      params('tc-24', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
+      params('tc-24', 'read_document', { path: join(dir, 'a.pdf') })
     )
 
     if (!out.allowed) throw new Error('期望放行')
     expect(out.call.callId).toBe('tc-24')
     expect(out.call.taskId).toBe(TASK_ID)
     // descriptor 取自 registry，不是模型给的字符串拼出来的。
-    expect(out.call.capability).toEqual(findCapability('document_extract_pdf'))
+    expect(out.call.capability).toEqual(findCapability('read_document'))
     expect(out.call.bound.paths['path']).toBe(`${realRoot}/a.pdf`)
   })
 
@@ -697,7 +697,7 @@ describe('execution-policy：放行产物', () => {
       params('tc-27', 'filesystem_list', { rootId: 'workspace' })
     )
     const second = await agentPolicy().evaluate(
-      params('tc-28', 'document_extract_pdf', { path: join(dir, 'a.pdf') })
+      params('tc-28', 'read_document', { path: join(dir, 'a.pdf') })
     )
 
     expect(first.allowed).toBe(true)
@@ -718,9 +718,9 @@ describe('execution-policy：evaluate 永不抛', () => {
       params('tc-30', 'filesystem_list', { rootId: 'workspace' }),
       params('tc-31', 'filesystem_list', { rootId: 'nope' }),
       params('tc-32', 'filesystem_list', {}),
-      params('tc-33', 'document_extract_pdf', { path: '' }),
-      params('tc-34', 'document_extract_pdf', { path: 'C:/Windows/win.ini' }),
-      params('tc-35', 'document_extract_pdf', { path: join(dir, 'ghost.pdf') }),
+      params('tc-33', 'read_document', { path: '' }),
+      params('tc-34', 'read_document', { path: 'C:/Windows/win.ini' }),
+      params('tc-35', 'read_document', { path: join(dir, 'ghost.pdf') }),
       params('tc-36', 'filesystem_move', { from: 'a', to: 'b' }),
       params('tc-37', 'scheduler_create', {}),
       params('tc-38', 'notification_send', {})

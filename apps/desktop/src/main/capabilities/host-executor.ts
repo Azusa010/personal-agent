@@ -65,7 +65,7 @@ export function listVisibleCapabilities(): readonly CapabilityDescriptor[] {
 }
 
 /**
- * 只读清单：`filesystem_list` 与 `document_extract_pdf`。
+ * 只读清单：`filesystem_list` 与 `read_document`。
  *
  * 给「只跑读链路」的入口用——Live Eval 的 20 条 Case 就是这种配置（它量的是文档
  * 摘要，不该被要求移动文件、建 Reminder）。握手时下发什么，Python 的 make_plan
@@ -75,7 +75,7 @@ export function listVisibleCapabilities(): readonly CapabilityDescriptor[] {
 export function listReadOnlyCapabilities(): readonly CapabilityDescriptor[] {
   return retriever
     .listVisible(readOnlyScope(BOOTSTRAP_TASK_ID))
-    .filter((c) => c.name === 'filesystem_list' || c.name === 'document_extract_pdf')
+    .filter((c) => c.name === 'filesystem_list' || c.name === 'read_document')
 }
 
 // 给 PythonSupervisor 的 hostHandler。只有 run-task.ts beginTask 之后才放行。

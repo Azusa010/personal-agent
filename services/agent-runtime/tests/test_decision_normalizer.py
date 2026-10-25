@@ -119,15 +119,15 @@ def test_normalize_path_based_capabilities_disambiguated_by_context():
     ctx = ModelContext(
         taskGoal="提取 PDF 报告",
         plan=[
-            PlanStepDto(description="提取销售数据", capability="document_extract_pdf"),
+            PlanStepDto(description="提取销售数据", capability="read_document"),
             PlanStepDto(description="创建归档目录", capability="filesystem_create_dir"),
         ],
-        visibleCapabilities=["document_extract_pdf", "filesystem_create_dir"],
+        visibleCapabilities=["read_document", "filesystem_create_dir"],
     )
     raw = {"path": "C:/docs/report.pdf"}
     normalized = normalize_raw_decision(raw, context=ctx)
     assert normalized["kind"] == "tool_call"
-    assert normalized["capability"] == "document_extract_pdf"
+    assert normalized["capability"] == "read_document"
 
 
 def test_normalize_tool_call_missing_kind_only():

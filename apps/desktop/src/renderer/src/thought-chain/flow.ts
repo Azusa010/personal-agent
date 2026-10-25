@@ -18,7 +18,7 @@ interface Phrase {
 /**
  * 能力 → 一句人话。
  *
- * 这一层是「过程写成话」的关键：界面不再罗列 `document_extract_pdf`，
+ * 这一层是「过程写成话」的关键：界面不再罗列 `read_document`，
  * 而是说「逐份读了：发票_2026-10.pdf」。工具名仍然作为旁注保留在行尾，
  * 需要核对的人抬头就能看到，不需要的人读句子就够了。
  *
@@ -31,7 +31,7 @@ const PHRASES: Array<{ match: RegExp; phrase: Phrase }> = [
     phrase: { doing: '正在翻目录', done: '翻了一遍目录' }
   },
   {
-    match: /^(document_extract_pdf|pdf_extract|extract_pdf|parse_pdf|document_read|read_pdf)$/,
+    match: /^(read_document|pdf_extract|extract_pdf|parse_pdf|document_read|read_pdf)$/,
     phrase: { doing: '正在逐份读', done: '逐份读了' }
   },
   {

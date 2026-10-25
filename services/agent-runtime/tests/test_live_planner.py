@@ -18,7 +18,7 @@ from personal_agent.protocol.models import ProfileDto, Turn
 
 VISIBLE = [
     "filesystem_list",
-    "document_extract_pdf",
+    "read_document",
     "filesystem_create_dir",
     "filesystem_move",
     "scheduler_create",
@@ -97,7 +97,7 @@ def full_plan_json():
             {"description": "列出工作区下的 PDF", "capability": "filesystem_list"},
             {
                 "description": "提取目标 PDF 的每页文本",
-                "capability": "document_extract_pdf",
+                "capability": "read_document",
             },
             {"description": "基于页面内容生成带页码引用的摘要"},
         ]
@@ -186,7 +186,7 @@ def test_plan_sends_the_planner_instructions_and_the_output_schema():
 
     assert [s.capability for s in steps] == [
         "filesystem_list",
-        "document_extract_pdf",
+        "read_document",
         None,
     ]
     request = client.responses.requests[0]
@@ -367,7 +367,7 @@ def test_plan_without_summary_events_streams_plan_steps_fallback():
 def test_plan_recovers_from_extra_data_in_output():
     # 复现并验证 BUG 修复：输出合法 JSON 之后跟随多余解释文本时，容错恢复解析成功
     raw = (
-        '{"steps": [{"description": "整理 PDF", "capability": "document_extract_pdf"}]}\n\n'
+        '{"steps": [{"description": "整理 PDF", "capability": "read_document"}]}\n\n'
         "Extra data: line 3 column 1 (char 280) 这是为您制定的计划"
     )
     client = FakeClient([FakeResponse(raw)])

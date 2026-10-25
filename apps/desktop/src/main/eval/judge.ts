@@ -1,6 +1,6 @@
 import { basename } from 'node:path'
 
-import { EXTRACT_PDF_CAPABILITY, type SummaryFact } from '@personal-agent/protocol'
+import { type SummaryFact } from '@personal-agent/protocol'
 
 import { targetPdf, targetPdfs, type EvalCase, type ExpectedCalculation } from './case-manifest'
 
@@ -350,7 +350,7 @@ export function judgeCase(evalCase: EvalCase, observation: CaseObservation): Cas
       calls
         .filter(
           (c) =>
-            (c.capability === EXTRACT_PDF_CAPABILITY || c.capability === 'read_document') &&
+            (c.capability === 'read_document') &&
             typeof c.arguments['path'] === 'string'
         )
         .map((c) => basename(c.arguments['path'] as string))
@@ -364,7 +364,7 @@ export function judgeCase(evalCase: EvalCase, observation: CaseObservation): Cas
     const targetName = targetPdf(evalCase).name
     selectedTarget = calls.some((c) => {
       return (
-        (c.capability === EXTRACT_PDF_CAPABILITY || c.capability === 'read_document') &&
+        (c.capability === 'read_document') &&
         typeof c.arguments['path'] === 'string' &&
         basename(c.arguments['path']) === targetName
       )

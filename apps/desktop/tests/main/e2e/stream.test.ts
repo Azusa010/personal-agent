@@ -48,7 +48,7 @@ const THINKING_SUMMARY = '材料齐了：先说清做了什么，再放结论。
 // 只读三步计划：与握手下发的能力对得上（对齐闸口按它放行）。
 const PLAN: PlanStep[] = [
   { description: '列出工作区下的 PDF', capability: 'filesystem_list' },
-  { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
+  { description: '提取目标 PDF 的每页文本', capability: 'read_document' },
   { description: '基于页面内容生成带页码引用的摘要' }
 ]
 
@@ -76,7 +76,7 @@ function buildScript(root: string): string {
     {
       kind: 'tool_call',
       callId: 'c-2',
-      capability: 'document_extract_pdf',
+      capability: 'read_document',
       arguments: { path: `${toPosix(root)}/${PDF_NAME}` },
       thinking: THINKING_EXTRACT
     },

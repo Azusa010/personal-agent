@@ -6,7 +6,6 @@ export const HOST_CALL_ID_PATTERN = /^call-[0-9]+$/;
 
 export const CapabilityId = z.enum([
   "filesystem_list",
-  "document_extract_pdf",
   "read_document",
   "filesystem_create_dir",
   "filesystem_move",
@@ -30,7 +29,6 @@ export const CapabilityId = z.enum([
   "a2ui_render",
 ]);
 export const WEB_SEARCH_CAPABILITY = CapabilityId.enum["web_search"];
-export const EXTRACT_PDF_CAPABILITY = CapabilityId.enum["document_extract_pdf"];
 export const READ_DOCUMENT_CAPABILITY = CapabilityId.enum["read_document"];
 export const TERMINAL_EXECUTE_CAPABILITY =
   CapabilityId.enum["terminal_execute"];

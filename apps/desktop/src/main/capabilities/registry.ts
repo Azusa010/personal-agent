@@ -15,11 +15,6 @@ export const CAPABILITIES = [
     description: '列出授权根目录下的条目'
   },
   {
-    name: 'document_extract_pdf',
-    kind: 'READ',
-    description: '提取 PDF 每页文本与页码'
-  },
-  {
     name: 'read_document',
     kind: 'READ',
     description: '多格式统一文档读取器，提取逐页文本并支持分页与字符限制 (PDF/Word/Markdown/Text)'

@@ -99,7 +99,7 @@ describe('SqlitePlanRepository', () => {
     const { plans } = makeRepos()
     const steps: PlanStep[] = [
       { description: '列出下载目录的 PDF', capability: 'filesystem_list' },
-      { description: '提取每个 PDF 的页面文本', capability: 'document_extract_pdf' },
+      { description: '提取每个 PDF 的页面文本', capability: 'read_document' },
       { description: '汇总成带页码引用的摘要' } // 故意不给 capability
     ]
     plans.append({ id: 'p-1', taskId: 't-1', steps, createdAt: T })

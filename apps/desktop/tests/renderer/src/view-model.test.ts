@@ -542,7 +542,7 @@ describe('summarizePayload', () => {
     const huge = 'A'.repeat(10_000)
     const line = summarizePayload('tool_called', {
       callId: 'call-1',
-      capability: 'document_extract_pdf',
+      capability: 'read_document',
       arguments: { absolutePath: huge }
     })
 
@@ -607,7 +607,7 @@ describe('describePlanSteps', () => {
     const steps = describePlanSteps(
       plan([
         { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },
-        { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
+        { description: '提取目标 PDF 的每页文本', capability: 'read_document' },
         { description: '基于页面内容生成带页码引用的摘要' }
       ])
     )
@@ -615,7 +615,7 @@ describe('describePlanSteps', () => {
     expect(steps.map((s) => s.index)).toEqual([1, 2, 3])
     expect(steps.map((s) => s.capability)).toEqual([
       'filesystem_list',
-      'document_extract_pdf',
+      'read_document',
       null
     ])
     expect(steps[0]?.capabilityLabel).toBe('filesystem_list')

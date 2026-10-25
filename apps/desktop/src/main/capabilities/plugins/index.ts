@@ -1,6 +1,6 @@
 import type { CapabilityPlugin } from '../plugin'
 import { filesystemCreateDirPlugin, filesystemListPlugin, filesystemMovePlugin } from './filesystem'
-import { documentExtractPdfPlugin, readDocumentPlugin } from './document'
+import { readDocumentPlugin } from './document'
 import { notificationSendPlugin, schedulerCreatePlugin } from './scheduler'
 import { terminalExecutePlugin } from './terminal'
 import { knowledgeSearchPlugin, userMemorySearchPlugin } from './knowledge'
@@ -38,7 +38,6 @@ export * from './a2ui'
 
 const BUILTIN_PLUGINS: readonly CapabilityPlugin[] = [
   filesystemListPlugin,
-  documentExtractPdfPlugin,
   readDocumentPlugin,
   fileSearchPlugin,
   fileReadPlugin,

@@ -29,7 +29,7 @@ def test_workflow_state_recording_and_parameter_resolution():
     # 模拟步骤 2：依赖步骤 1 产出的路径
     step2 = WorkflowStep(
         id="extract_text",
-        capability="document_extract_pdf",
+        capability="read_document",
         description="提取 PDF 内容",
         resolve_args=lambda s: {
             "path": s.get_result("list_files")["entries"][0]["path"]

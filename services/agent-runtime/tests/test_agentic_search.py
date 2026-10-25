@@ -76,7 +76,7 @@ def test_query_loop_detector_integration():
     detector = QueryLoopDetector(threshold=0.8, window_size=3)
 
     # 非检索能力不受检查
-    is_loop, _ = detector.check_and_record("document_extract_pdf", "dummy")
+    is_loop, _ = detector.check_and_record("read_document", "dummy")
     assert is_loop is False
 
     # 首次正常检索

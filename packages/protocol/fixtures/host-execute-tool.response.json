@@ -3,14 +3,21 @@
   "id": "call-1",
   "result": {
     "ok": true,
+    "path": "D:/Users/demo/Workspace/report-2026.pdf",
+    "totalPages": 2,
+    "returnedPages": 2,
+    "hasMore": false,
+    "nextPage": null,
     "pages": [
       {
         "pageNumber": 1,
-        "text": "PersonalAgent fixture page one"
+        "text": "PersonalAgent fixture page one",
+        "truncated": false
       },
       {
         "pageNumber": 2,
-        "text": "PersonalAgent fixture page two"
+        "text": "PersonalAgent fixture page two",
+        "truncated": false
       }
     ]
   }

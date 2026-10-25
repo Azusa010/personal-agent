@@ -9,7 +9,7 @@
   {
     "kind": "tool_call",
     "callId": "c-2",
-    "capability": "document_extract_pdf",
+    "capability": "read_document",
     "arguments": { "path": "{{DOWNLOADS_ROOT}}/three-page-text.pdf" },
     "thinking": "挑中了 three-page-text.pdf，先把每页文本提出来——后面写摘要要用真实页码。"
   },

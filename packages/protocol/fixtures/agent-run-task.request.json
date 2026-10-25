@@ -7,7 +7,7 @@
     "goal": "整理下载目录里的 PDF 并给出摘要",
     "plan": [
       { "description": "列出工作区下的 PDF", "capability": "filesystem_list" },
-      { "description": "提取目标 PDF 的每页文本", "capability": "document_extract_pdf" },
+      { "description": "提取目标 PDF 的每页文本", "capability": "read_document" },
       { "description": "在工作区下创建 Reading 目录", "capability": "filesystem_create_dir" },
       { "description": "把选中的 PDF 移到 Reading", "capability": "filesystem_move" },
       { "description": "创建一次性阅读提醒", "capability": "scheduler_create" },

@@ -224,7 +224,7 @@ flowchart TB
 | -------------- | --------------------------------------------------- | --------------------------------------------- |
 | **文件系统**   | `fs.list_directory` `fs.create_directory` `fs.move` | 目录浏览、创建、移动/重命名                   |
 | **文件读写**   | `file_read` `file_write` `file_edit` `file_search`  | 全文件 CRUD + 结构化搜索                      |
-| **文档处理**   | `document.extract_pdf` `read_document`              | PDF 文本提取、多格式文档阅读                  |
+| **文档处理**   | `read_document`                                     | 多格式统一文档读取（PDF 逐页文本、分页与截断） |
 | **代码执行**   | `code_interpreter` `terminal_execute`               | Python 沙箱代码执行、终端命令行（会话级 cwd） |
 | **知识检索**   | `knowledge_search` `user_memory_search`             | 向量语义检索 + 关键词全文检索 + 用户记忆      |
 | **维基存储**   | `viking_read_l0/l1/l2` `viking_write_l2`            | 三层维基抽象（摘要/概览/全文）读写            |

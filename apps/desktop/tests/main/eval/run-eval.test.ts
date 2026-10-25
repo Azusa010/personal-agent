@@ -106,7 +106,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))(
       ).length
 
       expect(report.metrics.tools.byCapability).toEqual({
-        document_extract_pdf: report.cases.length,
+        read_document: report.cases.length,
         filesystem_list: report.cases.length,
         // 写链路 case 才有：批准、移动、建 Reminder 是三条真 WRITE（真批准记录）
         ...(statefulCount > 0
@@ -210,7 +210,7 @@ describe('capabilitiesFor 能力分派契约', () => {
     const caps = capabilitiesFor({ ...baseCase, type: 'pdf_summary' })
     const names = caps.map((c) => c.name)
     expect(names).toContain('filesystem_list')
-    expect(names).toContain('document_extract_pdf')
+    expect(names).toContain('read_document')
     expect(names).not.toContain('filesystem_move')
     expect(names).not.toContain('scheduler_create')
   })

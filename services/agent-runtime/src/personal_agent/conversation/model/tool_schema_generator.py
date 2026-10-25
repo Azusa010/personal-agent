@@ -19,7 +19,6 @@ from personal_agent.protocol.models import (
     A2UIRenderParams,
     CapabilityId,
     CodeInterpreterParams,
-    DocumentExtractPdfParams,
     FileEditParams,
     FileReadParams,
     FileSearchParams,
@@ -45,7 +44,6 @@ from personal_agent.protocol.models import (
 # 能力与入参 Pydantic 模型映射
 TOOL_PARAM_MODELS: dict[str, type[BaseModel]] = {
     "filesystem_list": FilesystemListParams,
-    "document_extract_pdf": DocumentExtractPdfParams,
     "read_document": ReadDocumentParams,
     "filesystem_create_dir": FilesystemCreateDirParams,
     "filesystem_move": FilesystemMoveParams,
@@ -90,7 +88,6 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
     "a2ui_render": "向桌面客户端推送受信任的 A2UI 声明式组件树进行安全渲染与交互",
     "web_search": "使用 Tavily 搜索引擎在互联网上实时检索最新网页资讯与事实答案",
     "filesystem_list": "列出指定授权根目录下的文件与子目录条目",
-    "document_extract_pdf": "解析并提取 PDF 文件的逐页文本与页码",
     "read_document": "多格式统一文档读取器，支持分页、文本截断控制与结构化提取 (PDF/Word/Markdown/Text)",
     "filesystem_create_dir": "在授权根目录下创建新目录",
     "filesystem_move": "在授权根内移动或重命名文件/目录",
@@ -121,8 +118,8 @@ PROPERTY_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "rootId": "授权根标识，workspace",
         "path": "可选子目录路径（相对路径或绝对路径），不传则列出根目录",
     },
-    "document_extract_pdf": {
-        "path": "目标 PDF 文件的绝对路径",
+    "read_document": {
+        "path": "文档相对路径或绝对路径",
     },
     "filesystem_create_dir": {
         "path": "目标目录绝对路径",

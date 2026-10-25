@@ -82,11 +82,11 @@ def test_live_model_render_messages_mounts_progress_document():
     doc_text = f"{DOCUMENT_OPEN_TAG}\n# 认知工作台\n- [2024年5月] Ilya Sutskever 离开 OpenAI\n{DOCUMENT_CLOSE_TAG}"
     ctx = ModelContext(
         taskGoal="高管调查",
-        visibleCapabilities=["document_extract_pdf"],
+        visibleCapabilities=["read_document"],
         observations=[
             Observation(
                 callId="call-10",
-                capability="document_extract_pdf",
+                capability="read_document",
                 ok=True,
                 payload={"summary": "提取到离职信息", "distilled": True},
                 arguments={"path": "a.pdf"},

@@ -24,7 +24,7 @@ from personal_agent.conversation.model.gateway import (
     UsageReporting,
 )
 from personal_agent.conversation.verification.summary import (
-    EXTRACT_PDF_CAPABILITY,
+    READ_DOCUMENT_CAPABILITY,
     SummaryRejected,
     collect_extracted_pages,
     verify_summary,
@@ -217,7 +217,7 @@ class AgentEngine:
         页码允许缺席；但只要给了页码，仍然必须真实（见 summary.verify_summary）。
         """
         return any(
-            step.capability == EXTRACT_PDF_CAPABILITY for step in self._context.plan
+            step.capability == READ_DOCUMENT_CAPABILITY for step in self._context.plan
         )
 
     def _execute(self, decision: ToolCallDecision) -> Observation:

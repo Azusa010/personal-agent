@@ -111,7 +111,7 @@ def clean_plan(
                 f"（可用：{'、'.join(sorted(visible)) or '无'}）"
             )
         # 单次只读提取保护：若计划中已规划过文档提取能力，后续重复出现的同类提取步骤作为无需工具的核验/分析步骤
-        if step.capability in ("document_extract_pdf", "read_document"):
+        if step.capability == "read_document":
             if step.capability in seen_caps:
                 step = PlanStep(description=step.description, capability=None)
             else:

@@ -83,7 +83,7 @@ const MUST_NOT_TOUCH: ReadonlySet<FaultScenario> = new Set<FaultScenario>([
  *
  * | 场景 | 终态 | 授权根 | 必须留下的证据 |
  * |------|------|--------|----------------|
- * | pdf-unreadable | failed | untouched | failedToolCalls 含 document_extract_pdf；没有任何权限记录（没走到 WRITE）；failureReason 非空 |
+ * | pdf-unreadable | failed | untouched | failedToolCalls 含 read_document；没有任何权限记录（没走到 WRITE）；failureReason 非空 |
  * | permission-denied | failed | untouched | permissions 里至少一条 denied；没有 approved 的 WRITE |
  * | python-crashed | failed | untouched | failureCode 是 RUNTIME_CRASHED；权限停在 pending（批准窗口没关，重启后由过期投影收） |
  * | out-of-plan-call | completed | moved | failedToolCalls 含那条计划外调用（filesystem_move）；三条 WRITE 都有 approved |
@@ -144,7 +144,7 @@ export function judgeFault(scenario: FaultScenario, outcome: FaultOutcome): Faul
   switch (scenario) {
     case 'pdf-unreadable': {
       expectStatus('failed')
-      require_(outcome.failedToolCalls.includes('document_extract_pdf'), '应当留下一次提取失败')
+      require_(outcome.failedToolCalls.includes('read_document'), '应当留下一次提取失败')
       require_(outcome.permissions.length === 0, '走到 WRITE 之前就该停，不该有权限记录')
       break
     }

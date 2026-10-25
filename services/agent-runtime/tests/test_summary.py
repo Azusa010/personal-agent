@@ -11,7 +11,7 @@ import pytest
 from personal_agent.model_gateway import Observation
 from personal_agent.protocol.models import SummaryFact
 from personal_agent.summary import (
-    EXTRACT_PDF_CAPABILITY,
+    READ_DOCUMENT_CAPABILITY,
     RetrievedEvidence,
     SummaryRejected,
     collect_extracted_pages,
@@ -20,7 +20,7 @@ from personal_agent.summary import (
 )
 
 
-def obs(capability=EXTRACT_PDF_CAPABILITY, ok=True, payload=None):
+def obs(capability=READ_DOCUMENT_CAPABILITY, ok=True, payload=None):
     return Observation(
         callId="c-1",
         capability=capability,
@@ -30,7 +30,7 @@ def obs(capability=EXTRACT_PDF_CAPABILITY, ok=True, payload=None):
 
 
 def pdf_obs(*page_numbers):
-    """一次成功的 extract_pdf，pages 形状与 host 侧 DocumentExtractPdfResult 一致。"""
+    """一次成功的 extract_pdf，pages 形状与 host 侧 read_document 的 outcome 一致。"""
     return obs(
         payload={
             "pages": [{"pageNumber": n, "text": f"第 {n} 页正文"} for n in page_numbers]

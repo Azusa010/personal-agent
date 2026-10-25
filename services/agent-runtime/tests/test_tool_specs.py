@@ -59,7 +59,7 @@ def test_render_input_and_plan_input_only_render_visible_subset():
     rendered_executor = render_input(ctx)
     assert "terminal_execute" in rendered_executor
     assert "filesystem_list" not in rendered_executor
-    assert "document_extract_pdf" not in rendered_executor
+    assert "read_document" not in rendered_executor
 
     rendered_planner = render_plan_input("查看当前系统负载", ["terminal_execute"])
     assert "terminal_execute" in rendered_planner

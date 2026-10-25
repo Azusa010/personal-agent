@@ -22,8 +22,6 @@ from personal_agent.protocol.models import (
     CircuitBreakerEvent,
     CodeInterpreterParams,
     CodeInterpreterResult,
-    DocumentExtractPdfParams,
-    DocumentExtractPdfResult,
     FileEditParams,
     FileEditResult,
     FileReadParams,
@@ -162,7 +160,7 @@ def _pick(raw: dict, path: str):
         (
             "host-execute-tool.request.json",
             HostExecuteToolRequest,
-            DocumentExtractPdfParams,
+            ReadDocumentParams,
             "params.arguments",
         ),
         # 两个 WRITE 能力的 request 钉 arguments 双端一致，response 钉 TASK-020
@@ -551,7 +549,7 @@ def _pick(raw: dict, path: str):
         (
             "host-execute-tool.response.json",
             HostExecuteToolResponse,
-            DocumentExtractPdfResult,
+            ReadDocumentResult,
             "result",
         ),
         # 业务失败（PDF 损坏等）走 result 不走 error，形状由 CapabilityFailure 钉。
@@ -1077,7 +1075,7 @@ def test_make_plan_response_dumps_without_a_null_capability():
                     ),
                     PlanStepDto(
                         description="提取目标 PDF 的每页文本",
-                        capability="document_extract_pdf",
+                        capability="read_document",
                     ),
                     PlanStepDto(description=SUMMARY_STEP_DESCRIPTION),
                 ]

@@ -29,8 +29,6 @@ import {
   CapabilityExposure,
 } from "../schemas/host.js";
 import {
-  DocumentExtractPdfParams,
-  DocumentExtractPdfResult,
   ReadDocumentParams,
   ReadDocumentResult,
 } from "../schemas/document.js";
@@ -175,7 +173,7 @@ const legalCases = [
   {
     file: "host-execute-tool.request.json",
     envelope: HostExecuteToolRequest,
-    payload: DocumentExtractPdfParams,
+    payload: ReadDocumentParams,
     field: "params.arguments",
   },
   // 两个 WRITE 能力的 request 钉 arguments 双端一致（字段名写错 source/target
@@ -564,7 +562,7 @@ const legalCases = [
   {
     file: "host-execute-tool.response.json",
     envelope: HostExecuteToolResponse,
-    payload: DocumentExtractPdfResult,
+    payload: ReadDocumentResult,
     field: "result",
   },
   // 业务失败（PDF 损坏等）走 result 不走 error，形状由 CapabilityFailure 钉。

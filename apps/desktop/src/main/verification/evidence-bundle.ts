@@ -1,4 +1,4 @@
-import { CapabilityId, EXTRACT_PDF_CAPABILITY, type SummaryFact } from '@personal-agent/protocol'
+import { CapabilityId, READ_DOCUMENT_CAPABILITY, type SummaryFact } from '@personal-agent/protocol'
 
 import type {
   ExecutionEventRecord,
@@ -42,7 +42,7 @@ export const TOOL_RESULT_EVENT = 'tool_result'
  * `CapabilityId.enum[...]` 的值就是能力名字面量本身——名字漂了在编译期报错，
  * 而不是在运行时静默变成「查不到证据」。
  */
-export { EXTRACT_PDF_CAPABILITY }
+export { READ_DOCUMENT_CAPABILITY }
 
 /** filesystem_move 的能力名。同一条派生规则，不在本文件写第二份字面量。 */
 const MOVE_CAPABILITY = CapabilityId.enum['filesystem_move']
@@ -148,7 +148,7 @@ export interface CollectedEvidence {
   /** summary 里出现过的页码，去重升序 */
   reply: string | null
   pageReferences: number[]
-  /** 摘要依据的那份 PDF：时间线里最后一次成功的 document_extract_pdf 的入参路径 */
+  /** 摘要依据的那份 PDF：时间线里最后一次成功的 read_document 的入参路径 */
   selectedPdf: string | null
   /** selectedPdf 解析到授权根内的真实路径；被移动过则取移动后的位置 */
   resolvedPdfPath: string | null
@@ -278,7 +278,7 @@ export function collectToolResults(events: ExecutionEventRecord[]): ToolCallEvid
 /**
  * 摘要依据的那份 PDF 是哪个（业务主逻辑）。
  *
- * 规则：**最后一次成功的** document_extract_pdf 调用的入参路径。
+ * 规则：**最后一次成功的** read_document 调用的入参路径。
  *  - 「成功」= 该 callId 有 tool_result 且 ok === true；失败的那次不算数，
  *    它引用的页集合根本不存在；
  *  - 多次提取时取最后一次：后一次提取会覆盖前一次的页集合，摘要依据的是它；
@@ -289,10 +289,7 @@ export function lastExtractedPath(events: ExecutionEventRecord[]): string | null
   const succeeded = new Set(
     collectToolResults(events)
       .filter(
-        (r) =>
-          (r.capability === EXTRACT_PDF_CAPABILITY || r.capability === 'read_document') &&
-          r.ok &&
-          r.hasResult
+        (r) => r.capability === READ_DOCUMENT_CAPABILITY && r.ok && r.hasResult
       )
       .map((r) => r.callId)
   )
@@ -441,7 +438,7 @@ async function collectPdfPages(
   const selectedPdf = lastExtractedPath(events)
   if (selectedPdf === null) {
     if (planHasExtractPdf) {
-      gaps.push('时间线里没有成功的 document_extract_pdf 调用，拿不到摘要依据的 PDF')
+      gaps.push('时间线里没有成功的 read_document 调用，拿不到摘要依据的 PDF')
     }
     return {
       selectedPdf: null,
@@ -524,7 +521,7 @@ export async function collectEvidence(
   }
 
   const hasExtractPdf = (state.plan?.steps ?? []).some(
-    (step) => step.capability === 'document_extract_pdf' || step.capability === 'read_document'
+    (step) => step.capability === READ_DOCUMENT_CAPABILITY
   )
 
   const moves = await collectMoveEvidence(state.executions, deps, gaps)

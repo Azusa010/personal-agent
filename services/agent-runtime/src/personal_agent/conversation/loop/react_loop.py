@@ -52,7 +52,7 @@ from personal_agent.conversation.sidecar import (
     evaluate_sidecar_gate,
 )
 from personal_agent.conversation.verification.summary import (
-    EXTRACT_PDF_CAPABILITY,
+    READ_DOCUMENT_CAPABILITY,
     SummaryRejected,
     collect_retrieved_evidence,
     verify_summary,
@@ -910,6 +910,5 @@ class ReActLoop:
         页码允许缺席；但只要给了页码，仍然必须真实（见 summary.verify_summary）。
         """
         return any(
-            step.capability in (EXTRACT_PDF_CAPABILITY, "read_document")
-            for step in self._context.plan
+            step.capability == READ_DOCUMENT_CAPABILITY for step in self._context.plan
         )

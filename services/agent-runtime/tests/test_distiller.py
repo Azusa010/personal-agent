@@ -96,7 +96,7 @@ def test_distiller_deep_knowledge_distillation_with_client():
     distiller = ObservationDistiller(model="mock-distill-model", client=mock_client)
     obs = Observation(
         callId="call-pdf-1",
-        capability="document_extract_pdf",
+        capability="read_document",
         ok=True,
         payload={"text": "详细报告：Ilya Sutskever 于 2024 年 5 月离开 OpenAI 公司..."},
     )

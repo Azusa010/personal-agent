@@ -43,12 +43,12 @@ def test_golden_path_missing_required_read_capabilities_raises_error():
 def test_golden_path_read_only_mode():
     # 只读模式：只给两个读能力，只生成 2 步
     wf = build_golden_path_workflow(
-        visible_capabilities=["filesystem_list", "document_extract_pdf"]
+        visible_capabilities=["filesystem_list", "read_document"]
     )
     assert len(wf.steps) == 2
     assert [s.capability for s in wf.steps] == [
         "filesystem_list",
-        "document_extract_pdf",
+        "read_document",
     ]
 
     channel = FakeHostChannel(
@@ -84,7 +84,7 @@ def test_golden_path_full_five_steps():
     # 完整模式：5 个能力全给，跑满 5 步
     all_caps = [
         "filesystem_list",
-        "document_extract_pdf",
+        "read_document",
         "filesystem_create_dir",
         "filesystem_move",
         "scheduler_create",

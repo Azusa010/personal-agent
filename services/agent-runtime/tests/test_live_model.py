@@ -39,7 +39,7 @@ from personal_agent.model_gateway import (
 )
 from personal_agent.protocol.models import CapabilityId, PlanStepDto, ProfileDto, Turn
 
-VISIBLE = ["filesystem_list", "document_extract_pdf"]
+VISIBLE = ["filesystem_list", "read_document"]
 
 
 class FakeUsage:
@@ -300,7 +300,7 @@ def test_render_messages_full_structure():
             ),
             Observation(
                 callId="call-2",
-                capability="document_extract_pdf",
+                capability="read_document",
                 ok=False,
                 payload={"code": "PDF_UNREADABLE", "reason": "损坏"},
                 arguments={"path": "/docs/a.pdf"},
@@ -360,7 +360,7 @@ def test_render_input_lists_goal_capabilities_and_observations():
                 ),
                 Observation(
                     callId="call-2",
-                    capability="document_extract_pdf",
+                    capability="read_document",
                     ok=False,
                     payload={"code": "PDF_UNREADABLE", "reason": "坏了"},
                 ),
@@ -370,7 +370,7 @@ def test_render_input_lists_goal_capabilities_and_observations():
 
     assert "整理工作区里的 PDF" in rendered
     assert "- filesystem_list: " in rendered
-    assert "- document_extract_pdf: " in rendered
+    assert "- read_document: " in rendered
     assert "call-1" in rendered and "a.pdf" in rendered
     assert "ok=False" in rendered and "PDF_UNREADABLE" in rendered
     assert "坏了" in rendered
@@ -474,7 +474,7 @@ def test_usage_snapshot_accumulates_across_calls():
     client = FakeClient(
         [
             FakeResponse(tool_call_json("call-1"), FakeUsage(10, 2)),
-            FakeResponse(tool_call_json("call-2", capability="document_extract_pdf"), FakeUsage(20, 5)),
+            FakeResponse(tool_call_json("call-2", capability="read_document"), FakeUsage(20, 5)),
             FakeResponse(summary_json(), FakeUsage(30, 8)),
         ]
     )

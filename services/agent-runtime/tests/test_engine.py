@@ -49,7 +49,7 @@ from personal_agent.protocol.models import (
 )
 from personal_agent.scripted_model import ScriptedModel
 
-VISIBLE = ["filesystem_list", "document_extract_pdf"]
+VISIBLE = ["filesystem_list", "read_document"]
 
 
 class FakeChannel:
@@ -103,7 +103,7 @@ def golden_path():
         ToolCallDecision(
             kind="tool_call",
             callId="c-2",
-            capability="document_extract_pdf",
+            capability="read_document",
             arguments={"path": "D:/workspace/a.pdf"},
         ),
         SummaryDecision(
@@ -207,7 +207,7 @@ def test_execute_ok_false_keeps_code_and_reason():
         "reason": "路径不在授权根目录内",
     }
     engine, _, _, _ = make_engine([failure], [])
-    obs = engine._execute(tool_call(capability="document_extract_pdf", path="../x"))
+    obs = engine._execute(tool_call(capability="read_document", path="../x"))
     assert obs.ok is False
     assert obs.payload["code"] == "PATH_OUT_OF_ROOT"
     assert obs.payload["reason"] == "路径不在授权根目录内"
@@ -235,9 +235,9 @@ def test_execute_uses_decision_call_id():
 def test_execute_preserves_capability_and_arguments():
     engine, _, channel, _ = make_engine([pdf_result()], [])
     engine._execute(
-        tool_call(call_id="c-2", capability="document_extract_pdf", path="D:/a.pdf")
+        tool_call(call_id="c-2", capability="read_document", path="D:/a.pdf")
     )
-    assert channel.calls[0].capability == "document_extract_pdf"
+    assert channel.calls[0].capability == "read_document"
     assert channel.calls[0].arguments == {"path": "D:/a.pdf"}
 
 
@@ -269,7 +269,7 @@ def test_run_rejects_page_ref_that_was_never_extracted():
         [
             tool_call(call_id="c-1"),
             tool_call(
-                call_id="c-2", capability="document_extract_pdf", path="D:/a.pdf"
+                call_id="c-2", capability="read_document", path="D:/a.pdf"
             ),
             SummaryDecision(
                 kind="summary",
@@ -306,7 +306,7 @@ def test_run_failed_extract_contributes_no_pages():
         [{"ok": False, "code": "FILE_UNREADABLE", "reason": "PDF 已加密"}],
         [
             tool_call(
-                call_id="c-1", capability="document_extract_pdf", path="D:/bad.pdf"
+                call_id="c-1", capability="read_document", path="D:/bad.pdf"
             ),
             SummaryDecision(
                 kind="summary", reply="已完成", facts=[{"text": "结论", "pageRefs": [1]}]
@@ -326,10 +326,10 @@ def test_run_accepts_page_ref_from_a_second_extract():
         ],
         [
             tool_call(
-                call_id="c-1", capability="document_extract_pdf", path="D:/a.pdf"
+                call_id="c-1", capability="read_document", path="D:/a.pdf"
             ),
             tool_call(
-                call_id="c-2", capability="document_extract_pdf", path="D:/b.pdf"
+                call_id="c-2", capability="read_document", path="D:/b.pdf"
             ),
             SummaryDecision(
                 kind="summary", reply="已完成", facts=[{"text": "结论", "pageRefs": [4]}]
@@ -430,7 +430,7 @@ def test_run_task_completed_payload_carries_every_fact_not_just_the_first():
         ToolCallDecision(
             kind="tool_call",
             callId="c-2",
-            capability="document_extract_pdf",
+            capability="read_document",
             arguments={"path": "D:/workspace/a.pdf"},
         ),
         SummaryDecision(
@@ -615,7 +615,7 @@ def test_run_truncates_before_feeding_model():
         [pdf_result(text="x" * 5000)],
         [
             tool_call(
-                call_id="c-1", capability="document_extract_pdf", path="D:/a.pdf"
+                call_id="c-1", capability="read_document", path="D:/a.pdf"
             ),
             SummaryDecision(
                 kind="summary", reply="已完成", facts=[{"text": "摘要", "pageRefs": [1]}]
@@ -639,10 +639,10 @@ def test_run_ok_false_is_fed_back_and_loop_continues():
         ],
         [
             tool_call(
-                call_id="c-1", capability="document_extract_pdf", path="D:/bad.pdf"
+                call_id="c-1", capability="read_document", path="D:/bad.pdf"
             ),
             tool_call(
-                call_id="c-2", capability="document_extract_pdf", path="D:/a.pdf"
+                call_id="c-2", capability="read_document", path="D:/a.pdf"
             ),
             SummaryDecision(
                 kind="summary", reply="已完成", facts=[{"text": "摘要", "pageRefs": [1]}]
@@ -755,7 +755,7 @@ def test_run_immediate_summary_with_extract_promised_fails():
         [],
         [SummaryDecision(kind="summary", reply="已完成", facts=[])],
         plan=[
-            PlanStepDto(description="提取目标 PDF", capability="document_extract_pdf")
+            PlanStepDto(description="提取目标 PDF", capability="read_document")
         ],
     )
     outcome = engine.run("g", VISIBLE)

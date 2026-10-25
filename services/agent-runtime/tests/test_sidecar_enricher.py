@@ -201,7 +201,7 @@ def test_compact_and_persist_fallback_when_no_llm(tmp_path: Path):
     long_text = "ERR_LOG_" * 300
     obs = Observation(
         callId="call-fallback-2",
-        capability="document_extract_pdf",
+        capability="read_document",
         ok=False,
         payload={"error": long_text},
         arguments={"path": "corrupt.pdf"},

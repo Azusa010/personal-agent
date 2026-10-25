@@ -51,7 +51,7 @@ const SMOKE_PAGES = [1, 2, 3].map((pageNumber) => ({
 
 const SMOKE_PLAN: PlanStepDto[] = [
   { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },
-  { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
+  { description: '提取目标 PDF 的每页文本', capability: 'read_document' },
   { description: '在 Downloads 下创建 Reading 目录', capability: 'filesystem_create_dir' },
   { description: '把选中的 PDF 移到 Reading', capability: 'filesystem_move' },
   { description: '创建一次性阅读提醒', capability: 'scheduler_create' },
@@ -96,7 +96,7 @@ const hostHandler: HostHandler = async (params) => {
           }
         ]
       }
-    case 'document_extract_pdf':
+    case 'read_document':
       return { ok: true, pages: SMOKE_PAGES }
     default:
       return {
@@ -180,7 +180,7 @@ describe.skipIf(!existsSync(PACKAGED_EXE))('打包冒烟：冻结产物作为运
         diagnostic()
       ).toEqual([
         'filesystem_list',
-        'document_extract_pdf',
+        'read_document',
         'filesystem_create_dir',
         'filesystem_move',
         'scheduler_create'

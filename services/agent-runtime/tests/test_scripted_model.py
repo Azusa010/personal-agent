@@ -26,7 +26,7 @@ def golden_path() -> list:
         ToolCallDecision(
             kind="tool_call",
             callId="c-2",
-            capability="document_extract_pdf",
+            capability="read_document",
             arguments={"path": "D:/workspace/a.pdf"},
         ),
         SummaryDecision(
@@ -38,7 +38,7 @@ def golden_path() -> list:
 def ctx() -> ModelContext:
     return ModelContext(
         taskGoal="整理工作区里的 PDF",
-        visibleCapabilities=["filesystem_list", "document_extract_pdf"],
+        visibleCapabilities=["filesystem_list", "read_document"],
     )
 
 

@@ -50,7 +50,7 @@ from personal_agent.react_loop import ReActLoop, ReActOutcome
 from personal_agent.scripted_model import ScriptedModel
 from personal_agent.shared.host_channel import HostRequestFailed
 
-VISIBLE = ["filesystem_list", "document_extract_pdf"]
+VISIBLE = ["filesystem_list", "read_document"]
 
 
 class FakeChannel:

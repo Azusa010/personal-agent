@@ -9,20 +9,17 @@ import {
 } from 'pdfjs-dist/legacy/build/pdf.mjs'
 
 import {
-  DocumentExtractPdfParams,
   ERROR_CODE,
   ReadDocumentParams,
   type DocumentFileType,
   type DocumentPage,
-  type PageText,
   type ReadDocumentOutcome
 } from '@personal-agent/protocol'
 
 import { resolvePathReal } from '../path-guard'
 import { resolveRoot } from '../roots'
-import { defineBinder } from '../binder'
 import type { CapabilityPlugin } from '../plugin'
-import { describeError, fail, invalid } from './helpers'
+import { invalid } from './helpers'
 
 // ==========================================
 // 1. PDF 提取核心执行体与助手函数
@@ -34,8 +31,10 @@ function toUint8(buf: Buffer | Uint8Array): Uint8Array {
 
 export type PdfErrorCode = 'PDF_EMPTY' | 'PDF_CORRUPT' | 'PDF_ENCRYPTED' | 'PDF_NO_TEXT'
 
+export type PdfPage = { pageNumber: number; text: string }
+
 export type PdfExtractionResult =
-  | { ok: true; pages: PageText[] }
+  | { ok: true; pages: PdfPage[] }
   | { ok: false; code: PdfErrorCode; reason: string }
 
 const nodeRequire = createRequire(import.meta.url)
@@ -61,7 +60,7 @@ export async function extractPdf(data: Uint8Array): Promise<PdfExtractionResult>
     })
     const doc = await task.promise
 
-    const pages: PageText[] = []
+    const pages: PdfPage[] = []
     for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber++) {
       const page = await doc.getPage(pageNumber)
       const content = await page.getTextContent()
@@ -274,31 +273,5 @@ export const readDocumentPlugin: CapabilityPlugin = {
           : undefined
     }
     return readDocument(abs, options)
-  }
-}
-
-export const documentExtractPdfPlugin: CapabilityPlugin = {
-  name: 'document_extract_pdf',
-  descriptor: {
-    name: 'document_extract_pdf',
-    kind: 'READ',
-    description: '提取 PDF 每页文本与页码'
-  },
-  bindArguments: defineBinder('document_extract_pdf', DocumentExtractPdfParams, [
-    { field: 'path' }
-  ]),
-  async execute(call) {
-    const abs = call.bound.paths['path']
-    let raw: Buffer
-    try {
-      raw = await readFile(abs)
-    } catch (e) {
-      return fail(ERROR_CODE.FILE_UNREADABLE, `读取失败 (${describeError(e)}): ${abs}`)
-    }
-    try {
-      return await extractPdf(raw)
-    } catch (e) {
-      return fail(ERROR_CODE.PDF_EXTRACTION_FAILED, `PDF 解析失败 (${describeError(e)}): ${abs}`)
-    }
   }
 }

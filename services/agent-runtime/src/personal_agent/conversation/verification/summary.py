@@ -16,7 +16,7 @@ from pydantic import ValidationError
 from personal_agent.model_gateway import Observation
 from personal_agent.protocol.models import SummaryFact
 
-EXTRACT_PDF_CAPABILITY = "document_extract_pdf"
+READ_DOCUMENT_CAPABILITY = "read_document"
 KNOWLEDGE_SEARCH_CAPABILITY = "knowledge_search"
 USER_MEMORY_SEARCH_CAPABILITY = "user_memory_search"
 VIKING_READ_CAPABILITIES = frozenset(
@@ -101,10 +101,7 @@ class SummaryRejected(Exception):
 def collect_extracted_pages(observations: Sequence[Observation]) -> frozenset[int]:
     collected: set[int] = set()
     for observation in observations:
-        if (
-            observation.capability not in (EXTRACT_PDF_CAPABILITY, "read_document")
-            or not observation.ok
-        ):
+        if observation.capability != READ_DOCUMENT_CAPABILITY or not observation.ok:
             continue
         raw_pages = observation.payload.get("pages")
         if not isinstance(raw_pages, list):

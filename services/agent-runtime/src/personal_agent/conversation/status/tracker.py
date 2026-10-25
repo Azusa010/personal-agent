@@ -58,7 +58,7 @@ class ToolCallTracker:
         """生成符合契约的工具调用标注字符串。
 
         格式规范：\"Tool call #<N> for '<tool_name>'\"
-        示例：\"Tool call #3 for 'document_extract_pdf'\"
+        示例：\"Tool call #3 for 'read_document'\"
         """
         if not tool_name or tool_name.strip() == "":
             raise ValueError("tool_name 不能为空")

@@ -52,7 +52,7 @@ function makeResult(over: Partial<EvalCaseResult> = {}): EvalCaseResult {
     status: 'completed',
     latencyMs: 42.5,
     verdict: VERDICT,
-    toolCalls: ['filesystem_list', 'document_extract_pdf'],
+    toolCalls: ['filesystem_list', 'read_document'],
     failedToolCalls: 0,
     budgetExhausted: false,
     verificationOk: true,

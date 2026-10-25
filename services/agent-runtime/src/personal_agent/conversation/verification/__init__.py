@@ -1,7 +1,7 @@
 """conversation.verification —— 模型输出校验与反幻觉保障。"""
 
 from personal_agent.conversation.verification.summary import (
-    EXTRACT_PDF_CAPABILITY,
+    READ_DOCUMENT_CAPABILITY,
     RetrievedEvidence,
     SummaryRejected,
     collect_extracted_pages,
@@ -10,7 +10,7 @@ from personal_agent.conversation.verification.summary import (
 )
 
 __all__ = [
-    "EXTRACT_PDF_CAPABILITY",
+    "READ_DOCUMENT_CAPABILITY",
     "RetrievedEvidence",
     "SummaryRejected",
     "collect_extracted_pages",

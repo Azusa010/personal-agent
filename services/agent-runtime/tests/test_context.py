@@ -19,7 +19,7 @@ from personal_agent.model_gateway import Observation
 from personal_agent.protocol.models import PlanStepDto, Turn
 
 
-def obs(call_id="call-1", capability="document_extract_pdf", ok=True, payload=None):
+def obs(call_id="call-1", capability="read_document", ok=True, payload=None):
     return Observation(
         callId=call_id,
         capability=capability,
@@ -29,7 +29,7 @@ def obs(call_id="call-1", capability="document_extract_pdf", ok=True, payload=No
 
 
 def pages(*texts):
-    """document_extract_pdf 的 payload 形状。
+    """read_document 的 payload 形状。
 
     ok 不在这里：engine 会把它提成 Observation.ok，payload 只装数据。
     """
@@ -94,7 +94,7 @@ def test_truncate_leaves_identifier_fields_alone():
     # code / name / absolutePath 是模型下一步要原样回传的标识符。
     # 截断 PATH_OUT_OF_ROOT 会变成 PATH_OUT_O…[truncated]，模型认不出这是
     # 哪个错误码，GUD-005 的「稳定 error code」也就不成立。
-    # absolutePath 更直接：Golden Path 第二步要拿它当 document_extract_pdf
+    # absolutePath 更直接：Golden Path 第二步要拿它当 read_document
     # 的 path，截断过的路径必然打不开文件。
     src = {
         "code": "PATH_OUT_OF_ROOT",
@@ -167,12 +167,12 @@ def test_limit_is_configurable_per_instance():
 def test_record_keeps_order():
     m = ContextManager()
     m.record(obs("call-1", "filesystem_list", payload={"entries": []}))
-    m.record(obs("call-2", "document_extract_pdf", payload=pages("x")))
+    m.record(obs("call-2", "read_document", payload=pages("x")))
 
     assert [o.callId for o in m.observations] == ["call-1", "call-2"]
     assert [o.capability for o in m.observations] == [
         "filesystem_list",
-        "document_extract_pdf",
+        "read_document",
     ]
 
 
@@ -201,11 +201,11 @@ def test_observations_is_readonly_snapshot():
 def test_build_passes_goal_and_capabilities_through():
     m = ContextManager()
     ctx = m.build(
-        "整理工作区里的 PDF", ["filesystem_list", "document_extract_pdf"]
+        "整理工作区里的 PDF", ["filesystem_list", "read_document"]
     )
 
     assert ctx.taskGoal == "整理工作区里的 PDF"
-    assert ctx.visibleCapabilities == ["filesystem_list", "document_extract_pdf"]
+    assert ctx.visibleCapabilities == ["filesystem_list", "read_document"]
 
 
 def test_build_with_empty_history():

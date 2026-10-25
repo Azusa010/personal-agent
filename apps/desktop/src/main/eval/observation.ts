@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { extractPdf } from '../capabilities/plugins/document'
 import type { EventRepository } from '../product-state/event-repository'
 import type { TaskRepository } from '../product-state/task-repository'
-import { EXTRACT_PDF_CAPABILITY, SummaryFact } from '@personal-agent/protocol'
+import { SummaryFact } from '@personal-agent/protocol'
 import type { CaseObservation, CaseToolCall } from './judge'
 
 /**
@@ -77,7 +77,7 @@ export async function collectObservation(
   const toolCalls = collectToolCalls(events)
   const extractedPaths = toolCalls
     .filter(
-      (call) => call.capability === EXTRACT_PDF_CAPABILITY || call.capability === 'read_document'
+      (call) => call.capability === 'read_document'
     )
     .map((call) => call.arguments['path'])
     .filter((path): path is string => typeof path === 'string')

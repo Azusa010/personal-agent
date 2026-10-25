@@ -94,7 +94,6 @@ HOST_CALL_ID_PATTERN = r"^call-[0-9]+$"
 
 CapabilityId = Literal[
     "filesystem_list",
-    "document_extract_pdf",
     "read_document",
     "filesystem_create_dir",
     "filesystem_move",
@@ -155,25 +154,6 @@ class CapabilityFailure(ProtocolModel):
     ok: Literal[False]
     code: str
     reason: str
-
-
-class PageText(ProtocolModel):
-    pageNumber: int = Field(ge=1)
-    text: str
-
-
-class DocumentExtractPdfParams(ProtocolModel):
-    path: str = Field(min_length=1)
-
-
-class DocumentExtractPdfResult(ProtocolModel):
-    ok: Literal[True]
-    pages: list[PageText]
-
-
-DocumentExtractPdfOutcome = Annotated[
-    DocumentExtractPdfResult | CapabilityFailure, Field(discriminator="ok")
-]
 
 
 # ---- read_document 统一文档读取规范 ----
@@ -242,7 +222,7 @@ class SchedulerCreateParams(ProtocolModel):
     """remindAt 是模型把「今晚」解析后的具体时间（ISO-8601），message 是通知正文。
 
     契约层只钉形状；能否解析、是否在未来由 host 侧 binder 判定
-    （REMINDER_TIME_IN_PAST），与 DocumentExtractPdfParams 不校验路径越界同理。
+    （REMINDER_TIME_IN_PAST），与 ReadDocumentParams 不校验路径越界同理。
     """
 
     model_config = ConfigDict(extra="allow")

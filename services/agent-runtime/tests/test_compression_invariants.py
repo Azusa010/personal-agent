@@ -52,7 +52,7 @@ def test_distilled_observation_model():
     """验证 DistilledObservation 承接调用标识与事实列表。"""
     obs = DistilledObservation(
         callId="call-1",
-        capability="document_extract_pdf",
+        capability="read_document",
         ok=True,
         tier=LifecycleTier.TASK_SCOPED_L1,
         summary="提取到联合创始人离职信息",

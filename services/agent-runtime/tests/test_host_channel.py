@@ -47,7 +47,7 @@ def make_channel(lines, written=None):
 def pdf_params(call_id="tc-9f3a"):
     return HostExecuteToolParams(
         callId=call_id,
-        capability="document_extract_pdf",
+        capability="read_document",
         arguments={"path": "D:/Users/demo/Downloads/report-2026.pdf"},
     )
 

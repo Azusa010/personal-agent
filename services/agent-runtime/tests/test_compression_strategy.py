@@ -43,7 +43,7 @@ def test_select_compression_candidates():
     ]
 
     obs1 = Observation(callId="call-1", capability="filesystem_list", ok=True, payload={"files": ["a.pdf", "b.pdf"]})
-    obs2 = Observation(callId="call-2", capability="document_extract_pdf", ok=True, payload={"text": "Sutskever 于 2024 年 5 月离开 OpenAI..."})
+    obs2 = Observation(callId="call-2", capability="read_document", ok=True, payload={"text": "Sutskever 于 2024 年 5 月离开 OpenAI..."})
     obs3 = Observation(callId="call-3", capability="filesystem_move", ok=True, payload={"moved": True})
 
     cand_turns, cand_obs = select_compression_candidates(
@@ -146,5 +146,5 @@ def test_classify_lifecycle():
     assert classify_lifecycle("notification_send") == LifecycleTier.EPHEMERAL_L0
 
     # 知识/大文本提取 -> L1
-    assert classify_lifecycle("document_extract_pdf") == LifecycleTier.TASK_SCOPED_L1
+    assert classify_lifecycle("read_document") == LifecycleTier.TASK_SCOPED_L1
     assert classify_lifecycle("filesystem_list") == LifecycleTier.TASK_SCOPED_L1

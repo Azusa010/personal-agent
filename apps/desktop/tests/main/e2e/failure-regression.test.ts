@@ -97,7 +97,7 @@ const summary = (pageRefs: number[] = [1]): Decision => ({
 function goldenPathDecisions(): Decision[] {
   return [
     toolCall('c-1', 'filesystem_list', { rootId: 'workspace' }),
-    toolCall('c-2', 'document_extract_pdf', { path: `${ROOT_PLACEHOLDER}/${PDF_NAME}` }),
+    toolCall('c-2', 'read_document', { path: `${ROOT_PLACEHOLDER}/${PDF_NAME}` }),
     toolCall('c-3', 'filesystem_create_dir', { path: `${ROOT_PLACEHOLDER}/Reading` }),
     toolCall('c-4', 'filesystem_move', {
       source: `${ROOT_PLACEHOLDER}/${PDF_NAME}`,
@@ -322,7 +322,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
     const world = await openWorld({
       decisions: [
         toolCall('c-1', 'filesystem_list', { rootId: 'workspace' }),
-        toolCall('c-2', 'document_extract_pdf', { path: `${ROOT_PLACEHOLDER}/${PDF_NAME}` }),
+        toolCall('c-2', 'read_document', { path: `${ROOT_PLACEHOLDER}/${PDF_NAME}` }),
         summary([1])
       ],
       corruptPdf: true
@@ -334,7 +334,7 @@ describe.skipIf(!existsSync(VENV_PYTHON))('失败回归集：坏掉的时候怎�
     // —— 集成事实（这一层是 E2E 的本职，断言由 AI 保留）——
     expect(outcome.taskStatus).toBe('failed')
     expect(outcome.rootState).toBe('untouched')
-    expect(outcome.failedToolCalls).toContain('document_extract_pdf')
+    expect(outcome.failedToolCalls).toContain('read_document')
     expect(outcome.permissions).toEqual([])
     expect(outcome.failureReason).not.toBeNull()
 

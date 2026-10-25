@@ -4,7 +4,7 @@
   "method": "host.execute_tool",
   "params": {
     "callId": "tc-9f3a",
-    "capability": "document_extract_pdf",
+    "capability": "read_document",
     "arguments": {
       "path": "D:/Users/demo/Workspace/report-2026.pdf"
     }

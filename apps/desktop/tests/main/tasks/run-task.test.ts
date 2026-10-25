@@ -111,7 +111,7 @@ interface RecordedCall {
  *  不是 null）——zod 的 optional 不收 null，写成 null 这条 stub 就跟真链路不一样了。 */
 const PLAN_STEPS = [
   { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },
-  { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
+  { description: '提取目标 PDF 的每页文本', capability: 'read_document' },
   { description: '基于页面内容生成带页码引用的摘要' }
 ]
 

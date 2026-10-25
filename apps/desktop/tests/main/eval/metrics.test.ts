@@ -41,7 +41,7 @@ function makeResult(over: Partial<EvalCaseResult> = {}): EvalCaseResult {
     status: 'completed',
     latencyMs: 100,
     verdict: makeVerdict(),
-    toolCalls: ['filesystem_list', 'document_extract_pdf'],
+    toolCalls: ['filesystem_list', 'read_document'],
     failedToolCalls: 0,
     budgetExhausted: false,
     verificationOk: true,
@@ -112,7 +112,7 @@ describe('summarize：计数与比值', () => {
 
   it('工具统计按能力名计数，key 排序稳定（报告要能逐行 diff）', () => {
     const results = [
-      makeResult({ toolCalls: ['filesystem_list', 'document_extract_pdf'] }),
+      makeResult({ toolCalls: ['filesystem_list', 'read_document'] }),
       makeResult({ toolCalls: ['filesystem_list'], failedToolCalls: 1, budgetExhausted: true })
     ]
 
@@ -122,7 +122,7 @@ describe('summarize：计数与比值', () => {
     expect(metrics.tools.failed).toBe(1)
     expect(metrics.tools.budgetExhaustedCases).toBe(1)
     expect(Object.keys(metrics.tools.byCapability)).toEqual([
-      'document_extract_pdf',
+      'read_document',
       'filesystem_list'
     ])
     expect(metrics.tools.byCapability['filesystem_list']).toBe(2)

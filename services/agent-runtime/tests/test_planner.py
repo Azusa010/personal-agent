@@ -8,12 +8,12 @@ from personal_agent.protocol.models import Turn
 
 FULL = [
     "filesystem_list",
-    "document_extract_pdf",
+    "read_document",
     "filesystem_create_dir",
     "filesystem_move",
     "scheduler_create",
 ]
-READ_ONLY = ["filesystem_list", "document_extract_pdf"]
+READ_ONLY = ["filesystem_list", "read_document"]
 
 
 def test_deterministic_planner_outputs_make_plan_verbatim():

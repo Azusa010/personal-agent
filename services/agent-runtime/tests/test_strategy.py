@@ -47,7 +47,7 @@ from personal_agent.strategy import (
     ReActStrategy,
 )
 
-VISIBLE = ["filesystem_list", "document_extract_pdf"]
+VISIBLE = ["filesystem_list", "read_document"]
 
 
 class FakeChannel:

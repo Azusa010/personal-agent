@@ -55,7 +55,7 @@ describe('transformer', () => {
         type: 'tool_called',
         payload: {
           callId: 'call-2',
-          capability: 'document_extract_pdf',
+          capability: 'read_document',
           arguments: { path: 'corrupted.pdf' }
         },
         occurredAt: '2026-09-20T10:00:01.000Z'
@@ -64,7 +64,7 @@ describe('transformer', () => {
         type: 'tool_result',
         payload: {
           callId: 'call-2',
-          capability: 'document_extract_pdf',
+          capability: 'read_document',
           ok: false,
           error: {
             code: 'PDF_PARSE_ERROR',

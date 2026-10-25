@@ -74,7 +74,6 @@ TOOL_SPECS: dict[str, str] = {
         '列出指定授权根目录下的文件与子目录条目。参数 {"rootId": "<授权根标识，workspace>", '
         '"path": "<可选子目录路径，深入遍历子目录>"}'
     ),
-    "document_extract_pdf": '解析并提取 PDF 文件的逐页文本与页码。参数 {"path": "<目标 PDF 文件的绝对路径>"}',
     "read_document": (
         '多格式统一文档读取器，提取逐页文本并支持分页与字符限制。参数 {"path": "<文档相对路径>", '
         '"fileType": "<可选 auto/pdf/docx/pptx/xlsx/text>", "pageStart": <可选起始页，默认1>, '

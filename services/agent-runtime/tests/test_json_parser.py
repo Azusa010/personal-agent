@@ -125,7 +125,7 @@ def test_parse_tool_call_arguments_python_call_syntax():
     from personal_agent.conversation.model.json_parser import parse_tool_call_arguments
 
     # 函数调用包裹语法
-    assert parse_tool_call_arguments('document_extract_pdf(path="weekly-03.pdf")') == {
+    assert parse_tool_call_arguments('read_document(path="weekly-03.pdf")') == {
         "path": "weekly-03.pdf"
     }
     # 纯关键字参数语法

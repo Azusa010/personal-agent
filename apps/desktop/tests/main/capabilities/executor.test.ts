@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 import {
   CapabilityFailure,
-  DocumentExtractPdfOutcome,
+  ReadDocumentOutcome,
   ERROR_CODE,
   FilesystemListResult,
   HostExecuteToolResult,
@@ -163,12 +163,12 @@ describe('executor：arguments 二次校验', () => {
   })
 
   it('path 为空 -> INVALID_ARGUMENT', async () => {
-    const out = await run(params('document_extract_pdf', { path: '' }))
+    const out = await run(params('read_document', { path: '' }))
     expect(out['code']).toBe(ERROR_CODE.INVALID_ARGUMENT)
   })
 
   it('缺 path -> INVALID_ARGUMENT', async () => {
-    const out = await run(params('document_extract_pdf', {}))
+    const out = await run(params('read_document', {}))
     expect(out['code']).toBe(ERROR_CODE.INVALID_ARGUMENT)
   })
 
@@ -227,49 +227,49 @@ describe('executor：filesystem_list', () => {
   })
 })
 
-describe('executor：document_extract_pdf', () => {
-  it('真 PDF 返回 pages 且过判别联合契约', async () => {
+describe('executor：read_document', () => {
+  it('真 PDF 返回分页 outcome 且过判别联合契约', async () => {
     const pdfPath = join(dir, 'report.pdf')
     await writeFile(pdfPath, buildPdf(['page one text', 'page two text']))
 
-    const out = await run(params('document_extract_pdf', { path: pdfPath }))
+    const out = await run(params('read_document', { path: pdfPath }))
     expect(out['ok']).toBe(true)
-    expect(() => DocumentExtractPdfOutcome.parse(out)).not.toThrow()
+    expect(() => ReadDocumentOutcome.parse(out)).not.toThrow()
 
-    const parsed = DocumentExtractPdfOutcome.parse(out)
+    const parsed = ReadDocumentOutcome.parse(out)
     if (parsed.ok) {
+      expect(parsed.totalPages).toBe(2)
+      expect(parsed.hasMore).toBe(false)
       expect(parsed.pages).toHaveLength(2)
-      expect(parsed.pages[0]).toEqual({ pageNumber: 1, text: 'page one text' })
+      expect(parsed.pages[0]).toEqual({ pageNumber: 1, text: 'page one text', truncated: false })
     } else {
       throw new Error('期望成功分支')
     }
   })
 
-  it('根外绝对路径 -> 照常提取（读不设根界）', async () => {
+  it('根外绝对路径 -> 照常读取（读不设根界）', async () => {
     const outside = join(tmpdir(), 'pa-outside-secret.pdf')
     await writeFile(outside, buildPdf(['secret']))
     try {
-      const out = await run(params('document_extract_pdf', { path: outside }))
+      const out = await run(params('read_document', { path: outside }))
       expect(out['ok']).toBe(true)
     } finally {
       await rm(outside, { force: true })
     }
   })
 
-  it('.. 指向工作区外 -> 不再按越界拒（文件在就提取，不在就 FILE_UNREADABLE）', async () => {
+  it('.. 指向工作区外 -> 不再按越界拒（文件在就读取，不在就 FILE_UNREADABLE）', async () => {
     // 模型给出的路径不可信（SEC-006）：UNC / 设备名 / 非法字符仍被拦，
     // 但根不再是边界——读全盘自由，写的边界在批准卡片。
     const out = await run(
-      params('document_extract_pdf', { path: join(dir, '..', '..', 'secret.pdf') })
+      params('read_document', { path: join(dir, '..', '..', 'secret.pdf') })
     )
     expect(out['ok']).toBe(false)
     expect(out['code']).not.toBe(ERROR_CODE.PATH_OUT_OF_ROOT)
   })
 
-
-
   it('根内不存在的文件 -> FILE_UNREADABLE', async () => {
-    const out = await run(params('document_extract_pdf', { path: join(dir, 'ghost.pdf') }))
+    const out = await run(params('read_document', { path: join(dir, 'ghost.pdf') }))
     expect(out['ok']).toBe(false)
     expect(out['code']).toBe(ERROR_CODE.FILE_UNREADABLE)
     expect(String(out['reason'])).toContain('ENOENT')
@@ -278,7 +278,7 @@ describe('executor：document_extract_pdf', () => {
   it('拿根目录当文件 -> FILE_UNREADABLE', async () => {
     // path-guard 放行 candidate === root（不算越界），
     // readFile 抛 EISDIR，必须被接住而不是冒泡成 HOST_HANDLER_FAILED。
-    const out = await run(params('document_extract_pdf', { path: dir }))
+    const out = await run(params('read_document', { path: dir }))
     expect(out['code']).toBe(ERROR_CODE.FILE_UNREADABLE)
     expect(String(out['reason'])).toContain('EISDIR')
   })
@@ -286,7 +286,7 @@ describe('executor：document_extract_pdf', () => {
   it('PDF 业务失败原样透传，不改码', async () => {
     // extractPdf 自己返回 PDF_EMPTY / PDF_CORRUPT / PDF_ENCRYPTED /
     // PDF_NO_TEXT。executor 不能把它们改写成别的码，否则
-    // document-extract-pdf.test.ts 钉的稳定码在这一层就丢了。
+    // read_document 钉的稳定码在这一层就丢了。
     const cases: { name: string; bytes: Uint8Array; code: string }[] = [
       { name: 'empty.pdf', bytes: new Uint8Array(0), code: 'PDF_EMPTY' },
       { name: 'corrupt.pdf', bytes: buildCorruptPdf(), code: 'PDF_CORRUPT' },
@@ -295,7 +295,7 @@ describe('executor：document_extract_pdf', () => {
     for (const c of cases) {
       const full = join(dir, c.name)
       await writeFile(full, c.bytes)
-      const out = await run(params('document_extract_pdf', { path: full }))
+      const out = await run(params('read_document', { path: full }))
       expect(out['ok'], c.name).toBe(false)
       expect(out['code'], c.name).toBe(c.code)
       expect(() => CapabilityFailure.parse(out), c.name).not.toThrow()
@@ -312,9 +312,9 @@ describe('executor：永不 throw', () => {
       params('filesystem_list', { rootId: 'workspace' }),
       params('filesystem_list', { rootId: 'nope' }),
       params('filesystem_list', {}),
-      params('document_extract_pdf', { path: '' }),
-      params('document_extract_pdf', { path: 'C:/Windows/win.ini' }),
-      params('document_extract_pdf', { path: join(dir, 'ghost.pdf') }),
+      params('read_document', { path: '' }),
+      params('read_document', { path: 'C:/Windows/win.ini' }),
+      params('read_document', { path: join(dir, 'ghost.pdf') }),
       params('filesystem_move', { from: 'a', to: 'b' }),
       params('scheduler_create', {}),
       params('notification_send', {})

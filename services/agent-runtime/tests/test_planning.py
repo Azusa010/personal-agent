@@ -16,7 +16,7 @@ from personal_agent.planning import PlanError, PlanStep, make_plan
 GOAL = "整理工作区里的 PDF，给出带页码引用的摘要"
 VISIBLE = [
     "filesystem_list",
-    "document_extract_pdf",
+    "read_document",
     "filesystem_create_dir",
     "filesystem_move",
     "scheduler_create",
@@ -32,7 +32,7 @@ EXPECTED_DESCRIPTIONS = [
 ]
 EXPECTED_CAPABILITIES = [
     "filesystem_list",
-    "document_extract_pdf",
+    "read_document",
     "filesystem_create_dir",
     "filesystem_move",
     "scheduler_create",
@@ -94,8 +94,8 @@ def test_make_plan_raises_when_filesystem_list_is_not_visible() -> None:
 
 
 def test_make_plan_raises_when_extract_pdf_is_not_visible() -> None:
-    with pytest.raises(PlanError, match="document_extract_pdf"):
-        make_plan(GOAL, [c for c in VISIBLE if c != "document_extract_pdf"])
+    with pytest.raises(PlanError, match="read_document"):
+        make_plan(GOAL, [c for c in VISIBLE if c != "read_document"])
 
 
 def test_make_plan_shrinks_to_a_read_only_plan_when_writes_are_not_visible() -> None:
@@ -105,9 +105,9 @@ def test_make_plan_shrinks_to_a_read_only_plan_when_writes_are_not_visible() -> 
     不该被交付物闸口要求「文件已移动、Reminder 已创建」——闸口是按计划推导的，
     计划里没有 WRITE 就不会要求它们的交付物。
     """
-    steps = make_plan(GOAL, ["filesystem_list", "document_extract_pdf"])
+    steps = make_plan(GOAL, ["filesystem_list", "read_document"])
 
-    assert [s.capability for s in steps] == ["filesystem_list", "document_extract_pdf", None]
+    assert [s.capability for s in steps] == ["filesystem_list", "read_document", None]
     assert [s.description for s in steps] == [
         "列出工作区下的 PDF",
         "提取目标 PDF 的每页文本",
@@ -117,11 +117,11 @@ def test_make_plan_shrinks_to_a_read_only_plan_when_writes_are_not_visible() -> 
 
 def test_make_plan_includes_only_the_visible_write_steps() -> None:
     """WRITE 是逐个伸缩的：可见哪个就有哪一步，顺序仍按 WRITE_STEPS。"""
-    steps = make_plan(GOAL, ["filesystem_list", "document_extract_pdf", "scheduler_create"])
+    steps = make_plan(GOAL, ["filesystem_list", "read_document", "scheduler_create"])
 
     assert [s.capability for s in steps] == [
         "filesystem_list",
-        "document_extract_pdf",
+        "read_document",
         "scheduler_create",
         None,
     ]
@@ -131,7 +131,7 @@ def test_make_plan_keeps_the_write_order_from_the_table() -> None:
     """可见顺序被打乱也不改计划顺序：计划是执行顺序。"""
     shuffled = [
         "scheduler_create",
-        "document_extract_pdf",
+        "read_document",
         "filesystem_move",
         "filesystem_create_dir",
         "filesystem_list",

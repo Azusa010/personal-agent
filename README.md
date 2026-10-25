@@ -224,7 +224,7 @@ Every agent capability is implemented as a **self-describing plugin** (`Capabili
 | --------------------- | --------------------------------------------------- | --------------------------------------------------------------- |
 | **Filesystem**        | `fs.list_directory` `fs.create_directory` `fs.move` | Directory browsing, creation, move/rename                       |
 | **File I/O**          | `file_read` `file_write` `file_edit` `file_search`  | Full-file CRUD + structured search                              |
-| **Documents**         | `document.extract_pdf` `read_document`              | PDF text extraction, multi-format document reading              |
+| **Documents**         | `read_document`                                     | Unified multi-format document reading (PDF pages, text, pagination) |
 | **Code execution**    | `code_interpreter` `terminal_execute`               | Python sandbox execution, terminal commands (session-scoped cwd) |
 | **Knowledge**         | `knowledge_search` `user_memory_search`             | Vector semantic search + keyword full-text search + user memory  |
 | **Wiki storage**      | `viking_read_l0/l1/l2` `viking_write_l2`            | Three-tier wiki abstraction (summary / overview / full text) R/W |

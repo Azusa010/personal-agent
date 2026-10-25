@@ -78,7 +78,7 @@ describe('resolveWithinRoot：拒绝', () => {
   })
 
   it('空字符串被拒', () => {
-    // DocumentExtractPdfParams 的 min(1) 已经挡住空 path，这里是第二道：
+    // ReadDocumentParams 的 min(1) 已经挡住空 path，这里是第二道：
     // resolve('') 得到 cwd，不拒的话就等于把整个 cwd 当成授权根。
     expect(resolveWithinRoot(ROOT, '')).toBeNull()
   })

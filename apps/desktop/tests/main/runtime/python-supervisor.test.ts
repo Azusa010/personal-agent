@@ -190,7 +190,7 @@ describe('PythonSupervisor ~ Slice 2b (握手)', () => {
       capabilities: [
         { name: 'filesystem_list', kind: 'READ', description: '列出授权根目录下的条目' },
         {
-          name: 'document_extract_pdf',
+          name: 'read_document',
           kind: 'READ',
           description: '提取 PDF 每页文本与页码'
         }
@@ -208,7 +208,7 @@ describe('PythonSupervisor ~ Slice 2b (握手)', () => {
         // 漂了就意味着模型看到的能力和它真正能调的不一致。
         capabilities: [
           { name: 'filesystem_list', kind: 'READ' },
-          { name: 'document_extract_pdf', kind: 'READ' }
+          { name: 'read_document', kind: 'READ' }
         ],
         client: { name: 'personal-agent-electron', version: '0.1.0' }
       }
@@ -280,7 +280,7 @@ itReal(
       capabilities: [
         { name: 'filesystem_list', kind: 'READ', description: '列出授权根目录下的条目' },
         {
-          name: 'document_extract_pdf',
+          name: 'read_document',
           kind: 'READ',
           description: '提取 PDF 每页文本与页码'
         }

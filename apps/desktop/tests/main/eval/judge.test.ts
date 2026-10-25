@@ -48,7 +48,7 @@ function makeObservation(overrides: Partial<CaseObservation> = {}): CaseObservat
     realPageNumbers: [1, 2, 3],
     toolCalls: [
       { capability: 'filesystem_list', arguments: { rootId: 'workspace' } },
-      { capability: 'document_extract_pdf', arguments: { path: `D:/workspace/${TARGET}` } }
+      { capability: 'read_document', arguments: { path: `D:/workspace/${TARGET}` } }
     ],
     extractedPaths: [`D:/workspace/${TARGET}`],
     budgetExhausted: false,
@@ -167,7 +167,7 @@ describe('judgeCase：状态与执行判据', () => {
     const observation = makeObservation({
       extractedPaths: ['D:/workspace/notes.pdf'],
       toolCalls: [
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/notes.pdf' } }
+        { capability: 'read_document', arguments: { path: 'D:/workspace/notes.pdf' } }
       ],
       budgetExhausted: true
     })
@@ -281,8 +281,8 @@ describe('judgeCase：stateful 终态判据', () => {
       facts: [{ text: 'sales done', pageRefs: [1] }],
       finalFiles: ['Reading/alpha.pdf', 'Reading/beta.pdf', 'keep.txt'],
       toolCalls: [
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/alpha.pdf' } },
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/beta.pdf' } },
+        { capability: 'read_document', arguments: { path: 'D:/workspace/alpha.pdf' } },
+        { capability: 'read_document', arguments: { path: 'D:/workspace/beta.pdf' } },
         { capability: 'filesystem_move', arguments: { source: 'a', target: 'b' } }
       ]
     })
@@ -323,8 +323,8 @@ describe('judgeCase：GAIA 复杂推理与数值计算判据', () => {
     const observation = makeObservation({
       facts: [{ text: '经计算，该发票税额为 76.00 美元', pageRefs: [1] }],
       toolCalls: [
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/q1.pdf' } },
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/q2.pdf' } }
+        { capability: 'read_document', arguments: { path: 'D:/workspace/q1.pdf' } },
+        { capability: 'read_document', arguments: { path: 'D:/workspace/q2.pdf' } }
       ]
     })
 
@@ -343,8 +343,8 @@ describe('judgeCase：GAIA 复杂推理与数值计算判据', () => {
     const observation = makeObservation({
       facts: [{ text: '增长率计算结果为 0.35', pageRefs: [1] }],
       toolCalls: [
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/q1.pdf' } },
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/q2.pdf' } }
+        { capability: 'read_document', arguments: { path: 'D:/workspace/q1.pdf' } },
+        { capability: 'read_document', arguments: { path: 'D:/workspace/q2.pdf' } }
       ]
     })
 
@@ -363,8 +363,8 @@ describe('judgeCase：GAIA 复杂推理与数值计算判据', () => {
     const observation = makeObservation({
       facts: [{ text: '比对得出研发费用环比增长率为 25%', pageRefs: [1] }],
       toolCalls: [
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/q1.pdf' } },
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/q2.pdf' } }
+        { capability: 'read_document', arguments: { path: 'D:/workspace/q1.pdf' } },
+        { capability: 'read_document', arguments: { path: 'D:/workspace/q2.pdf' } }
       ]
     })
 
@@ -382,8 +382,8 @@ describe('judgeCase：GAIA 复杂推理与数值计算判据', () => {
     const observation = makeObservation({
       facts: [{ text: '营业利润率差值为 +5.0 个百分点', pageRefs: [1] }],
       toolCalls: [
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/q1.pdf' } },
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/q2.pdf' } }
+        { capability: 'read_document', arguments: { path: 'D:/workspace/q1.pdf' } },
+        { capability: 'read_document', arguments: { path: 'D:/workspace/q2.pdf' } }
       ]
     })
 
@@ -402,8 +402,8 @@ describe('judgeCase：GAIA 复杂推理与数值计算判据', () => {
     const observation = makeObservation({
       facts: [{ text: '费用有所增长，具体比例未知', pageRefs: [1] }],
       toolCalls: [
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/q1.pdf' } },
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/q2.pdf' } }
+        { capability: 'read_document', arguments: { path: 'D:/workspace/q1.pdf' } },
+        { capability: 'read_document', arguments: { path: 'D:/workspace/q2.pdf' } }
       ]
     })
 
@@ -422,8 +422,8 @@ describe('judgeCase：GAIA 复杂推理与数值计算判据', () => {
     const observation = makeObservation({
       facts: [{ text: 'rd analysis', pageRefs: [1] }],
       toolCalls: [
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/q1.pdf' } },
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/q2.pdf' } }
+        { capability: 'read_document', arguments: { path: 'D:/workspace/q1.pdf' } },
+        { capability: 'read_document', arguments: { path: 'D:/workspace/q2.pdf' } }
       ]
     })
 
@@ -441,7 +441,7 @@ describe('judgeCase：GAIA 复杂推理与数值计算判据', () => {
     const observation = makeObservation({
       facts: [{ text: 'rd analysis', pageRefs: [1] }],
       toolCalls: [
-        { capability: 'document_extract_pdf', arguments: { path: 'D:/workspace/q1.pdf' } }
+        { capability: 'read_document', arguments: { path: 'D:/workspace/q1.pdf' } }
         // 漏掉了 q2.pdf
       ]
     })
@@ -578,7 +578,7 @@ describe('judgeCase：τ-bench 权限拒绝自适应降级判据', () => {
       facts: [{ text: '移动文件未获授权，已安全终止操作', pageRefs: [1] }],
       toolCalls: [
         {
-          capability: 'document_extract_pdf',
+          capability: 'read_document',
           arguments: { path: 'D:/workspace/sensitive-audit.pdf' }
         },
         { capability: 'filesystem_move', arguments: { source: 'a', target: 'b' } }
@@ -624,7 +624,7 @@ describe('judgeCase：τ-bench 权限拒绝自适应降级判据', () => {
       facts: [{ text: '移动文件未获授权，操作终止', pageRefs: [1] }],
       toolCalls: [
         {
-          capability: 'document_extract_pdf',
+          capability: 'read_document',
           arguments: { path: 'D:/workspace/sensitive-audit.pdf' }
         }
       ]
@@ -644,7 +644,7 @@ describe('judgeCase：τ-bench 权限拒绝自适应降级判据', () => {
       facts: [{ text: '任务已结束。', pageRefs: [1] }],
       toolCalls: [
         {
-          capability: 'document_extract_pdf',
+          capability: 'read_document',
           arguments: { path: 'D:/workspace/sensitive-audit.pdf' }
         }
       ]

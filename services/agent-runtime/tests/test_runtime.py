@@ -22,7 +22,7 @@ from personal_agent.runtime import (
     resolve_model_factory,
 )
 from personal_agent.scripted_model import ScriptedModel, load_script
-from personal_agent.summary import EXTRACT_PDF_CAPABILITY
+from personal_agent.summary import READ_DOCUMENT_CAPABILITY
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE_SCRIPT = REPO_ROOT / "tests" / "fixtures" / "scripts" / "golden-path.json"
@@ -39,7 +39,7 @@ class StubChannel:
     """
 
     def call_host(self, params):
-        if params.capability == EXTRACT_PDF_CAPABILITY:
+        if params.capability == READ_DOCUMENT_CAPABILITY:
             return HostExecuteToolResult.model_validate(
                 {"ok": True, "pages": [{"pageNumber": 1, "text": "第一页正文"}]}
             )
@@ -72,7 +72,7 @@ CAPABILITIES = [
         "description": "列出授权根目录下的条目",
     },
     {
-        "name": EXTRACT_PDF_CAPABILITY,
+        "name": READ_DOCUMENT_CAPABILITY,
         "kind": "READ",
         "description": "提取 PDF 的逐页文本",
     },
@@ -111,7 +111,7 @@ def initialize_line(req_id="10", capabilities=None, version="0.1"):
 
 PLAN = [
     {"description": "列出工作区下的 PDF", "capability": "filesystem_list"},
-    {"description": "提取目标 PDF 的每页文本", "capability": "document_extract_pdf"},
+    {"description": "提取目标 PDF 的每页文本", "capability": "read_document"},
     {"description": "基于页面内容生成带页码引用的摘要"},
 ]
 
@@ -194,7 +194,7 @@ def read_only_script():
         ToolCallDecision(
             kind="tool_call",
             callId="c-2",
-            capability=EXTRACT_PDF_CAPABILITY,
+            capability=READ_DOCUMENT_CAPABILITY,
             arguments={"path": "D:/workspace/a.pdf"},
         ),
         SummaryDecision(
@@ -359,7 +359,7 @@ def test_run_task_hands_the_plan_to_the_model():
     for ctx in factory.instances[0].receivedContexts:
         assert [(s.description, s.capability) for s in ctx.plan] == [
             ("列出工作区下的 PDF", "filesystem_list"),
-            ("提取目标 PDF 的每页文本", "document_extract_pdf"),
+            ("提取目标 PDF 的每页文本", "read_document"),
             ("基于页面内容生成带页码引用的摘要", None),
         ]
 
@@ -612,7 +612,7 @@ def test_fixture_script_is_the_full_golden_path():
     # 按序号比对，顺序错了第一个 WRITE 调用就会被拒。
     assert [d.capability for d in decisions[:5]] == [
         "filesystem_list",
-        EXTRACT_PDF_CAPABILITY,
+        READ_DOCUMENT_CAPABILITY,
         "filesystem_create_dir",
         "filesystem_move",
         "scheduler_create",
@@ -646,7 +646,7 @@ def test_fixture_script_keeps_the_path_and_time_placeholders():
 # 与 planning.PLAN_REQUIREMENTS 同源；握手下发的能力清单（CAPABILITIES）必须覆盖它。
 EXPECTED_PLAN_CAPABILITIES = [
     "filesystem_list",
-    EXTRACT_PDF_CAPABILITY,
+    READ_DOCUMENT_CAPABILITY,
     "filesystem_create_dir",
     "filesystem_move",
     "scheduler_create",
@@ -732,7 +732,7 @@ def test_make_plan_error_names_the_missing_capability():
     out = handle_line(make_plan_line(), deps)
 
     assert out["error"]["code"] == PLAN_NOT_BUILDABLE
-    assert EXTRACT_PDF_CAPABILITY in out["error"]["message"]
+    assert READ_DOCUMENT_CAPABILITY in out["error"]["message"]
 
 
 def test_make_plan_invalid_params_returns_protocol_error():

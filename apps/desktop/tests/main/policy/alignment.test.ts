@@ -15,12 +15,12 @@ afterEach(() => {
 //（不是 null），这是 model_dump(exclude_none=True) 的结果。
 const PLAN: readonly PlanStep[] = [
   { description: '列出 Downloads 下的 PDF', capability: 'filesystem_list' },
-  { description: '提取目标 PDF 的每页文本', capability: 'document_extract_pdf' },
+  { description: '提取目标 PDF 的每页文本', capability: 'read_document' },
   { description: '基于页面内容生成带页码引用的摘要' }
 ]
 
 // 这份计划只有两步带 capability，所以合法的 executedCalls 只有 0 和 1。
-const SEQUENCE = ['filesystem_list', 'document_extract_pdf']
+const SEQUENCE = ['filesystem_list', 'read_document']
 
 describe('checkAlignment：按计划顺序放行', () => {
   it('第 1 次调用对得上第 1 个带 capability 的步骤', () => {
@@ -28,7 +28,7 @@ describe('checkAlignment：按计划顺序放行', () => {
   })
 
   it('第 2 次调用对得上第 2 个带 capability 的步骤', () => {
-    expect(checkAlignment(PLAN, 1, 'document_extract_pdf')).toEqual({ aligned: true })
+    expect(checkAlignment(PLAN, 1, 'read_document')).toEqual({ aligned: true })
   })
 
   it('aligned 是字面量 true，不是真值', () => {
@@ -65,13 +65,13 @@ describe('checkAlignment：按计划顺序放行', () => {
 
 describe('checkAlignment：跑偏', () => {
   it('第 1 次就调第二个能力 -> not aligned，reason 逐字钉住', () => {
-    const out = checkAlignment(PLAN, 0, 'document_extract_pdf')
+    const out = checkAlignment(PLAN, 0, 'read_document')
 
     expect(out.aligned).toBe(false)
     // 逐字而不是 toContain：这条 reason 会原样进 timeline 事件，
     // 是事后唯一能看出模型跑偏到哪一步的地方，措辞漂了就得有人看见。
     expect(!out.aligned && out.reason).toBe(
-      '第 1 次 tool call 期望 filesystem_list，实际是 document_extract_pdf'
+      '第 1 次 tool call 期望 filesystem_list，实际是 read_document'
     )
   })
 
@@ -79,7 +79,7 @@ describe('checkAlignment：跑偏', () => {
     const out = checkAlignment(PLAN, 1, 'filesystem_list')
 
     expect(!out.aligned && out.reason).toBe(
-      '第 2 次 tool call 期望 document_extract_pdf，实际是 filesystem_list'
+      '第 2 次 tool call 期望 read_document，实际是 filesystem_list'
     )
   })
 
@@ -124,7 +124,7 @@ describe('checkAlignment：纯函数', () => {
     const before = JSON.stringify(PLAN)
 
     checkAlignment(PLAN, 0, 'filesystem_list')
-    checkAlignment(PLAN, 5, 'document_extract_pdf')
+    checkAlignment(PLAN, 5, 'read_document')
 
     expect(JSON.stringify(PLAN)).toBe(before)
     expect(PLAN).toHaveLength(3)
@@ -151,7 +151,7 @@ describe('checkAlignment：Live / 自由探索模式（非严格模式）', () =
   })
 
   it('允许首步调用计划第二步的能力（乱序自主探索）', () => {
-    const out = checkAlignment(PLAN, 0, 'document_extract_pdf')
+    const out = checkAlignment(PLAN, 0, 'read_document')
     expect(out.aligned).toBe(true)
   })
 

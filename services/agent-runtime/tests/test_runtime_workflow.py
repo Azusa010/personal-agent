@@ -59,7 +59,7 @@ def test_dispatch_run_workflow_golden_path_success():
     capabilities = [
         CapabilityDescriptor(name="filesystem_list", kind="READ", description="list"),
         CapabilityDescriptor(
-            name="document_extract_pdf", kind="READ", description="extract"
+            name="read_document", kind="READ", description="extract"
         ),
         CapabilityDescriptor(
             name="filesystem_create_dir", kind="WRITE", description="create"

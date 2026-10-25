@@ -55,10 +55,10 @@ def build_golden_path_workflow(
     """
     if (
         "filesystem_list" not in visible_capabilities
-        or "document_extract_pdf" not in visible_capabilities
+        or "read_document" not in visible_capabilities
     ):
         raise WorkflowPlanError(
-            "缺少必需能力：filesystem_list 与 document_extract_pdf 必须全部可用"
+            "缺少必需能力：filesystem_list 与 read_document 必须全部可用"
         )
 
     steps: list[WorkflowStep] = []
@@ -77,7 +77,7 @@ def build_golden_path_workflow(
     steps.append(
         WorkflowStep(
             id="extract_pdf",
-            capability="document_extract_pdf",
+            capability="read_document",
             description="提取目标 PDF 的每页文本",
             resolve_args=lambda s: {"path": _find_target_pdf(s)["path"]},
         )

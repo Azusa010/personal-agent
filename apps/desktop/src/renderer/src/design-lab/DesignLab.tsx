@@ -86,7 +86,7 @@ interface PlanStepMeta {
 const PLAN_STEPS: PlanStepMeta[] = [
   { cap: 'filesystem_list', desc: '扫描 Downloads,找出发票 PDF', dur: '0.8s', demoMs: 1100 },
   {
-    cap: 'document_extract_pdf',
+    cap: 'read_document',
     desc: '提取 3 份 PDF 共 48 页文本与要点',
     dur: '12.4s',
     demoMs: 1900

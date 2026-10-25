@@ -9,7 +9,7 @@
       },
       {
         "description": "提取目标 PDF 的每页文本",
-        "capability": "document_extract_pdf"
+        "capability": "read_document"
       },
       {
         "description": "基于页面内容生成带页码引用的摘要"
