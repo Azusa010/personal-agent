@@ -16,6 +16,8 @@ export interface MessageStreamProps {
   feedback: string | null
   agentName?: string
   thinkingByTaskId?: Record<string, string>
+  /** 正在打字的那个任务：流式块与正式消息都接同一条平滑曲线，换场不蹦字 */
+  typingTaskId?: string | null
   /** 需要补齐字段时，A2UI 表单直接接在消息流末尾 */
   inlineForm?: React.ReactNode
 }
@@ -23,22 +25,26 @@ export interface MessageStreamProps {
 /** assistant 正文区：执行叙述 → 正文 → 依据。全部直接落在画布上，没有一层外壳。 */
 function AssistantMessage({
   message,
-  cachedThinking
+  cachedThinking,
+  streamedBody
 }: {
   message: MessageView
   cachedThinking?: string
+  /** 刚完成的任务由顶层的打字曲线喂正文前缀；追平后与 message.text 相同 */
+  streamedBody?: string
 }): React.JSX.Element {
   const timeline = message.timeline
   const facts = timeline === null ? [] : extractFacts(timeline.events)
   const stepsCount = getTimelineStepCount(timeline)
   const hasTrajectory = (timeline !== null && stepsCount > 0) || Boolean(cachedThinking)
+  const bodyText = streamedBody ?? message.text
 
   return (
     <div className="w-full space-y-3 text-[13.5px] leading-[1.85]">
       {hasTrajectory && <ThoughtChainViewer timeline={timeline} cachedThinking={cachedThinking} />}
 
       <div className="space-y-3 text-foreground/95">
-        <MarkdownContent content={message.text} />
+        <MarkdownContent content={bodyText} />
 
         {facts.length > 0 && (
           <div className="border-t border-dashed border-border pt-2.5">
@@ -84,6 +90,7 @@ export function MessageStream({
   feedback,
   agentName = 'Personal Agent',
   thinkingByTaskId,
+  typingTaskId,
   inlineForm
 }: MessageStreamProps): React.JSX.Element {
   const { containerRef, hasNewContentBelow, scrollToBottom, notifyContentGrowth } =
@@ -92,8 +99,24 @@ export function MessageStream({
   const waiting = pendingText !== null
   const hasInlineForm = inlineForm !== null && inlineForm !== undefined
 
-  // 打字机：正文增量常一大口到达，经平滑缓冲按帧吐出
-  const smoothReply = useSmoothText(streamState?.reply ?? '')
+  // 打字机：正文增量常一大口到达，经平滑缓冲按帧吐出。
+  // 进度放在顶层（不在 pending 块里）：任务完成时 pending 块卸载、正式消息顶上，
+  // resetKey 不变则同一条曲线接续打完，不会「整段蹦出来」。
+  const typedMessage =
+    typingTaskId != null
+      ? (messages.find(
+          (m) => m.role === 'assistant' && (m.taskId ?? m.timeline?.task.id) === typingTaskId
+        ) ?? null)
+      : null
+  const smoothTarget =
+    streamState !== null && streamState.taskId === typingTaskId
+      ? streamState.reply
+      : (typedMessage?.text ?? '')
+  const smoothBody = useSmoothText(smoothTarget, { resetKey: typingTaskId })
+
+  useEffect(() => {
+    if (smoothBody) notifyContentGrowth()
+  }, [smoothBody, notifyContentGrowth])
 
   useEffect(() => {
     notifyContentGrowth()
@@ -201,13 +224,21 @@ export function MessageStream({
                     <div className="mb-1 flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
                       <span className="font-medium text-foreground">{agentName}</span>
                     </div>
-                    <AssistantMessage message={message} cachedThinking={cachedThinking} />
+                    <AssistantMessage
+                      message={message}
+                      cachedThinking={cachedThinking}
+                      streamedBody={
+                        taskId !== null && taskId === typingTaskId ? smoothBody : undefined
+                      }
+                    />
                   </div>
                 </article>
               )
             })}
 
-            {waiting && (
+            {/* 正式消息一旦进场就整体让位（typedMessage 非空）：读回与撤块分两次
+                commit 也不会出现 pending 块与消息同屏重复，换场由打字曲线无缝续上 */}
+            {waiting && typedMessage === null && (
               <>
                 <div className="flex justify-end">
                   <div className="max-w-[80%] rounded-[16px] bg-muted px-4 py-2.5 text-[13.5px] leading-relaxed text-foreground">
@@ -226,9 +257,9 @@ export function MessageStream({
                       (streamState.events && streamState.events.length > 0)) ? (
                       <>
                         <ThoughtChainViewer liveStream={streamState} isStreaming />
-                        {smoothReply && (
+                        {smoothBody && (
                           <div className="mt-3 text-[13.5px] leading-[1.85] text-foreground/95">
-                            <MarkdownContent content={smoothReply} />
+                            <MarkdownContent content={smoothBody} />
                           </div>
                         )}
                       </>

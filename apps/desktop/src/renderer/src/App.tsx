@@ -178,6 +178,9 @@ function App(): React.JSX.Element {
   }, [])
 
   const [thinkingByTaskId, setThinkingByTaskId] = useState<Record<string, string>>({})
+  // 打字机归属：最近一次吐过正文增量的任务。发送/切换会话时清位，
+  // 任务完成后不清——正式消息要接续同一条打字曲线，换场不蹦字。
+  const [typingTaskId, setTypingTaskId] = useState<string | null>(null)
 
   useEffect(() => {
     const unsubscribe = window.personalAgent.onAgentStream((notice) => {
@@ -187,6 +190,8 @@ function App(): React.JSX.Element {
           ...prev,
           [notice.taskId]: (prev[notice.taskId] ?? '') + notice.delta
         }))
+      } else if (notice.kind === 'reply') {
+        setTypingTaskId((current) => current ?? notice.taskId)
       }
     })
     return unsubscribe
@@ -265,6 +270,7 @@ function App(): React.JSX.Element {
     setActiveBotId(bot.id)
     setActiveView('chat')
     setSelectedConversationId(bot.conversationId)
+    setTypingTaskId(null)
     void loadConversation(bot.conversationId)
   }
 
@@ -282,6 +288,7 @@ function App(): React.JSX.Element {
     void queryClient.invalidateQueries({ queryKey: ['bots'] })
     setActiveBotId(savedBot.id)
     setSelectedConversationId(savedBot.conversationId)
+    setTypingTaskId(null)
     void loadConversation(savedBot.conversationId)
     showFeedback(editingBot ? `已更新伴侣设定：${savedBot.name}` : `已创建伴侣：${savedBot.name}`)
   }
@@ -291,12 +298,14 @@ function App(): React.JSX.Element {
     setSelectedConversationId(null)
     setMessages([])
     setMessagesError(null)
+    setTypingTaskId(null)
     inputRef.current?.focus()
   }
 
   const handleSend = async (text: string): Promise<void> => {
     setRunning(true)
     setPendingText(text)
+    setTypingTaskId(null)
     setStreamState(createInitialStreamState())
     let result: SendMessageIpcResult
     try {
@@ -313,15 +322,14 @@ function App(): React.JSX.Element {
         message: err instanceof Error ? err.message : String(err),
         conversationId: selectedConversationId ?? ''
       }
-    } finally {
-      setRunning(false)
-      setPendingText(null)
-      setStreamState(null)
     }
     void queryClient.invalidateQueries({ queryKey: ['conversations'] })
-    // 不管这轮成没成，会话里都留下了痕迹（user 消息 + 承载结局的 assistant 消息），重读它。
     setSelectedConversationId(result.conversationId)
+    // 先读回会话（正式消息进场）再撤流式块：换场零空窗，打字曲线接续不蹦字
     if (result.conversationId !== '') await loadConversation(result.conversationId)
+    setRunning(false)
+    setPendingText(null)
+    setStreamState(null)
     void loadIndexedCount()
   }
 
@@ -468,6 +476,7 @@ function App(): React.JSX.Element {
                   streamState={streamState}
                   agentName={activeBot ? activeBot.name : agentProfile?.name}
                   thinkingByTaskId={thinkingByTaskId}
+                  typingTaskId={typingTaskId}
                   inlineForm={
                     activeA2UIRender !== null ? (
                       <A2UIInlineCard
