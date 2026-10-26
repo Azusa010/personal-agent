@@ -58,7 +58,7 @@ function toIpcCode(code: string): IpcErrorCode {
 export type RuntimeSend = (
   method: string,
   params: unknown,
-  opts?: { timeoutMs?: number }
+  opts?: { timeoutMs?: number | null }
 ) => Promise<unknown>
 
 // 运行任务的依赖

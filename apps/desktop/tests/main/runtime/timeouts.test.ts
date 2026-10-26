@@ -9,11 +9,10 @@ import {
   HOST_TOOL_TIMEOUT_MS,
   MODEL_SLACK_MS,
   PYTHON_MAX_TOOL_CALLS,
-  RUN_TASK_TIMEOUT_MS
+  RUN_TASK_TIMEOUT_MS,
+  hostToolTimeoutFor,
+  runTaskTimeoutFor
 } from '../../../src/main/runtime/timeouts'
-
-/** supervisor 的 defaultTimeoutMs 默认值。它不参与推导，只作为下界被比。 */
-const SUPERVISOR_DEFAULT_TIMEOUT_MS = 30_000
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = join(here, '..', '..', '..', '..', '..')
@@ -29,36 +28,43 @@ const budgetPy = join(
 )
 
 describe('三层超时链', () => {
-  it('批准窗口先于传输层超时结束：HOST_TOOL_TIMEOUT_MS > PERMISSION_TTL_MS', () => {
-    // 反过来的话 handler 先超时，supervisor 写一条 HOST_TIMEOUT 的 error envelope，
-    // Python 侧 call_host 抛 HostRequestFailed，engine 直接 _fail —— 用户根本来不及点批准。
-    // 而且超时之后 handler 的返回值会被丢弃，批准了也传不回去。
-    expect(HOST_TOOL_TIMEOUT_MS).toBeGreaterThan(PERMISSION_TTL_MS)
+  it('当前配置不限期：批准窗口、host 调用与整任务都不设超时', () => {
+    // 批准卡没人点就一直等，所以整条链路都不能有定时器把它先掐掉：
+    // handler 先超时的话，用户之后的批准传不回 Python，等于白点。
+    expect(PERMISSION_TTL_MS).toBeNull()
+    expect(HOST_TOOL_TIMEOUT_MS).toBeNull()
+    expect(RUN_TASK_TIMEOUT_MS).toBeNull()
+  })
+
+  it('有限 TTL 的推导：host 超时 = TTL + 余量，null 一路传染', () => {
+    // 反过来的话 handler 先超时，supervisor 写 HOST_TIMEOUT，用户根本来不及点批准。
+    expect(hostToolTimeoutFor(300_000)).toBe(305_000)
+    expect(hostToolTimeoutFor(300_000)).toBeGreaterThan(300_000)
+    expect(hostToolTimeoutFor(null)).toBeNull()
+  })
+
+  it('整任务上限是推导出来的：40 次满额 + 模型余量', () => {
+    expect(runTaskTimeoutFor(305_000, 40, 500_000)).toBe(12_700_000)
+    expect(runTaskTimeoutFor(null)).toBeNull()
   })
 
   it('字面值钉住：改动必须是有意的', () => {
-    expect(PERMISSION_TTL_MS).toBe(300_000)
-    expect(HOST_TOOL_TIMEOUT_MS).toBe(305_000)
     expect(PYTHON_MAX_TOOL_CALLS).toBe(40)
     expect(MODEL_SLACK_MS).toBe(500_000)
-    // 40 * 305_000 + 500_000
-    expect(RUN_TASK_TIMEOUT_MS).toBe(12_700_000)
   })
 
-  it('RUN_TASK_TIMEOUT_MS 是推导出来的，不是各自硬编码', () => {
-    expect(RUN_TASK_TIMEOUT_MS).toBe(PYTHON_MAX_TOOL_CALLS * HOST_TOOL_TIMEOUT_MS + MODEL_SLACK_MS)
+  it('RUN_TASK_TIMEOUT_MS 跟随 HOST_TOOL_TIMEOUT_MS，不是各自硬编码', () => {
+    expect(RUN_TASK_TIMEOUT_MS).toBe(
+      runTaskTimeoutFor(HOST_TOOL_TIMEOUT_MS, PYTHON_MAX_TOOL_CALLS, MODEL_SLACK_MS)
+    )
   })
 
-  it('必须大于 Python 侧最坏执行时间，否则 TS 先超时而 Python 还在跑', () => {
+  it('有限配置下整任务上限必须大于 Python 侧最坏执行时间', () => {
     // 40 次工具调满（全要用户批准 + 走到 300s 截止前一秒）+ 50 步每步等模型 10 秒
     const worstCaseExecutionMs = 40 * 300_000 + 50 * 10_000
-    expect(RUN_TASK_TIMEOUT_MS).toBeGreaterThan(worstCaseExecutionMs)
-    // 接进来之后每步 2-10 秒 × maxSteps（50 步 × 10s 顶格 = 500s）。
+    expect(runTaskTimeoutFor(hostToolTimeoutFor(300_000))).toBeGreaterThan(worstCaseExecutionMs)
+    // 每步 2-10 秒 × maxSteps（50 步 × 10s 顶格 = 500s）。
     expect(MODEL_SLACK_MS).toBeGreaterThanOrEqual(500_000)
-  })
-
-  it('必须大于 supervisor 的 defaultTimeoutMs，否则透传没有意义', () => {
-    expect(RUN_TASK_TIMEOUT_MS).toBeGreaterThan(SUPERVISOR_DEFAULT_TIMEOUT_MS)
   })
 })
 

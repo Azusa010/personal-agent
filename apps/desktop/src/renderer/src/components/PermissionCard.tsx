@@ -14,6 +14,7 @@ import {
   X
 } from 'lucide-react'
 import type { PermissionDecision, PermissionRecord } from '../../../shared/ipc-contract'
+import { PERMISSION_NEVER_EXPIRES_AT } from '../../../shared/domain'
 import { describeReminderPreview, formatOccurredAt } from '../view-model'
 import { Button } from './ui/button'
 import { cn } from '@renderer/lib/utils'
@@ -276,13 +277,16 @@ function SmartArgumentsPreview({
 
 /**
  * 流内权限审批卡(设计定稿:docs/design/ui-mockup.html · 02)。
- * 取代原模态 PermissionDialog:同样的 respondPermission 契约、同样的倒计时 fail-closed,
+ * 取代原模态 PermissionDialog:同样的 respondPermission 契约,
  * 只是呈现从「打断式弹窗」改为「会话流里的一张琥珀卡」。
+ * 批准窗口不限期:没人点就一直挂着,所以不限期时不显示倒计时环。
  * 调用方用 key={permission.id} 挂载:换一条请求时倒计时与 submitting 自然重置。
  */
 export function PermissionCard({ permission, onDecide }: PermissionCardProps): React.JSX.Element {
   const [now, setNow] = useState(() => Date.now())
   const [submitting, setSubmitting] = useState(false)
+  // 不限期窗口没有倒计时可言,渲染层据此隐藏环形计时
+  const unbounded = permission.expiresAt === PERMISSION_NEVER_EXPIRES_AT
   // 环形倒计时的分母:挂载那一刻距过期的秒数
   const [totalSec] = useState(() => {
     const expiresMs = new Date(permission.expiresAt).getTime()
@@ -295,12 +299,12 @@ export function PermissionCard({ permission, onDecide }: PermissionCardProps): R
   }, [])
 
   const expiresMs = new Date(permission.expiresAt).getTime()
-  const windowClosed = !Number.isNaN(expiresMs) && now >= expiresMs
+  const windowClosed = !unbounded && !Number.isNaN(expiresMs) && now >= expiresMs
   const disabled = submitting || windowClosed
 
-  const remainingMs = !Number.isNaN(expiresMs) ? expiresMs - now : 0
+  const remainingMs = !unbounded && !Number.isNaN(expiresMs) ? expiresMs - now : 0
   const remainingSec = Math.max(0, Math.floor(remainingMs / 1000))
-  const isUrgent = remainingSec <= 15 && remainingSec > 0 && !windowClosed
+  const isUrgent = !unbounded && remainingSec <= 15 && remainingSec > 0 && !windowClosed
 
   const decide = useCallback(
     async (decision: PermissionDecision): Promise<void> => {
@@ -346,7 +350,7 @@ export function PermissionCard({ permission, onDecide }: PermissionCardProps): R
   const meta = getCapabilityMeta(permission.capability)
   const Icon = meta.icon
   const preview = describeReminderPreview(permission)
-  const ringDeg = windowClosed ? 0 : Math.round((remainingSec / totalSec) * 360)
+  const ringDeg = unbounded ? 360 : windowClosed ? 0 : Math.round((remainingSec / totalSec) * 360)
 
   const fileCount = permission.sourcePaths.length
   const firstFile = fileCount > 0 ? baseName(permission.sourcePaths[0]) : null
@@ -389,26 +393,35 @@ export function PermissionCard({ permission, onDecide }: PermissionCardProps): R
                 发起于 {formatOccurredAt(permission.requestedAt)} · 确认后才会执行
               </div>
             </div>
-            <div
-              className={cn(
-                'grid size-[34px] shrink-0 place-items-center rounded-full',
-                isUrgent && !windowClosed && 'animate-pulse'
-              )}
-              style={{
-                background: `conic-gradient(${
-                  windowClosed
-                    ? 'var(--destructive)'
-                    : isUrgent
-                      ? 'var(--amber-strong)'
-                      : 'var(--warning)'
-                } ${ringDeg}deg, var(--amber-line) 0)`
-              }}
-              title="批准窗口剩余时间"
-            >
-              <div className="grid size-[26px] place-items-center rounded-full bg-background font-mono text-[9.5px] font-semibold text-warning">
-                {windowClosed ? '0' : remainingSec}
+            {unbounded ? (
+              <div
+                className="shrink-0 rounded-full border border-[var(--amber-line)] bg-[var(--amber-tint)] px-2 py-[3px] text-[10px] font-semibold text-[var(--amber-strong)]"
+                title="不限期：没人处理就一直等待"
+              >
+                待批准
               </div>
-            </div>
+            ) : (
+              <div
+                className={cn(
+                  'grid size-[34px] shrink-0 place-items-center rounded-full',
+                  isUrgent && !windowClosed && 'animate-pulse'
+                )}
+                style={{
+                  background: `conic-gradient(${
+                    windowClosed
+                      ? 'var(--destructive)'
+                      : isUrgent
+                        ? 'var(--amber-strong)'
+                        : 'var(--warning)'
+                  } ${ringDeg}deg, var(--amber-line) 0)`
+                }}
+                title="批准窗口剩余时间"
+              >
+                <div className="grid size-[26px] place-items-center rounded-full bg-background font-mono text-[9.5px] font-semibold text-warning">
+                  {windowClosed ? '0' : remainingSec}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 内容：影响范围 / 目标位置 / 执行说明 / 指纹 */}

@@ -772,12 +772,12 @@ describe('runTask：索要计划', () => {
 })
 
 describe('MAKE_PLAN_TIMEOUT_MS', () => {
-  it('钉住字面值，且必须比 run_task 短', () => {
+  it('钉住字面值：规划始终有 60 秒上限，run_task 不限期也不受影响', () => {
     // TASK-031 起规划在真模型模式下是一次网络调用（LivePlanner），60 秒是上限
-    // 不是常态；剧本模式仍是纯计算。跟 run_task 用同一个值的话，库里连 Task
-    // 都没有的那段时间会被拖到整个批准窗口那么长。
+    // 不是常态；剧本模式仍是纯计算。它跟批准窗口无关，不会因为等待批准而放宽。
     expect(MAKE_PLAN_TIMEOUT_MS).toBe(60_000)
-    expect(MAKE_PLAN_TIMEOUT_MS).toBeLessThan(RUN_TASK_TIMEOUT_MS)
+    // run_task 现在跟着不限期批准窗口一起变成无上限
+    expect(RUN_TASK_TIMEOUT_MS).toBeNull()
   })
 })
 

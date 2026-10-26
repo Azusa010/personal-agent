@@ -51,8 +51,8 @@ export interface PermissionBrokerDeps {
   readonly now?: () => string
   /** 默认 randomUUID() */
   readonly newId?: () => string
-  /** 默认 PERMISSION_TTL_MS（5 分钟） */
-  readonly ttlMs?: number
+  /** 批准窗口有效期。默认 PERMISSION_TTL_MS（不限期）；传数字则按该毫秒数自动过期。 */
+  readonly ttlMs?: number | null
   /** 推给 Renderer 的出口。不传就只落库不推送。 */
   readonly notify?: (notice: PermissionNotice) => void
 }
@@ -94,7 +94,8 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
 
   interface Waiter {
     readonly resolve: (outcome: PermissionOutcome) => void
-    readonly timer: NodeJS.Timeout
+    /** null = 不限期，没有定时器可撤 */
+    readonly timer: NodeJS.Timeout | null
     /** 挂起中的 promise：同 (taskId, callId) 的重复 request 复用它，不重复弹卡 */
     readonly promise: Promise<PermissionOutcome>
   }
@@ -105,7 +106,7 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
     const waiter = pending.get(permissionId)
     if (waiter === undefined) return
     pending.delete(permissionId)
-    clearTimeout(waiter.timer)
+    if (waiter.timer !== null) clearTimeout(waiter.timer)
     waiter.resolve(outcome)
   }
 
@@ -137,13 +138,13 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
     deps.notify?.({ kind: 'requested', permission })
   }
 
-  /** 开一个挂起窗口。同一条 permission 重复 arm 时先撤掉旧定时器，避免双重结算。 */
+  /** 开一个挂起窗口。不限期时没有定时器，只能由用户决定来结算。 */
   function arm(permission: PermissionRecord): Promise<PermissionOutcome> {
     const previous = pending.get(permission.id)
     if (previous !== undefined) {
       // 正常路径不会走到这里（request 已先复用挂起中的 promise）。
       // 真走到时把旧窗口按过期结算，绝不能留下永不 resolve 的 caller。
-      clearTimeout(previous.timer)
+      if (previous.timer !== null) clearTimeout(previous.timer)
       pending.delete(permission.id)
       previous.resolve({
         approved: false,
@@ -156,15 +157,18 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
     const promise = new Promise<PermissionOutcome>((settleRequest) => {
       resolve = settleRequest
     })
-    const timer = setTimeout(() => {
-      pending.delete(permission.id)
-      emitExpired(permission)
-      resolve({
-        approved: false,
-        code: ERROR_CODE.PERMISSION_EXPIRED,
-        reason: `${permission.capability} 的批准请求在 ${ttlMs / 1000} 秒内没有响应，已过期`
-      })
-    }, ttlMs)
+    const timer =
+      ttlMs === null
+        ? null
+        : setTimeout(() => {
+            pending.delete(permission.id)
+            emitExpired(permission)
+            resolve({
+              approved: false,
+              code: ERROR_CODE.PERMISSION_EXPIRED,
+              reason: `${permission.capability} 的批准请求在 ${ttlMs / 1000} 秒内没有响应，已过期`
+            })
+          }, ttlMs)
 
     pending.set(permission.id, { resolve, timer, promise })
     return promise
@@ -324,7 +328,9 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
     },
 
     dispose() {
-      for (const waiter of pending.values()) clearTimeout(waiter.timer)
+      for (const waiter of pending.values()) {
+        if (waiter.timer !== null) clearTimeout(waiter.timer)
+      }
       pending.clear()
     }
   }

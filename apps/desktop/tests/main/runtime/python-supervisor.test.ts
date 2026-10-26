@@ -111,6 +111,23 @@ describe('PythonSupervisor ~ Slice 2', () => {
     const p = sup.request('system.ping')
     await expect(p).rejects.toMatchObject({ code: RUNTIME_ERROR_CODE.TIMEOUT })
   }, 2000)
+  it('显式传 timeoutMs: null:不设上限,defaultTimeoutMs 不生效', async () => {
+    const { child, written, stdout } = makeFakeChild()
+    const sup = new PythonSupervisor({
+      command: 'fake',
+      args: [],
+      capabilities: [],
+      spawnFn: () => child,
+      defaultTimeoutMs: 20
+    })
+    sup.start()
+    const p = sup.request('system.ping', {}, { timeoutMs: null })
+    // 睡过 defaultTimeoutMs：如果 null 被当成 0/默认值，这里就已经 reject 了
+    await new Promise((r) => setTimeout(r, 60))
+    const id = (JSON.parse(written[0]) as { id: string }).id
+    stdout.push(JSON.stringify({ jsonrpc: '2.0', id, result: { ok: true } }) + '\n')
+    await expect(p).resolves.toEqual({ ok: true })
+  }, 2000)
   it('崩溃:pending全部reject且广播runtime.crashed', async () => {
     const { child } = makeFakeChild()
     const sup = new PythonSupervisor({
@@ -353,7 +370,7 @@ describe('PythonSupervisor ~ 片 2b (host.execute_tool)', () => {
 
   function makeSup(
     handler?: HostHandler,
-    over: { defaultTimeoutMs?: number; hostTimeoutMs?: number } = {}
+    over: { defaultTimeoutMs?: number; hostTimeoutMs?: number | null } = {}
   ): {
     sup: PythonSupervisor
     written: string[]
@@ -546,6 +563,17 @@ describe('PythonSupervisor ~ 片 2b (host.execute_tool)', () => {
 
       expect(written).toHaveLength(1)
       expect(written[0]).not.toContain(ERROR_CODE.HOST_HANDLER_FAILED)
+    })
+
+    it('hostTimeoutMs: null -> 不设上限，慢 handler 也会把 result 写回', async () => {
+      const { written, stdout } = makeSup(slowHandler(120), { hostTimeoutMs: null })
+
+      stdout.push(hostLine())
+      const reply = await replyAt(written, 0)
+
+      expect(reply.error).toBeUndefined()
+      expect(reply.result).toEqual({ ok: true, late: true })
+      expect(written).toHaveLength(1)
     })
 
     it('host 超时不影响 TS 自己的 pending 请求', async () => {

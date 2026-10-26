@@ -28,15 +28,17 @@ export interface PythonSupervisorOptions {
   spawnFn?: SpawnFn
   defaultTimeoutMs?: number
   hostHandler?: HostHandler
-  /** 反向 RPC host.execute_tool 的单次上限。默认值必须大于 Permission 有效期，
-   *  否则用户还没点批准 handler 就先超时了。推导见 timeouts.ts。 */
-  hostTimeoutMs?: number
+  /** 反向 RPC host.execute_tool 的单次上限。null = 不限期（等用户点批准）。
+   *  有限值必须大于 Permission 有效期，否则用户还没点 handler 就先超时了。
+   *  推导见 timeouts.ts。 */
+  hostTimeoutMs?: number | null
 }
 
 interface Pending {
   resolve: (value: unknown) => void
   reject: (reason: Error) => void
-  timer: ReturnType<typeof setTimeout>
+  /** null = 该请求不设超时 */
+  timer: ReturnType<typeof setTimeout> | null
   cleanup?: () => void
 }
 
@@ -79,7 +81,7 @@ export class PythonSupervisor extends EventEmitter {
   private stopping = false
   private crashInfo: string | null = null
   private hostHandler: HostHandler | null
-  private readonly hostTimeoutMs: number
+  private readonly hostTimeoutMs: number | null
   private readonly capabilities: readonly CapabilityDescriptor[]
 
   constructor(opts: PythonSupervisorOptions) {
@@ -165,7 +167,7 @@ export class PythonSupervisor extends EventEmitter {
   request(
     method: string,
     params: unknown = {},
-    opts?: { timeoutMs?: number; signal?: AbortSignal }
+    opts?: { timeoutMs?: number | null; signal?: AbortSignal }
   ): Promise<unknown> {
     if (this.crashInfo !== null) {
       return Promise.reject(
@@ -182,15 +184,21 @@ export class PythonSupervisor extends EventEmitter {
       return Promise.reject(new RuntimeError(RUNTIME_ERROR_CODE.CANCELLED, `请求 ${method} 已取消`))
     }
     const id = `req-${++this.idCounter}`
-    const timeoutMs = opts?.timeoutMs ?? this.defaultTimeoutMs
+    const timeoutMs = opts?.timeoutMs === undefined ? this.defaultTimeoutMs : opts.timeoutMs
     return new Promise<unknown>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.settle(id, (p) => {
-          p.reject(
-            new RuntimeError(RUNTIME_ERROR_CODE.TIMEOUT, `请求 ${method} 超时 (${timeoutMs}ms)`)
-          )
-        })
-      }, timeoutMs)
+      const timer =
+        timeoutMs === null
+          ? null
+          : setTimeout(() => {
+              this.settle(id, (p) => {
+                p.reject(
+                  new RuntimeError(
+                    RUNTIME_ERROR_CODE.TIMEOUT,
+                    `请求 ${method} 超时 (${timeoutMs}ms)`
+                  )
+                )
+              })
+            }, timeoutMs)
 
       const onAbort = (): void => {
         this.settle(id, (p) => {
@@ -307,17 +315,20 @@ export class PythonSupervisor extends EventEmitter {
       return
     }
     let timeOut = false
-    const timer = setTimeout(() => {
-      timeOut = true
-      this.writeLine({
-        jsonrpc: '2.0',
-        id,
-        error: {
-          code: ERROR_CODE.HOST_TIMEOUT,
-          message: `host.executeTool 请求超时 (${this.hostTimeoutMs}ms: ${parsed.data.params.capability})`
-        }
-      })
-    }, this.hostTimeoutMs)
+    const timer =
+      this.hostTimeoutMs === null
+        ? null
+        : setTimeout(() => {
+            timeOut = true
+            this.writeLine({
+              jsonrpc: '2.0',
+              id,
+              error: {
+                code: ERROR_CODE.HOST_TIMEOUT,
+                message: `host.executeTool 请求超时 (${this.hostTimeoutMs}ms: ${parsed.data.params.capability})`
+              }
+            })
+          }, this.hostTimeoutMs)
     try {
       const result = await this.hostHandler(parsed.data.params)
       if (timeOut) return
@@ -333,7 +344,7 @@ export class PythonSupervisor extends EventEmitter {
         }
       })
     } finally {
-      clearTimeout(timer)
+      if (timer !== null) clearTimeout(timer)
     }
   }
   // 唯一的写管道出口
@@ -372,7 +383,7 @@ export class PythonSupervisor extends EventEmitter {
     const p = this.pending.get(id)
     if (!p) return
     this.pending.delete(id)
-    clearTimeout(p.timer)
+    if (p.timer !== null) clearTimeout(p.timer)
     p.cleanup?.()
     fn(p)
   }

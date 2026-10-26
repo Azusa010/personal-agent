@@ -67,6 +67,13 @@ export type PermissionStatus = 'pending' | PermissionDecision
 /** 查询时投影出的第四种状态 */
 export type PermissionViewState = PermissionStatus | 'expired'
 
+/** 不限期批准窗口的 expires_at 落库值。
+ *
+ *  permissions.expires_at 是 NOT NULL，而「没人点就一直等」没有真实截止时间，
+ *  于是用一个远期哨兵表达「永不自动过期」：字典序比较与 Date.parse 都正常工作，
+ *  UI 侧用 `expiresAt === PERMISSION_NEVER_EXPIRES_AT` 识别并隐藏倒计时。 */
+export const PERMISSION_NEVER_EXPIRES_AT = '9999-12-31T23:59:59.999Z'
+
 /** 一次工具调用的授权记录。批准之后内容不可变，只有 status 与 decidedAt 会被写第二次 */
 export interface PermissionRecord {
   id: string

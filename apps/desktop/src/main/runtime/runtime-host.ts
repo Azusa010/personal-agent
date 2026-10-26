@@ -235,7 +235,7 @@ export async function stopRuntime(): Promise<void> {
 export async function requestRuntime(
   method: string,
   params?: unknown,
-  opts?: { timeoutMs?: number }
+  opts?: { timeoutMs?: number | null }
 ): Promise<unknown> {
   if (!supervisor) {
     throw new RuntimeError(RUNTIME_ERROR_CODE.NOT_STARTED, 'Python runtime 未启动')

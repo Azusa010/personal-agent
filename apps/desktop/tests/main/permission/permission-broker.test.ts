@@ -5,7 +5,11 @@ import { join, sep } from 'node:path'
 import { ERROR_CODE } from '@personal-agent/protocol'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ExecutionEventRecord, PermissionRecord } from '../../../src/shared/domain'
+import {
+  PERMISSION_NEVER_EXPIRES_AT,
+  type ExecutionEventRecord,
+  type PermissionRecord
+} from '../../../src/shared/domain'
 import {
   migrate,
   MEMORY_DB,
@@ -16,7 +20,6 @@ import { SqliteEventRepository } from '../../../src/main/product-state/event-rep
 import { SqlitePermissionRepository } from '../../../src/main/product-state/permission-repository'
 import { SqliteTaskRepository } from '../../../src/main/product-state/task-repository'
 import { fingerprintArguments } from '../../../src/main/permission/args-hash'
-import { PERMISSION_TTL_MS } from '../../../src/main/permission/expiry'
 import {
   createPermissionBroker,
   PERMISSION_EVENT,
@@ -178,7 +181,7 @@ describe('request：建记录、写事件、推送', () => {
     await pending
   })
 
-  it('不注入 ttlMs 时用 expiry.ts 的五分钟', async () => {
+  it('不注入 ttlMs 时不限期：没人点就一直挂着，推进一天也不结算', async () => {
     const d = openProductState(MEMORY_DB)
     db = d
     migrate(d)
@@ -196,15 +199,21 @@ describe('request：建记录、写事件、推送', () => {
       newId: () => `perm-${++idSeq}`
     })
 
+    let settled = false
     const pending = broker.request(moveInput())
-    // 五分钟内不该过期
-    vi.advanceTimersByTime(PERMISSION_TTL_MS - 1)
-    expect(stored()[0].status).toBe('pending')
+    void pending.then(() => {
+      settled = true
+    })
+
+    expect(stored()[0].expiresAt).toBe(PERMISSION_NEVER_EXPIRES_AT)
+    vi.advanceTimersByTime(24 * 60 * 60 * 1000)
+    await Promise.resolve()
+    expect(settled).toBe(false)
     expect(eventsOfType(PERMISSION_EVENT.EXPIRED)).toHaveLength(0)
 
-    vi.advanceTimersByTime(1)
-    await pending
-    expect(eventsOfType(PERMISSION_EVENT.EXPIRED)).toHaveLength(1)
+    // 迟到的批准仍然算数
+    broker.respond('perm-1', 'approved')
+    expect((await pending).approved).toBe(true)
   })
 
   it('写一条 permission_requested 事件，payload 带面板要展示的七项素材', async () => {
