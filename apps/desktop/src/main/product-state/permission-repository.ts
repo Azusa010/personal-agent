@@ -32,6 +32,10 @@ export interface PermissionRepository {
   findByTaskId(taskId: string): PermissionRecord[]
   /** 写结论。同一结论重复调用幂等返回，不同结论抛 PermissionAlreadyDecided */
   decide(id: string, decision: PermissionDecision, decidedAt: string): PermissionRecord
+  /** 重开批准窗口：status 回到 pending、清 decided_at、刷新 requested_at/expires_at。
+   *  只用于「同 (task_id, tool_call_id) 再次请求」——UNIQUE 决定这条记录不能插第二行，
+   *  过期或已批准但窗口关闭后重新发起只能复用原行。已拒绝的记录不允许重开。 */
+  renew(id: string, requestedAt: string, expiresAt: string): PermissionRecord
 }
 
 /** 数据库行的形状 */
@@ -91,6 +95,9 @@ const SELECT_BY_TASK_AND_TOOL_CALL_SQL = `SELECT ${COLUMNS} FROM permissions
 const SELECT_BY_TASK_ID_SQL = `SELECT ${COLUMNS} FROM permissions
   WHERE task_id = ? ORDER BY requested_at ASC, id ASC`
 const DECIDE_SQL = `UPDATE permissions SET status = @status, decided_at = @decidedAt WHERE id = @id`
+const RENEW_SQL = `UPDATE permissions
+  SET status = 'pending', decided_at = NULL, requested_at = @requestedAt, expires_at = @expiresAt
+  WHERE id = @id`
 
 export class SqlitePermissionRepository implements PermissionRepository {
   constructor(private readonly db: SqliteDatabase) {}
@@ -130,5 +137,18 @@ export class SqlitePermissionRepository implements PermissionRepository {
     }
     this.db.prepare(DECIDE_SQL).run({ id, status: decision, decidedAt })
     return { ...current, status: decision, decidedAt }
+  }
+
+  renew(id: string, requestedAt: string, expiresAt: string): PermissionRecord {
+    const current = this.findById(id)
+    if (current === null) {
+      throw new Error(`permissions 中不存在 id=${id}`)
+    }
+    if (current.status === 'denied') {
+      // 用户已经明确拒绝过这次调用，不能借「重试」把拒绝洗成待批
+      throw new Error(`权限 ${id} 已被拒绝，不能重开批准窗口`)
+    }
+    this.db.prepare(RENEW_SQL).run({ id, requestedAt, expiresAt })
+    return { ...current, status: 'pending', decidedAt: null, requestedAt, expiresAt }
   }
 }

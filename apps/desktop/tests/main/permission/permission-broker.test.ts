@@ -484,6 +484,92 @@ describe('过期定时器', () => {
   })
 })
 
+describe('同 callId 重复请求：不撞 UNIQUE，不重复弹卡', () => {
+  beforeEach(() => {
+    openBroker()
+  })
+
+  it('窗口内同参数重复 request：只落一行、只推一张卡，共用同一个结论', async () => {
+    const first = broker!.request(moveInput())
+    const second = broker!.request(moveInput())
+
+    expect(stored()).toHaveLength(1)
+    expect(eventsOfType(PERMISSION_EVENT.REQUESTED)).toHaveLength(1)
+    expect(notices.filter((n) => n.kind === 'requested')).toHaveLength(1)
+
+    broker!.respond('perm-1', 'approved')
+
+    expect(await first).toEqual({ approved: true, permission: stored()[0] })
+    expect(await second).toEqual({ approved: true, permission: stored()[0] })
+  })
+
+  it('过期后用同一个 callId 重试：复用原行重开窗口，不再抛 UNIQUE', async () => {
+    const first = broker!.request(moveInput())
+    vi.advanceTimersByTime(1000)
+    expect((await first).approved).toBe(false)
+
+    clock = '2026-09-14T09:00:05.000Z'
+    const retry = broker!.request(moveInput())
+
+    // 唯一约束决定不能插第二行：还是 perm-1，但窗口已经刷新
+    expect(stored()).toHaveLength(1)
+    expect(stored()[0]).toMatchObject({
+      id: 'perm-1',
+      status: 'pending',
+      decidedAt: null,
+      requestedAt: '2026-09-14T09:00:05.000Z',
+      expiresAt: '2026-09-14T09:00:06.000Z'
+    })
+    // 新窗口要重新推一张卡
+    expect(eventsOfType(PERMISSION_EVENT.REQUESTED)).toHaveLength(2)
+    expect(notices.filter((n) => n.kind === 'requested')).toHaveLength(2)
+
+    broker!.respond('perm-1', 'approved')
+    expect((await retry).approved).toBe(true)
+  })
+
+  it('同 callId 换参数：回 PERMISSION_TAMPERED，原记录不被覆盖', async () => {
+    const first = broker!.request(moveInput())
+    const tampered = await broker!.request({
+      ...moveInput(),
+      bound: moveBound(`${posixRoot}/b.pdf`, `${posixRoot}/Reading/b.pdf`)
+    })
+
+    expect(tampered.approved).toBe(false)
+    if (!tampered.approved) expect(tampered.code).toBe(ERROR_CODE.PERMISSION_TAMPERED)
+    expect(stored()).toHaveLength(1)
+    expect(stored()[0].argsHash).toBe(fingerprintArguments(moveInput().bound).hash)
+
+    broker!.respond('perm-1', 'approved')
+    await first
+  })
+
+  it('已批准且窗口未关：重复 request 直接复用结论，不弹第二张卡', async () => {
+    const first = broker!.request(moveInput())
+    broker!.respond('perm-1', 'approved')
+    await first
+
+    const again = await broker!.request(moveInput())
+
+    expect(again).toEqual({ approved: true, permission: stored()[0] })
+    expect(eventsOfType(PERMISSION_EVENT.REQUESTED)).toHaveLength(1)
+    expect(notices.filter((n) => n.kind === 'requested')).toHaveLength(1)
+  })
+
+  it('已拒绝：重复 request 直接回 PERMISSION_DENIED，不再打扰用户', async () => {
+    const first = broker!.request(moveInput())
+    broker!.respond('perm-1', 'denied')
+    await first
+
+    const again = await broker!.request(moveInput())
+
+    expect(again.approved).toBe(false)
+    if (!again.approved) expect(again.code).toBe(ERROR_CODE.PERMISSION_DENIED)
+    expect(stored()[0].status).toBe('denied')
+    expect(notices.filter((n) => n.kind === 'requested')).toHaveLength(1)
+  })
+})
+
 describe('verifyPermission：六步验证', () => {
   let realFile = ''
   let outsideDir = ''

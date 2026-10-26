@@ -95,6 +95,8 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
   interface Waiter {
     readonly resolve: (outcome: PermissionOutcome) => void
     readonly timer: NodeJS.Timeout
+    /** 挂起中的 promise：同 (taskId, callId) 的重复 request 复用它，不重复弹卡 */
+    readonly promise: Promise<PermissionOutcome>
   }
 
   const pending = new Map<string, Waiter>()
@@ -118,11 +120,102 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
     deps.notify?.({ kind: 'resolved', permissionId: permission.id, state: 'expired' })
   }
 
+  /** 落 requested 事件并推给 Renderer。首次请求与重开窗口共用一条路径。 */
+  function emitRequested(permission: PermissionRecord, requestedAt: string): void {
+    deps.events.append({
+      taskId: permission.taskId,
+      type: PERMISSION_EVENT.REQUESTED,
+      payload: {
+        permissionId: permission.id,
+        capability: permission.capability,
+        sourcePaths: permission.sourcePaths,
+        targetPath: permission.targetPath,
+        expiresAt: permission.expiresAt
+      },
+      occurredAt: requestedAt
+    })
+    deps.notify?.({ kind: 'requested', permission })
+  }
+
+  /** 开一个挂起窗口。同一条 permission 重复 arm 时先撤掉旧定时器，避免双重结算。 */
+  function arm(permission: PermissionRecord): Promise<PermissionOutcome> {
+    const previous = pending.get(permission.id)
+    if (previous !== undefined) {
+      // 正常路径不会走到这里（request 已先复用挂起中的 promise）。
+      // 真走到时把旧窗口按过期结算，绝不能留下永不 resolve 的 caller。
+      clearTimeout(previous.timer)
+      pending.delete(permission.id)
+      previous.resolve({
+        approved: false,
+        code: ERROR_CODE.PERMISSION_EXPIRED,
+        reason: `${permission.capability} 的批准窗口已被新的请求取代`
+      })
+    }
+
+    let resolve: (outcome: PermissionOutcome) => void = () => {}
+    const promise = new Promise<PermissionOutcome>((settleRequest) => {
+      resolve = settleRequest
+    })
+    const timer = setTimeout(() => {
+      pending.delete(permission.id)
+      emitExpired(permission)
+      resolve({
+        approved: false,
+        code: ERROR_CODE.PERMISSION_EXPIRED,
+        reason: `${permission.capability} 的批准请求在 ${ttlMs / 1000} 秒内没有响应，已过期`
+      })
+    }, ttlMs)
+
+    pending.set(permission.id, { resolve, timer, promise })
+    return promise
+  }
+
   return {
     async request(input) {
       const requestedAt = now()
       const fingerprint = fingerprintArguments(input.bound)
       const { sourcePaths, targetPath } = splitPaths(input.capability, input.bound)
+
+      const existing = deps.permissions.findByTaskAndToolCall(input.taskId, input.toolCallId)
+      if (existing !== null) {
+        // (task_id, tool_call_id) 上有 UNIQUE 约束，同 callId 重试绝不能 INSERT 第二行
+        // ——那会抛 SqliteError 把整条工具调用打断。模型重试时复用 callId 是常态。
+        if (existing.capability !== input.capability || existing.argsHash !== fingerprint.hash) {
+          return {
+            approved: false,
+            code: ERROR_CODE.PERMISSION_TAMPERED,
+            reason: `callId ${input.toolCallId} 已登记过 ${existing.capability}，本次参数与上次不一致`
+          }
+        }
+        if (existing.status === 'denied') {
+          // 用户已明确拒绝过这次调用，重试不该把拒绝洗成待批
+          return {
+            approved: false,
+            code: ERROR_CODE.PERMISSION_DENIED,
+            reason: `用户拒绝了 ${existing.capability}`
+          }
+        }
+        if (
+          existing.status === 'approved' &&
+          permissionState(existing, requestedAt) !== 'expired'
+        ) {
+          // 同一指纹、窗口内已批准：直接复用结论，不再弹第二张卡
+          return { approved: true, permission: existing }
+        }
+        const live = pending.get(existing.id)
+        if (live !== undefined) {
+          // 窗口内已有挂起请求（并发重试）：共用一个 promise，只留一张卡
+          return live.promise
+        }
+        // 窗口已过期或 waiter 已丢失（进程重启）：复用原行重开窗口
+        const renewed = deps.permissions.renew(
+          existing.id,
+          requestedAt,
+          computeExpiresAt(requestedAt, ttlMs)
+        )
+        emitRequested(renewed, requestedAt)
+        return arm(renewed)
+      }
 
       const permission: PermissionRecord = {
         id: newId(),
@@ -140,33 +233,8 @@ export function createPermissionBroker(deps: PermissionBrokerDeps): PermissionBr
       }
 
       deps.permissions.insert(permission)
-      deps.events.append({
-        taskId: input.taskId,
-        type: PERMISSION_EVENT.REQUESTED,
-        payload: {
-          permissionId: permission.id,
-          capability: permission.capability,
-          sourcePaths,
-          targetPath,
-          expiresAt: permission.expiresAt
-        },
-        occurredAt: requestedAt
-      })
-      deps.notify?.({ kind: 'requested', permission })
-
-      return new Promise<PermissionOutcome>((resolve) => {
-        const timer = setTimeout(() => {
-          pending.delete(permission.id)
-          emitExpired(permission)
-          resolve({
-            approved: false,
-            code: ERROR_CODE.PERMISSION_EXPIRED,
-            reason: `${permission.capability} 的批准请求在 ${ttlMs / 1000} 秒内没有响应，已过期`
-          })
-        }, ttlMs)
-
-        pending.set(permission.id, { resolve, timer })
-      })
+      emitRequested(permission, requestedAt)
+      return arm(permission)
     },
 
     respond(permissionId, decision, reason: string = '') {

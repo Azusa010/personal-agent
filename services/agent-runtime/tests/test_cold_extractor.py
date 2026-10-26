@@ -296,6 +296,46 @@ def test_extractor_noop_filtering(ledger: MainEventLedger, inbox: MemoryInbox, c
     assert cursor.last_extracted_seq_id == e2.seq_id
 
 
+def test_extractor_all_noise_batch_returns_empty_items(
+    ledger: MainEventLedger, inbox: MemoryInbox, cursor: ExtractorCursor
+):
+    """整批事件在进入提炼函数前就被判为噪音时，仍要返回合法的 ExtractionResult。
+
+    回归：该分支曾漏填必填字段 items，导致 Pydantic 校验抛错，
+    把整条长程记忆流水线（提炼 + 做梦）打断。
+    """
+    e1 = ledger.append_event("user", {"text": "你好"})
+    e2 = ledger.append_event("assistant", {"text": "谢谢", "error": "temporary"})
+    assert e1.seq_id < e2.seq_id
+
+    extract_fn_called = False
+
+    def mock_extract_fn(events: list[LedgerEvent]) -> list[CandidateMemoryItem]:
+        nonlocal extract_fn_called
+        extract_fn_called = True
+        return []
+
+    extractor = ColdMemoryExtractor(
+        ledger=ledger,
+        inbox=inbox,
+        cursor=cursor,
+        extract_fn=mock_extract_fn,
+        batch_size=10,
+    )
+
+    result = extractor.extract_next_batch()
+
+    assert extract_fn_called is False  # 全噪音批次不该浪费模型调用
+    assert result.items == []
+    assert result.processed_events_count == 2
+    assert result.noop_count == 2
+    assert result.from_seq_id == e1.seq_id
+    assert result.to_seq_id == e2.seq_id
+    # 游标正常前进，inbox 保持干净
+    assert cursor.last_extracted_seq_id == e2.seq_id
+    assert inbox.count_pending() == 0
+
+
 def test_extractor_confidence_threshold_filtering(ledger: MainEventLedger, inbox: MemoryInbox, cursor: ExtractorCursor):
     """测试低置信度条目被过滤拦截，不进入 inbox。"""
     e1 = ledger.append_event("user", {"text": "也许我们以后可以试试别的工具吧"})

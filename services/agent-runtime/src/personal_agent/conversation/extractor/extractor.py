@@ -52,6 +52,9 @@ class ColdMemoryExtractor:
             if len(filtered_events) == 0:
                 self.cursor.advance(events[-1].seq_id)
                 return ExtractionResult(
+                    # items 是必填字段：整批都是噪音也要显式给空列表，
+                    # 否则 Pydantic 校验直接抛错，把整条记忆流水线打断。
+                    items=[],
                     processed_events_count=len(events),
                     from_seq_id=events[0].seq_id,
                     to_seq_id=events[-1].seq_id,

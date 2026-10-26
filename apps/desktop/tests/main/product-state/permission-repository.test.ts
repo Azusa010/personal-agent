@@ -226,6 +226,55 @@ describe('SqlitePermissionRepository', () => {
     )
   })
 
+  it('renew 把已批准的记录重开成 pending：清 decidedAt、刷新时间、其它字段不动', () => {
+    const repo = makeRepo()
+    repo.insert(permission('p-1', { toolCallId: 'call-abc' }))
+    repo.decide('p-1', 'approved', '2026-09-13T00:00:30.000Z')
+
+    const renewed = repo.renew('p-1', '2026-09-13T00:10:00.000Z', '2026-09-13T00:15:00.000Z')
+
+    expect(renewed).toMatchObject({
+      id: 'p-1',
+      taskId: 't-1',
+      toolCallId: 'call-abc',
+      status: 'pending',
+      decidedAt: null,
+      requestedAt: '2026-09-13T00:10:00.000Z',
+      expiresAt: '2026-09-13T00:15:00.000Z'
+    })
+    // 落库结果与返回值一致
+    expect(repo.findById('p-1')).toEqual(renewed)
+  })
+
+  it('renew 已过期的 pending 记录只刷新窗口', () => {
+    const repo = makeRepo()
+    repo.insert(permission('p-1'))
+
+    const renewed = repo.renew('p-1', '2026-09-13T01:00:00.000Z', '2026-09-13T01:05:00.000Z')
+
+    expect(renewed.status).toBe('pending')
+    expect(renewed.expiresAt).toBe('2026-09-13T01:05:00.000Z')
+    expect(repo.findById('p-1')?.expiresAt).toBe('2026-09-13T01:05:00.000Z')
+  })
+
+  it('renew 被拒绝的记录抛错，拒绝结论不被洗白', () => {
+    const repo = makeRepo()
+    repo.insert(permission('p-1'))
+    repo.decide('p-1', 'denied', '2026-09-13T00:00:30.000Z')
+
+    expect(() => repo.renew('p-1', '2026-09-13T00:10:00.000Z', '2026-09-13T00:15:00.000Z')).toThrow(
+      /已被拒绝/
+    )
+    expect(repo.findById('p-1')?.status).toBe('denied')
+  })
+
+  it('renew 不存在的 id 抛', () => {
+    const repo = makeRepo()
+    expect(() =>
+      repo.renew('不存在', '2026-09-13T00:10:00.000Z', '2026-09-13T00:15:00.000Z')
+    ).toThrow(/不存在 id=不存在/)
+  })
+
   it('source_paths 被写成非法 JSON 时读回来抛，不静默返回空数组', () => {
     const repo = makeRepo()
     repo.insert(permission('p-1'))
