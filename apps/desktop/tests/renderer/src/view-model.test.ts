@@ -111,15 +111,19 @@ describe('describeRunOutcome', () => {
 })
 
 describe('EVENT_LABELS', () => {
-  it('登记的键就是写库方用的十五个事件类型，一个不多一个不少', () => {
+  it('登记的键就是写库方用的十八个事件类型，一个不多一个不少', () => {
     // 前六个是跨语言契约：Python 写库、TS 读库，字符串来自 engine.py 的 EVENT_*。
     // 中间三个来自 permission-broker 的 PERMISSION_EVENT，写库方是 TS 自己。
     // reminder_created 来自 executor.ts 的 REMINDER_CREATED_EVENT（TASK-023）。
     // verification_* 三个来自 verify-deliverables.ts（TASK-026），写库方是 run-task.ts。
     // sidecar_inspected 与 circuit_breaker_tripped 来自 sidecar 安全子系统。
+    // a2ui_* 三个来自 capabilities/plugins/a2ui.ts 的活卡生命周期事件。
     // 任一边改名，timeline 上就会出现没翻译的英文 type。这条测试钉住展示层这一半。
     expect(Object.keys(EVENT_LABELS).sort()).toEqual(
       [
+        'a2ui_rendered',
+        'a2ui_submitted',
+        'a2ui_updated',
         'budget_exhausted',
         'circuit_breaker_tripped',
         'permission_decision',

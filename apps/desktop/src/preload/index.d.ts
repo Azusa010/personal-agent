@@ -29,6 +29,7 @@ import type {
   A2UIFormSubmitParams,
   A2UIFormSubmitIpcResult,
   A2UIRenderNotice,
+  A2UIUpdateNotice,
   ListBotsResult,
   GetBotResult,
   CreateBotInput,
@@ -131,6 +132,8 @@ export type PersonalAgentApi = {
   submitA2UIForm(params: A2UIFormSubmitParams): Promise<A2UIFormSubmitIpcResult>
   /** 订阅 main 推来的 A2UI 渲染事件 */
   onA2UIRender(listener: (notice: A2UIRenderNotice) => void): () => void
+  /** 订阅 main 推来的 A2UI 卡片原地更新事件（同一 renderId 全量换 document） */
+  onA2UIRenderUpdate(listener: (notice: A2UIUpdateNotice) => void): () => void
   /** 首帧主题：主进程通过 additionalArguments 注入，同步可用，供 renderer 在首帧前落 class */
   initialTheme: EffectiveTheme
   /** 读外观偏好（preference）与当前生效值（effective） */

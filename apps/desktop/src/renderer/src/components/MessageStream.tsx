@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LoaderCircle, Sparkles } from 'lucide-react'
 import type { MessageView } from '../../../shared/ipc-contract'
 import { ScrollPinButton, TextShimmer, ThoughtChainViewer, useScrollAnchor } from '../thought-chain'
 import { extractFacts, getTimelineStepCount, type LiveStreamState } from '../view-model'
 import { MarkdownContent } from './MarkdownContent'
+import { A2UIInlineCard } from './a2ui'
+import { cardsForTask, type A2UICardMap } from '../a2ui/derive-cards'
 import { useSmoothText } from '../lib/use-smooth-text'
 import { cn } from '@renderer/lib/utils'
 
@@ -18,8 +20,14 @@ export interface MessageStreamProps {
   thinkingByTaskId?: Record<string, string>
   /** 正在打字的那个任务：流式块与正式消息都接同一条平滑曲线，换场不蹦字 */
   typingTaskId?: string | null
-  /** 需要补齐字段时，A2UI 表单直接接在消息流末尾 */
-  inlineForm?: React.ReactNode
+  /** A2UI 卡片（历史回放 ⊕ 实时通知）：嵌在所属 assistant 消息后 / 当前流式块后 */
+  a2uiCards?: A2UICardMap
+  onCardSubmit?: (
+    renderId: string,
+    actionId: string,
+    formData: Record<string, unknown>
+  ) => Promise<void>
+  onCardDismiss?: (renderId: string) => void
 }
 
 /** assistant 正文区：执行叙述 → 正文 → 依据。全部直接落在画布上，没有一层外壳。 */
@@ -91,13 +99,42 @@ export function MessageStream({
   agentName = 'Personal Agent',
   thinkingByTaskId,
   typingTaskId,
-  inlineForm
+  a2uiCards,
+  onCardSubmit,
+  onCardDismiss
 }: MessageStreamProps): React.JSX.Element {
   const { containerRef, hasNewContentBelow, scrollToBottom, notifyContentGrowth } =
     useScrollAnchor()
 
   const waiting = pendingText !== null
-  const hasInlineForm = inlineForm !== null && inlineForm !== undefined
+
+  // 卡片渲染：每张卡恰好出现一次——已能锚到 assistant 消息的贴消息后，
+  // 还没有消息的（当前流式任务）贴流式块后。
+  const anchoredTaskIds = useMemo(
+    () =>
+      new Set(
+        messages
+          .map((m) => m.taskId ?? m.timeline?.task.id ?? null)
+          .filter((id): id is string => id !== null)
+      ),
+    [messages]
+  )
+  const renderCardList = (cards: ReturnType<typeof cardsForTask>): React.JSX.Element | null => {
+    if (cards.length === 0 || onCardSubmit === undefined) return null
+    return (
+      <div className="flex flex-col gap-3">
+        {cards.map((card) => (
+          <A2UIInlineCard
+            key={card.renderId}
+            card={card}
+            onSubmit={onCardSubmit}
+            onClose={card.status === 'rendered' && onCardDismiss !== undefined ? () => onCardDismiss(card.renderId) : undefined}
+          />
+        ))}
+      </div>
+    )
+  }
+  const hasCards = a2uiCards !== undefined && a2uiCards.size > 0
 
   // 打字机：正文增量常一大口到达，经平滑缓冲按帧吐出。
   // 进度放在顶层（不在 pending 块里）：任务完成时 pending 块卸载、正式消息顶上，
@@ -120,7 +157,7 @@ export function MessageStream({
 
   useEffect(() => {
     notifyContentGrowth()
-  }, [messages, pendingText, feedback, streamState, hasInlineForm, notifyContentGrowth])
+  }, [messages, pendingText, feedback, streamState, hasCards, notifyContentGrowth])
 
   /* ── 消息轨(ZCode 式):每条 User 消息一格,点击跳转,滚动时指示当前位置 ── */
   const userTurns = useMemo(
@@ -218,21 +255,27 @@ export function MessageStream({
                 taskId && thinkingByTaskId ? thinkingByTaskId[taskId] : undefined
 
               return (
-                <article key={message.seq} className="flex items-start gap-3">
-                  <AssistantAvatar />
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
-                      <span className="font-medium text-foreground">{agentName}</span>
+                <Fragment key={message.seq}>
+                  <article className="flex items-start gap-3">
+                    <AssistantAvatar />
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+                        <span className="font-medium text-foreground">{agentName}</span>
+                      </div>
+                      <AssistantMessage
+                        message={message}
+                        cachedThinking={cachedThinking}
+                        streamedBody={
+                          taskId !== null && taskId === typingTaskId ? smoothBody : undefined
+                        }
+                      />
                     </div>
-                    <AssistantMessage
-                      message={message}
-                      cachedThinking={cachedThinking}
-                      streamedBody={
-                        taskId !== null && taskId === typingTaskId ? smoothBody : undefined
-                      }
-                    />
-                  </div>
-                </article>
+                  </article>
+                  {/* 卡片嵌在它所属任务的 assistant 消息之后（历史重建同路径） */}
+                  {taskId !== null && a2uiCards !== undefined
+                    ? renderCardList(cardsForTask(a2uiCards, taskId))
+                    : null}
+                </Fragment>
               )
             })}
 
@@ -279,7 +322,11 @@ export function MessageStream({
               </>
             )}
 
-            {inlineForm}
+            {/* 当前流式任务的活卡贴在流式块后；一旦任务完成、assistant 消息进场，
+                卡片改由上方消息分支锚定渲染，此处自然让位（anchoredTaskIds 过滤） */}
+            {a2uiCards !== undefined && streamState?.taskId != null && !anchoredTaskIds.has(streamState.taskId)
+              ? renderCardList(cardsForTask(a2uiCards, streamState.taskId))
+              : null}
 
             {feedback !== null && (
               <p className="m-0 text-center text-[11.5px] text-muted-foreground">{feedback}</p>

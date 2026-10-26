@@ -115,6 +115,7 @@ CapabilityId = Literal[
     "file_write",
     "file_edit",
     "a2ui_render",
+    "a2ui_update",
 ]
 
 
@@ -1206,6 +1207,35 @@ class A2UIRenderResult(ProtocolModel):
     formData: dict[str, Any] | None = None
 
 
+class A2UIUpdateParams(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    renderId: str = Field(min_length=1)
+    document: A2UIDocument | None = None
+    version: Literal["1.0"] = "1.0"
+    title: str | None = None
+    components: list[A2UIComponent] | None = None
+    actions: list[A2UIAction] | None = None
+
+    @model_validator(mode="after")
+    def check_document_or_components(self) -> Self:
+        if self.document is not None:
+            if not self.document.components:
+                raise ValueError("document.components must not be empty")
+        elif not self.components:
+            raise ValueError("Either document or non-empty components must be provided")
+        return self
+
+
+class A2UIUpdateResult(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+
+    ok: Literal[True] = True
+    renderId: str = Field(min_length=1)
+    componentCount: int = Field(ge=0)
+    version: int = Field(ge=0)
+
+
 class A2UIFormSubmitParams(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
@@ -1226,6 +1256,7 @@ class A2UIFormSubmitResult(ProtocolModel):
 A2UIComponent.model_rebuild()
 A2UIDocument.model_rebuild()
 A2UIRenderParams.model_rebuild()
+A2UIUpdateParams.model_rebuild()
 
 
 class LogRecordModel(ProtocolModel):

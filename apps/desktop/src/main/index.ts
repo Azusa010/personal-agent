@@ -43,6 +43,7 @@ import type {
   RunWorkflowIpcResult,
   A2UIFormSubmitIpcResult,
   A2UIRenderNotice,
+  A2UIUpdateNotice,
   ListBotsResult,
   GetBotResult,
   CreateBotInput,
@@ -54,6 +55,7 @@ import {
   formatA2UIFormSubmission,
   getA2UIRender,
   onA2UIRender,
+  onA2UIRenderUpdate,
   submitA2UIForm
 } from './capabilities/plugins/a2ui'
 import { getDb, closeDb } from './db/database'
@@ -152,6 +154,7 @@ const APPEARANCE_SET_CHANNEL = 'personal-agent:set-appearance'
 const APPEARANCE_CHANGED_CHANNEL = 'personal-agent:appearance-changed'
 
 const A2UI_RENDER_NOTICE_CHANNEL = 'personal-agent:a2ui-render-notice'
+const A2UI_RENDER_UPDATE_CHANNEL = 'personal-agent:a2ui-render-update'
 const A2UI_FORM_SUBMIT_CHANNEL = 'personal-agent:a2ui-form-submit'
 
 // null = 库没打开，批准通道不可用。
@@ -179,6 +182,14 @@ function broadcastA2UIRender(notice: A2UIRenderNotice): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
       win.webContents.send(A2UI_RENDER_NOTICE_CHANNEL, notice)
+    }
+  }
+}
+
+function broadcastA2UIRenderUpdate(notice: A2UIUpdateNotice): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send(A2UI_RENDER_UPDATE_CHANNEL, notice)
     }
   }
 }
@@ -856,6 +867,7 @@ app.whenReady().then(() => {
 
   onAgentStream(broadcastAgentStream)
   onA2UIRender(broadcastA2UIRender)
+  onA2UIRenderUpdate(broadcastA2UIRenderUpdate)
 
   ipcMain.handle('personal-agent:list-bots', (): ListBotsResult => {
     let store: SqliteDatabase

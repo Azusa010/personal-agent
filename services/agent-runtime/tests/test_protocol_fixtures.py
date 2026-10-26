@@ -15,6 +15,8 @@ from personal_agent.protocol.models import (
     A2UIFormSubmitResult,
     A2UIRenderParams,
     A2UIRenderResult,
+    A2UIUpdateParams,
+    A2UIUpdateResult,
     AgentStreamNotification,
     CapabilityDescriptor,
     CapabilityExposure,
@@ -161,6 +163,32 @@ def _pick(raw: dict, path: str):
             "host-execute-tool.request.json",
             HostExecuteToolRequest,
             ReadDocumentParams,
+            "params.arguments",
+        ),
+        # a2ui_render / a2ui_update 的 request 钉 arguments 双端一致
+        # （result 形状由下方的裸 result fixture 用例钉）。
+        (
+            "host-a2ui-render.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-a2ui-render.request.json",
+            HostExecuteToolRequest,
+            A2UIRenderParams,
+            "params.arguments",
+        ),
+        (
+            "host-a2ui-update.request.json",
+            HostExecuteToolRequest,
+            HostExecuteToolParams,
+            "params",
+        ),
+        (
+            "host-a2ui-update.request.json",
+            HostExecuteToolRequest,
+            A2UIUpdateParams,
             "params.arguments",
         ),
         # 两个 WRITE 能力的 request 钉 arguments 双端一致，response 钉 TASK-020
@@ -1629,6 +1657,52 @@ def test_a2ui_render_result_fixture():
     assert res.ok is True
     assert res.renderId == "render-refactor-001"
     assert res.componentCount == 5
+
+
+def test_a2ui_update_result_fixture():
+    raw = _load("a2ui-update.result.json")
+    res = A2UIUpdateResult.model_validate(raw)
+    assert res.ok is True
+    assert res.renderId == "render-progress-001"
+    assert res.componentCount == 2
+    assert res.version == 1
+
+
+def test_a2ui_update_params_contract():
+    # document 与平铺 components 二选一；renderId 必填
+    by_document = A2UIUpdateParams.model_validate(
+        {
+            "renderId": "render-progress-001",
+            "document": {
+                "version": "1.0",
+                "components": [{"type": "heading", "id": "h", "props": {"text": "2/3"}}],
+            },
+        }
+    )
+    assert by_document.renderId == "render-progress-001"
+    assert by_document.document is not None
+    assert len(by_document.document.components) == 1
+
+    flattened = A2UIUpdateParams.model_validate(
+        {
+            "renderId": "render-progress-001",
+            "title": "任务进度",
+            "components": [
+                {"type": "heading", "id": "h", "props": {"text": "2/3"}},
+                {"type": "alert", "id": "a", "props": {"text": "进行中"}},
+            ],
+        }
+    )
+    assert flattened.title == "任务进度"
+    assert flattened.components is not None
+    assert len(flattened.components) == 2
+
+    with pytest.raises(ValidationError):
+        A2UIUpdateParams.model_validate({"components": [{"type": "heading", "id": "h"}]})
+    with pytest.raises(ValidationError):
+        A2UIUpdateParams.model_validate({"renderId": ""})
+    with pytest.raises(ValidationError):
+        A2UIUpdateParams.model_validate({"renderId": "r-1"})
 
 
 def test_a2ui_validation_invariants():

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { A2UIComponent } from '@personal-agent/protocol'
 import {
   extractInitialFormValues,
-  FormStateManager
+  FormStateManager,
+  mergeFormValues
 } from '../../../../src/renderer/src/components/a2ui/form-state'
 
 describe('a2ui/form-state', () => {
@@ -184,6 +185,51 @@ describe('a2ui/form-state', () => {
       expect(values['card-1']).toBeUndefined()
       expect(values['grid-1']).toBeUndefined()
       expect(values['acc-1']).toBeUndefined()
+    })
+  })
+
+  describe('mergeFormValues（活卡更新合并）', () => {
+    it('为新增组件 id 补初始值，存活 id（含用户已编辑值）一律不动', () => {
+      const prev = { scope: 'src/core/', auto_test: true }
+      const defaults = {
+        scope: 'src/api/', // 用户已改过：不得覆盖
+        auto_test: false, // 用户已改过：不得覆盖
+        new_field: '' // 新组件：补默认值
+      }
+      const merged = mergeFormValues(prev, defaults)
+      expect(merged).toEqual({
+        scope: 'src/core/',
+        auto_test: true,
+        new_field: ''
+      })
+    })
+
+    it('无新增 id 时原样返回 prev 引用（避免无意义 setState）', () => {
+      const prev = { scope: 'src/core/' }
+      const defaults = { scope: 'src/api/' }
+      expect(mergeFormValues(prev, defaults)).toBe(prev)
+    })
+
+    it('配合 extractInitialFormValues：document 替换后新旧组件树合并', () => {
+      const oldDoc = [
+        { type: 'text_input', id: 'scope', props: { default: 'src/api/' } },
+        { type: 'checkbox', id: 'auto_test', props: { default: true } }
+      ] as A2UIComponent[]
+      const newDoc = [
+        { type: 'text_input', id: 'scope', props: { default: 'src/api/' } },
+        { type: 'checkbox', id: 'auto_test', props: { default: false } },
+        { type: 'text_input', id: 'owner', props: { default: 'azusa' } }
+      ] as A2UIComponent[]
+
+      const prev = extractInitialFormValues(oldDoc)
+      prev.scope = 'src/core/' // 模拟用户编辑
+      const merged = mergeFormValues(prev, extractInitialFormValues(newDoc))
+
+      expect(merged).toEqual({
+        scope: 'src/core/', // 用户输入保住
+        auto_test: true, // 旧值保住（默认值变了也不覆盖）
+        owner: 'azusa' // 新组件取默认值
+      })
     })
   })
 })

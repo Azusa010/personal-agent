@@ -251,7 +251,7 @@ describe('a2ui capability plugin', () => {
       const renderId = outcome['renderId'] as string
       expect(renderId).toMatch(/^render-/)
 
-      // 验证事件上报
+      // 验证事件上报（payload 携带全量 document：历史回放重建卡片依赖它）
       expect(appendEventMock).toHaveBeenCalledTimes(1)
       expect(appendEventMock).toHaveBeenCalledWith({
         taskId: 'task-101',
@@ -261,7 +261,8 @@ describe('a2ui capability plugin', () => {
           callId: 'call-202',
           title: '测试文档',
           componentCount: 2,
-          hasActions: true
+          hasActions: true,
+          document: doc
         },
         occurredAt: '2026-10-01T12:00:00.000Z'
       })

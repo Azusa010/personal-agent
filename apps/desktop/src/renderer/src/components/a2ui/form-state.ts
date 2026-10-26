@@ -81,3 +81,25 @@ export function extractInitialFormValues(components: A2UIComponent[]): Record<st
   }
   return values
 }
+
+/**
+ * 活卡更新时的表单值合并：document 替换后，仅为 formValues 中尚不存在的
+ * 组件 id 补初始值；已存在的 id（含用户已编辑过的）一律不动。
+ * 无新增 id 时原样返回 prev 引用，避免无意义的 setState。
+ *
+ * 对应验收测试：tests/renderer/src/a2ui/form-state.test.ts
+ */
+export function mergeFormValues(
+  prev: Record<string, unknown>,
+  defaults: Record<string, unknown>
+): Record<string, unknown> {
+  let changed = false
+  const next = { ...prev }
+  for (const [id, value] of Object.entries(defaults)) {
+    if (!(id in prev)) {
+      next[id] = value
+      changed = true
+    }
+  }
+  return changed ? next : prev
+}

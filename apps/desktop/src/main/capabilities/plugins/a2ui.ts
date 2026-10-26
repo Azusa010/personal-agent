@@ -5,15 +5,17 @@ import {
   A2UIComponentType,
   A2UIDocument,
   A2UIRenderParams,
+  A2UIUpdateParams,
   ERROR_CODE,
   normalizeA2UIRenderParams
 } from '@personal-agent/protocol'
 import type { CapabilityPlugin } from '../plugin'
-import type { A2UIRenderNotice } from '../../../shared/ipc-contract'
+import type { A2UIRenderNotice, A2UIUpdateNotice } from '../../../shared/ipc-contract'
 import { invalid } from './helpers'
 
 export const A2UI_RENDERED_EVENT = 'a2ui_rendered'
 export const A2UI_SUBMITTED_EVENT = 'a2ui_submitted'
+export const A2UI_UPDATED_EVENT = 'a2ui_updated'
 
 export interface ActiveA2UIRender {
   renderId: string
@@ -21,13 +23,15 @@ export interface ActiveA2UIRender {
   callId: string
   document: A2UIDocument
   status: 'rendered' | 'submitted' | 'cancelled'
+  /** 更新序号：首次 render 为 0，每次成功 a2ui_update 递增 */
+  version: number
   createdAt: string
   submittedAt?: string
   actionId?: string
   formData?: Record<string, unknown>
 }
 
-export type { A2UIRenderNotice }
+export type { A2UIRenderNotice, A2UIUpdateNotice }
 
 export type A2UIRenderListener = (notice: A2UIRenderNotice) => void
 const renderListeners: Set<A2UIRenderListener> = new Set()
@@ -39,8 +43,19 @@ export function onA2UIRender(listener: A2UIRenderListener): () => void {
   }
 }
 
+export type A2UIUpdateListener = (notice: A2UIUpdateNotice) => void
+const updateListeners: Set<A2UIUpdateListener> = new Set()
+
+export function onA2UIRenderUpdate(listener: A2UIUpdateListener): () => void {
+  updateListeners.add(listener)
+  return () => {
+    updateListeners.delete(listener)
+  }
+}
+
 export function clearA2UIRenderListeners(): void {
   renderListeners.clear()
+  updateListeners.clear()
 }
 
 const activeRenders = new Map<string, ActiveA2UIRender>()
@@ -274,7 +289,9 @@ export const a2uiRenderPlugin: CapabilityPlugin = {
           callId: call.callId,
           title: document.title,
           componentCount,
-          hasActions: Boolean(document.actions && document.actions.length > 0)
+          hasActions: Boolean(document.actions && document.actions.length > 0),
+          // 全量 document 落库：renderer 从事件回放重建卡片（历史会话）依赖它
+          document
         },
         occurredAt: stamp
       })
@@ -286,6 +303,7 @@ export const a2uiRenderPlugin: CapabilityPlugin = {
       callId: call.callId,
       document,
       status: 'rendered',
+      version: 0,
       createdAt: stamp
     })
 
@@ -308,6 +326,118 @@ export const a2uiRenderPlugin: CapabilityPlugin = {
       ok: true,
       renderId,
       componentCount
+    }
+  }
+}
+
+export const a2uiUpdatePlugin: CapabilityPlugin = {
+  name: 'a2ui_update',
+  descriptor: {
+    name: 'a2ui_update',
+    kind: 'WRITE',
+    description:
+      '对已渲染的 A2UI 卡片（renderId）做全量 document 替换，实现卡片原地刷新（如进度更新、状态变化）；不可更新已提交/已取消的卡片'
+  },
+  async bindArguments(args) {
+    const parsed = A2UIUpdateParams.safeParse(args)
+    if (!parsed.success) {
+      return invalid('a2ui_update', parsed.error.message)
+    }
+
+    const render = getA2UIRender(parsed.data.renderId)
+    if (render === undefined) {
+      return invalid('a2ui_update', `未找到 renderId: ${parsed.data.renderId}`)
+    }
+    if (render.status !== 'rendered') {
+      return invalid(
+        'a2ui_update',
+        `卡片状态为 ${render.status}，仅 rendered 状态可更新（renderId: ${parsed.data.renderId}）`
+      )
+    }
+
+    const document = normalizeA2UIRenderParams(parsed.data)
+    const validation = validateAndCountComponents(document.components)
+    if (!validation.ok) {
+      return {
+        ok: false,
+        code: ERROR_CODE.INVALID_ARGUMENT,
+        reason: validation.reason
+      }
+    }
+
+    return {
+      ok: true,
+      bound: {
+        args: {
+          renderId: parsed.data.renderId,
+          document,
+          componentCount: validation.count
+        },
+        paths: {}
+      }
+    }
+  },
+  extractPermissionPaths() {
+    return { sourcePaths: [], targetPath: null }
+  },
+  idempotency: {
+    isWrite: true
+  },
+  async execute(call, context) {
+    const renderId = call.bound.args['renderId'] as string
+    const document = call.bound.args['document'] as A2UIDocument
+    const componentCount = (call.bound.args['componentCount'] as number) ?? 0
+    const render = getA2UIRender(renderId)
+    if (render === undefined || render.status !== 'rendered') {
+      return {
+        ok: false,
+        code: ERROR_CODE.INVALID_ARGUMENT,
+        reason: `卡片不存在或不可更新（renderId: ${renderId}）`
+      }
+    }
+
+    const version = render.version + 1
+    render.document = document
+    render.version = version
+    const stamp = context.scheduler?.now?.() ?? new Date().toISOString()
+
+    if (context.scheduler?.events) {
+      context.scheduler.events.append({
+        taskId: render.taskId,
+        type: A2UI_UPDATED_EVENT,
+        payload: {
+          renderId,
+          callId: call.callId,
+          componentCount,
+          version,
+          // 全量 document 落库：回放时取最后一次 update 的 document
+          document
+        },
+        occurredAt: stamp
+      })
+    }
+
+    const notice: A2UIUpdateNotice = {
+      renderId,
+      taskId: render.taskId,
+      callId: call.callId,
+      document,
+      version,
+      updatedAt: stamp
+    }
+    for (const listener of updateListeners) {
+      try {
+        listener(notice)
+      } catch (err) {
+        console.error('[A2UI_UPDATE_LISTENER_ERROR]', err)
+      }
+    }
+
+    return {
+      ok: true,
+      renderId,
+      componentCount,
+      version
     }
   }
 }

@@ -33,6 +33,10 @@ import {
   ReadDocumentResult,
 } from "../schemas/document.js";
 import {
+  A2UIRenderParams,
+  A2UIUpdateParams,
+} from "../schemas/a2ui.js";
+import {
   SchedulerCreateParams,
   SchedulerCreateResult,
 } from "../schemas/scheduler.js";
@@ -174,6 +178,32 @@ const legalCases = [
     file: "host-execute-tool.request.json",
     envelope: HostExecuteToolRequest,
     payload: ReadDocumentParams,
+    field: "params.arguments",
+  },
+  // a2ui_render / a2ui_update 的 request 钉 arguments 双端一致
+  // （result 形状由 a2ui.test.ts 的裸 result fixture 用例钉）。
+  {
+    file: "host-a2ui-render.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-a2ui-render.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: A2UIRenderParams,
+    field: "params.arguments",
+  },
+  {
+    file: "host-a2ui-update.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: HostExecuteToolParams,
+    field: "params",
+  },
+  {
+    file: "host-a2ui-update.request.json",
+    envelope: HostExecuteToolRequest,
+    payload: A2UIUpdateParams,
     field: "params.arguments",
   },
   // 两个 WRITE 能力的 request 钉 arguments 双端一致（字段名写错 source/target

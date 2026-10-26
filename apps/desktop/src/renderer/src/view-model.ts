@@ -70,6 +70,10 @@ export const EVENT_LABELS: Readonly<Record<string, string>> = {
   permission_decision: '批准结论',
   permission_expired: '批准超时',
   reminder_created: '创建提醒',
+  // A2UI 活卡生命周期：诊断面板展示用（卡片本体由 derive-cards 消费渲染）
+  a2ui_rendered: '渲染卡片',
+  a2ui_updated: '更新卡片',
+  a2ui_submitted: '卡片提交',
   // TASK-026：completed 只由校验结论触发，这三条是闸口的开合记录
   verification_started: '开始校验交付物',
   verification_passed: '交付物校验通过',

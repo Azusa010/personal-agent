@@ -12,6 +12,9 @@ import {
   A2UIRenderParams,
   A2UIRenderResult,
   A2UIRenderOutcome,
+  A2UIUpdateParams,
+  A2UIUpdateResult,
+  A2UIUpdateOutcome,
   A2UIFormSubmitParams,
   A2UIFormSubmitResult,
   A2UIFormSubmitOutcome,
@@ -286,6 +289,88 @@ describe("A2UI 协议契约 (TASK-D1)", () => {
     });
   });
 
+  describe("a2ui_update 入参及出参契约", () => {
+    it("A2UIUpdateParams 支持 document 字段或平铺组件，renderId 必填", () => {
+      const byDocument = A2UIUpdateParams.parse({
+        renderId: "render-progress-001",
+        document: {
+          version: "1.0",
+          components: [{ type: "heading", id: "h", props: { text: "2/3" } }],
+        },
+      });
+      expect(byDocument.renderId).toBe("render-progress-001");
+      expect(byDocument.document?.components).toHaveLength(1);
+
+      const flattened = A2UIUpdateParams.parse({
+        renderId: "render-progress-001",
+        title: "任务进度",
+        components: [
+          { type: "heading", id: "h", props: { text: "2/3" } },
+          { type: "alert", id: "a", props: { text: "进行中" } },
+        ],
+      });
+      expect(flattened.title).toBe("任务进度");
+      expect(flattened.components).toHaveLength(2);
+      expect(normalizeA2UIRenderParams(flattened).components).toHaveLength(2);
+
+      // renderId 缺失或为空串拒绝
+      expect(() =>
+        A2UIUpdateParams.parse({
+          components: [{ type: "heading", id: "h" }],
+        }),
+      ).toThrow();
+      expect(() =>
+        A2UIUpdateParams.parse({
+          renderId: "",
+          components: [{ type: "heading", id: "h" }],
+        }),
+      ).toThrow();
+    });
+
+    it("A2UIUpdateParams 在 document 与 components 皆空时拒绝", () => {
+      expect(() => A2UIUpdateParams.parse({ renderId: "r-1" })).toThrow();
+      expect(() =>
+        A2UIUpdateParams.parse({ renderId: "r-1", components: [] }),
+      ).toThrow();
+      expect(() =>
+        A2UIUpdateParams.parse({
+          renderId: "r-1",
+          document: { components: [] },
+        }),
+      ).toThrow();
+    });
+
+    it("A2UIUpdateResult 与 Outcome 校验（version 为非负更新序号）", () => {
+      const res = A2UIUpdateResult.parse({
+        ok: true,
+        renderId: "render-progress-001",
+        componentCount: 2,
+        version: 1,
+      });
+      expect(res.version).toBe(1);
+
+      const outcomeSuccess = A2UIUpdateOutcome.parse(res);
+      expect(outcomeSuccess.ok).toBe(true);
+
+      const outcomeFailure = A2UIUpdateOutcome.parse({
+        ok: false,
+        code: "INVALID_ARGUMENT",
+        reason: "卡片状态为 submitted，仅 rendered 状态可更新",
+      });
+      expect(outcomeFailure.ok).toBe(false);
+
+      // version 不接受负数
+      expect(() =>
+        A2UIUpdateResult.parse({
+          ok: true,
+          renderId: "r",
+          componentCount: 1,
+          version: -1,
+        }),
+      ).toThrow();
+    });
+  });
+
   describe("A2UI Fixture 真实样本验证", () => {
     it("正确加载并校验 a2ui-document.form.json", () => {
       const raw = loadFixture("a2ui-document.form.json");
@@ -342,6 +427,15 @@ describe("A2UI 协议契约 (TASK-D1)", () => {
       expect(res.ok).toBe(true);
       expect(res.renderId).toBe("render-refactor-001");
       expect(res.componentCount).toBe(5);
+    });
+
+    it("正确加载并校验 a2ui-update.result.json", () => {
+      const raw = loadFixture("a2ui-update.result.json");
+      const res = A2UIUpdateResult.parse(raw);
+      expect(res.ok).toBe(true);
+      expect(res.renderId).toBe("render-progress-001");
+      expect(res.componentCount).toBe(2);
+      expect(res.version).toBe(1);
     });
   });
 });

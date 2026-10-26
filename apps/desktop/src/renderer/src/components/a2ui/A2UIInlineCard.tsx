@@ -1,32 +1,30 @@
 import React, { useState } from 'react'
-import { ShieldCheck, Wand2 } from 'lucide-react'
-import type { A2UIRenderNotice } from '../../../../shared/ipc-contract'
+import { CheckCircle2, ShieldCheck, Wand2 } from 'lucide-react'
+import type { A2UICardView } from '../../a2ui/derive-cards'
 import { A2UIRenderer } from './A2UIRenderer'
 
 export interface A2UIInlineCardProps {
-  render: A2UIRenderNotice | null
+  card: A2UICardView
   onSubmit: (renderId: string, actionId: string, formData: Record<string, unknown>) => Promise<void>
   onClose?: () => void
 }
 
 /**
- * A2UI 表单：直接长在对话流里，不弹窗。
+ * A2UI 卡片：直接长在对话流里，不弹窗。
  *
- * 旧稿是 max-w-2xl 的模态对话框——缺三个字段就把整个界面盖住，
- * 用户既看不到上文也读不到自己刚说的话。新稿把它当成一条 assistant 内容：
- * 一条浅灰标题栏写清这是什么、由几个受信组件拼成，
- * 表单本身占正文宽度，提交后由 App 清掉通知、这里自然收起。
+ * 嵌在所属位置（活卡在当前流式块后，历史卡在其 assistant 消息后）。
+ * 交互边界 = status：rendered 的卡永远可填（含任务已结束的「稍后补填」，
+ * 提交仍会触发 sendMessage 续跑）；submitted 后转只读快照，展示当时所填。
  */
 export function A2UIInlineCard({
-  render,
+  card,
   onSubmit,
   onClose
 }: A2UIInlineCardProps): React.JSX.Element {
   const [submitting, setSubmitting] = useState(false)
 
-  if (!render) {
-    return <></>
-  }
+  const submitted = card.status === 'submitted'
+  const readOnly = submitted || submitting
 
   const handleAction = async (
     actionId: string,
@@ -34,15 +32,14 @@ export function A2UIInlineCard({
   ): Promise<void> => {
     setSubmitting(true)
     try {
-      await onSubmit(render.renderId, actionId, formData)
+      await onSubmit(card.renderId, actionId, formData)
     } finally {
       setSubmitting(false)
-      onClose?.()
     }
   }
 
-  const componentCount = render.document.components.length
-  const title = render.document.title ?? '需要你补充几项'
+  const componentCount = card.document.components.length
+  const title = card.document.title ?? '智能体卡片'
 
   return (
     <div className="overflow-hidden rounded-[12px] border border-border bg-background">
@@ -52,16 +49,43 @@ export function A2UIInlineCard({
         <span className="font-mono text-[10px] text-muted-foreground/70">
           {componentCount} 个受信组件
         </span>
-        <span className="ml-auto rounded-full border border-info/25 bg-info/10 px-2 py-[1px] text-[10px] font-medium text-info">
-          待填写
-        </span>
+        {card.version > 0 && (
+          <span className="rounded-full border border-border bg-muted px-2 py-[1px] font-mono text-[10px] text-muted-foreground">
+            v{card.version}
+          </span>
+        )}
+        {submitted ? (
+          <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-[1px] text-[10px] font-medium text-muted-foreground">
+            <CheckCircle2 size={10} />
+            已提交
+          </span>
+        ) : (
+          <>
+            <span className="ml-auto rounded-full border border-info/25 bg-info/10 px-2 py-[1px] text-[10px] font-medium text-info">
+              待填写
+            </span>
+            {onClose !== undefined && (
+              <button
+                type="button"
+                aria-label="关闭卡片"
+                onClick={onClose}
+                className="grid size-[18px] place-items-center rounded text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <span aria-hidden="true" className="text-[13px] leading-none">
+                  ×
+                </span>
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       <div className="px-3 pb-1 pt-3">
         <A2UIRenderer
-          document={render.document}
+          document={card.document}
+          initialValues={card.submittedFormData}
           onAction={(actionId, values) => void handleAction(actionId, values)}
-          readOnly={submitting}
+          readOnly={readOnly}
           hideTitle
           bare
           className="text-[12.5px]"

@@ -139,6 +139,10 @@ TOOL_SPECS: dict[str, str] = {
     "a2ui_render": (
         "向桌面客户端推送受信任的 A2UI 声明式组件树进行安全渲染与交互。"
         '参数 {"title": "<可选标题>", "components": [<组件列表>], "actions": [<动作列表>]}'
+    ),
+    "a2ui_update": (
+        "对已渲染的 A2UI 卡片做全量 document 替换，实现卡片原地刷新（如进度更新）。"
+        '参数 {"renderId": "<a2ui_render 返回的渲染 ID>", "title": "<可选标题>", "components": [<组件列表>], "actions": [<动作列表>]}'
     )
 }
 

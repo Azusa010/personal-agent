@@ -17,6 +17,7 @@ from personal_agent.conversation.topics.models import (
 )
 from personal_agent.protocol.models import (
     A2UIRenderParams,
+    A2UIUpdateParams,
     CapabilityId,
     CodeInterpreterParams,
     FileEditParams,
@@ -65,6 +66,7 @@ TOOL_PARAM_MODELS: dict[str, type[BaseModel]] = {
     "file_write": FileWriteParams,
     "file_edit": FileEditParams,
     "a2ui_render": A2UIRenderParams,
+    "a2ui_update": A2UIUpdateParams,
 }
 
 LOCAL_TOOL_PARAM_MODELS: dict[str, type[BaseModel]] = {
@@ -86,6 +88,10 @@ LOCAL_TOOL_DESCRIPTIONS: dict[str, str] = {
 # 工具层级高阶描述说明（对齐 ACI 目标导向）
 TOOL_DESCRIPTIONS: dict[str, str] = {
     "a2ui_render": "向桌面客户端推送受信任的 A2UI 声明式组件树进行安全渲染与交互",
+    "a2ui_update": (
+        "对已渲染的 A2UI 卡片（renderId）做全量 document 替换，实现卡片原地刷新"
+        "（如任务进度更新、状态变化）；不可更新已提交/已取消的卡片"
+    ),
     "web_search": "使用 Tavily 搜索引擎在互联网上实时检索最新网页资讯与事实答案",
     "filesystem_list": "列出指定授权根目录下的文件与子目录条目",
     "read_document": "多格式统一文档读取器，支持分页、文本截断控制与结构化提取 (PDF/Word/Markdown/Text)",

@@ -5,7 +5,7 @@ import type {
   A2UIComponentRenderContext,
   A2UIRendererProps
 } from './types'
-import { extractInitialFormValues } from './form-state'
+import { extractInitialFormValues, mergeFormValues } from './form-state'
 import { renderA2UIComponent } from './component-registry'
 
 export function A2UIRenderer({
@@ -24,6 +24,14 @@ export function A2UIRenderer({
   const [formValues, setFormValues] = useState<Record<string, unknown>>(() => ({
     ...defaultValues
   }))
+
+  // 活卡更新：document 替换后，仅为新增组件 id 补初始值；存活 id 不动，保住用户已填内容。
+  // React 官方「props 变化时在渲染期调整 state」模式（替代 effect 内 setState）。
+  const [prevDefaults, setPrevDefaults] = useState(defaultValues)
+  if (prevDefaults !== defaultValues) {
+    setPrevDefaults(defaultValues)
+    setFormValues((prev) => mergeFormValues(prev, defaultValues))
+  }
 
   const renderContext: A2UIComponentRenderContext = useMemo(
     () => ({

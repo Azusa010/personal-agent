@@ -1,0 +1,31 @@
+{
+  "jsonrpc": "2.0",
+  "id": "call-43",
+  "method": "host.execute_tool",
+  "params": {
+    "callId": "call-a2ui-2",
+    "capability": "a2ui_update",
+    "arguments": {
+      "renderId": "render-progress-001",
+      "title": "任务进度",
+      "components": [
+        {
+          "type": "heading",
+          "id": "progress-heading",
+          "props": {
+            "text": "重构进行中（2/3）",
+            "level": 3
+          }
+        },
+        {
+          "type": "alert",
+          "id": "progress-status",
+          "props": {
+            "text": "已完成提取公共接口，正在模块拆分",
+            "level": "info"
+          }
+        }
+      ]
+    }
+  }
+}

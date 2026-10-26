@@ -289,6 +289,15 @@ export interface A2UIRenderNotice {
   createdAt: string
 }
 
+export interface A2UIUpdateNotice {
+  renderId: string
+  taskId: string
+  callId: string
+  document: A2UIDocument
+  version: number
+  updatedAt: string
+}
+
 export type { A2UIFormSubmitParams }
 
 export type A2UIFormSubmitIpcResult =

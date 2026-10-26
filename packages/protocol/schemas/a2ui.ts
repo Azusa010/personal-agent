@@ -121,9 +121,13 @@ export type A2UIRenderParams = z.infer<typeof A2UIRenderParams>;
 
 /**
  * 归一化 A2UIRenderParams 为标准 A2UIDocument
+ * 入参放宽为字段子集，a2ui_update 的参数（多一个 renderId）同样可复用
  */
 export function normalizeA2UIRenderParams(
-  params: A2UIRenderParams,
+  params: Pick<
+    A2UIRenderParams,
+    "document" | "version" | "title" | "components" | "actions"
+  >,
 ): A2UIDocument {
   if (params.document) {
     return params.document;
@@ -153,6 +157,47 @@ export const A2UIRenderOutcome = z.discriminatedUnion("ok", [
   CapabilityFailure,
 ]);
 export type A2UIRenderOutcome = z.infer<typeof A2UIRenderOutcome>;
+
+/**
+ * a2ui_update 能力入参契约：对已渲染卡片（renderId）做全量 document 替换，
+ * 兼容直接传 document 或平铺传 title/components/actions（与 render 一致）
+ */
+export const A2UIUpdateParams = z
+  .object({
+    renderId: z.string().min(1),
+    document: A2UIDocument.optional(),
+    version: z.literal("1.0").optional().default("1.0"),
+    title: z.string().optional(),
+    components: z.array(A2UIComponent).optional(),
+    actions: z.array(A2UIAction).optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.document !== undefined) {
+        return data.document.components.length > 0;
+      }
+      return data.components !== undefined && data.components.length > 0;
+    },
+    { message: "Either document or non-empty components must be provided" },
+  );
+export type A2UIUpdateParams = z.infer<typeof A2UIUpdateParams>;
+
+/**
+ * a2ui_update 执行结果契约；version 为该卡片的更新序号（首次 render 为 0，每次 update 递增）
+ */
+export const A2UIUpdateResult = z.object({
+  ok: z.literal(true),
+  renderId: z.string().min(1),
+  componentCount: z.number().int().nonnegative(),
+  version: z.number().int().nonnegative(),
+});
+export type A2UIUpdateResult = z.infer<typeof A2UIUpdateResult>;
+
+export const A2UIUpdateOutcome = z.discriminatedUnion("ok", [
+  A2UIUpdateResult,
+  CapabilityFailure,
+]);
+export type A2UIUpdateOutcome = z.infer<typeof A2UIUpdateOutcome>;
 
 /**
  * 用户表单提交入参契约 (IPC / a2ui_form_submit)
