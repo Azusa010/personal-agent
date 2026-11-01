@@ -108,7 +108,6 @@ personal-agent/
 │   │   └── tasks/                   # 任务状态机 + 会话历史
 │   ├── src/renderer/                # 渲染进程（React SPA）
 │   │   ├── components/              # UI 组件
-│   │   │   ├── a2ui/                # Agent-to-UI 动态渲染组件
 │   │   │   └── ui/                  # 基础 UI 组件
 │   │   └── thought-chain/           # 思维链可视化
 │   ├── src/preload/                 # 安全桥接（contextIsolation）
@@ -153,7 +152,7 @@ personal-agent/
 flowchart TB
     subgraph Desktop ["apps/desktop (可信宿主 - Electron / TypeScript)"]
         subgraph Renderer ["Renderer 进程 (Sandboxed UI)"]
-            UI["React 19 UI\n(纸感主题 / 思考链面板 / A2UI 动态表单 / 审批卡片)"]
+            UI["React 19 UI\n(纸感主题 / 思考链面板 / 审批卡片)"]
         end
 
         subgraph Main ["Main 进程 (唯一可信运行时)"]
@@ -232,7 +231,6 @@ flowchart TB
 | **联网**       | `web_search`                                        | Tavily 实时网页检索                           |
 | **计划与完成** | `planning.make_plan` `task.complete`                | 结构化计划生成、任务终结信号                  |
 | **日程通知**   | `scheduler.create` `notification.send`              | 持久化提醒（重启后补发）、桌面通知            |
-| **UI 渲染**    | `a2ui_render`                                       | Agent 动态生成交互式前端组件（A2UI 协议）     |
 
 ---
 
@@ -368,7 +366,7 @@ services/agent-runtime/.../models.py    ← 逐字段镜像 (Pydantic, extra="al
 packages/protocol/fixtures/*.json       ← 共享样本，双端各自 parse 验证一致性
 ```
 
-覆盖的协议域：`envelope`、`filesystem`、`host`、`document`、`agent`、`systems`、`scheduler`、`errors`、`viking`、`knowledge`、`code-interpreter`、`a2ui` 等。
+覆盖的协议域：`envelope`、`filesystem`、`host`、`document`、`agent`、`systems`、`scheduler`、`errors`、`viking`、`knowledge`、`code-interpreter` 等。
 
 ---
 

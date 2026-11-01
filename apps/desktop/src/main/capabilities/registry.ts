@@ -123,17 +123,6 @@ export const CAPABILITIES = [
     kind: 'WRITE',
     description: '写入或更新 Viking 维基条目的 L2 全文 (*.md)'
   },
-  {
-    name: 'a2ui_render',
-    kind: 'WRITE',
-    description: '向桌面客户端推送受信任的 A2UI 声明式组件树进行安全渲染与交互'
-  },
-  {
-    name: 'a2ui_update',
-    kind: 'WRITE',
-    description:
-      '对已渲染的 A2UI 卡片（renderId）做全量 document 替换，实现卡片原地刷新；不可更新已提交/已取消的卡片'
-  }
 ] as const satisfies readonly CapabilityDescriptor[]
 
 export type CapabilityName = CapabilityId

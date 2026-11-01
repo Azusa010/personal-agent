@@ -1,6 +1,4 @@
 import type {
-  A2UIDocument,
-  A2UIFormSubmitParams,
   AgentStreamParams,
   ERROR_CODE,
   PdfEntry,
@@ -280,29 +278,6 @@ export interface SetAppearanceInput {
 }
 
 export type SetAppearanceResult = GetAppearanceResult
-
-export interface A2UIRenderNotice {
-  renderId: string
-  taskId: string
-  callId: string
-  document: A2UIDocument
-  createdAt: string
-}
-
-export interface A2UIUpdateNotice {
-  renderId: string
-  taskId: string
-  callId: string
-  document: A2UIDocument
-  version: number
-  updatedAt: string
-}
-
-export type { A2UIFormSubmitParams }
-
-export type A2UIFormSubmitIpcResult =
-  | { ok: true; actionId: string; formData: Record<string, unknown>; accepted: boolean }
-  | { ok: false; code: IpcErrorCode; message: string }
 
 // ====== 错误日志（可观测性）======
 // 观测性错误码自成一套（OBSERVABILITY_*），与 IpcErrorCode 不共用联合类型。

@@ -1,9 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 
 import type {
-  A2UIFormSubmitParams,
-  A2UIRenderNotice,
-  A2UIUpdateNotice,
   AgentStreamNotice,
   AppearanceView,
   PermissionDecision,
@@ -120,27 +117,6 @@ if (process.contextIsolated) {
       },
       resetCircuitBreaker: (taskId: string, reason?: string) => {
         return ipcRenderer.invoke('personal-agent:reset-circuit-breaker', taskId, reason)
-      },
-      submitA2UIForm: (params: A2UIFormSubmitParams) => {
-        return ipcRenderer.invoke('personal-agent:a2ui-form-submit', params)
-      },
-      onA2UIRender: (listener: (notice: A2UIRenderNotice) => void) => {
-        const wrapped = (_event: IpcRendererEvent, notice: A2UIRenderNotice): void => {
-          listener(notice)
-        }
-        ipcRenderer.on('personal-agent:a2ui-render-notice', wrapped)
-        return () => {
-          ipcRenderer.removeListener('personal-agent:a2ui-render-notice', wrapped)
-        }
-      },
-      onA2UIRenderUpdate: (listener: (notice: A2UIUpdateNotice) => void) => {
-        const wrapped = (_event: IpcRendererEvent, notice: A2UIUpdateNotice): void => {
-          listener(notice)
-        }
-        ipcRenderer.on('personal-agent:a2ui-render-update', wrapped)
-        return () => {
-          ipcRenderer.removeListener('personal-agent:a2ui-render-update', wrapped)
-        }
       },
       // 首帧主题：主进程用 additionalArguments 注入，同步可取。
       // 走 IPC 是异步的，等它回来时首屏已经按错误主题画完了。

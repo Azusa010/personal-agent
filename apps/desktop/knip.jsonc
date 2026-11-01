@@ -10,7 +10,6 @@
   "ignore": [
     "src/main/capabilities/plugins/**",
     "src/main/product-state/migrations/**",
-    "src/renderer/src/components/a2ui/**"
   ],
   "ignoreExportsUsedInFile": true
 }

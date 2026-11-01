@@ -1,5 +1,5 @@
 import { WelcomeView } from './components/WelcomeView'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronDown, Ellipsis, Share2 } from 'lucide-react'
 import type {
   MessageView,
@@ -11,15 +11,6 @@ import type {
   BotView,
   WorkspaceView
 } from '../../shared/ipc-contract'
-import {
-  applyLocalSubmit,
-  applyRenderNotice,
-  applyUpdateNotice,
-  deriveCardsFromMessages,
-  filterDismissed,
-  mergeCards,
-  type A2UICardMap
-} from './a2ui/derive-cards'
 import { BotDialog } from './components/BotDialog'
 import { Composer } from './components/Composer'
 import { DiagnosticsDialog } from './components/DiagnosticsDialog'
@@ -88,11 +79,6 @@ function App(): React.JSX.Element {
   // 不重新拉的话状态栏会停在旧值。
   const [statusPollKey, setStatusPollKey] = useState(0)
   const [pendingPermission, setPendingPermission] = useState<PermissionRecord | null>(null)
-  // A2UI 卡片：实时通知驱动的活卡（renderId 索引）+ 本会话内手动关闭集合。
-  // 历史卡片不入 state——每次 messages 变化从 timeline 事件回放派生（derive-cards）。
-  const [liveCards, setLiveCards] = useState<A2UICardMap>(() => new Map())
-  const [dismissedRenderIds, setDismissedRenderIds] = useState<ReadonlySet<string>>(() => new Set())
-  const lastLoadedConversationId = useRef<string | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const feedbackTimer = useRef<number | null>(null)
 
@@ -106,13 +92,6 @@ function App(): React.JSX.Element {
   }
 
   const loadConversation = useCallback(async (conversationId: string): Promise<void> => {
-    // 切换会话（而非同会话刷新）时清掉上一会话的活卡与关闭集合，
-    // 防止旧会话的实时卡片泄漏进新会话视图。
-    if (lastLoadedConversationId.current !== conversationId) {
-      lastLoadedConversationId.current = conversationId
-      setLiveCards(new Map())
-      setDismissedRenderIds(new Set())
-    }
     setMessagesError(null)
     try {
       const result = await window.personalAgent.getConversation(conversationId)
@@ -215,21 +194,6 @@ function App(): React.JSX.Element {
     return unsubscribe
   }, [])
 
-  useEffect(() => {
-    const unsubscribe = window.personalAgent.onA2UIRender((notice) => {
-      setLiveCards((prev) => applyRenderNotice(prev, notice))
-    })
-    return unsubscribe
-  }, [])
-
-  // 同一 renderId 的原地更新：仅 rendered 状态的卡接受刷新（submitted 快照不动）
-  useEffect(() => {
-    const unsubscribe = window.personalAgent.onA2UIRenderUpdate((notice) => {
-      setLiveCards((prev) => applyUpdateNotice(prev, notice))
-    })
-    return unsubscribe
-  }, [])
-
   // 工作区视图首载
   useEffect(() => {
     let cancelled = false
@@ -252,39 +216,6 @@ function App(): React.JSX.Element {
     })
     return unsubscribe
   }, [])
-
-  const handleA2UISubmit = async (
-    renderId: string,
-    actionId: string,
-    formData: Record<string, unknown>
-  ): Promise<void> => {
-    try {
-      await window.personalAgent.submitA2UIForm({ renderId, actionId, formData })
-      // 本地先翻成已提交快照（展示当时所填），事件库的 a2ui_submitted 随重载兜底
-      setLiveCards((prev) => applyLocalSubmit(prev, renderId, formData, new Date().toISOString()))
-      if (selectedConversationId) {
-        void loadConversation(selectedConversationId)
-      }
-    } catch (err) {
-      showFeedback(`A2UI 表单提交失败: ${err instanceof Error ? err.message : String(err)}`)
-    }
-  }
-
-  // 活卡手动关闭：本会话隐藏，不落库（表单仍待填，重载会话后回来）
-  const handleDismissCard = useCallback((renderId: string): void => {
-    setDismissedRenderIds((prev) => {
-      const next = new Set(prev)
-      next.add(renderId)
-      return next
-    })
-  }, [])
-
-  // 卡片视图 = 历史回放派生 ⊕ 实时通知（live 同 renderId 优先），再剔除本会话关闭的
-  const historyCards = useMemo(() => deriveCardsFromMessages(messages), [messages])
-  const a2uiCards = useMemo(
-    () => filterDismissed(mergeCards(historyCards, liveCards), dismissedRenderIds),
-    [historyCards, liveCards, dismissedRenderIds]
-  )
 
   const handleDecide = async (decision: PermissionDecision): Promise<void> => {
     const target = pendingPermission
@@ -520,9 +451,6 @@ function App(): React.JSX.Element {
                   agentName={activeBot ? activeBot.name : agentProfile?.name}
                   thinkingByTaskId={thinkingByTaskId}
                   typingTaskId={typingTaskId}
-                  a2uiCards={a2uiCards}
-                  onCardSubmit={handleA2UISubmit}
-                  onCardDismiss={handleDismissCard}
                 />
 
                 {showWelcome && (

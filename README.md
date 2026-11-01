@@ -108,7 +108,6 @@ personal-agent/
 │   │   └── tasks/                   # Task state machine + session history
 │   ├── src/renderer/                # Renderer process (React SPA)
 │   │   ├── components/              # UI components
-│   │   │   ├── a2ui/                # Agent-to-UI dynamic rendering components
 │   │   │   └── ui/                  # Base UI components
 │   │   └── thought-chain/           # Thought-chain visualization
 │   ├── src/preload/                 # Secure bridge (contextIsolation)
@@ -153,7 +152,7 @@ personal-agent/
 flowchart TB
     subgraph Desktop ["apps/desktop (Trusted host - Electron / TypeScript)"]
         subgraph Renderer ["Renderer process (Sandboxed UI)"]
-            UI["React 19 UI\n(paper theme / thought-chain panel / A2UI dynamic forms / approval cards)"]
+            UI["React 19 UI\n(paper theme / thought-chain panel / approval cards)"]
         end
 
         subgraph Main ["Main process (sole trusted runtime)"]
@@ -232,7 +231,6 @@ Every agent capability is implemented as a **self-describing plugin** (`Capabili
 | **Web**               | `web_search`                                        | Tavily real-time web search                                     |
 | **Planning & completion** | `planning.make_plan` `task.complete`            | Structured plan generation, task termination signal             |
 | **Scheduling & notifications** | `scheduler.create` `notification.send`      | Persistent reminders (replayed after restart), desktop notifications |
-| **UI rendering**      | `a2ui_render`                                       | Agent-generated interactive frontend components (A2UI protocol)  |
 
 ---
 
@@ -368,7 +366,7 @@ services/agent-runtime/.../models.py    ← field-by-field mirror (Pydantic, ext
 packages/protocol/fixtures/*.json       ← shared samples; each side parses them to verify agreement
 ```
 
-Covered protocol domains include `envelope`, `filesystem`, `host`, `document`, `agent`, `systems`, `scheduler`, `errors`, `viking`, `knowledge`, `code-interpreter`, `a2ui`, and more.
+Covered protocol domains include `envelope`, `filesystem`, `host`, `document`, `agent`, `systems`, `scheduler`, `errors`, `viking`, `knowledge`, `code-interpreter`, and more.
 
 ---
 

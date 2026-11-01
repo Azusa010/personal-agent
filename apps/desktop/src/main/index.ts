@@ -15,7 +15,6 @@ import {
   ERROR_CODE,
   AGENT_RESET_CIRCUIT_BREAKER,
   ResetCircuitBreakerResult,
-  A2UIFormSubmitParams
 } from '@personal-agent/protocol'
 import { RUNTIME_ERROR_CODE } from './runtime/error-code'
 import type {
@@ -41,9 +40,6 @@ import type {
   SetAgentProfileResult,
   RunWorkflowInput,
   RunWorkflowIpcResult,
-  A2UIFormSubmitIpcResult,
-  A2UIRenderNotice,
-  A2UIUpdateNotice,
   ListBotsResult,
   GetBotResult,
   CreateBotInput,
@@ -51,13 +47,6 @@ import type {
   UpdateBotInput,
   UpdateBotResult
 } from '../shared/ipc-contract'
-import {
-  formatA2UIFormSubmission,
-  getA2UIRender,
-  onA2UIRender,
-  onA2UIRenderUpdate,
-  submitA2UIForm
-} from './capabilities/plugins/a2ui'
 import { getDb, closeDb } from './db/database'
 import { getPgPool, closePgPool } from './db/postgres'
 import { fetchActiveMemories } from './db/user-memory-repository'
@@ -153,9 +142,6 @@ const APPEARANCE_GET_CHANNEL = 'personal-agent:get-appearance'
 const APPEARANCE_SET_CHANNEL = 'personal-agent:set-appearance'
 const APPEARANCE_CHANGED_CHANNEL = 'personal-agent:appearance-changed'
 
-const A2UI_RENDER_NOTICE_CHANNEL = 'personal-agent:a2ui-render-notice'
-const A2UI_RENDER_UPDATE_CHANNEL = 'personal-agent:a2ui-render-update'
-const A2UI_FORM_SUBMIT_CHANNEL = 'personal-agent:a2ui-form-submit'
 
 // null = 库没打开，批准通道不可用。
 let permissionBroker: PermissionBroker | null = null
@@ -174,22 +160,6 @@ function broadcastAgentStream(notice: AgentStreamNotice): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
       win.webContents.send(AGENT_STREAM_CHANNEL, notice)
-    }
-  }
-}
-
-function broadcastA2UIRender(notice: A2UIRenderNotice): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
-      win.webContents.send(A2UI_RENDER_NOTICE_CHANNEL, notice)
-    }
-  }
-}
-
-function broadcastA2UIRenderUpdate(notice: A2UIUpdateNotice): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
-      win.webContents.send(A2UI_RENDER_UPDATE_CHANNEL, notice)
     }
   }
 }
@@ -866,8 +836,6 @@ app.whenReady().then(() => {
   nativeTheme.on('updated', () => applySystemAppearance(themeDeps))
 
   onAgentStream(broadcastAgentStream)
-  onA2UIRender(broadcastA2UIRender)
-  onA2UIRenderUpdate(broadcastA2UIRenderUpdate)
 
   ipcMain.handle('personal-agent:list-bots', (): ListBotsResult => {
     let store: SqliteDatabase
@@ -1009,73 +977,6 @@ app.whenReady().then(() => {
       }
     }
   })
-
-  ipcMain.handle(
-    A2UI_FORM_SUBMIT_CHANNEL,
-    async (_e, rawParams: unknown): Promise<A2UIFormSubmitIpcResult> => {
-      const parsed = A2UIFormSubmitParams.safeParse(rawParams)
-      if (!parsed.success) {
-        return {
-          ok: false,
-          code: ERROR_CODE.INVALID_ARGUMENT,
-          message: `表单提交参数不合法: ${parsed.error.message}`
-        }
-      }
-      const { renderId, actionId, formData } = parsed.data
-      if (!renderId) {
-        return {
-          ok: false,
-          code: ERROR_CODE.INVALID_ARGUMENT,
-          message: 'renderId 不能为空'
-        }
-      }
-      const render = getA2UIRender(renderId)
-      if (!render) {
-        return {
-          ok: false,
-          code: ERROR_CODE.INVALID_ARGUMENT,
-          message: `未找到渲染记录: ${renderId}`
-        }
-      }
-
-      let store: SqliteDatabase
-      try {
-        store = getStore()
-      } catch (err) {
-        return {
-          ok: false,
-          code: RUNTIME_ERROR_CODE.DB_FAILED,
-          message: err instanceof Error ? err.message : String(err)
-        }
-      }
-
-      const events = new SqliteEventRepository(store)
-      submitA2UIForm(renderId, actionId, formData, events)
-
-      // 回流闭环 (Bug 17)：将表单提交结果格式化为 Agent 继续执行的输入，并发送至会话
-      const continuationPrompt = formatA2UIFormSubmission(render.document, formData, actionId)
-      const messagesRepo = new SqliteMessageRepository(store)
-      const matchingMessage = messagesRepo.findByTaskId(render.taskId)
-      const conversationId = matchingMessage ? matchingMessage.conversationId : null
-
-      void sendMessage(
-        { conversationId, text: continuationPrompt },
-        {
-          conversations: new SqliteConversationRepository(store),
-          messages: messagesRepo,
-          buildHistory,
-          runTask: (goal, history) => runTask(goal, runTaskDeps(store), history)
-        }
-      )
-
-      return {
-        ok: true,
-        actionId,
-        formData,
-        accepted: true
-      }
-    }
-  )
 
   // 首帧主题：落盘偏好 + 系统偏好合成一次，窗口创建、窗控钮、preload 参数共用这一个值。
   // nativeTheme.themeSource 设成同一值，让原生对话框与系统控件也跟随（class 策略只管 CSS）。

@@ -222,8 +222,6 @@ describe('listVisibleCapabilities: 握手时下发的清单', () => {
       'terminal_execute',
       'code_interpreter',
       'viking_write_l2',
-      'a2ui_render',
-      'a2ui_update'
     ])
   })
 

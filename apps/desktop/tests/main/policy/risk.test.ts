@@ -74,8 +74,6 @@ describe('assessRisk：与 registry 对账', () => {
       'terminal_execute',
       'code_interpreter',
       'viking_write_l2',
-      'a2ui_render',
-      'a2ui_update'
     ])
   })
 })
