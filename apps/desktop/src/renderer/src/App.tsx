@@ -118,8 +118,8 @@ function App(): React.JSX.Element {
 
   const loadIndexedCount = useCallback(async (): Promise<void> => {
     try {
-      const result = await window.personalAgent.indexedPdfs()
-      if (result.ok) setIndexedCount(result.entries.length)
+      const result = await window.personalAgent.knowledgeList()
+      if (result.ok) setIndexedCount(result.documents.length)
     } catch (err) {
       console.error('[renderer] 读索引数量失败', err)
     }
@@ -509,7 +509,13 @@ function App(): React.JSX.Element {
           )}
         </div>
 
-        <IndexDialog open={indexOpen} onOpenChange={setIndexOpen} />
+        <IndexDialog
+          open={indexOpen}
+          onOpenChange={(open) => {
+            setIndexOpen(open)
+            if (!open) void loadIndexedCount()
+          }}
+        />
         <DiagnosticsDialog
           open={diagnosticsOpen}
           onOpenChange={setDiagnosticsOpen}

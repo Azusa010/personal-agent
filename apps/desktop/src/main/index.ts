@@ -14,9 +14,15 @@ import {
   FilesystemListResult,
   ERROR_CODE,
   AGENT_RESET_CIRCUIT_BREAKER,
-  ResetCircuitBreakerResult,
+  ResetCircuitBreakerResult
 } from '@personal-agent/protocol'
 import { RUNTIME_ERROR_CODE } from './runtime/error-code'
+import {
+  importKnowledge,
+  listKnowledge,
+  searchKnowledge,
+  type KnowledgeIpcDeps
+} from './knowledge/knowledge-ipc'
 import type {
   AppearanceView,
   GetAppearanceResult,
@@ -141,7 +147,6 @@ const AGENT_PROFILE_SET_CHANNEL = 'personal-agent:set-agent-profile'
 const APPEARANCE_GET_CHANNEL = 'personal-agent:get-appearance'
 const APPEARANCE_SET_CHANNEL = 'personal-agent:set-appearance'
 const APPEARANCE_CHANGED_CHANNEL = 'personal-agent:appearance-changed'
-
 
 // null = 库没打开，批准通道不可用。
 let permissionBroker: PermissionBroker | null = null
@@ -546,6 +551,23 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('personal-agent:runtime-status', () => getRuntimeStatus())
+
+  const knowledgeDeps: KnowledgeIpcDeps = {
+    request: requestRuntime,
+    selectFiles: () =>
+      dialog.showOpenDialog({
+        title: '选择入库文档',
+        properties: ['openFile', 'multiSelections'],
+        filters: [{ name: '知识库文档', extensions: ['pdf', 'md', 'txt'] }]
+      })
+  }
+  ipcMain.handle('personal-agent:knowledge-import', (_event, input: unknown) =>
+    importKnowledge(input, knowledgeDeps)
+  )
+  ipcMain.handle('personal-agent:knowledge-list', () => listKnowledge(knowledgeDeps))
+  ipcMain.handle('personal-agent:knowledge-search', (_event, input: unknown) =>
+    searchKnowledge(input, knowledgeDeps)
+  )
 
   ipcMain.handle(
     'personal-agent:list-pdfs',

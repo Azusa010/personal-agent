@@ -471,6 +471,38 @@ Runtime resolution order: `packaged (frozen artifact shipped with the app)` > `d
 
 ## Data Storage
 
+### Knowledge library
+
+Open **索引与记忆** in the sidebar, choose a backend, then **选择文件并入库**.
+PDF, Markdown and TXT support multiple selection. Each file reports success,
+unchanged content, or failure independently. Use **检索验证** in the same window
+to inspect source text and page references. In chat, ask the agent to query the
+knowledge library; `knowledge_search` searches all backends by default.
+
+| Backend | Storage and retrieval | Requirements |
+| --- | --- | --- |
+| 传统 | Existing PostgreSQL chunks, dense/keyword hybrid retrieval and reranking | PostgreSQL with the project schema, BGE-M3 and reranker configuration |
+| RAPTOR 树状 | Local persisted tree; semantic clustering, recursive model summaries and cross-layer vector retrieval | BGE-M3 and an OpenAI-compatible chat completions summary model (`OPENAI_CONTEXT_*`, falling back to `OPENAI_*`) |
+| 本地 Viking | Local L0 `.abstract.md`, L1 `.overview.md`, L2 `INDEX.md`; Chinese bigram/English keyword retrieval | No database or model; PDF parsing follows the existing parser configuration |
+
+RAPTOR reuses the project's deterministic cosine clustering engine rather than
+the official implementation's UMAP/GMM pipeline. Viking uses the project's local
+file store, not the OpenViking service. References:
+[RAPTOR](https://github.com/parthsarthi03/raptor),
+[OpenViking](https://github.com/volcengine/OpenViking).
+
+Import records and versioned bundles live under
+`PERSONAL_AGENT_VIKING_ROOT/knowledge/imports/` (default
+`~/.personal-agent/viking_store/knowledge/imports/`). The list shows documents
+imported through this feature; older PostgreSQL documents remain searchable.
+Unchanged local documents are skipped unless forced. Failed local rebuilds keep
+the previous active bundle. Traditional metadata and chunks are replaced in a
+single database transaction. Old local bundles are retained; automatic cleanup
+and document deletion are not provided yet. Local retrieval currently scans
+stored documents and is intended for personal-sized libraries.
+
+---
+
 | Content                                | Location                                   |
 | -------------------------------------- | ------------------------------------------ |
 | Tasks / events / permissions / reminders | `%APPDATA%\PersonalAgent\product-state.db` |

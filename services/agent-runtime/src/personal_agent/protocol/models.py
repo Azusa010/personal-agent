@@ -1,7 +1,7 @@
 from typing import Annotated, Any, Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 METHOD_PATTERN = r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$"
 
@@ -544,16 +544,64 @@ FileEditOutcome = Annotated[
 
 
 # ---- knowledge.search (Phase 3) ----
+KnowledgeMode = Literal["traditional", "raptor", "viking"]
+
+
+class KnowledgeImportParams(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+    paths: list[Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]] = Field(min_length=1, max_length=100)
+    mode: KnowledgeMode
+    force: bool = False
+
+
+class KnowledgeDocument(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+    id: str = Field(min_length=1)
+    sourcePath: str = Field(min_length=1)
+    fileName: str = Field(min_length=1)
+    mode: KnowledgeMode
+    chunkCount: int = Field(ge=0)
+    updatedAt: str
+
+
+class KnowledgeImportEntry(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+    sourcePath: str
+    mode: KnowledgeMode
+    status: Literal["indexed", "updated", "skipped_unchanged", "failed"]
+    chunkCount: int = Field(ge=0)
+    message: str | None = None
+
+
+class KnowledgeImportResult(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+    ok: Literal[True] = True
+    entries: list[KnowledgeImportEntry]
+
+
+class KnowledgeListResult(ProtocolModel):
+    model_config = ConfigDict(extra="allow")
+    ok: Literal[True] = True
+    documents: list[KnowledgeDocument]
+
+
 class KnowledgeSearchParams(ProtocolModel):
     model_config = ConfigDict(extra="allow")
 
     query: str = Field(min_length=1)
+    mode: KnowledgeMode | None = None
     topK: int = Field(default=5, ge=1, le=50)
     denseLimit: int | None = Field(default=None, ge=1, le=100)
     sparseLimit: int | None = Field(default=None, ge=1, le=100)
     fileTypes: list[str] | None = None
     documentIds: list[str] | None = None
     minScore: float | None = None
+
+    @model_validator(mode="after")
+    def require_query_text(self) -> Self:
+        if not self.query.strip():
+            raise ValueError("query 不能为空白")
+        return self
 
 
 class KnowledgeChunkItem(ProtocolModel):
@@ -580,6 +628,7 @@ class KnowledgeSearchResult(ProtocolModel):
     query: str
     totalFound: int = Field(ge=0)
     chunks: list[KnowledgeChunkItem]
+    warnings: list[str] | None = None
 
 
 KnowledgeSearchOutcome = Annotated[

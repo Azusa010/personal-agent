@@ -4,6 +4,7 @@
 """
 
 import json
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -13,7 +14,26 @@ import asyncpg
 from personal_agent.knowledge.models import DocumentChunk, DocumentRecord
 
 
-async def upsert_document(pool: asyncpg.Pool, doc: DocumentRecord) -> UUID:
+@asynccontextmanager
+async def _acquire(pool: asyncpg.Pool, connection: asyncpg.Connection | None = None):
+    if connection is not None:
+        yield connection
+    else:
+        async with pool.acquire() as conn:
+            yield conn
+
+
+async def replace_document_chunks(pool: asyncpg.Pool, doc: DocumentRecord, chunks: list[DocumentChunk]) -> UUID:
+    """Replace metadata and chunks in one transaction, retaining old data on failure."""
+    async with pool.acquire() as conn, conn.transaction():
+        await conn.execute("SELECT pg_advisory_xact_lock(hashtext($1))", doc.source_path)
+        doc_id = await upsert_document(pool, doc, connection=conn)
+        await delete_chunks_by_document(pool, doc_id, connection=conn)
+        await batch_insert_chunks(pool, doc_id, chunks, connection=conn)
+        return doc_id
+
+
+async def upsert_document(pool: asyncpg.Pool, doc: DocumentRecord, *, connection: asyncpg.Connection | None = None) -> UUID:
     """插入或更新文档记录，若已存在相同 source_path 则更新元数据。"""
     query = """
     INSERT INTO documents (id, source_path, file_name, file_type, file_size, file_hash, parsed_at, page_count, updated_at)
@@ -32,7 +52,7 @@ async def upsert_document(pool: asyncpg.Pool, doc: DocumentRecord) -> UUID:
     now = datetime.now(UTC)
     parsed_at = doc.parsed_at or now
 
-    async with pool.acquire() as conn:
+    async with _acquire(pool, connection) as conn:
         res_id = await conn.fetchval(
             query,
             doc_id,
@@ -48,10 +68,10 @@ async def upsert_document(pool: asyncpg.Pool, doc: DocumentRecord) -> UUID:
         return UUID(str(res_id))
 
 
-async def delete_chunks_by_document(pool: asyncpg.Pool, document_id: UUID) -> int:
+async def delete_chunks_by_document(pool: asyncpg.Pool, document_id: UUID, *, connection: asyncpg.Connection | None = None) -> int:
     """删除指定文档的所有已存分块。"""
     query = "DELETE FROM chunks WHERE document_id = $1;"
-    async with pool.acquire() as conn:
+    async with _acquire(pool, connection) as conn:
         res = await conn.execute(query, document_id)
         # res 格式形如 "DELETE 5"
         try:
@@ -63,6 +83,7 @@ async def batch_insert_chunks(
     pool: asyncpg.Pool,
     document_id: UUID,
     chunks: list[DocumentChunk],
+    *, connection: asyncpg.Connection | None = None,
 ) -> int:
     """批量插入文档分块，支持稠密向量与稀疏向量，fts_vector 列由 PostgreSQL jiebacfg 表达式自动计算。"""
     if not chunks:
@@ -90,7 +111,7 @@ async def batch_insert_chunks(
         for c in chunks
     ]
 
-    async with pool.acquire() as conn:
+    async with _acquire(pool, connection) as conn:
         await conn.executemany(query, records)
         return len(records)
 

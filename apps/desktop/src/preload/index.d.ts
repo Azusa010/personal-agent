@@ -74,6 +74,15 @@ export type PersonalAgentApi = {
   runtimeStatus(): Promise<RuntimeStatus>
   listPdfs(rootId: 'workspace'): Promise<ListPdfsResult>
   indexedPdfs(): Promise<IndexedPdfsResult>
+  knowledgeImport(
+    mode: import('@personal-agent/protocol').KnowledgeMode,
+    force?: boolean
+  ): Promise<import('../shared/ipc-contract').KnowledgeImportIpcResult>
+  knowledgeList(): Promise<import('../shared/ipc-contract').KnowledgeListIpcResult>
+  knowledgeSearch(
+    query: string,
+    mode?: import('@personal-agent/protocol').KnowledgeMode
+  ): Promise<import('../shared/ipc-contract').KnowledgeSearchIpcResult>
   /** 侧栏历史会话列表：全量任务，renderer 自己按天分组与倒序 */
   listTasks(): Promise<ListTasksResult>
   /** 侧栏会话列表：按最近更新倒序 */

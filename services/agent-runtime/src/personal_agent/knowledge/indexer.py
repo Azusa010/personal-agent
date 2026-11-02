@@ -19,10 +19,8 @@ from personal_agent.knowledge.embedder import BaseEmbedder, get_embedder
 from personal_agent.knowledge.models import DocumentRecord, IndexResult
 from personal_agent.knowledge.parser import get_parser
 from personal_agent.knowledge.repository import (
-    batch_insert_chunks,
-    delete_chunks_by_document,
     get_document_by_path,
-    upsert_document,
+    replace_document_chunks,
 )
 
 logger = logging.getLogger(__name__)
@@ -97,6 +95,8 @@ class KnowledgeIndexer:
 
         # 2. 结构感知分块
         chunks = self.chunker.chunk(parsed_doc)
+        if not chunks or not any(c.raw_text.strip() for c in chunks):
+            raise ValueError("未提取到可检索文本，请检查文件或 PDF 解析配置")
         total_tokens = sum(c.token_count for c in chunks)
 
         if self.contextualizer is None:
@@ -110,7 +110,7 @@ class KnowledgeIndexer:
             embedder_inst = self.embedder or get_embedder()
             texts = [c.augmented_text for c in chunks]
             embeddings = await embedder_inst.embed_documents(texts)
-            for chunk, emb in zip(chunks, embeddings, strict=False):
+            for chunk, emb in zip(chunks, embeddings, strict=True):
                 chunk.dense_embedding = emb.dense
                 chunk.sparse_vector = emb.sparse
 
@@ -124,13 +124,7 @@ class KnowledgeIndexer:
             file_hash=file_hash,
             page_count=parsed_doc.page_count,
         )
-        doc_id = await upsert_document(pool, doc_record)
-
-        # 5. 清理旧分块并批量写入新分块
-        if existing:
-            await delete_chunks_by_document(pool, doc_id)
-
-        await batch_insert_chunks(pool, doc_id, chunks)
+        doc_id = await replace_document_chunks(pool, doc_record, chunks)
 
         status = "updated" if existing else "indexed"
         logger.info(

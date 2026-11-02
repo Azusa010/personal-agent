@@ -49,6 +49,7 @@ from personal_agent.protocol.models import (
     HostExecuteToolParams,
     InitializeParams,
     InitializeResult,
+    KnowledgeImportParams,
     KnowledgeSearchParams,
     MakePlanParams,
     MakePlanResult,
@@ -174,6 +175,9 @@ def dispatch(raw, deps: RuntimeDeps | None = None) -> dict:
 
     if req.method == KNOWLEDGE_SEARCH:
         return handle_knowledge_search(req, deps)
+
+    if req.method in ("knowledge.import", "knowledge.list"):
+        return handle_knowledge_library(req)
 
     if req.method == USER_MEMORY_SEARCH:
         return handle_user_memory_search(req, deps)
@@ -432,9 +436,9 @@ def handle_knowledge_search(req: Request, deps: RuntimeDeps | None = None) -> di
         )
 
     try:
-        from personal_agent.knowledge.retriever import HybridRetriever
+        from personal_agent.knowledge.library import KnowledgeLibrary
 
-        retriever = HybridRetriever()
+        retriever = KnowledgeLibrary()
         result = asyncio.run(retriever.search(params))
         return Response(
             jsonrpc="2.0",
@@ -444,6 +448,21 @@ def handle_knowledge_search(req: Request, deps: RuntimeDeps | None = None) -> di
     except Exception as exc:
         log.exception("knowledge.search 执行异常 (id=%s)", req.id)
         return build_error(req.id, "RUNTIME_INTERNAL", f"知识库检索执行失败: {exc}")
+
+
+def handle_knowledge_library(req: Request) -> dict:
+    from personal_agent.knowledge.library import KnowledgeLibrary
+
+    try:
+        library = KnowledgeLibrary()
+        result = (asyncio.run(library.import_files(KnowledgeImportParams.model_validate(req.params)))
+                  if req.method == "knowledge.import" else library.list_documents())
+        return Response(jsonrpc="2.0", id=req.id, result=result.model_dump(exclude_none=True)).model_dump(exclude_none=True)
+    except ValidationError:
+        return build_error(req.id, "PROTOCOL_INVALID_REQUEST", "知识库参数不符合契约")
+    except Exception as exc:
+        log.exception("知识库操作失败")
+        return build_error(req.id, "RUNTIME_INTERNAL", str(exc))
 
 
 def handle_user_memory_search(req: Request, deps: RuntimeDeps | None = None) -> dict:

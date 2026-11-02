@@ -10,6 +10,14 @@ import type { RUNTIME_ERROR_CODE } from '../main/runtime/error-code'
 import type { SETTINGS_ERROR_CODE } from '../main/settings/error-code'
 
 export type { ResetCircuitBreakerResult }
+
+type KnowledgeIpcFailure = { ok: false; message: string }
+export type KnowledgeImportIpcResult =
+  import('@personal-agent/protocol').KnowledgeImportResult | KnowledgeIpcFailure
+export type KnowledgeListIpcResult =
+  import('@personal-agent/protocol').KnowledgeListResult | KnowledgeIpcFailure
+export type KnowledgeSearchIpcResult =
+  import('@personal-agent/protocol').KnowledgeSearchResult | KnowledgeIpcFailure
 import type {
   ExecutionEventRecord,
   MessageRole,
@@ -358,9 +366,7 @@ export interface WorkspaceView {
 }
 
 export type ChooseWorkspaceResult =
-  | { ok: true; view: WorkspaceView; changed: boolean }
-  | { ok: false; code: string; message: string }
+  { ok: true; view: WorkspaceView; changed: boolean } | { ok: false; code: string; message: string }
 
 export type WorkspaceMutateResult =
-  | { ok: true; view: WorkspaceView }
-  | { ok: false; code: string; message: string }
+  { ok: true; view: WorkspaceView } | { ok: false; code: string; message: string }

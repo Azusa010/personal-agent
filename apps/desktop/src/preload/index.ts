@@ -31,6 +31,11 @@ if (process.contextIsolated) {
       indexedPdfs: () => {
         return ipcRenderer.invoke('personal-agent:indexed-pdfs')
       },
+      knowledgeImport: (mode: string, force = false) =>
+        ipcRenderer.invoke('personal-agent:knowledge-import', { mode, force }),
+      knowledgeList: () => ipcRenderer.invoke('personal-agent:knowledge-list'),
+      knowledgeSearch: (query: string, mode?: string) =>
+        ipcRenderer.invoke('personal-agent:knowledge-search', { query, mode }),
       listTasks: () => {
         return ipcRenderer.invoke('personal-agent:list-tasks')
       },
