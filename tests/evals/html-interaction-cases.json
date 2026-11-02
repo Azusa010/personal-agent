@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "runsPerCase": 5,
+  "maxRepairs": 1,
+  "cases": [
+    {
+      "id": "reminder-form",
+      "goal": "创建单文件 HTML 提醒表单，保存为 reminder.html。已知事项为‘提交周报’，日期为 2026-12-18；提醒时间由用户填写。字段 id 分别为 title、date、time，提交按钮 id 为 submit。提交时调用 window.evalHost.submit({title, date, time})。不得使用外部资源。",
+      "file": "reminder.html",
+      "expected": { "title": "提交周报", "date": "2026-12-18", "time": "09:30" }
+    },
+    {
+      "id": "csv-chart",
+      "goal": "读取工作区 sales.csv，创建单文件 HTML 图表，保存为 chart.html。展示各行数据和来源文件名，并提供按地区筛选；筛选控件 id 为 region，选项值为 All、North、South；筛选后的数据和合计显示在 id 为 results 的区域。不得使用外部资源。",
+      "file": "chart.html",
+      "inputFile": { "name": "sales.csv", "content": "region,month,sales\nNorth,Jan,120\nSouth,Jan,75\nNorth,Feb,95\nSouth,Feb,130\n" },
+      "expected": { "source": "sales.csv", "region": "North", "values": [120, 95], "total": 215 }
+    },
+    {
+      "id": "choice-cards",
+      "goal": "创建单文件 HTML 方案选择卡片，保存为 choices.html。方案 A：本地备份，每月 10 元；方案 B：云备份，每月 25 元；方案 C：混合备份，每月 40 元。展示全部名称和价格，选择按钮 id 分别为 choice-A、choice-B、choice-C；点击时调用 window.evalHost.submit({choice})，choice 分别为 A、B、C。不得使用外部资源。",
+      "file": "choices.html",
+      "expected": { "choices": { "A": 10, "B": 25, "C": 40 }, "selected": "B" }
+    }
+  ]
+}

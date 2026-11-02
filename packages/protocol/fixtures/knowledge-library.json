@@ -1,0 +1,7 @@
+{
+  "importParams": { "paths": ["D:/docs/guide.md"], "mode": "viking", "force": false },
+  "importResult": { "ok": true, "entries": [{ "sourcePath": "D:/docs/guide.md", "mode": "viking", "status": "indexed", "chunkCount": 2 }] },
+  "listResult": { "ok": true, "documents": [{ "id": "doc-1", "sourcePath": "D:/docs/guide.md", "fileName": "guide.md", "mode": "viking", "chunkCount": 2, "updatedAt": "2026-11-02T08:00:00Z" }] },
+  "searchParams": { "query": "guide", "mode": "viking", "topK": 5 },
+  "searchResult": { "ok": true, "query": "guide", "totalFound": 0, "chunks": [], "warnings": ["传统知识库暂不可用"] }
+}
